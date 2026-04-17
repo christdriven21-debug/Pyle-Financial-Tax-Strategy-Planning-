@@ -825,6 +825,9 @@
     <div class="cb-group">
       <button class="btn btn-primary btn-sm" id="btn-cloud-save">Save to Cloud</button>
       <button class="btn btn-gold btn-sm" id="btn-cloud-share">Copy Share Link</button>
+      <button class="btn btn-secondary btn-sm" id="btn-cloud-download">Download JSON</button>
+      <input type="file" id="cloud-upload-input" accept="application/json,.json" style="display:none">
+      <button class="btn btn-secondary btn-sm" id="btn-cloud-upload">Upload JSON</button>
     </div>
     <div class="cb-status" id="cloud-status">Connecting…</div>
   </div>
@@ -2264,19 +2267,8 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     statusEl.textContent = msg;
   }
 
-  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY ||
-      cfg.SUPABASE_URL.includes('YOUR_') || cfg.SUPABASE_ANON_KEY.includes('YOUR_')) {
-    setStatus('Cloud disabled — edit config.js to enable', 'err');
-    document.getElementById('btn-cloud-save').disabled = true;
-    document.getElementById('btn-cloud-load').disabled = true;
-    document.getElementById('btn-cloud-share').disabled = true;
-    return;
-  }
-
-  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-  const TABLE = cfg.TABLE_NAME || 'plans';
-
-  // Current plan id (set after save or load)
+  // Current plan id (set after save or load). Declared early so local JSON
+  // ops (which work without Supabase) can still reference it.
   let currentId = null;
 
   /* ---- Snapshot form state to a portable JSON object ---- */
@@ -2314,6 +2306,67 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     });
     if (snap.firmLogo) window.__FIRM_LOGO__ = snap.firmLogo;
   }
+
+  /* ---- Download current form state as a local JSON file (offline-safe) ---- */
+  function downloadJSON() {
+    const snap = snapshotForm();
+    const primary = (document.getElementById('client-primary').value || '').trim();
+    const year = (document.getElementById('client-year').value || '').trim();
+    const ts = new Date().toISOString().slice(0, 10);
+    const nameBits = [primary || 'Plan', year, ts].filter(Boolean);
+    const fileName = `Pyle-Plan — ${nameBits.join(' — ')}.json`.replace(/[/\\:*?"<>|]/g, '-');
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      appVersion: 'pyle-plan-builder-v1',
+      plan: snap
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setStatus('Downloaded ' + fileName, 'ok');
+  }
+
+  /* ---- Restore form state from an uploaded JSON file (offline-safe) ---- */
+  function uploadJSON(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        const snap = parsed.plan || parsed;
+        if (!snap.values && !snap.checkboxes) throw new Error('Not a Pyle Plan JSON file');
+        hydrateForm(snap);
+        currentId = null;
+        history.replaceState(null, '', location.pathname);
+        setStatus('Loaded from file — not yet saved to cloud', 'ok');
+      } catch (err) {
+        setStatus('Upload failed: ' + err.message, 'err');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  /* ---- Wire local (offline-safe) buttons first, so they work even if
+         Supabase is unreachable or not configured ---- */
+  document.getElementById('btn-cloud-download').addEventListener('click', downloadJSON);
+  const uploadInput = document.getElementById('cloud-upload-input');
+  document.getElementById('btn-cloud-upload').addEventListener('click', () => uploadInput.click());
+  uploadInput.addEventListener('change', e => uploadJSON(e.target.files[0]));
+
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY ||
+      cfg.SUPABASE_URL.includes('YOUR_') || cfg.SUPABASE_ANON_KEY.includes('YOUR_')) {
+    setStatus('Cloud disabled — Download/Upload JSON still available', 'err');
+    document.getElementById('btn-cloud-save').disabled = true;
+    document.getElementById('btn-cloud-load').disabled = true;
+    document.getElementById('btn-cloud-share').disabled = true;
+    return;
+  }
+
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const TABLE = cfg.TABLE_NAME || 'plans';
 
   /* ---- List plans into the dropdown ---- */
   async function refreshList() {
@@ -2381,7 +2434,7 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     }
   }
 
-  /* ---- Wire up buttons ---- */
+  /* ---- Wire cloud-only buttons (save/load/share) ---- */
   document.getElementById('btn-cloud-save').addEventListener('click', savePlan);
   document.getElementById('btn-cloud-load').addEventListener('click', () => loadPlan(selectEl.value));
   document.getElementById('btn-cloud-share').addEventListener('click', copyShareLink);
