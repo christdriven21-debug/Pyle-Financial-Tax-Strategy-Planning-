@@ -6,7 +6,7 @@
      Project Settings -> API -> Project URL + anon/public key
    ============================================================ */
 window.__WAVVEST_CONFIG__ = {
-  SUPABASE_URL: 'YOUR_SUPABASE_URL',
-  SUPABASE_ANON_KEY: 'YOUR_SUPABASE_ANON_KEY',
+  SUPABASE_URL: 'https://ecrgcajxolritivqixkg.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_EuRJ-7Ju0TbJnidVeyJB3A_yd4tHzFo',
   TABLE_NAME: 'plans'
 };
