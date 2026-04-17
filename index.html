@@ -967,11 +967,11 @@
       </div>
       <div class="field">
         <label>Sale Price</label>
-        <div class="prefix-input"><input type="number" id="biz-sale" value="50000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-sale" value="50000000"></div>
       </div>
       <div class="field">
         <label>Tax Basis</label>
-        <div class="prefix-input"><input type="number" id="biz-basis" value="0"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-basis" value="0"></div>
       </div>
       <div class="field">
         <label>Expected Sale Date</label>
@@ -979,15 +979,15 @@
       </div>
       <div class="field">
         <label>Current Pre-Sale Net Worth</label>
-        <div class="prefix-input"><input type="number" id="client-pnw" value="65000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="client-pnw" value="65000000"></div>
       </div>
       <div class="field">
         <label>Existing Non-Business Assets</label>
-        <div class="prefix-input"><input type="number" id="client-other" value="12000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="client-other" value="12000000"></div>
       </div>
       <div class="field">
         <label>Current Annual Business Income</label>
-        <div class="prefix-input"><input type="number" id="biz-income" value="2500000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-income" value="2500000"></div>
       </div>
     </div>
   </section>
@@ -1014,11 +1014,11 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Trust Funding Amount</label>
-          <div class="prefix-input"><input type="number" id="dt-funding" value="25000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dt-funding" value="25000000"></div>
         </div>
         <div class="field">
           <label>Combined Family Exemption</label>
-          <div class="prefix-input"><input type="number" id="dt-exemption" value="15000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dt-exemption" value="15000000"></div>
         </div>
         <div class="field">
           <label>Projection Period (Years)</label>
@@ -1039,7 +1039,7 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Contribution Amount</label>
-          <div class="prefix-input"><input type="number" id="crat-amount" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="crat-amount" value="10000000"></div>
         </div>
         <div class="field">
           <label>Annuity Rate</label>
@@ -1064,7 +1064,7 @@
       <div class="form-grid cols-2">
         <div class="field">
           <label>Contribution Amount</label>
-          <div class="prefix-input"><input type="number" id="daf-amount" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="daf-amount" value="5000000"></div>
         </div>
       </div>
     </div>
@@ -1127,7 +1127,7 @@
       </div>
       <div class="field">
         <label>Federal Estate Exemption</label>
-        <div class="prefix-input"><input type="number" id="tax-estate-exempt" value="15000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="tax-estate-exempt" value="15000000"></div>
       </div>
     </div>
   </section>
@@ -1173,15 +1173,15 @@
     <div class="form-grid cols-3">
       <div class="field">
         <label>Current Coverage</label>
-        <div class="prefix-input"><input type="number" id="ins-current" value="4750000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ins-current" value="4750000"></div>
       </div>
       <div class="field">
         <label>Recommended Min Coverage</label>
-        <div class="prefix-input"><input type="number" id="ins-rec-min" value="15000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ins-rec-min" value="15000000"></div>
       </div>
       <div class="field">
         <label>Recommended Max Coverage</label>
-        <div class="prefix-input"><input type="number" id="ins-rec-max" value="20000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ins-rec-max" value="20000000"></div>
       </div>
     </div>
   </section>
@@ -1269,6 +1269,40 @@ const fmt$ = n => (n < 0 ? '-' : '') + '$' + Math.abs(Math.round(n)).toLocaleStr
 const fmt$M = n => '$' + (n / 1_000_000).toFixed(1) + 'M';
 const fmtPct = n => n.toFixed(1) + '%';
 
+/* ---- Money input formatter: adds commas as you type ----
+   Applies to every <input class="money"> (all $-prefixed fields). */
+function formatMoneyString(raw) {
+  const cleaned = String(raw).replace(/[^0-9.-]/g, '');
+  if (cleaned === '' || cleaned === '-') return cleaned;
+  const negative = cleaned.startsWith('-');
+  const body = negative ? cleaned.slice(1) : cleaned;
+  const [intPart, decPart] = body.split('.');
+  const withCommas = (intPart || '0').replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (negative ? '-' : '') + withCommas + (decPart !== undefined ? '.' + decPart : '');
+}
+function formatAllMoneyInputs() {
+  document.querySelectorAll('input.money').forEach(el => {
+    el.value = formatMoneyString(el.value);
+  });
+}
+function wireMoneyInput(el) {
+  el.addEventListener('input', () => {
+    const before = el.value;
+    const caret = el.selectionStart;
+    const commasBefore = (before.slice(0, caret).match(/,/g) || []).length;
+    const formatted = formatMoneyString(before);
+    el.value = formatted;
+    const commasAfter = (formatted.slice(0, caret).match(/,/g) || []).length;
+    const delta = commasAfter - commasBefore;
+    try { el.setSelectionRange(caret + delta, caret + delta); } catch {}
+  });
+  el.addEventListener('blur', () => { el.value = formatMoneyString(el.value); });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input.money').forEach(wireMoneyInput);
+  formatAllMoneyInputs();
+});
+
 /* ---- Mode switching ---- */
 document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1327,7 +1361,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
    ============================================================ */
 function readForm() {
   const g = id => document.getElementById(id);
-  const n = id => parseFloat(g(id).value) || 0;
+  const n = id => parseFloat(String(g(id).value).replace(/,/g, '')) || 0;
   const t = id => g(id).value || '';
   const c = id => g(id).checked;
   return {
@@ -2383,6 +2417,7 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
       if (el) { el.checked = !!v; el.dispatchEvent(new Event('change')); }
     });
     if (snap.firmLogo) window.__FIRM_LOGO__ = snap.firmLogo;
+    if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
   }
 
   /* ---- Download current form state as a local JSON file (offline-safe) ---- */

@@ -31,11 +31,18 @@ $$;
 
 grant execute on function public.is_team() to authenticated, anon;
 
--- Drop the MVP anon-full-access policies from schema.sql
-drop policy if exists "anon_read"   on public.plans;
-drop policy if exists "anon_insert" on public.plans;
-drop policy if exists "anon_update" on public.plans;
-drop policy if exists "anon_delete" on public.plans;
+-- Drop any previous policies (MVP anon-full-access and any partial
+-- re-runs of this migration), so this script is safe to run multiple times.
+drop policy if exists "anon_read"         on public.plans;
+drop policy if exists "anon_insert"       on public.plans;
+drop policy if exists "anon_update"       on public.plans;
+drop policy if exists "anon_delete"       on public.plans;
+drop policy if exists "team_select"       on public.plans;
+drop policy if exists "team_insert"       on public.plans;
+drop policy if exists "team_update"       on public.plans;
+drop policy if exists "team_delete"       on public.plans;
+drop policy if exists "client_select_own" on public.plans;
+drop policy if exists "client_update_own" on public.plans;
 
 -- ============================================================
 -- TEAM policies (full CRUD on every plan)
