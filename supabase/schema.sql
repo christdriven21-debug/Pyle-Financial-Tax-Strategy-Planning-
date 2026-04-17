@@ -1,5 +1,5 @@
 -- ============================================================
--- Wavvest Plan Builder — Supabase schema
+-- Pyle Plan Builder — Supabase schema
 -- Run this in Supabase > SQL Editor once per project.
 --
 -- NOTE: No auth is configured yet. RLS is enabled and policies

@@ -2297,10 +2297,10 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
 /* ============================================================
    SUPABASE CLOUD INTEGRATION
    Save / Load / List / Share plans — no auth.
-   Requires window.__WAVVEST_CONFIG__ from config.js
+   Requires window.__PYLE_CONFIG__ from config.js
    ============================================================ */
 (function () {
-  const cfg = window.__WAVVEST_CONFIG__ || {};
+  const cfg = window.__PYLE_CONFIG__ || {};
   const statusEl = document.getElementById('cloud-status');
   const selectEl = document.getElementById('cloud-load-select');
   const nameEl   = document.getElementById('cloud-plan-name');

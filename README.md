@@ -1,4 +1,4 @@
-# Wavvest Plan Builder
+# Pyle Plan Builder
 
 A static single-page app for building and sharing comprehensive financial plans.
 Originally a single HTML file — now wired up to **Supabase** (save / load / share
@@ -23,7 +23,7 @@ No build step. No framework. Edit the HTML, push, Vercel deploys.
 ## Project layout
 
 ```
-wavvest-plan-builder/
+Pyle-Plan-builder/
 ├── index.html            # the app (builder + plan view + all logic)
 ├── config.js             # <-- edit: Supabase URL + anon key
 ├── vercel.json           # static-site headers + clean URLs
@@ -47,7 +47,7 @@ wavvest-plan-builder/
 4. Open [`config.js`](config.js) and paste those values in:
 
    ```js
-   window.__WAVVEST_CONFIG__ = {
+   window.__PYLE_CONFIG__ = {
      SUPABASE_URL: 'https://xxxxx.supabase.co',
      SUPABASE_ANON_KEY: 'eyJhbGciOi...',
      TABLE_NAME: 'plans'
@@ -81,11 +81,11 @@ indicator at the top of the builder. If you see "Cloud disabled", re-check
 ## 3. Push to GitHub
 
 ```bash
-cd wavvest-plan-builder
+cd Pyle-Plan-builder
 git init
 git add .
-git commit -m "Initial commit: Wavvest Plan Builder"
-gh repo create wavvest-plan-builder --public --source=. --push
+git commit -m "Initial commit: Pyle Plan Builder"
+gh repo create Pyle-Plan-builder --public --source=. --push
 # or use the GitHub web UI
 ```
 
