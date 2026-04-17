@@ -75,6 +75,62 @@
     font-family: 'Helvetica Neue', sans-serif;
   }
 
+  /* ===== AUTH BAR ===== */
+  .auth-bar {
+    background: #FBF8F0;
+    border-bottom: 1px solid var(--border-soft);
+    padding: 10px 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+  .auth-bar .auth-label {
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .auth-bar input[type="email"] {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    background: #FFF;
+    min-width: 220px;
+  }
+  .auth-bar .auth-user {
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .auth-bar .auth-role {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-left: 4px;
+  }
+  .auth-bar .auth-role.team   { background: var(--gold);    color: var(--ink); }
+  .auth-bar .auth-role.client { background: var(--success-light); color: var(--success); border: 1px solid var(--success); }
+  .auth-bar .auth-msg {
+    color: var(--muted);
+    font-style: italic;
+    margin-left: auto;
+  }
+  .auth-bar .auth-msg.ok  { color: var(--success); font-style: normal; }
+  .auth-bar .auth-msg.err { color: var(--crimson); font-style: normal; }
+  .auth-bar .hidden { display: none !important; }
+  .team-only.hidden { display: none !important; }
+  .client-hidden { display: initial; }
+  .is-client .client-hidden { display: none !important; }
+
   /* ===== MODE SWITCHER ===== */
   .mode-nav {
     background: var(--cream-light);
@@ -795,6 +851,22 @@
   </div>
 </header>
 
+<!-- ========== AUTH BAR ========== -->
+<div class="auth-bar" id="auth-bar">
+  <div class="auth-group" id="auth-signed-out">
+    <span class="auth-label">Sign in:</span>
+    <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email">
+    <button class="btn btn-gold btn-sm" id="btn-auth-signin">Send Magic Link</button>
+  </div>
+  <div class="auth-group hidden" id="auth-signed-in">
+    <span class="auth-label">Signed in as</span>
+    <span class="auth-user" id="auth-user"></span>
+    <span class="auth-role" id="auth-role"></span>
+    <button class="btn btn-secondary btn-sm" id="btn-auth-signout">Sign Out</button>
+  </div>
+  <div class="auth-msg" id="auth-msg"></div>
+</div>
+
 <!-- ========== MODE NAV ========== -->
 <nav class="mode-nav">
   <button class="mode-btn active" data-mode="builder">Plan Builder</button>
@@ -861,6 +933,10 @@
       <div class="field" style="grid-column: span 2;">
         <label>Plan Subtitle</label>
         <input type="text" id="client-subtitle" value="Business Sale Strategy with Dynasty Trust & QOZ Investment">
+      </div>
+      <div class="field team-only" id="field-client-email" style="grid-column: span 3;">
+        <label>Client Email <span class="hint">(team-only — allows the client to sign in and view/edit their plan)</span></label>
+        <input type="email" id="plan-client-email" value="" placeholder="client@example.com">
       </div>
     </div>
   </section>
@@ -2252,8 +2328,10 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
 
 <script>
 /* ============================================================
-   SUPABASE CLOUD INTEGRATION
-   Save / Load / List / Share plans — no auth.
+   SUPABASE CLOUD INTEGRATION  (with auth + role-based access)
+   - Anon (not signed in): local JSON download/upload only
+   - Team (email @pfs4u.com): CRUD on every plan
+   - Client (other signed-in email): SELECT/UPDATE their own plan
    Requires window.__PYLE_CONFIG__ from config.js
    ============================================================ */
 (function () {
@@ -2362,41 +2440,152 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     document.getElementById('btn-cloud-save').disabled = true;
     document.getElementById('btn-cloud-load').disabled = true;
     document.getElementById('btn-cloud-share').disabled = true;
+    document.getElementById('btn-auth-signin').disabled = true;
+    document.getElementById('auth-email').disabled = true;
+    document.getElementById('btn-auth-signout').disabled = true;
     return;
   }
 
-  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+    auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+  });
   const TABLE = cfg.TABLE_NAME || 'plans';
+  const TEAM_DOMAIN = (cfg.TEAM_DOMAIN || 'pfs4u.com').toLowerCase();
 
-  /* ---- List plans into the dropdown ---- */
+  /* ---- Auth state ---- */
+  let currentUser = null;
+  let isTeam = false;
+
+  const authMsgEl    = document.getElementById('auth-msg');
+  const authSignedOut = document.getElementById('auth-signed-out');
+  const authSignedIn  = document.getElementById('auth-signed-in');
+  const authUserEl   = document.getElementById('auth-user');
+  const authRoleEl   = document.getElementById('auth-role');
+  const authEmailEl  = document.getElementById('auth-email');
+
+  function setAuthMsg(msg, kind) {
+    authMsgEl.className = 'auth-msg' + (kind ? ' ' + kind : '');
+    authMsgEl.textContent = msg || '';
+  }
+
+  function emailIsTeam(email) {
+    if (!email) return false;
+    const domain = email.split('@')[1];
+    return domain && domain.toLowerCase() === TEAM_DOMAIN;
+  }
+
+  function applyRoleUI() {
+    const signedIn = !!currentUser;
+    authSignedOut.classList.toggle('hidden', signedIn);
+    authSignedIn.classList.toggle('hidden', !signedIn);
+    if (signedIn) {
+      authUserEl.textContent = currentUser.email;
+      authRoleEl.textContent = isTeam ? 'Team' : 'Client';
+      authRoleEl.className = 'auth-role ' + (isTeam ? 'team' : 'client');
+    }
+    // Cloud cloud save/load/share gated on sign-in
+    document.getElementById('btn-cloud-save').disabled   = !signedIn || (!isTeam && !currentId);
+    document.getElementById('btn-cloud-load').disabled   = !signedIn;
+    document.getElementById('btn-cloud-share').disabled  = !signedIn;
+    document.getElementById('cloud-load-select').disabled = !signedIn;
+    // Team-only UI (Client Email field in the builder)
+    document.body.classList.toggle('is-client', signedIn && !isTeam);
+    document.querySelectorAll('.team-only').forEach(el => el.classList.toggle('hidden', !isTeam));
+  }
+
+  async function refreshAuthState() {
+    const { data: { session } } = await sb.auth.getSession();
+    currentUser = session?.user || null;
+    isTeam = emailIsTeam(currentUser?.email);
+    applyRoleUI();
+    if (currentUser) {
+      setStatus('Signed in as ' + currentUser.email + (isTeam ? ' (team)' : ' (client)'), 'ok');
+    } else {
+      setStatus('Not signed in — local-only (Download/Upload JSON)', 'err');
+    }
+  }
+
+  async function signIn(email) {
+    if (!email) return;
+    setAuthMsg('Sending magic link…');
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: location.origin + location.pathname }
+    });
+    if (error) setAuthMsg('Sign-in failed: ' + error.message, 'err');
+    else setAuthMsg('Check your email (' + email + ') for a one-click sign-in link', 'ok');
+  }
+
+  async function signOut() {
+    await sb.auth.signOut();
+    currentId = null;
+    history.replaceState(null, '', location.pathname);
+    setAuthMsg('Signed out', 'ok');
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    refreshAuthState();
+    if (event === 'SIGNED_IN') {
+      setAuthMsg('');
+      // On fresh sign-in (e.g., magic link landing), reboot the flow
+      if (!currentId) boot();
+    }
+  });
+
+  document.getElementById('btn-auth-signin').addEventListener('click', () => signIn(authEmailEl.value.trim()));
+  authEmailEl.addEventListener('keydown', e => { if (e.key === 'Enter') signIn(authEmailEl.value.trim()); });
+  document.getElementById('btn-auth-signout').addEventListener('click', signOut);
+
+  /* ---- Cloud data functions (auth-aware) ---- */
+
+  // List plans the current user is allowed to see. RLS handles filtering:
+  // team sees everything, client sees only rows where client_email = their email.
   async function refreshList() {
+    if (!currentUser) { selectEl.innerHTML = '<option value="">— Sign in to load plans —</option>'; return; }
     const { data, error } = await sb
       .from(TABLE)
-      .select('id,name,updated_at')
+      .select('id,name,client_email,updated_at')
       .order('updated_at', { ascending: false })
-      .limit(100);
+      .limit(200);
     if (error) { setStatus('List failed: ' + error.message, 'err'); return; }
     selectEl.innerHTML = '<option value="">— Saved plans —</option>';
     (data || []).forEach(row => {
       const opt = document.createElement('option');
       opt.value = row.id;
       const when = row.updated_at ? new Date(row.updated_at).toLocaleDateString() : '';
-      opt.textContent = (row.name || '(untitled)') + (when ? '  ·  ' + when : '');
+      const suffix = isTeam && row.client_email ? `  ·  ${row.client_email}` : '';
+      opt.textContent = (row.name || '(untitled)') + (when ? '  ·  ' + when : '') + suffix;
       selectEl.appendChild(opt);
     });
-    setStatus('Connected', 'ok');
+    setStatus('Connected — ' + (data?.length || 0) + ' plan(s) visible to you', 'ok');
   }
 
-  /* ---- Save (insert or update) ---- */
   async function savePlan() {
-    const name = (nameEl.value || '').trim() || (document.getElementById('client-primary').value + ' — ' + document.getElementById('client-year').value);
-    const payload = { name, data: snapshotForm() };
+    if (!currentUser) { setStatus('Sign in to save to cloud', 'err'); return; }
+    const name = (nameEl.value || '').trim() ||
+      ((document.getElementById('client-primary').value || 'Untitled') + ' — ' + document.getElementById('client-year').value);
+    const snap = snapshotForm();
     setStatus('Saving…');
+
     let resp;
     if (currentId) {
-      resp = await sb.from(TABLE).update({ name, data: payload.data, updated_at: new Date().toISOString() }).eq('id', currentId).select('id').single();
+      // UPDATE — team can edit anything; client can only edit their row (RLS).
+      // Preserve owner_id / client_email by not setting them (team edits),
+      // unless team explicitly changed the client_email input.
+      const patch = { name, data: snap, updated_at: new Date().toISOString() };
+      if (isTeam) {
+        const ceEl = document.getElementById('plan-client-email');
+        if (ceEl) patch.client_email = ceEl.value.trim().toLowerCase() || null;
+      }
+      resp = await sb.from(TABLE).update(patch).eq('id', currentId).select('id').single();
     } else {
-      resp = await sb.from(TABLE).insert(payload).select('id').single();
+      // INSERT — only team may create (client policy forbids INSERT).
+      const row = { name, data: snap, owner_id: currentUser.id };
+      if (isTeam) {
+        const ce = document.getElementById('plan-client-email')?.value.trim().toLowerCase() || null;
+        if (ce) row.client_email = ce;
+      }
+      resp = await sb.from(TABLE).insert(row).select('id').single();
     }
     if (resp.error) { setStatus('Save failed: ' + resp.error.message, 'err'); return; }
     currentId = resp.data.id;
@@ -2405,30 +2594,40 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     refreshList();
   }
 
-  /* ---- Load by id ---- */
   async function loadPlan(id) {
     if (!id) return;
+    if (!currentUser) { setStatus('Sign in to load a plan', 'err'); return; }
     setStatus('Loading…');
-    const { data, error } = await sb.from(TABLE).select('id,name,data').eq('id', id).single();
-    if (error) { setStatus('Load failed: ' + error.message, 'err'); return; }
+    const { data, error } = await sb
+      .from(TABLE)
+      .select('id,name,data,client_email,owner_id')
+      .eq('id', id).single();
+    if (error) {
+      if (error.code === 'PGRST116') setStatus('Plan not found or you do not have access', 'err');
+      else setStatus('Load failed: ' + error.message, 'err');
+      return;
+    }
     currentId = data.id;
     nameEl.value = data.name || '';
     hydrateForm(data.data);
+    // Hydrate the team-only Client Email field so team can see/edit assignment
+    const ceEl = document.getElementById('plan-client-email');
+    if (ceEl) ceEl.value = data.client_email || '';
     history.replaceState(null, '', '?id=' + encodeURIComponent(currentId));
     setStatus('Loaded: ' + (data.name || data.id), 'ok');
+    applyRoleUI();
   }
 
-  /* ---- Copy share link to clipboard ---- */
   async function copyShareLink() {
+    if (!currentUser) { setStatus('Sign in to create a share link', 'err'); return; }
     if (!currentId) {
-      // Auto-save first
       await savePlan();
       if (!currentId) return;
     }
     const url = location.origin + location.pathname + '?id=' + encodeURIComponent(currentId) + '&view=plan';
     try {
       await navigator.clipboard.writeText(url);
-      setStatus('Share link copied ✓', 'ok');
+      setStatus('Share link copied ✓ (recipient must sign in to view)', 'ok');
     } catch {
       prompt('Copy this URL:', url);
     }
@@ -2440,15 +2639,31 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
   document.getElementById('btn-cloud-share').addEventListener('click', copyShareLink);
   document.getElementById('btn-plan-share').addEventListener('click', copyShareLink);
 
-  /* ---- Initial load: if ?id= in URL, fetch and maybe auto-view ---- */
+  /* ---- Boot: auth first, then load-by-URL or client auto-load ---- */
   async function boot() {
-    await refreshList();
+    await refreshAuthState();
+
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
-    if (id) {
+    const autoView = params.get('view') === 'plan';
+
+    if (currentUser) await refreshList();
+
+    if (id && currentUser) {
       await loadPlan(id);
-      if (params.get('view') === 'plan') {
+      if (autoView) document.getElementById('btn-generate').click();
+    } else if (currentUser && !isTeam) {
+      // Client signed in with no ?id= — auto-load the most-recent plan
+      // assigned to them (RLS already limits us to just their rows).
+      const { data } = await sb.from(TABLE)
+        .select('id,name')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      if (data && data[0]) {
+        await loadPlan(data[0].id);
         document.getElementById('btn-generate').click();
+      } else {
+        setStatus('No plan has been assigned to you yet — contact your advisor.', 'err');
       }
     }
   }
