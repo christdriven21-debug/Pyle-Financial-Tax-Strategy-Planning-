@@ -39,60 +39,41 @@
 
   /* ===== TOP BRAND BAR ===== */
   .brand-bar {
-    background: #000;
-    border-bottom: 3px solid var(--gold);
-    padding: 18px 40px;
+    background: var(--cream-panel);
+    border-bottom: 2px solid var(--gold);
+    padding: 20px 40px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(139, 118, 64, 0.08);
   }
   .brand-logo {
     display: flex;
     align-items: center;
-    gap: 16px;
   }
-  .brand-crest {
-    width: 56px; height: 56px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .brand-crest svg { width: 100%; height: 100%; display: block; }
-  .brand-text-main {
-    color: var(--cream);
-    font-size: 24px;
-    letter-spacing: 4px;
-    font-weight: 400;
-    line-height: 1;
-  }
-  .brand-text-main .pyle {
-    color: var(--gold);
-    font-weight: 700;
-    letter-spacing: 6px;
-  }
-  .brand-text-main .financial {
-    color: var(--cream);
-    font-weight: 300;
-    letter-spacing: 4px;
-  }
-  .brand-tagline {
-    color: var(--gold);
-    font-size: 9px;
-    letter-spacing: 3px;
-    margin-top: 6px;
-    text-transform: uppercase;
-    font-family: 'Helvetica Neue', sans-serif;
-    font-weight: 500;
-    opacity: 0.85;
+  .brand-logo img {
+    height: 72px;
+    width: auto;
+    display: block;
   }
   .brand-right {
-    color: var(--gold);
+    color: var(--gold-dark);
     font-size: 11px;
     letter-spacing: 3px;
     text-transform: uppercase;
     text-align: right;
+    font-family: 'Georgia', serif;
     font-style: italic;
   }
-  .brand-right .motto { font-size: 9px; color: var(--cream); letter-spacing: 2px; display: block; margin-top: 4px; }
+  .brand-right .motto {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    display: block;
+    margin-top: 4px;
+    font-style: normal;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
 
   /* ===== MODE SWITCHER ===== */
   .mode-nav {
@@ -403,64 +384,24 @@
     gap: 30px;
   }
   .plan-header .logo-box {
-    width: 150px; height: 150px;
-    background: linear-gradient(180deg, #121212 0%, #000 100%);
+    width: 260px;
+    min-height: 110px;
+    background: var(--cream-panel);
     border: 1px solid var(--gold);
     border-radius: 6px;
     display: flex; align-items: center; justify-content: center;
-    flex-direction: column;
-    padding: 14px 12px;
-    position: relative;
-    box-shadow: inset 0 0 0 1px rgba(201, 169, 97, 0.15);
+    padding: 14px 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    flex-shrink: 0;
   }
-  .plan-header .logo-box::before {
-    content: '';
-    position: absolute;
-    top: 8px; left: 8px; right: 8px; bottom: 8px;
-    border: 1px solid rgba(201, 169, 97, 0.25);
-    border-radius: 3px;
-    pointer-events: none;
+  .plan-header .logo-box img {
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;
+    object-fit: contain;
+    display: block;
   }
-  .plan-header .logo-box.custom { padding: 6px; }
-  .plan-header .logo-box.custom::before { display: none; }
-  .plan-header .logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .plan-header .logo-box .crest {
-    width: 60px; height: 60px;
-    margin-bottom: 10px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .plan-header .logo-box .crest svg { width: 100%; height: 100%; display: block; }
-  .plan-header .logo-box .logo-pyle {
-    color: var(--gold);
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 5px;
-    font-family: 'Georgia', serif;
-  }
-  .plan-header .logo-box .logo-fin {
-    color: var(--cream);
-    font-size: 11px;
-    letter-spacing: 3px;
-    font-weight: 300;
-    font-family: 'Georgia', serif;
-    margin-top: 2px;
-  }
-  .plan-header .logo-box .logo-divider {
-    width: 24px; height: 1px;
-    background: var(--gold);
-    opacity: 0.6;
-    margin: 6px 0 4px;
-  }
-  .plan-header .logo-box .logo-tag {
-    color: var(--gold);
-    font-size: 7px;
-    letter-spacing: 2.5px;
-    margin-top: 2px;
-    font-family: 'Helvetica Neue', sans-serif;
-    font-weight: 500;
-    opacity: 0.75;
-    text-transform: uppercase;
-  }
+  .plan-header .logo-box.custom { padding: 10px; }
   .plan-header .title-block h1 {
     color: var(--gold);
     font-size: 32px;
@@ -846,32 +787,7 @@
 <!-- ========== BRAND BAR ========== -->
 <header class="brand-bar">
   <div class="brand-logo">
-    <div class="brand-crest" aria-label="Pyle Financial crest">
-      <svg viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="crestFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"  stop-color="#E4D4A8"/>
-            <stop offset="55%" stop-color="#C9A961"/>
-            <stop offset="100%" stop-color="#8B7640"/>
-          </linearGradient>
-        </defs>
-        <!-- Shield -->
-        <path d="M28 3 L51 10 L51 28 C51 41 41 50 28 54 C15 50 5 41 5 28 L5 10 Z"
-              fill="url(#crestFill)" stroke="#8B7640" stroke-width="1.5"/>
-        <!-- Inner line -->
-        <path d="M28 7 L47 13 L47 28 C47 39 39 46 28 49.5 C17 46 9 39 9 28 L9 13 Z"
-              fill="none" stroke="#8B1A1A" stroke-width="0.8" opacity="0.55"/>
-        <!-- Monogram P -->
-        <text x="28" y="37" text-anchor="middle"
-              font-family="Georgia, 'Times New Roman', serif"
-              font-size="30" font-weight="700" font-style="italic"
-              fill="#8B1A1A" letter-spacing="0">P</text>
-      </svg>
-    </div>
-    <div>
-      <div class="brand-text-main"><span class="pyle">PYLE</span> <span class="financial">FINANCIAL</span></div>
-      <div class="brand-tagline">Keep More • Live More • Leave More</div>
-    </div>
+    <img src="./assets/pyle-logo.png" alt="Pyle Financial — Keep More">
   </div>
   <div class="brand-right">
     Comprehensive Financial Plan Builder
@@ -1234,29 +1150,7 @@
 
   <header class="plan-header">
     <div class="logo-box" id="plan-logo-box">
-      <div class="crest">
-        <svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" aria-label="Pyle Financial crest">
-          <defs>
-            <linearGradient id="planCrestFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"  stop-color="#E4D4A8"/>
-              <stop offset="55%" stop-color="#C9A961"/>
-              <stop offset="100%" stop-color="#8B7640"/>
-            </linearGradient>
-          </defs>
-          <path d="M30 3 L55 11 L55 30 C55 44 44 53 30 57 C16 53 5 44 5 30 L5 11 Z"
-                fill="url(#planCrestFill)" stroke="#8B7640" stroke-width="1.5"/>
-          <path d="M30 7 L51 14 L51 30 C51 42 42 50 30 53 C18 50 9 42 9 30 L9 14 Z"
-                fill="none" stroke="#8B1A1A" stroke-width="0.8" opacity="0.55"/>
-          <text x="30" y="40" text-anchor="middle"
-                font-family="Georgia, 'Times New Roman', serif"
-                font-size="32" font-weight="700" font-style="italic"
-                fill="#8B1A1A">P</text>
-        </svg>
-      </div>
-      <div class="logo-pyle">PYLE</div>
-      <div class="logo-fin">FINANCIAL</div>
-      <div class="logo-divider"></div>
-      <div class="logo-tag">Keep More</div>
+      <img src="./assets/pyle-logo.png" alt="Pyle Financial — Keep More">
     </div>
     <div class="title-block">
       <h1 id="plan-title">Comprehensive Financial Plan</h1>
@@ -2215,36 +2109,7 @@ function renderLogoBox(firm, logoDataURL) {
     box.innerHTML = `<img src="${logoDataURL}" alt="${firm.name}">`;
   } else {
     box.className = 'logo-box';
-    const words = firm.name.split(/\s+/).filter(Boolean);
-    const monogram = (words[0] || 'P')[0].toUpperCase();
-    const line1 = (words[0] || '').toUpperCase();
-    const line2 = (words.slice(1).join(' ') || '').toUpperCase();
-    const tag = (firm.tag || 'Keep More').split(/[•·|,]/)[0].trim();
-    box.innerHTML = `
-      <div class="crest">
-        <svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="planCrestFillDyn" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"  stop-color="#E4D4A8"/>
-              <stop offset="55%" stop-color="#C9A961"/>
-              <stop offset="100%" stop-color="#8B7640"/>
-            </linearGradient>
-          </defs>
-          <path d="M30 3 L55 11 L55 30 C55 44 44 53 30 57 C16 53 5 44 5 30 L5 11 Z"
-                fill="url(#planCrestFillDyn)" stroke="#8B7640" stroke-width="1.5"/>
-          <path d="M30 7 L51 14 L51 30 C51 42 42 50 30 53 C18 50 9 42 9 30 L9 14 Z"
-                fill="none" stroke="#8B1A1A" stroke-width="0.8" opacity="0.55"/>
-          <text x="30" y="40" text-anchor="middle"
-                font-family="Georgia, 'Times New Roman', serif"
-                font-size="32" font-weight="700" font-style="italic"
-                fill="#8B1A1A">${monogram}</text>
-        </svg>
-      </div>
-      <div class="logo-pyle">${line1}</div>
-      ${line2 ? `<div class="logo-fin">${line2}</div>` : ''}
-      <div class="logo-divider"></div>
-      <div class="logo-tag">${tag}</div>
-    `;
+    box.innerHTML = `<img src="./assets/pyle-logo.png" alt="${firm.name || 'Pyle Financial'}">`;
   }
 }
 
