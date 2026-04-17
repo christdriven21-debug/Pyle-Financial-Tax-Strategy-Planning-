@@ -1,0 +1,2454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pyle Financial — Comprehensive Financial Plan Builder</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./config.js"></script>
+<style>
+  :root {
+    --cream: #F5F1E8;
+    --cream-light: #FBF8F0;
+    --cream-panel: #FFFFFF;
+    --cream-alt: #EFE9D9;
+    --gold: #C9A961;
+    --gold-dark: #8B7640;
+    --gold-light: #E4D4A8;
+    --crimson: #8B1A1A;
+    --crimson-light: #A42E2E;
+    --ink: #1A1A1A;
+    --ink-soft: #3A3A3A;
+    --muted: #6B6B6B;
+    --border: #D4C9A8;
+    --border-soft: #E8DFC8;
+    --success: #2D6A4F;
+    --success-light: #E8F0E8;
+    --warning: #8B4513;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Georgia', 'Garamond', 'Times New Roman', serif;
+    background: var(--cream);
+    color: var(--ink);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sans { font-family: 'Helvetica Neue', 'Arial', sans-serif; }
+
+  /* ===== TOP BRAND BAR ===== */
+  .brand-bar {
+    background: #000;
+    border-bottom: 3px solid var(--gold);
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .brand-crest {
+    width: 52px; height: 52px;
+    background: var(--gold);
+    color: var(--crimson);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+    font-size: 20px;
+    letter-spacing: 1px;
+    border: 2px solid var(--gold-dark);
+    clip-path: polygon(50% 0%, 100% 20%, 100% 80%, 50% 100%, 0% 80%, 0% 20%);
+  }
+  .brand-text-main {
+    color: var(--cream);
+    font-size: 22px;
+    letter-spacing: 3px;
+    font-weight: 400;
+  }
+  .brand-text-main .pyle { color: var(--crimson-light); font-weight: 700; }
+  .brand-text-main .financial { color: var(--gold); }
+  .brand-tagline {
+    color: var(--gold);
+    font-size: 10px;
+    letter-spacing: 4px;
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+  .brand-right {
+    color: var(--gold);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-align: right;
+    font-style: italic;
+  }
+  .brand-right .motto { font-size: 9px; color: var(--cream); letter-spacing: 2px; display: block; margin-top: 4px; }
+
+  /* ===== MODE SWITCHER ===== */
+  .mode-nav {
+    background: var(--cream-light);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    gap: 0;
+  }
+  .mode-btn {
+    padding: 14px 28px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .mode-btn:hover { color: var(--ink); }
+  .mode-btn.active {
+    color: var(--crimson);
+    border-bottom-color: var(--gold);
+  }
+
+  /* ===== LAYOUT ===== */
+  .page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px;
+  }
+  .hidden { display: none !important; }
+
+  /* ===== BUILDER FORM ===== */
+  .builder-intro {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .builder-intro h1 {
+    font-size: 38px;
+    color: var(--ink);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .builder-intro .accent { color: var(--crimson); }
+  .builder-intro p {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .gold-divider {
+    width: 80px; height: 2px;
+    background: var(--gold);
+    margin: 16px auto;
+  }
+
+  .form-section {
+    background: var(--cream-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 6px rgba(139, 118, 64, 0.06);
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .section-number {
+    width: 32px; height: 32px;
+    background: var(--crimson);
+    color: var(--cream);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    border-radius: 50%;
+  }
+  .section-title {
+    font-size: 20px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .section-help {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 2px;
+    font-style: italic;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+  }
+  .form-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  .field label {
+    display: block;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .field label .hint {
+    color: var(--muted);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+    font-style: italic;
+  }
+  .field input[type="text"],
+  .field input[type="number"],
+  .field input[type="file"],
+  .field select,
+  .field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: 'Helvetica Neue', sans-serif;
+    background: var(--cream-light);
+    color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(201, 169, 97, 0.15);
+    background: #fff;
+  }
+  .field .prefix-input {
+    position: relative;
+  }
+  .field .prefix-input::before {
+    content: '$';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-weight: 600;
+    pointer-events: none;
+  }
+  .field .prefix-input input { padding-left: 24px; }
+  .field .suffix-pct::after {
+    content: '%';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-weight: 600;
+    pointer-events: none;
+  }
+  .field .suffix-pct { position: relative; }
+
+  .strategy-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    background: var(--cream-alt);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .strategy-toggle:hover { border-color: var(--gold); }
+  .strategy-toggle input[type="checkbox"] {
+    width: 18px; height: 18px;
+    accent-color: var(--crimson);
+    cursor: pointer;
+  }
+  .strategy-toggle .name {
+    font-weight: 600;
+    color: var(--ink);
+    font-size: 14px;
+  }
+  .strategy-toggle .desc {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .strategy-block {
+    padding: 18px;
+    background: var(--cream-alt);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+  .strategy-block.disabled { opacity: 0.45; pointer-events: none; }
+  .strategy-block h4 {
+    color: var(--crimson);
+    font-size: 15px;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .action-row {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-top: 32px;
+    padding: 24px;
+    background: var(--cream-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .btn {
+    padding: 14px 32px;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--crimson);
+    color: var(--cream);
+    border: 2px solid var(--crimson);
+  }
+  .btn-primary:hover { background: var(--crimson-light); border-color: var(--crimson-light); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--crimson);
+    border: 2px solid var(--crimson);
+  }
+  .btn-secondary:hover { background: var(--crimson); color: var(--cream); }
+  .btn-gold {
+    background: var(--gold);
+    color: #000;
+    border: 2px solid var(--gold-dark);
+  }
+  .btn-gold:hover { background: var(--gold-dark); color: var(--cream); }
+  .btn-sm { padding: 10px 18px; font-size: 11px; }
+
+  /* ===== CLOUD BAR (save/load/share) ===== */
+  .cloud-bar {
+    background: var(--cream-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 22px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 6px rgba(139, 118, 64, 0.06);
+  }
+  .cloud-bar .cb-label {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--crimson);
+  }
+  .cloud-bar select, .cloud-bar input[type="text"] {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    background: var(--cream-light);
+    min-width: 200px;
+  }
+  .cloud-bar .cb-status {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    margin-left: auto;
+  }
+  .cloud-bar .cb-status.ok { color: var(--success); font-style: normal; }
+  .cloud-bar .cb-status.err { color: var(--crimson); font-style: normal; }
+  .cloud-bar .cb-group { display: flex; align-items: center; gap: 8px; }
+
+  /* ===== PLAN VIEW ===== */
+  .plan-header {
+    background: linear-gradient(135deg, #0F0F0F 0%, #1A1A1A 100%);
+    padding: 32px 40px;
+    border-bottom: 3px solid var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 30px;
+  }
+  .plan-header .logo-box {
+    width: 140px; height: 140px;
+    background: #000;
+    border: 2px solid var(--gold);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    padding: 12px;
+  }
+  .plan-header .logo-box.custom { padding: 6px; }
+  .plan-header .logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .plan-header .logo-box .crest {
+    width: 54px; height: 54px;
+    background: var(--gold);
+    color: var(--crimson);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+    letter-spacing: 1px;
+    clip-path: polygon(50% 0%, 100% 20%, 100% 80%, 50% 100%, 0% 80%, 0% 20%);
+    margin-bottom: 8px;
+  }
+  .plan-header .logo-box .logo-pyle {
+    color: var(--crimson-light);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+  .plan-header .logo-box .logo-fin {
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .plan-header .logo-box .logo-tag {
+    color: var(--gold);
+    font-size: 8px;
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+  .plan-header .title-block h1 {
+    color: var(--gold);
+    font-size: 32px;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .plan-header .title-block .subtitle {
+    color: var(--cream);
+    font-size: 14px;
+    letter-spacing: 1px;
+    font-style: italic;
+  }
+
+  /* ===== PLAN TABS ===== */
+  .plan-tabs {
+    display: flex;
+    background: var(--cream-light);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+  }
+  .plan-tab {
+    padding: 16px 24px;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .plan-tab:hover { color: var(--ink); }
+  .plan-tab.active {
+    color: var(--crimson);
+    border-bottom-color: var(--gold);
+    background: var(--cream-panel);
+  }
+
+  /* ===== PLAN CONTENT ===== */
+  .plan-content { padding: 40px; background: var(--cream); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .card {
+    background: var(--cream-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 4px rgba(139, 118, 64, 0.05);
+  }
+  .card-title {
+    font-size: 20px;
+    color: var(--crimson);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .card-sub {
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi {
+    background: var(--cream-light);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gold);
+    border-radius: 4px;
+    padding: 18px 20px;
+  }
+  .kpi .label {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .kpi .value {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--crimson);
+    letter-spacing: 0.5px;
+  }
+  .kpi.success .value { color: var(--success); }
+  .kpi.gold .value { color: var(--gold-dark); }
+  .kpi.ink .value { color: var(--ink); }
+
+  .strategy-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    background: var(--success-light);
+    border: 1px solid #C8D8C8;
+    border-left: 4px solid var(--success);
+    border-radius: 4px;
+    padding: 20px;
+  }
+  .strategy-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .strategy-item .check {
+    color: var(--success);
+    font-weight: bold;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .strategy-item .strat-name {
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 13px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .strategy-item .strat-desc {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+  }
+
+  .panel {
+    background: var(--cream-light);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 22px;
+  }
+  .panel.negative { border-left: 4px solid var(--crimson); }
+  .panel.positive { border-left: 4px solid var(--success); }
+  .panel.advantage { border-left: 4px solid var(--gold); background: #FDF9E8; }
+  .panel h3 {
+    font-size: 16px;
+    margin-bottom: 14px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .panel.negative h3 { color: var(--crimson); }
+  .panel.positive h3 { color: var(--success); }
+  .panel.advantage h3 { color: var(--gold-dark); }
+
+  .line-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border-soft);
+    font-size: 13px;
+  }
+  .line-item:last-child { border-bottom: none; }
+  .line-item .label { color: var(--ink-soft); }
+  .line-item .value { font-weight: 700; color: var(--ink); font-family: 'Helvetica Neue', sans-serif; }
+  .line-item.negative .value { color: var(--crimson); }
+  .line-item.positive .value { color: var(--success); }
+  .line-item.total {
+    border-top: 2px solid var(--gold);
+    border-bottom: none;
+    margin-top: 8px;
+    padding-top: 12px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .line-item.total .label { color: var(--ink); font-weight: 700; }
+
+  table.plan-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--cream-panel);
+    font-size: 12.5px;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+  table.plan-table th {
+    background: #000;
+    color: var(--gold);
+    padding: 12px 10px;
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+    border-right: 1px solid #333;
+  }
+  table.plan-table th:last-child { border-right: none; }
+  table.plan-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-soft);
+    border-right: 1px solid var(--border-soft);
+    color: var(--ink-soft);
+  }
+  table.plan-table td:last-child { border-right: none; }
+  table.plan-table tr:nth-child(even) td { background: var(--cream-light); }
+  table.plan-table td.num { text-align: right; font-family: 'Helvetica Neue', sans-serif; font-weight: 600; }
+  table.plan-table td.neg { color: var(--crimson); }
+  table.plan-table td.pos { color: var(--success); }
+  table.plan-table tr.highlight td { background: #FDF9E8 !important; font-weight: 700; color: var(--ink); }
+  table.plan-table tr.total td { background: #000 !important; color: var(--gold); font-weight: 700; }
+
+  .chart-container {
+    position: relative;
+    height: 340px;
+    margin-top: 10px;
+  }
+
+  .callout {
+    padding: 16px 20px;
+    background: #FDF9E8;
+    border-left: 4px solid var(--gold);
+    border-radius: 4px;
+    margin: 20px 0;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+  .callout.crimson {
+    background: #FBEFEF;
+    border-left-color: var(--crimson);
+  }
+  .callout strong { color: var(--crimson); }
+  .callout .title {
+    display: block;
+    font-weight: 700;
+    color: var(--crimson);
+    margin-bottom: 6px;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+
+  .info-card {
+    background: var(--cream-light);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+  }
+  .info-card h4 {
+    color: var(--crimson);
+    font-size: 15px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .info-card .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 13px;
+    gap: 12px;
+  }
+  .info-card .row .k { color: var(--ink-soft); font-weight: 600; flex-shrink: 0; }
+  .info-card .row .v { color: var(--ink); text-align: right; }
+
+  .checklist-phase {
+    background: var(--cream-light);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gold);
+    border-radius: 4px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .checklist-phase h4 {
+    color: var(--crimson);
+    font-size: 14px;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
+  .checklist-phase ul { list-style: none; padding: 0; }
+  .checklist-phase li {
+    padding: 4px 0;
+    font-size: 13px;
+    color: var(--ink-soft);
+    padding-left: 20px;
+    position: relative;
+  }
+  .checklist-phase li::before {
+    content: '☐';
+    position: absolute;
+    left: 0;
+    color: var(--gold-dark);
+    font-size: 16px;
+  }
+
+  /* ===== PLAN ACTION BAR ===== */
+  .plan-actions {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--cream-panel);
+    padding: 12px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .plan-actions .btn { padding: 8px 18px; font-size: 11px; }
+
+  /* ===== PROJECTION PARAMS INLINE ===== */
+  .params-bar {
+    background: var(--cream-light);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--crimson);
+    border-radius: 4px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+  }
+  .params-bar h4 {
+    color: var(--crimson);
+    margin-bottom: 14px;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+  .params-bar .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  /* ===== DISCLAIMERS ===== */
+  .disclaimer {
+    background: #F0EBDC;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    margin-top: 30px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+  .disclaimer h4 {
+    color: var(--ink);
+    font-size: 12px;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .disclaimer p { margin-bottom: 10px; }
+  .disclaimer strong { color: var(--crimson); }
+
+  /* ===== PRINT ===== */
+  @media print {
+    .mode-nav, .plan-actions, .brand-bar { display: none !important; }
+    .plan-tabs { display: none !important; }
+    .tab-panel { display: block !important; page-break-after: always; }
+    body { background: #fff; }
+    .card { box-shadow: none; page-break-inside: avoid; }
+    table.plan-table { page-break-inside: avoid; }
+  }
+
+  @media (max-width: 900px) {
+    .two-col, .three-col, .form-grid.cols-2, .form-grid.cols-3, .form-grid.cols-4 { grid-template-columns: 1fr; }
+    .params-bar .grid { grid-template-columns: 1fr 1fr; }
+    .page { padding: 20px; }
+    .plan-content { padding: 20px; }
+    .brand-bar, .plan-header { padding: 16px 20px; flex-direction: column; text-align: center; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== BRAND BAR ========== -->
+<header class="brand-bar">
+  <div class="brand-logo">
+    <div class="brand-crest">PFF</div>
+    <div>
+      <div class="brand-text-main"><span class="pyle">PYLE</span> <span class="financial">FINANCIAL</span></div>
+      <div class="brand-tagline">Keep More • Live More • Leave More</div>
+    </div>
+  </div>
+  <div class="brand-right">
+    Comprehensive Financial Plan Builder
+    <span class="motto">Aligning Wealth with Purpose</span>
+  </div>
+</header>
+
+<!-- ========== MODE NAV ========== -->
+<nav class="mode-nav">
+  <button class="mode-btn active" data-mode="builder">Plan Builder</button>
+  <button class="mode-btn" data-mode="plan">View Plan</button>
+</nav>
+
+<!-- ========== BUILDER PAGE ========== -->
+<main id="builder-view" class="page">
+  <div class="builder-intro">
+    <h1>Build a <span class="accent">Comprehensive Financial Plan</span></h1>
+    <div class="gold-divider"></div>
+    <p>Enter your client's data below. Toggle strategies on or off. When you're done, click Generate Plan to create their personalized, interactive financial plan — ready to present, print, or download.</p>
+  </div>
+
+  <!-- CLOUD PLANS BAR -->
+  <div class="cloud-bar" id="cloud-bar">
+    <div class="cb-group">
+      <span class="cb-label">Load:</span>
+      <select id="cloud-load-select">
+        <option value="">— Saved plans —</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" id="btn-cloud-load">Load</button>
+    </div>
+    <div class="cb-group">
+      <span class="cb-label">Plan Name:</span>
+      <input type="text" id="cloud-plan-name" placeholder="e.g., Delaney 2026 Sale">
+    </div>
+    <div class="cb-group">
+      <button class="btn btn-primary btn-sm" id="btn-cloud-save">Save to Cloud</button>
+      <button class="btn btn-gold btn-sm" id="btn-cloud-share">Copy Share Link</button>
+    </div>
+    <div class="cb-status" id="cloud-status">Connecting…</div>
+  </div>
+
+  <!-- SECTION 1: CLIENT -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="section-number">1</div>
+      <div>
+        <div class="section-title">Client Information</div>
+        <div class="section-help">Primary client and spouse details for the plan cover page.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-3">
+      <div class="field">
+        <label>Primary Client Name</label>
+        <input type="text" id="client-primary" value="Conor Delaney">
+      </div>
+      <div class="field">
+        <label>Spouse Name <span class="hint">(optional)</span></label>
+        <input type="text" id="client-spouse" value="Elizabeth Delaney">
+      </div>
+      <div class="field">
+        <label>Location (City, State)</label>
+        <input type="text" id="client-location" value="Celebration, FL">
+      </div>
+      <div class="field">
+        <label>Plan Year</label>
+        <input type="number" id="client-year" value="2026">
+      </div>
+      <div class="field" style="grid-column: span 2;">
+        <label>Plan Subtitle</label>
+        <input type="text" id="client-subtitle" value="Business Sale Strategy with Dynasty Trust & QOZ Investment">
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2: BUSINESS -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="section-number">2</div>
+      <div>
+        <div class="section-title">Business Being Sold</div>
+        <div class="section-help">Details about the business sale driving the planning strategy.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-3">
+      <div class="field">
+        <label>Entity Name</label>
+        <input type="text" id="biz-name" value="Good Life Advisors/GLAS">
+      </div>
+      <div class="field">
+        <label>Entity Type</label>
+        <select id="biz-type">
+          <option>S-Corp</option><option>C-Corp</option><option>LLC</option><option>Partnership</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Ownership %</label>
+        <div class="suffix-pct"><input type="number" id="biz-ownership" value="100"></div>
+      </div>
+      <div class="field">
+        <label>Sale Price</label>
+        <div class="prefix-input"><input type="number" id="biz-sale" value="50000000"></div>
+      </div>
+      <div class="field">
+        <label>Tax Basis</label>
+        <div class="prefix-input"><input type="number" id="biz-basis" value="0"></div>
+      </div>
+      <div class="field">
+        <label>Expected Sale Date</label>
+        <input type="text" id="biz-date" value="July 1, 2026">
+      </div>
+      <div class="field">
+        <label>Current Pre-Sale Net Worth</label>
+        <div class="prefix-input"><input type="number" id="client-pnw" value="67181010"></div>
+      </div>
+      <div class="field">
+        <label>Existing Non-Business Assets</label>
+        <div class="prefix-input"><input type="number" id="client-other" value="12090000"></div>
+      </div>
+      <div class="field">
+        <label>Current Annual Business Income</label>
+        <div class="prefix-input"><input type="number" id="biz-income" value="2751419"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3: STRATEGIES -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="section-number">3</div>
+      <div>
+        <div class="section-title">Tax &amp; Estate Strategies</div>
+        <div class="section-help">Toggle each strategy on or off. Configured strategies will appear in the generated plan.</div>
+      </div>
+    </div>
+
+    <label class="strategy-toggle">
+      <input type="checkbox" id="use-dynasty" checked>
+      <div>
+        <span class="name">Dynasty Trust</span> &nbsp;
+        <span class="desc">Multi-generational wealth transfer using GST exemption</span>
+      </div>
+    </label>
+    <div class="strategy-block" id="block-dynasty">
+      <h4>Dynasty Trust Parameters</h4>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Trust Funding Amount</label>
+          <div class="prefix-input"><input type="number" id="dt-funding" value="25000000"></div>
+        </div>
+        <div class="field">
+          <label>Combined Family Exemption</label>
+          <div class="prefix-input"><input type="number" id="dt-exemption" value="15000000"></div>
+        </div>
+        <div class="field">
+          <label>Projection Period (Years)</label>
+          <input type="number" id="dt-years" value="20">
+        </div>
+      </div>
+    </div>
+
+    <label class="strategy-toggle">
+      <input type="checkbox" id="use-crat" checked>
+      <div>
+        <span class="name">CRAT (Charitable Remainder Annuity Trust)</span> &nbsp;
+        <span class="desc">Pre-sale contribution with lifetime income stream</span>
+      </div>
+    </label>
+    <div class="strategy-block" id="block-crat">
+      <h4>CRAT Parameters</h4>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Contribution Amount</label>
+          <div class="prefix-input"><input type="number" id="crat-amount" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Annuity Rate</label>
+          <div class="suffix-pct"><input type="number" id="crat-rate" value="6" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Deduction Factor <span class="hint">(present value of remainder, as % of contribution)</span></label>
+          <div class="suffix-pct"><input type="number" id="crat-ded" value="42"></div>
+        </div>
+      </div>
+    </div>
+
+    <label class="strategy-toggle">
+      <input type="checkbox" id="use-daf" checked>
+      <div>
+        <span class="name">DAF (Donor Advised Fund)</span> &nbsp;
+        <span class="desc">Immediate charitable deduction with flexible timing</span>
+      </div>
+    </label>
+    <div class="strategy-block" id="block-daf">
+      <h4>DAF Parameters</h4>
+      <div class="form-grid cols-2">
+        <div class="field">
+          <label>Contribution Amount</label>
+          <div class="prefix-input"><input type="number" id="daf-amount" value="5000000"></div>
+        </div>
+      </div>
+    </div>
+
+    <label class="strategy-toggle">
+      <input type="checkbox" id="use-qoz" checked>
+      <div>
+        <span class="name">QOZ (Qualified Opportunity Zone)</span> &nbsp;
+        <span class="desc">Defer remaining capital gains tax with potential tax-free appreciation</span>
+      </div>
+    </label>
+    <div class="strategy-block" id="block-qoz">
+      <h4>QOZ Parameters</h4>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Deferral Period (Years)</label>
+          <input type="number" id="qoz-defer" value="5">
+        </div>
+        <div class="field">
+          <label>Expected Annual Return</label>
+          <div class="suffix-pct"><input type="number" id="qoz-return" value="6" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Projection Period (Years)</label>
+          <input type="number" id="qoz-years" value="10">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4: TAX RATES -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="section-number">4</div>
+      <div>
+        <div class="section-title">Tax Rate Assumptions</div>
+        <div class="section-help">Applied to capital gains and income calculations.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-4">
+      <div class="field">
+        <label>Federal Cap Gains</label>
+        <div class="suffix-pct"><input type="number" id="tax-fed" value="20" step="0.1"></div>
+      </div>
+      <div class="field">
+        <label>State Cap Gains</label>
+        <div class="suffix-pct"><input type="number" id="tax-state" value="5.5" step="0.1"></div>
+      </div>
+      <div class="field">
+        <label>Medicare Surtax</label>
+        <div class="suffix-pct"><input type="number" id="tax-medicare" value="3.8" step="0.1"></div>
+      </div>
+      <div class="field">
+        <label>Marginal Income Rate</label>
+        <div class="suffix-pct"><input type="number" id="tax-marginal" value="39" step="0.1"></div>
+      </div>
+      <div class="field">
+        <label>Estate Tax Rate</label>
+        <div class="suffix-pct"><input type="number" id="tax-estate" value="40" step="0.1"></div>
+      </div>
+      <div class="field">
+        <label>Federal Estate Exemption</label>
+        <div class="prefix-input"><input type="number" id="tax-estate-exempt" value="15000000"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 5: PROJECTION -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="section-number">5</div>
+      <div>
+        <div class="section-title">Projection Parameters</div>
+        <div class="section-help">Used for 20-year wealth projection tables and charts.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-4">
+      <div class="field">
+        <label>Investment Return</label>
+        <div class="suffix-pct"><input type="number" id="proj-equity" value="6" step="0.1"></div>
+      </div>
+      <div class="field">
+        <label>Real Estate/Business Return</label>
+        <div class="suffix-pct"><input type="number" id="proj-re" value="3" step="0.1"></div>
+      </div>
+      <div class="field">
+        <label>Projection Period (Years)</label>
+        <input type="number" id="proj-years" value="20">
+      </div>
+      <div class="field">
+        <label>Inflation Rate</label>
+        <div class="suffix-pct"><input type="number" id="proj-inflation" value="2.5" step="0.1"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 6: INSURANCE -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="section-number">6</div>
+      <div>
+        <div class="section-title">Insurance</div>
+        <div class="section-help">Current and recommended life insurance coverage.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-3">
+      <div class="field">
+        <label>Current Coverage</label>
+        <div class="prefix-input"><input type="number" id="ins-current" value="4750000"></div>
+      </div>
+      <div class="field">
+        <label>Recommended Min Coverage</label>
+        <div class="prefix-input"><input type="number" id="ins-rec-min" value="15000000"></div>
+      </div>
+      <div class="field">
+        <label>Recommended Max Coverage</label>
+        <div class="prefix-input"><input type="number" id="ins-rec-max" value="20000000"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 7: FIRM BRAND -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="section-number">7</div>
+      <div>
+        <div class="section-title">Firm Branding</div>
+        <div class="section-help">Upload a logo to replace the default on the plan cover. Default: Pyle Financial.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-2">
+      <div class="field">
+        <label>Firm Name</label>
+        <input type="text" id="firm-name" value="Pyle Financial">
+      </div>
+      <div class="field">
+        <label>Firm Tagline</label>
+        <input type="text" id="firm-tag" value="Aligning Wealth with Purpose">
+      </div>
+      <div class="field" style="grid-column: span 2;">
+        <label>Upload Firm Logo <span class="hint">(PNG, JPG, SVG — embedded in the downloaded plan)</span></label>
+        <input type="file" id="firm-logo" accept="image/*">
+      </div>
+    </div>
+  </section>
+
+  <!-- ACTION ROW -->
+  <div class="action-row">
+    <button class="btn btn-secondary" id="btn-reset">Reset to Defaults</button>
+    <button class="btn btn-primary" id="btn-generate">Generate Plan →</button>
+  </div>
+</main>
+
+<!-- ========== PLAN VIEW ========== -->
+<main id="plan-view" class="hidden">
+  <div class="plan-actions">
+    <button class="btn btn-secondary" id="btn-edit">← Edit Data</button>
+    <button class="btn btn-gold" id="btn-print">Print / PDF</button>
+    <button class="btn btn-primary" id="btn-download">Download Plan</button>
+    <button class="btn btn-gold" id="btn-plan-share">Copy Share Link</button>
+  </div>
+
+  <header class="plan-header">
+    <div class="logo-box" id="plan-logo-box">
+      <div class="crest">PFF</div>
+      <div class="logo-pyle">PYLE</div>
+      <div class="logo-fin">FINANCIAL</div>
+      <div class="logo-tag">KEEP MORE</div>
+    </div>
+    <div class="title-block">
+      <h1 id="plan-title">Comprehensive Financial Plan</h1>
+      <div class="subtitle" id="plan-subtitle">—</div>
+    </div>
+  </header>
+
+  <nav class="plan-tabs">
+    <button class="plan-tab active" data-tab="summary">Executive Summary</button>
+    <button class="plan-tab" data-tab="transaction">Transaction Strategy</button>
+    <button class="plan-tab" data-tab="financial">Financial Overview</button>
+    <button class="plan-tab" data-tab="tax">Tax Optimization</button>
+    <button class="plan-tab" data-tab="estate">Estate Planning</button>
+  </nav>
+
+  <div class="plan-content">
+    <div class="tab-panel active" id="panel-summary"></div>
+    <div class="tab-panel" id="panel-transaction"></div>
+    <div class="tab-panel" id="panel-financial"></div>
+    <div class="tab-panel" id="panel-tax"></div>
+    <div class="tab-panel" id="panel-estate"></div>
+  </div>
+</main>
+
+<script>
+/* ============================================================
+   PYLE FINANCIAL PLAN BUILDER — CORE LOGIC
+   (calculation engine + rendering + export)
+   ============================================================ */
+
+// Placeholder — calculation engine and rendering will be injected below
+window.__PLAN_DATA__ = null;
+window.__FIRM_LOGO__ = null;
+
+// Utility formatters
+const fmt$ = n => (n < 0 ? '-' : '') + '$' + Math.abs(Math.round(n)).toLocaleString();
+const fmt$M = n => '$' + (n / 1_000_000).toFixed(1) + 'M';
+const fmtPct = n => n.toFixed(1) + '%';
+
+/* ---- Mode switching ---- */
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('builder-view').classList.toggle('hidden', mode !== 'builder');
+    document.getElementById('plan-view').classList.toggle('hidden', mode !== 'plan');
+    if (mode === 'plan' && !window.__PLAN_DATA__) {
+      // auto-generate if viewing plan without building
+      document.getElementById('btn-generate').click();
+    }
+  });
+});
+
+/* ---- Plan tab switching ---- */
+document.querySelectorAll('.plan-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.plan-tab').forEach(t => t.classList.toggle('active', t === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => {
+      p.classList.toggle('active', p.id === 'panel-' + target);
+    });
+    // re-render charts on tab switch (Chart.js needs visible canvas)
+    if (window.__RENDER_CHARTS__) window.__RENDER_CHARTS__(target);
+  });
+});
+
+/* ---- Strategy toggle enable/disable ---- */
+const strategyMap = { 'use-dynasty': 'block-dynasty', 'use-crat': 'block-crat', 'use-daf': 'block-daf', 'use-qoz': 'block-qoz' };
+Object.entries(strategyMap).forEach(([chk, block]) => {
+  const c = document.getElementById(chk);
+  const b = document.getElementById(block);
+  const sync = () => b.classList.toggle('disabled', !c.checked);
+  c.addEventListener('change', sync);
+  sync();
+});
+
+/* ---- Logo upload ---- */
+document.getElementById('firm-logo').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { window.__FIRM_LOGO__ = ev.target.result; };
+  reader.readAsDataURL(file);
+});
+
+/* ---- Reset ---- */
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (confirm('Reset all fields to the default Delaney example?')) location.reload();
+});
+</script>
+
+<script>
+/* ============================================================
+   CALCULATION ENGINE
+   ============================================================ */
+function readForm() {
+  const g = id => document.getElementById(id);
+  const n = id => parseFloat(g(id).value) || 0;
+  const t = id => g(id).value || '';
+  const c = id => g(id).checked;
+  return {
+    client: {
+      primary: t('client-primary'), spouse: t('client-spouse'),
+      location: t('client-location'), year: n('client-year'),
+      subtitle: t('client-subtitle'),
+      preSaleNW: n('client-pnw'), otherAssets: n('client-other'),
+    },
+    firm: { name: t('firm-name'), tag: t('firm-tag'), logo: window.__FIRM_LOGO__ },
+    biz: {
+      name: t('biz-name'), type: t('biz-type'), ownership: n('biz-ownership'),
+      sale: n('biz-sale'), basis: n('biz-basis'),
+      date: t('biz-date'), income: n('biz-income'),
+    },
+    use: { dynasty: c('use-dynasty'), crat: c('use-crat'), daf: c('use-daf'), qoz: c('use-qoz') },
+    dynasty: { funding: n('dt-funding'), exemption: n('dt-exemption'), years: n('dt-years') },
+    crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
+    daf: { amount: n('daf-amount') },
+    qoz: { defer: n('qoz-defer'), ret: n('qoz-return') / 100, years: n('qoz-years') },
+    tax: {
+      fed: n('tax-fed') / 100, state: n('tax-state') / 100,
+      medicare: n('tax-medicare') / 100, marginal: n('tax-marginal') / 100,
+      estate: n('tax-estate') / 100, estateExempt: n('tax-estate-exempt'),
+    },
+    proj: {
+      equity: n('proj-equity') / 100, re: n('proj-re') / 100,
+      years: n('proj-years'), inflation: n('proj-inflation') / 100,
+    },
+    ins: { current: n('ins-current'), recMin: n('ins-rec-min'), recMax: n('ins-rec-max') },
+  };
+}
+
+function computePlan(d) {
+  const combinedCGRate = d.tax.fed + d.tax.state + d.tax.medicare;
+  const salePrice = d.biz.sale;
+  const basis = d.biz.basis;
+  const grossGain = salePrice - basis;
+
+  // Strategy amounts (zero if strategy disabled)
+  const dyAmt = d.use.dynasty ? d.dynasty.funding : 0;
+  const crAmt = d.use.crat ? d.crat.amount : 0;
+  const dafAmt = d.use.daf ? d.daf.amount : 0;
+
+  // Scenarios
+  const scenNone = {
+    name: 'No Planning',
+    dynasty: 0, crat: 0, daf: 0,
+    taxableGain: grossGain,
+    fedTax: grossGain * d.tax.fed,
+    stateTax: grossGain * d.tax.state,
+    medicareTax: grossGain * d.tax.medicare,
+  };
+  scenNone.totalCGTax = scenNone.fedTax + scenNone.stateTax + scenNone.medicareTax;
+
+  const scenCratDaf = (() => {
+    const gain = Math.max(0, grossGain - crAmt - dafAmt);
+    return {
+      name: 'CRAT+DAF Only',
+      dynasty: 0, crat: crAmt, daf: dafAmt,
+      taxableGain: gain,
+      fedTax: gain * d.tax.fed,
+      stateTax: gain * d.tax.state,
+      medicareTax: gain * d.tax.medicare,
+      totalCGTax: gain * combinedCGRate,
+    };
+  })();
+
+  const scenDyCratDaf = (() => {
+    const gain = Math.max(0, grossGain - dyAmt - crAmt - dafAmt);
+    return {
+      name: 'Dynasty+CRAT+DAF',
+      dynasty: dyAmt, crat: crAmt, daf: dafAmt,
+      taxableGain: gain,
+      fedTax: gain * d.tax.fed,
+      stateTax: gain * d.tax.state,
+      medicareTax: gain * d.tax.medicare,
+      totalCGTax: gain * combinedCGRate,
+    };
+  })();
+
+  const scenAll = (() => {
+    const gain = Math.max(0, grossGain - dyAmt - crAmt - dafAmt);
+    const baseTax = gain * combinedCGRate;
+    // QOZ defers the tax liability itself; invested at QOZ return over projection period
+    return {
+      name: 'Dynasty+CRAT+DAF+QOZ',
+      dynasty: dyAmt, crat: crAmt, daf: dafAmt, qoz: d.use.qoz ? baseTax : 0,
+      taxableGain: gain,
+      fedTax: gain * d.tax.fed,
+      stateTax: gain * d.tax.state,
+      medicareTax: gain * d.tax.medicare,
+      totalCGTax: baseTax,
+      qozDeferred: d.use.qoz ? baseTax : 0,
+      qozInvestment: d.use.qoz ? baseTax : 0,
+      qoz10yrValue: d.use.qoz ? baseTax * Math.pow(1 + d.qoz.ret, d.qoz.years) : 0,
+    };
+  })();
+
+  // Deductions
+  const cratDeduction = d.use.crat ? crAmt * d.crat.dedPct : 0;
+  const dafDeduction = d.use.daf ? dafAmt : 0;
+  const totalCharitableDed = cratDeduction + dafDeduction;
+  const incomeTaxSavings = totalCharitableDed * d.tax.marginal;
+
+  // Estate tax savings
+  const dynastyEstateSave = d.use.dynasty ? dyAmt * d.tax.estate : 0;
+  const cratEstateSave = d.use.crat ? crAmt * d.tax.estate : 0;
+  const dafEstateSave = d.use.daf ? dafAmt * d.tax.estate : 0;
+  const totalEstateSave = dynastyEstateSave + cratEstateSave + dafEstateSave;
+
+  // Dynasty trust projection
+  const dynasty20yr = d.use.dynasty ? dyAmt * Math.pow(1 + d.proj.equity, d.dynasty.years) : 0;
+  const dynastyGrowth = dynasty20yr - dyAmt;
+
+  // Capital gains tax savings (vs no planning)
+  const cgTaxSavings = scenNone.totalCGTax - scenAll.totalCGTax;
+
+  // Total immediate tax savings
+  const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave;
+
+  // Net worth calculations
+  const preSaleNW = d.client.preSaleNW;
+  const otherAssets = d.client.otherAssets;
+
+  // WITHOUT planning
+  const nwWithout_netProceeds = salePrice - scenNone.totalCGTax;
+  const nwWithout_total = nwWithout_netProceeds + otherAssets;
+
+  // WITH planning
+  const totalPreSaleOutflow = dyAmt + crAmt + dafAmt;
+  const withPlanningProceeds = salePrice - scenAll.totalCGTax;
+  const withPlanningTotal = withPlanningProceeds + otherAssets; // Conor's proceeds (Dynasty Trust separate)
+
+  // Family post-sale total (includes Dynasty)
+  const familyTotalNW = withPlanningTotal + dyAmt;
+  const familyTotalProceeds = salePrice + dyAmt - scenAll.totalCGTax;
+
+  // Annual income calculation
+  const cratIncome = d.use.crat ? crAmt * d.crat.rate : 0;
+  const investmentIncome = withPlanningProceeds * 0.06; // Assume 6% yield on proceeds
+  const annualIncome = cratIncome + investmentIncome + (d.biz.income * 0.1); // 10% from retained
+
+  // Comparison table
+  const comparison = { scenNone, scenCratDaf, scenDyCratDaf, scenAll };
+
+  // Build 20-year projection (Conor's investments + QOZ + Dynasty)
+  const projRows = [];
+  let conorInv = withPlanningProceeds;
+  let qozVal = scenAll.qozInvestment;
+  let dyVal = dyAmt;
+  for (let yr = 0; yr <= Math.min(12, d.proj.years); yr++) {
+    const total = conorInv + (d.use.qoz ? qozVal : 0) + (d.use.dynasty ? dyVal : 0) + otherAssets;
+    const income = conorInv * 0.06 + cratIncome + 365000; // rental placeholder
+    projRows.push({
+      year: d.client.year + yr,
+      conor: conorInv + otherAssets,
+      qoz: qozVal,
+      dynasty: dyVal,
+      total,
+      income,
+    });
+    conorInv *= (1 + d.proj.equity);
+    qozVal *= (1 + d.qoz.ret);
+    dyVal *= (1 + d.proj.equity);
+  }
+
+  // Dynasty 20-year table
+  const dynastyRows = [];
+  if (d.use.dynasty) {
+    let v = dyAmt;
+    const milestones = [0, 1, 4, 9, 14, 20];
+    milestones.forEach(m => {
+      const val = dyAmt * Math.pow(1 + d.proj.equity, m);
+      dynastyRows.push({
+        year: d.client.year + m,
+        value: val,
+        growth: val - dyAmt,
+      });
+    });
+  }
+
+  // QOZ 10-year table
+  const qozRows = [];
+  if (d.use.qoz && scenAll.qozInvestment > 0) {
+    for (let m = 0; m <= d.qoz.years; m++) {
+      const val = scenAll.qozInvestment * Math.pow(1 + d.qoz.ret, m);
+      qozRows.push({
+        yearOffset: m,
+        year: d.client.year + m,
+        value: val,
+        growth: val - scenAll.qozInvestment,
+        status: m === d.qoz.years ? 'TAX-FREE' : (m >= d.qoz.defer ? 'Tax-deferred (if held)' : 'Tax-deferred'),
+      });
+    }
+  }
+
+  // Estate tax exposure
+  const taxableEstateNoPlan = Math.max(0, preSaleNW + salePrice - scenNone.totalCGTax - d.tax.estateExempt);
+  const estateTaxNoPlan = taxableEstateNoPlan * d.tax.estate;
+  const taxableEstateWithPlan = Math.max(0, withPlanningTotal - d.tax.estateExempt);
+  const estateTaxWithPlan = taxableEstateWithPlan * d.tax.estate;
+  const estateTaxSavings = estateTaxNoPlan - estateTaxWithPlan;
+
+  return {
+    input: d,
+    combinedCGRate,
+    scenarios: comparison,
+    cratDeduction, dafDeduction, totalCharitableDed, incomeTaxSavings,
+    dynastyEstateSave, cratEstateSave, dafEstateSave, totalEstateSave,
+    dynasty20yr, dynastyGrowth,
+    cgTaxSavings, totalImmediate,
+    nwWithout_netProceeds, nwWithout_total,
+    withPlanningProceeds, withPlanningTotal,
+    familyTotalNW, familyTotalProceeds,
+    cratIncome, investmentIncome, annualIncome,
+    projRows, dynastyRows, qozRows,
+    taxableEstateNoPlan, estateTaxNoPlan,
+    taxableEstateWithPlan, estateTaxWithPlan, estateTaxSavings,
+    wealthAdvantageConor: withPlanningTotal - nwWithout_total,
+    totalFamilyAdvantage: familyTotalNW - nwWithout_total,
+    totalProgramBenefit: totalImmediate + dynastyGrowth,
+  };
+}
+
+/* ============================================================
+   RENDERING — EXECUTIVE SUMMARY
+   ============================================================ */
+function renderSummary(p) {
+  const d = p.input;
+  const strategies = [];
+  if (d.use.dynasty) strategies.push({ name: 'Dynasty Trust', desc: `Transfer ${fmt$M(d.dynasty.funding)} in non-voting shares pre-sale using combined family exemption.` });
+  if (d.use.crat) strategies.push({ name: 'Pre-Transaction CRAT', desc: `${fmt$M(d.crat.amount)} Charitable Remainder Annuity Trust with ${fmtPct(d.crat.rate*100)} annual income to beneficiaries.` });
+  if (d.use.daf) strategies.push({ name: 'Pre-Transaction DAF', desc: `${fmt$M(d.daf.amount)} Donor Advised Fund for strategic charitable giving.` });
+  strategies.push({ name: 'Business Sale', desc: `${fmt$M(d.biz.sale)} sale with strategic tax planning creates significant capital gains efficiencies.` });
+  if (d.use.qoz) strategies.push({ name: 'QOZ Investment', desc: `Remaining capital gains tax reinvested into Qualified Opportunity Zone fund for ${d.qoz.defer}-year tax deferral.` });
+  strategies.push({ name: 'Capital Gains Mitigation', desc: `Layered structure reduces taxable gain by ${fmt$M(p.scenarios.scenNone.taxableGain - p.scenarios.scenAll.taxableGain)}, saving ${fmt$M(p.cgTaxSavings)} in federal taxes.` });
+  strategies.push({ name: 'Post-Sale Liquidity', desc: `${fmt$M(p.withPlanningProceeds)} proceeds provide exceptional liquidity for wealth management and estate planning.` });
+  if (d.use.dynasty) strategies.push({ name: 'Multi-Generational Wealth', desc: `Dynasty Trust projected to grow to ${fmt$M(p.dynasty20yr)} over ${d.dynasty.years} years, tax-free to heirs.` });
+
+  return `
+    <div class="card">
+      <div class="card-title">Executive Summary — Business Sale &amp; Wealth Transition</div>
+      <div class="card-sub">Strategic overview of pre-sale planning and post-sale wealth positioning.</div>
+
+      <div class="kpi-grid">
+        <div class="kpi success"><div class="label">Post-Sale Family Net Worth</div><div class="value">${fmt$(p.familyTotalNW)}</div></div>
+        <div class="kpi gold"><div class="label">Annual Income (Post-Sale)</div><div class="value">${fmt$(p.annualIncome)}</div></div>
+        <div class="kpi success"><div class="label">Total Tax Savings</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
+        <div class="kpi ink"><div class="label">Insurance Coverage</div><div class="value">${fmt$(d.ins.current)}</div></div>
+      </div>
+
+      <div class="strategy-list">
+        ${strategies.map(s => `
+          <div class="strategy-item">
+            <span class="check">✓</span>
+            <div><span class="strat-name">${s.name}</span><span class="strat-desc">${s.desc}</span></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    ${d.use.qoz ? `
+    <div class="card">
+      <div class="card-title">Qualified Opportunity Zone (QOZ) Strategy</div>
+      <div class="card-sub">${d.qoz.defer}-year tax deferral with potential for tax-free appreciation.</div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">QOZ Investment</div><div class="value">${fmt$(p.scenarios.scenAll.qozInvestment)}</div></div>
+        <div class="kpi gold"><div class="label">Deferral Period</div><div class="value">${d.qoz.defer} Years</div></div>
+        <div class="kpi success"><div class="label">10-Year Hold Benefit</div><div class="value">100% Tax-Free</div></div>
+        <div class="kpi success"><div class="label">Projected ${d.qoz.years}-Yr Value</div><div class="value">${fmt$(p.scenarios.scenAll.qoz10yrValue)}</div></div>
+      </div>
+
+      <div class="callout">
+        <span class="title">Strategic Benefit</span>
+        Invest remaining capital gains tax into QOZ fund. Defers tax for ${d.qoz.defer} years. If held ${d.qoz.years}+ years, all appreciation is completely tax-free. Plus, full step-up in basis at death.
+      </div>
+    </div>` : ''}
+
+    ${d.use.dynasty ? `
+    <div class="card">
+      <div class="card-title">Dynasty Trust — Multi-Generational Wealth Transfer</div>
+      <div class="card-sub">Tax-free wealth transfer for children, grandchildren, and beyond.</div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Dynasty Trust Funding</div><div class="value">${fmt$(d.dynasty.funding)}</div></div>
+        <div class="kpi gold"><div class="label">Exemption Used</div><div class="value">${fmt$(d.dynasty.exemption)}</div></div>
+        <div class="kpi success"><div class="label">Estate Tax Savings</div><div class="value">${fmt$(p.dynastyEstateSave)}</div></div>
+        <div class="kpi success"><div class="label">${d.dynasty.years}-Yr Projected Growth</div><div class="value">${fmt$(p.dynasty20yr)}</div></div>
+      </div>
+
+      <div class="callout">
+        <span class="title">Dynasty Trust Advantage</span>
+        ${fmt$(p.dynastyEstateSave)} in estate tax savings plus ${fmt$(p.dynastyGrowth)} in tax-free appreciation. Grows and passes to heirs without federal estate tax, GST tax, or income tax on growth.
+      </div>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-title">Financial Snapshot — Pre &amp; Post Transaction</div>
+      <div class="kpi-grid">
+        <div class="kpi ink"><div class="label">Pre-Sale Net Worth</div><div class="value">${fmt$(d.client.preSaleNW)}</div></div>
+        <div class="kpi gold"><div class="label">Business Sale Proceeds</div><div class="value">${fmt$M(d.biz.sale)}</div></div>
+        <div class="kpi success"><div class="label">Post-Sale Family NW</div><div class="value">${fmt$(p.familyTotalNW)}</div></div>
+        <div class="kpi"><div class="label">Cap Gains Tax (Paid)</div><div class="value">${fmt$(p.scenarios.scenAll.totalCGTax)}</div></div>
+        <div class="kpi success"><div class="label">Total Tax Savings</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
+        <div class="kpi gold"><div class="label">Net Proceeds After Tax</div><div class="value">${fmt$(p.familyTotalProceeds)}</div></div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   RENDERING — TRANSACTION STRATEGY
+   ============================================================ */
+function renderTransaction(p) {
+  const d = p.input;
+  return `
+    <div class="card">
+      <div class="card-title">Business Sale &amp; Tax Optimization Strategy</div>
+      <div class="card-sub">Comparing outcomes: strategic planning vs. no planning.</div>
+
+      <div class="callout">
+        <span class="title">Strategic Advantage</span>
+        By executing pre-sale planning (Dynasty Trust, CRAT, DAF) and coordinating post-sale QOZ investment,
+        the client achieves maximum tax efficiency. Combined strategies remove ${fmt$M(p.scenarios.scenAll.dynasty + p.scenarios.scenAll.crat + p.scenarios.scenAll.daf)} from taxable gain,
+        saving approximately ${fmt$M(p.cgTaxSavings)} in capital gains taxes while positioning ${fmt$M(p.dynastyGrowth + (p.scenarios.scenAll.qoz10yrValue - p.scenarios.scenAll.qozInvestment))} in tax-free appreciation for heirs.
+      </div>
+
+      <h3 style="margin: 30px 0 18px; color: var(--ink); font-size: 18px;">Net Worth Comparison: With Planning vs. Without</h3>
+      <div class="three-col">
+        <div class="panel negative">
+          <h3>❌ No Planning</h3>
+          <div class="line-item"><span class="label">Pre-Sale Net Worth</span><span class="value">${fmt$(d.client.preSaleNW)}</span></div>
+          <div class="line-item"><span class="label">Business Sale</span><span class="value">${fmt$(d.biz.sale)}</span></div>
+          <div class="line-item negative"><span class="label">Cap Gains Tax (${fmtPct(p.combinedCGRate*100)})</span><span class="value">(${fmt$(p.scenarios.scenNone.totalCGTax)})</span></div>
+          <div class="line-item"><span class="label">Net Sale Proceeds</span><span class="value">${fmt$(d.biz.sale - p.scenarios.scenNone.totalCGTax)}</span></div>
+          <div class="line-item"><span class="label">Plus: Existing Assets</span><span class="value">${fmt$(d.client.otherAssets)}</span></div>
+          <div class="line-item total"><span class="label">Total Net Worth</span><span class="value">${fmt$(p.nwWithout_total)}</span></div>
+        </div>
+        <div class="panel positive">
+          <h3>✅ With Strategic Planning</h3>
+          <div class="line-item"><span class="label">Pre-Sale Net Worth</span><span class="value">${fmt$(d.client.preSaleNW)}</span></div>
+          ${d.use.dynasty ? `<div class="line-item negative"><span class="label">Dynasty Trust Funding</span><span class="value">(${fmt$(d.dynasty.funding)})</span></div>` : ''}
+          ${d.use.crat ? `<div class="line-item negative"><span class="label">CRAT Funding</span><span class="value">(${fmt$(d.crat.amount)})</span></div>` : ''}
+          ${d.use.daf ? `<div class="line-item negative"><span class="label">DAF Funding</span><span class="value">(${fmt$(d.daf.amount)})</span></div>` : ''}
+          <div class="line-item"><span class="label">Business Sale</span><span class="value">${fmt$(d.biz.sale)}</span></div>
+          <div class="line-item negative"><span class="label">Cap Gains Tax</span><span class="value">(${fmt$(p.scenarios.scenAll.totalCGTax)})</span></div>
+          <div class="line-item"><span class="label">Net Sale to Client</span><span class="value">${fmt$(p.withPlanningProceeds)}</span></div>
+          <div class="line-item"><span class="label">Plus: Existing Assets</span><span class="value">${fmt$(d.client.otherAssets)}</span></div>
+          <div class="line-item total"><span class="label">Total Client Net Worth</span><span class="value">${fmt$(p.withPlanningTotal)}</span></div>
+        </div>
+        <div class="panel advantage">
+          <h3>💰 Wealth Advantage</h3>
+          <div class="line-item positive"><span class="label">Add'l NW (Client)</span><span class="value">${fmt$(p.wealthAdvantageConor)}</span></div>
+          <div class="line-item positive"><span class="label">Cap Gains Tax Savings</span><span class="value">${fmt$(p.cgTaxSavings)}</span></div>
+          <div class="line-item positive"><span class="label">Estate Tax Savings (Immediate)</span><span class="value">${fmt$(p.totalEstateSave)}</span></div>
+          ${d.use.qoz ? `<div class="line-item positive"><span class="label">QOZ Tax Deferral</span><span class="value">${fmt$(p.scenarios.scenAll.qozDeferred)}</span></div>` : ''}
+          ${d.use.dynasty ? `<div class="line-item positive"><span class="label">Dynasty ${d.dynasty.years}-Yr Growth</span><span class="value">${fmt$(p.dynastyGrowth)}</span></div>` : ''}
+          <div class="line-item total"><span class="label">Total Wealth Advantage</span><span class="value" style="color: var(--success);">${fmt$(p.totalProgramBenefit)}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Detailed Tax Comparison: All Scenarios</div>
+      <div class="card-sub">Side-by-side comparison of capital gains tax under each strategy combination.</div>
+      <table class="plan-table">
+        <thead>
+          <tr>
+            <th>Line Item</th>
+            <th class="num">No Planning</th>
+            <th class="num">CRAT+DAF Only</th>
+            <th class="num">Dynasty+CRAT+DAF</th>
+            <th class="num">All Strategies</th>
+            <th class="num">Tax Savings</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Sale Price</td><td class="num">${fmt$(d.biz.sale)}</td><td class="num">${fmt$(d.biz.sale)}</td><td class="num">${fmt$(d.biz.sale)}</td><td class="num">${fmt$(d.biz.sale)}</td><td class="num">—</td></tr>
+          <tr><td>Tax Basis</td><td class="num">${fmt$(d.biz.basis)}</td><td class="num">${fmt$(d.biz.basis)}</td><td class="num">${fmt$(d.biz.basis)}</td><td class="num">${fmt$(d.biz.basis)}</td><td class="num">—</td></tr>
+          <tr><td>Dynasty Transfer</td><td class="num">—</td><td class="num">—</td><td class="num neg">(${fmt$(p.scenarios.scenDyCratDaf.dynasty)})</td><td class="num neg">(${fmt$(p.scenarios.scenAll.dynasty)})</td><td class="num">—</td></tr>
+          <tr><td>CRAT Contribution</td><td class="num">—</td><td class="num neg">(${fmt$(p.scenarios.scenCratDaf.crat)})</td><td class="num neg">(${fmt$(p.scenarios.scenDyCratDaf.crat)})</td><td class="num neg">(${fmt$(p.scenarios.scenAll.crat)})</td><td class="num">—</td></tr>
+          <tr><td>DAF Contribution</td><td class="num">—</td><td class="num neg">(${fmt$(p.scenarios.scenCratDaf.daf)})</td><td class="num neg">(${fmt$(p.scenarios.scenDyCratDaf.daf)})</td><td class="num neg">(${fmt$(p.scenarios.scenAll.daf)})</td><td class="num">—</td></tr>
+          <tr class="highlight"><td>Taxable Gain</td><td class="num">${fmt$(p.scenarios.scenNone.taxableGain)}</td><td class="num">${fmt$(p.scenarios.scenCratDaf.taxableGain)}</td><td class="num">${fmt$(p.scenarios.scenDyCratDaf.taxableGain)}</td><td class="num">${fmt$(p.scenarios.scenAll.taxableGain)}</td><td class="num pos">${fmt$(p.scenarios.scenNone.taxableGain - p.scenarios.scenAll.taxableGain)}</td></tr>
+          <tr><td>Federal Tax (${fmtPct(d.tax.fed*100)})</td><td class="num">${fmt$(p.scenarios.scenNone.fedTax)}</td><td class="num">${fmt$(p.scenarios.scenCratDaf.fedTax)}</td><td class="num">${fmt$(p.scenarios.scenDyCratDaf.fedTax)}</td><td class="num">${fmt$(p.scenarios.scenAll.fedTax)}</td><td class="num pos">${fmt$(p.scenarios.scenNone.fedTax - p.scenarios.scenAll.fedTax)}</td></tr>
+          <tr><td>State Tax (${fmtPct(d.tax.state*100)})</td><td class="num">${fmt$(p.scenarios.scenNone.stateTax)}</td><td class="num">${fmt$(p.scenarios.scenCratDaf.stateTax)}</td><td class="num">${fmt$(p.scenarios.scenDyCratDaf.stateTax)}</td><td class="num">${fmt$(p.scenarios.scenAll.stateTax)}</td><td class="num pos">${fmt$(p.scenarios.scenNone.stateTax - p.scenarios.scenAll.stateTax)}</td></tr>
+          <tr><td>Medicare (${fmtPct(d.tax.medicare*100)})</td><td class="num">${fmt$(p.scenarios.scenNone.medicareTax)}</td><td class="num">${fmt$(p.scenarios.scenCratDaf.medicareTax)}</td><td class="num">${fmt$(p.scenarios.scenDyCratDaf.medicareTax)}</td><td class="num">${fmt$(p.scenarios.scenAll.medicareTax)}</td><td class="num pos">${fmt$(p.scenarios.scenNone.medicareTax - p.scenarios.scenAll.medicareTax)}</td></tr>
+          <tr class="total"><td>TOTAL CAP GAINS TAX</td><td class="num">${fmt$(p.scenarios.scenNone.totalCGTax)}</td><td class="num">${fmt$(p.scenarios.scenCratDaf.totalCGTax)}</td><td class="num">${fmt$(p.scenarios.scenDyCratDaf.totalCGTax)}</td><td class="num">${fmt$(p.scenarios.scenAll.totalCGTax)}</td><td class="num">${fmt$(p.cgTaxSavings)}</td></tr>
+          ${d.use.crat ? `<tr><td>Charitable Deduction (CRAT)</td><td class="num">—</td><td class="num pos">(${fmt$(p.cratDeduction)})</td><td class="num pos">(${fmt$(p.cratDeduction)})</td><td class="num pos">(${fmt$(p.cratDeduction)})</td><td class="num">—</td></tr>` : ''}
+          ${d.use.daf ? `<tr><td>Charitable Deduction (DAF)</td><td class="num">—</td><td class="num pos">(${fmt$(p.dafDeduction)})</td><td class="num pos">(${fmt$(p.dafDeduction)})</td><td class="num pos">(${fmt$(p.dafDeduction)})</td><td class="num">—</td></tr>` : ''}
+          <tr><td>Income Tax Savings</td><td class="num">—</td><td class="num pos">${fmt$(p.incomeTaxSavings)}</td><td class="num pos">${fmt$(p.incomeTaxSavings)}</td><td class="num pos">${fmt$(p.incomeTaxSavings)}</td><td class="num">—</td></tr>
+          <tr><td>Estate Tax Savings</td><td class="num">—</td><td class="num pos">${fmt$(p.cratEstateSave + p.dafEstateSave)}</td><td class="num pos">${fmt$(p.totalEstateSave)}</td><td class="num pos">${fmt$(p.totalEstateSave)}</td><td class="num">—</td></tr>
+          <tr class="highlight"><td>Net Proceeds After Tax</td><td class="num">${fmt$(d.biz.sale - p.scenarios.scenNone.totalCGTax)}</td><td class="num">${fmt$(d.biz.sale - p.scenarios.scenCratDaf.totalCGTax - p.scenarios.scenCratDaf.crat - p.scenarios.scenCratDaf.daf)}</td><td class="num">${fmt$(d.biz.sale - p.scenarios.scenDyCratDaf.totalCGTax - p.scenarios.scenDyCratDaf.crat - p.scenarios.scenDyCratDaf.daf)}</td><td class="num">${fmt$(p.withPlanningProceeds)}</td><td class="num pos">${fmt$(p.wealthAdvantageConor)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* ============================================================
+   RENDERING — FINANCIAL OVERVIEW
+   ============================================================ */
+function renderFinancial(p) {
+  const d = p.input;
+  return `
+    <div class="params-bar">
+      <h4>⚙ Projection Parameters</h4>
+      <div class="grid">
+        <div class="field"><label>Investment Return</label><div class="suffix-pct"><input type="number" id="live-equity" value="${(d.proj.equity*100).toFixed(1)}" step="0.1"></div></div>
+        <div class="field"><label>Real Estate Return</label><div class="suffix-pct"><input type="number" id="live-re" value="${(d.proj.re*100).toFixed(1)}" step="0.1"></div></div>
+        <div class="field"><label>Projection Years</label><input type="number" id="live-years" value="${d.proj.years}"></div>
+        <div class="field"><label>Inflation Rate</label><div class="suffix-pct"><input type="number" id="live-inflation" value="${(d.proj.inflation*100).toFixed(1)}" step="0.1"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Financial Overview — Post-Sale Scenario</div>
+      <div class="card-sub">Summary of proceeds, allocation, and income with all strategies applied.</div>
+
+      <div class="kpi-grid">
+        <div class="kpi success"><div class="label">Client's Net Proceeds</div><div class="value">${fmt$(p.withPlanningProceeds)}</div></div>
+        ${d.use.qoz ? `<div class="kpi gold"><div class="label">QOZ Investment</div><div class="value">${fmt$(p.scenarios.scenAll.qozInvestment)}</div></div>` : ''}
+        ${d.use.dynasty ? `<div class="kpi"><div class="label">Dynasty Trust</div><div class="value">${fmt$(d.dynasty.funding)}</div></div>` : ''}
+        <div class="kpi success"><div class="label">Total Family Proceeds</div><div class="value">${fmt$(p.familyTotalProceeds)}</div></div>
+        <div class="kpi gold"><div class="label">Annual Income</div><div class="value">${fmt$(p.annualIncome)}</div></div>
+        <div class="kpi success"><div class="label">Immediate Tax Savings</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Post-Sale Asset Allocation</div>
+        <div class="chart-container"><canvas id="chart-allocation"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Post-Sale Income Sources</div>
+        <div class="chart-container"><canvas id="chart-income"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">${d.proj.years}-Year Wealth Projection</div>
+      <div class="chart-container" style="height: 380px;"><canvas id="chart-projection"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Detailed Projection Table</div>
+      <table class="plan-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th class="num">Client's Investments</th>
+            ${d.use.qoz ? '<th class="num">QOZ</th>' : ''}
+            ${d.use.dynasty ? '<th class="num">Dynasty Trust</th>' : ''}
+            <th class="num">Total Family</th>
+            <th class="num">Annual Income</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${p.projRows.map(r => `
+            <tr>
+              <td>${r.year}</td>
+              <td class="num">${fmt$(r.conor)}</td>
+              ${d.use.qoz ? `<td class="num">${fmt$(r.qoz)}</td>` : ''}
+              ${d.use.dynasty ? `<td class="num">${fmt$(r.dynasty)}</td>` : ''}
+              <td class="num">${fmt$(r.total)}</td>
+              <td class="num pos">${fmt$(r.income)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    ${d.use.dynasty ? `
+    <div class="card">
+      <div class="card-title">Dynasty Trust — ${d.dynasty.years}-Year Wealth Projection</div>
+      <div class="card-sub">${fmtPct(d.proj.equity*100)} annual growth, tax-free to heirs.</div>
+      <table class="plan-table">
+        <thead><tr><th>Year</th><th class="num">Trust Value</th><th class="num">Tax-Free Growth</th><th>Status</th></tr></thead>
+        <tbody>
+          ${p.dynastyRows.map((r,i) => `
+            <tr${i === p.dynastyRows.length - 1 ? ' class="highlight"' : ''}>
+              <td>${r.year}${i === 0 ? ' (Funding)' : ''}</td>
+              <td class="num">${fmt$(r.value)}</td>
+              <td class="num pos">${i === 0 ? '—' : fmt$(r.growth)}</td>
+              <td>${i === 0 ? 'Initial funding' : (i === p.dynastyRows.length - 1 ? 'All tax-free to heirs' : 'Tax-free growth')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>` : ''}
+
+    ${d.use.qoz ? `
+    <div class="card">
+      <div class="card-title">QOZ Investment — ${d.qoz.years}-Year Projection</div>
+      <div class="card-sub">${d.qoz.defer}-year tax deferral with 100% tax-free appreciation if held ${d.qoz.years}+ years.</div>
+      <table class="plan-table">
+        <thead><tr><th>Year</th><th class="num">QOZ Value</th><th class="num">Growth</th><th>Tax Status</th></tr></thead>
+        <tbody>
+          ${p.qozRows.map((r,i) => `
+            <tr${r.status === 'TAX-FREE' ? ' class="highlight"' : ''}>
+              <td>${r.year} (Yr ${r.yearOffset})</td>
+              <td class="num">${fmt$(r.value)}</td>
+              <td class="num pos">${i === 0 ? '—' : fmt$(r.growth)}</td>
+              <td>${r.status}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>` : ''}
+  `;
+}
+
+/* ============================================================
+   RENDERING — TAX OPTIMIZATION
+   ============================================================ */
+function renderTax(p) {
+  const d = p.input;
+  const items = [];
+  if (d.use.dynasty) {
+    items.push({ label: 'Dynasty Trust Estate Tax Savings', value: p.dynastyEstateSave, desc: `${fmt$M(d.dynasty.funding)} Dynasty Trust transfer removes ${fmt$M(d.dynasty.funding)} from taxable estate. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
+    items.push({ label: 'Dynasty Trust Cap Gains Elimination', value: d.dynasty.funding * p.combinedCGRate, desc: `${fmt$M(d.dynasty.funding)} Dynasty Trust share eliminates ${fmt$M(d.dynasty.funding)} capital gain. Saves federal, state, and Medicare taxes.` });
+  }
+  if (d.use.crat) {
+    items.push({ label: 'CRAT Cap Gains Elimination', value: d.crat.amount * p.combinedCGRate, desc: `${fmt$M(d.crat.amount)} CRAT contribution eliminates capital gains tax on ${fmt$M(d.crat.amount)} of appreciated business assets.` });
+    items.push({ label: 'CRAT Charitable Deduction', value: p.cratDeduction * d.tax.marginal, desc: `Immediate charitable deduction of ${fmt$(p.cratDeduction)} from CRAT. Tax savings at ${fmtPct(d.tax.marginal*100)} marginal rate.` });
+  }
+  if (d.use.daf) {
+    items.push({ label: 'DAF Charitable Deduction', value: d.daf.amount * d.tax.marginal, desc: `${fmt$M(d.daf.amount)} DAF contribution generates ${fmt$M(d.daf.amount)} immediate deduction. Tax savings at ${fmtPct(d.tax.marginal*100)} marginal rate.` });
+  }
+  if (d.use.qoz) {
+    items.push({ label: `QOZ Tax Deferral (${d.qoz.defer} Years)`, value: p.scenarios.scenAll.qozDeferred, desc: `Remaining capital gains tax invested into QOZ fund. Defers for ${d.qoz.defer} years. Tax-free if held ${d.qoz.years}+ years.` });
+  }
+  items.push({ label: 'Capital Gains Tax Reduction', value: p.cgTaxSavings, desc: `Reduce taxable gain from ${fmt$M(p.scenarios.scenNone.taxableGain)} to ${fmt$M(p.scenarios.scenAll.taxableGain)} through combined structures.` });
+  if (d.use.crat) items.push({ label: 'Estate Tax Savings (CRAT)', value: p.cratEstateSave, desc: `Remove ${fmt$M(d.crat.amount)} from taxable estate through CRAT. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
+  if (d.use.daf) items.push({ label: 'Estate Tax Savings (DAF)', value: p.dafEstateSave, desc: `Remove ${fmt$M(d.daf.amount)} from taxable estate through DAF. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
+
+  const totalAll = items.reduce((s, i) => s + i.value, 0);
+
+  return `
+    <div class="card">
+      <div class="card-title">Comprehensive Tax Optimization Strategy</div>
+      <div class="card-sub">Strategy-by-strategy breakdown of all tax benefits.</div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+        ${items.map(i => `
+          <div class="kpi success">
+            <div class="label">${i.label}</div>
+            <div class="value">${fmt$(i.value)}</div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic;">${i.desc}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="callout">
+        <span class="title">💰 Total Tax Savings from All Strategies: ${fmt$(totalAll)}</span>
+        <strong>Breakdown:</strong>
+        ${d.use.dynasty ? `• Dynasty Trust Benefits: ${fmt$(p.dynastyEstateSave + d.dynasty.funding * p.combinedCGRate)} (estate + capital gains)<br>` : ''}
+        • Capital Gains Tax Reduction: ${fmt$(p.cgTaxSavings)}<br>
+        ${d.use.crat ? `• CRAT Total Benefits: ${fmt$(d.crat.amount * p.combinedCGRate + p.cratDeduction * d.tax.marginal + p.cratEstateSave)}<br>` : ''}
+        ${d.use.daf ? `• DAF Total Benefits: ${fmt$(d.daf.amount * d.tax.marginal + p.dafEstateSave)}<br>` : ''}
+        ${d.use.qoz ? `• QOZ Deferral: ${fmt$(p.scenarios.scenAll.qozDeferred)} (plus tax-free appreciation)<br>` : ''}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Implementation Checklist</div>
+      <div class="card-sub">Phased action plan to execute the strategy.</div>
+
+      <div class="checklist-phase">
+        <h4>Pre-Sale (Before ${d.biz.date})</h4>
+        <ul>
+          <li>Engage estate attorney &amp; tax CPA</li>
+          ${d.use.dynasty ? '<li>Restructure entity to create voting/non-voting share classes</li>' : ''}
+          ${d.use.dynasty ? `<li>Establish Dynasty Trust and fund with ${fmt$M(d.dynasty.funding)} non-voting shares</li>` : ''}
+          ${d.use.crat ? `<li>Establish CRAT and fund with ${fmt$M(d.crat.amount)} appreciated assets</li>` : ''}
+          ${d.use.daf ? `<li>Establish Donor Advised Fund and contribute ${fmt$M(d.daf.amount)}</li>` : ''}
+          <li>Update estate documents (wills, trusts, ILITs)</li>
+          <li>Review life insurance coverage</li>
+        </ul>
+      </div>
+
+      <div class="checklist-phase">
+        <h4>At Sale Closing</h4>
+        <ul>
+          <li>Execute business sale transaction (${fmt$M(d.biz.sale)})</li>
+          <li>Confirm proper allocation of proceeds across entities</li>
+          <li>Document all transfers and contributions</li>
+          <li>Secure escrow arrangements as needed</li>
+        </ul>
+      </div>
+
+      <div class="checklist-phase">
+        <h4>Post-Sale (Within 90 Days)</h4>
+        <ul>
+          ${d.use.qoz ? `<li>Invest ${fmt$(p.scenarios.scenAll.qozInvestment)} in Qualified Opportunity Zone fund (within 180 days)</li>` : ''}
+          <li>Deploy investment proceeds per asset allocation plan</li>
+          <li>File all required tax elections and disclosures</li>
+          <li>Establish ongoing review cadence with advisor team</li>
+        </ul>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   RENDERING — ESTATE PLANNING
+   ============================================================ */
+function renderEstate(p) {
+  const d = p.input;
+  const insGap = Math.max(0, d.ins.recMin - d.ins.current);
+
+  return `
+    <div class="card">
+      <div class="card-title">Comprehensive Estate Planning Strategy</div>
+      <div class="card-sub">Multi-generational wealth transfer with tax efficiency.</div>
+
+      <div class="callout">
+        <span class="title">✓ Multi-Generational Wealth Transfer</span>
+        Through ${d.use.dynasty ? 'Dynasty Trust, ' : ''}${d.use.crat ? 'CRAT, ' : ''}${d.use.daf ? 'DAF, ' : ''}${d.use.qoz ? 'and QOZ ' : ''}structures, the client removes ${fmt$M((d.use.dynasty?d.dynasty.funding:0) + (d.use.crat?d.crat.amount:0) + (d.use.daf?d.daf.amount:0))} from the taxable estate, reducing estate tax exposure by ${fmt$M(p.estateTaxSavings)} and creating ${fmt$M(p.dynastyGrowth)} in tax-free wealth for heirs over ${d.dynasty.years} years.
+      </div>
+
+      <div class="two-col">
+        ${d.use.dynasty ? `
+        <div class="info-card">
+          <h4>Dynasty Trust Estate Planning</h4>
+          <div class="row"><span class="k">Funding:</span><span class="v">${fmt$(d.dynasty.funding)}</span></div>
+          <div class="row"><span class="k">Exemption Used:</span><span class="v">${fmt$(d.dynasty.exemption)}</span></div>
+          <div class="row"><span class="k">GST Exemption:</span><span class="v">${fmt$(d.dynasty.exemption)}</span></div>
+          <div class="row"><span class="k">Estate Tax Impact:</span><span class="v" style="color: var(--success)">Removes ${fmt$M(d.dynasty.funding)}</span></div>
+          <div class="row"><span class="k">${d.dynasty.years}-Yr Projected:</span><span class="v">${fmt$(p.dynasty20yr)}</span></div>
+          <div class="row"><span class="k">Tax-Free to Heirs:</span><span class="v" style="color: var(--success)">${fmt$(p.dynastyGrowth)}</span></div>
+        </div>` : ''}
+
+        ${d.use.qoz ? `
+        <div class="info-card">
+          <h4>QOZ Estate Planning (${d.qoz.defer}-Year Deferral)</h4>
+          <div class="row"><span class="k">Investment:</span><span class="v">${fmt$(p.scenarios.scenAll.qozInvestment)}</span></div>
+          <div class="row"><span class="k">Holding Period:</span><span class="v">${d.qoz.years}+ years</span></div>
+          <div class="row"><span class="k">At Death:</span><span class="v">Full basis step-up</span></div>
+          <div class="row"><span class="k">Tax at Death:</span><span class="v" style="color: var(--success)">Eliminated</span></div>
+          <div class="row"><span class="k">${d.qoz.years}-Yr Projected:</span><span class="v">${fmt$(p.scenarios.scenAll.qoz10yrValue)}</span></div>
+        </div>` : ''}
+
+        <div class="info-card">
+          <h4>Current Estate Tax Exposure</h4>
+          <div class="row"><span class="k">Pre-Sale NW:</span><span class="v">${fmt$(d.client.preSaleNW)}</span></div>
+          <div class="row"><span class="k">Federal Exemption:</span><span class="v">${fmt$(d.tax.estateExempt)}</span></div>
+          <div class="row"><span class="k">Taxable Estate (no plan):</span><span class="v" style="color: var(--crimson)">${fmt$(p.taxableEstateNoPlan)}</span></div>
+          <div class="row"><span class="k">Est. Tax (no plan):</span><span class="v" style="color: var(--crimson)">${fmt$(p.estateTaxNoPlan)}</span></div>
+          <div class="row"><span class="k">With Planning:</span><span class="v">${fmt$(p.taxableEstateWithPlan)}</span></div>
+          <div class="row"><span class="k">Est. Tax (with plan):</span><span class="v">${fmt$(p.estateTaxWithPlan)}</span></div>
+          <div class="row"><span class="k">Estate Tax Savings:</span><span class="v" style="color: var(--success); font-weight: 700;">${fmt$(p.estateTaxSavings)}</span></div>
+        </div>
+
+        <div class="info-card">
+          <h4>Recommended Estate Plan Structure</h4>
+          ${d.use.dynasty ? '<div class="row"><span class="k">1. Dynasty Trust</span><span class="v">Multi-generational</span></div>' : ''}
+          <div class="row"><span class="k">2. Revocable Living Trust</span><span class="v">Avoid probate</span></div>
+          ${d.use.qoz ? '<div class="row"><span class="k">3. QOZ Investment Account</span><span class="v">Tax-free growth</span></div>' : ''}
+          <div class="row"><span class="k">4. Irrevocable Life Insurance Trust</span><span class="v">ILIT — liquidity</span></div>
+          <div class="row"><span class="k">Estate attorney review:</span><span class="v">Annual</span></div>
+        </div>
+      </div>
+    </div>
+
+    ${d.use.crat || d.use.daf ? `
+    <div class="two-col">
+      ${d.use.crat ? `
+      <div class="card">
+        <div class="card-title">CRAT Estate Planning Benefits</div>
+        <div class="info-card">
+          <div class="row"><span class="k">Structure:</span><span class="v">${fmt$M(d.crat.amount)} CRAT</span></div>
+          <div class="row"><span class="k">Annual Income:</span><span class="v">${fmt$(p.cratIncome)}</span></div>
+          <div class="row"><span class="k">Remainder Beneficiary:</span><span class="v">Designated charity</span></div>
+          <div class="row"><span class="k">Estate Tax Impact:</span><span class="v" style="color: var(--success)">Removes ${fmt$M(d.crat.amount)}</span></div>
+          <div class="row"><span class="k">Charitable Deduction:</span><span class="v">${fmt$(p.cratDeduction)}</span></div>
+          <div class="row"><span class="k">Income Tax Savings:</span><span class="v" style="color: var(--success)">${fmt$(p.cratDeduction * d.tax.marginal)}</span></div>
+        </div>
+      </div>` : ''}
+
+      ${d.use.daf ? `
+      <div class="card">
+        <div class="card-title">DAF Estate Planning Benefits</div>
+        <div class="info-card">
+          <div class="row"><span class="k">Structure:</span><span class="v">${fmt$M(d.daf.amount)} DAF</span></div>
+          <div class="row"><span class="k">Timing:</span><span class="v">Flexible distributions</span></div>
+          <div class="row"><span class="k">Donor Control:</span><span class="v">Recommend grants to charities</span></div>
+          <div class="row"><span class="k">Estate Tax Impact:</span><span class="v" style="color: var(--success)">Removes ${fmt$M(d.daf.amount)}</span></div>
+          <div class="row"><span class="k">Charitable Deduction:</span><span class="v">${fmt$(p.dafDeduction)}</span></div>
+          <div class="row"><span class="k">Income Tax Savings:</span><span class="v" style="color: var(--success)">${fmt$(p.dafDeduction * d.tax.marginal)}</span></div>
+        </div>
+      </div>` : ''}
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-title">Life Insurance Strategy</div>
+      <div class="card-sub">Coverage gap analysis and recommended structure.</div>
+      <div class="info-card">
+        <div class="row"><span class="k">Current Coverage:</span><span class="v">${fmt$(d.ins.current)}</span></div>
+        <div class="row"><span class="k">Recommended Coverage:</span><span class="v">${fmt$(d.ins.recMin)} – ${fmt$(d.ins.recMax)}</span></div>
+        <div class="row"><span class="k">Coverage Gap:</span><span class="v" style="color: var(--crimson)">${fmt$(insGap)}</span></div>
+        <div class="row"><span class="k">Recommended Structure:</span><span class="v">ILIT (Irrevocable Life Insurance Trust)</span></div>
+        <div class="row"><span class="k">Purpose:</span><span class="v">Estate tax liquidity + wealth replacement for charitable gifts</span></div>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      <h4>Important Disclosures &amp; Disclaimers</h4>
+      <p><strong>Investment Advisory Services:</strong> Investment Advisory Services are offered through a Registered Investment Advisor. This plan is produced for illustrative and planning purposes only.</p>
+      <p><strong>Tax &amp; Legal Advice:</strong> This comprehensive financial plan is for informational and planning purposes only. It does not constitute tax, legal, or investment advice. Consult qualified professionals before implementing any strategy.</p>
+      <p><strong>Past Performance:</strong> The performance data shown represents projections based on stated assumptions and does not guarantee future results. Actual results will vary based on market conditions, tax law changes, and individual circumstances.</p>
+      <p><strong>QOZ Disclaimer:</strong> Qualified Opportunity Zone investments are subject to specific IRS requirements and regulations. QOZ tax benefits require compliance with holding period and reinvestment rules. Consult a qualified tax professional.</p>
+      ${d.use.dynasty ? '<p><strong>Dynasty Trust Note:</strong> Dynasty Trust is an additional structure that is not already included in the primary net worth calculations. It represents wealth transferred to heirs and does not belong to the grantor.</p>' : ''}
+      <p><strong>Tax Assumptions:</strong> Federal cap gains ${fmtPct(d.tax.fed*100)}, state ${fmtPct(d.tax.state*100)}, Medicare ${fmtPct(d.tax.medicare*100)}, marginal income ${fmtPct(d.tax.marginal*100)}, estate ${fmtPct(d.tax.estate*100)}. Tax rates are subject to change.</p>
+    </div>
+  `;
+}
+
+/* ============================================================
+   CHARTS
+   ============================================================ */
+window.__CHART_REGISTRY__ = {};
+
+function destroyCharts() {
+  Object.values(window.__CHART_REGISTRY__).forEach(c => { try { c.destroy(); } catch(e){} });
+  window.__CHART_REGISTRY__ = {};
+}
+
+const BRAND = {
+  gold: '#C9A961', goldDark: '#8B7640', goldLight: '#E4D4A8',
+  crimson: '#8B1A1A', crimsonLight: '#A42E2E',
+  success: '#2D6A4F', successLight: '#6B9B7B',
+  ink: '#1A1A1A', muted: '#8B7E6A',
+  cream: '#F5F1E8', panel: '#FFFFFF',
+};
+
+function renderCharts(p) {
+  destroyCharts();
+  const d = p.input;
+
+  // Asset Allocation donut
+  const allocCanvas = document.getElementById('chart-allocation');
+  if (allocCanvas) {
+    const data = [];
+    const labels = [];
+    const colors = [];
+    if (d.use.qoz) { labels.push('QOZ Fund'); data.push(p.scenarios.scenAll.qozInvestment); colors.push(BRAND.gold); }
+    labels.push('Equities'); data.push(p.withPlanningProceeds * 0.35); colors.push(BRAND.crimson);
+    labels.push('Fixed Income'); data.push(p.withPlanningProceeds * 0.30); colors.push(BRAND.success);
+    labels.push('Alternatives'); data.push(p.withPlanningProceeds * 0.20); colors.push(BRAND.goldDark);
+    labels.push('Cash / Other'); data.push(p.withPlanningProceeds * 0.15 + d.client.otherAssets); colors.push(BRAND.crimsonLight);
+
+    window.__CHART_REGISTRY__.alloc = new Chart(allocCanvas, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: BRAND.panel, borderWidth: 2 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color: BRAND.ink, font: { family: 'Helvetica Neue', size: 12 } } },
+          tooltip: { callbacks: { label: c => `${c.label}: ${fmt$(c.parsed)}` } }
+        }
+      }
+    });
+  }
+
+  // Income Sources pie
+  const incCanvas = document.getElementById('chart-income');
+  if (incCanvas) {
+    const data = [];
+    const labels = [];
+    const colors = [];
+    if (d.use.crat) { labels.push('CRAT Income'); data.push(p.cratIncome); colors.push(BRAND.gold); }
+    labels.push('Investment Income'); data.push(p.investmentIncome); colors.push(BRAND.success);
+    labels.push('Rental / Other'); data.push(365000); colors.push(BRAND.crimson);
+
+    window.__CHART_REGISTRY__.income = new Chart(incCanvas, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: BRAND.panel, borderWidth: 2 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color: BRAND.ink, font: { family: 'Helvetica Neue', size: 12 } } },
+          tooltip: { callbacks: { label: c => `${c.label}: ${fmt$(c.parsed)}` } }
+        }
+      }
+    });
+  }
+
+  // 20-year wealth projection line chart
+  const projCanvas = document.getElementById('chart-projection');
+  if (projCanvas) {
+    const labels = p.projRows.map(r => r.year);
+    const datasets = [];
+    datasets.push({
+      label: "Client's Investments",
+      data: p.projRows.map(r => r.conor),
+      borderColor: BRAND.crimson, backgroundColor: 'rgba(139, 26, 26, 0.1)',
+      borderWidth: 2, tension: 0.3, fill: false
+    });
+    if (d.use.qoz) {
+      datasets.push({
+        label: 'QOZ Investment',
+        data: p.projRows.map(r => r.qoz),
+        borderColor: BRAND.gold, backgroundColor: 'rgba(201, 169, 97, 0.1)',
+        borderWidth: 2, tension: 0.3, fill: false
+      });
+    }
+    if (d.use.dynasty) {
+      datasets.push({
+        label: 'Dynasty Trust',
+        data: p.projRows.map(r => r.dynasty),
+        borderColor: BRAND.success, backgroundColor: 'rgba(45, 106, 79, 0.1)',
+        borderWidth: 2, tension: 0.3, fill: false
+      });
+    }
+    datasets.push({
+      label: 'Total Family Wealth',
+      data: p.projRows.map(r => r.total),
+      borderColor: BRAND.ink, backgroundColor: 'rgba(26, 26, 26, 0.1)',
+      borderWidth: 3, tension: 0.3, fill: true
+    });
+
+    window.__CHART_REGISTRY__.proj = new Chart(projCanvas, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { color: BRAND.ink, font: { family: 'Helvetica Neue', size: 12 } } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt$(c.parsed.y)}` } }
+        },
+        scales: {
+          x: { ticks: { color: BRAND.muted }, grid: { color: 'rgba(139, 118, 64, 0.1)' } },
+          y: { ticks: { color: BRAND.muted, callback: v => '$' + (v/1e6).toFixed(0) + 'M' }, grid: { color: 'rgba(139, 118, 64, 0.1)' } }
+        }
+      }
+    });
+  }
+}
+
+window.__RENDER_CHARTS__ = target => {
+  if (!window.__PLAN_DATA__) return;
+  // Only Financial tab has charts
+  if (target === 'financial') {
+    setTimeout(() => renderCharts(window.__PLAN_DATA__), 50);
+  }
+};
+
+/* ============================================================
+   LOGO RENDERING (reusable crest)
+   ============================================================ */
+function renderLogoBox(firm, logoDataURL) {
+  const box = document.getElementById('plan-logo-box');
+  if (logoDataURL) {
+    box.className = 'logo-box custom';
+    box.innerHTML = `<img src="${logoDataURL}" alt="${firm.name}">`;
+  } else {
+    box.className = 'logo-box';
+    const initials = firm.name.split(' ').map(w => w[0]).join('').slice(0,3).toUpperCase();
+    box.innerHTML = `
+      <div class="crest">${initials}</div>
+      <div class="logo-pyle">${firm.name.split(' ')[0].toUpperCase()}</div>
+      <div class="logo-fin">${(firm.name.split(' ')[1] || '').toUpperCase()}</div>
+      <div class="logo-tag">KEEP MORE</div>
+    `;
+  }
+}
+
+/* ============================================================
+   ORCHESTRATION: generate + render
+   ============================================================ */
+function generatePlan() {
+  const d = readForm();
+  const p = computePlan(d);
+  window.__PLAN_DATA__ = p;
+
+  // Header
+  document.getElementById('plan-title').textContent = `${d.client.primary}${d.client.spouse ? ' & ' + d.client.spouse : ''} — Comprehensive Financial Plan`;
+  document.getElementById('plan-subtitle').textContent = `${d.client.location} • ${d.client.year} • ${d.client.subtitle}`;
+  renderLogoBox(d.firm, d.firm.logo);
+
+  // Tabs
+  document.getElementById('panel-summary').innerHTML = renderSummary(p);
+  document.getElementById('panel-transaction').innerHTML = renderTransaction(p);
+  document.getElementById('panel-financial').innerHTML = renderFinancial(p);
+  document.getElementById('panel-tax').innerHTML = renderTax(p);
+  document.getElementById('panel-estate').innerHTML = renderEstate(p);
+
+  // Switch to plan view
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'plan'));
+  document.getElementById('builder-view').classList.add('hidden');
+  document.getElementById('plan-view').classList.remove('hidden');
+  window.scrollTo(0, 0);
+
+  // Default to Executive Summary tab, then render financial charts when user clicks
+  document.querySelectorAll('.plan-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'summary'));
+  document.querySelectorAll('.tab-panel').forEach(pn => pn.classList.toggle('active', pn.id === 'panel-summary'));
+}
+
+document.getElementById('btn-generate').addEventListener('click', generatePlan);
+
+document.getElementById('btn-edit').addEventListener('click', () => {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'builder'));
+  document.getElementById('builder-view').classList.remove('hidden');
+  document.getElementById('plan-view').classList.add('hidden');
+  window.scrollTo(0, 0);
+});
+
+document.getElementById('btn-print').addEventListener('click', () => {
+  // Expose all tabs for print
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('active'));
+  setTimeout(() => window.print(), 100);
+});
+
+/* ============================================================
+   DOWNLOAD PLAN — saves a self-contained HTML file with the
+   plan data & logo baked in, opens directly to Plan view.
+   ============================================================ */
+document.getElementById('btn-download').addEventListener('click', () => {
+  if (!window.__PLAN_DATA__) { alert('Please generate a plan first.'); return; }
+  const d = window.__PLAN_DATA__.input;
+
+  // Clone the current document
+  const clone = document.documentElement.cloneNode(true);
+
+  // Remove any scripts that won't be useful in the downloaded file
+  // (we'll inject a bootstrap script that auto-generates from embedded data)
+  clone.querySelectorAll('script').forEach(s => {
+    if (s.src && s.src.includes('chart.js')) return; // keep chart.js CDN
+    s.remove();
+  });
+
+  // Inject bootstrap script that reads embedded data and auto-renders
+  const embedScript = document.createElement('script');
+  const embedData = JSON.stringify({
+    formValues: {
+      'client-primary': d.client.primary, 'client-spouse': d.client.spouse,
+      'client-location': d.client.location, 'client-year': d.client.year,
+      'client-subtitle': d.client.subtitle, 'client-pnw': d.client.preSaleNW,
+      'client-other': d.client.otherAssets,
+      'biz-name': d.biz.name, 'biz-type': d.biz.type, 'biz-ownership': d.biz.ownership,
+      'biz-sale': d.biz.sale, 'biz-basis': d.biz.basis, 'biz-date': d.biz.date,
+      'biz-income': d.biz.income,
+      'dt-funding': d.dynasty.funding, 'dt-exemption': d.dynasty.exemption, 'dt-years': d.dynasty.years,
+      'crat-amount': d.crat.amount, 'crat-rate': d.crat.rate * 100, 'crat-ded': d.crat.dedPct * 100,
+      'daf-amount': d.daf.amount,
+      'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years,
+      'tax-fed': d.tax.fed * 100, 'tax-state': d.tax.state * 100, 'tax-medicare': d.tax.medicare * 100,
+      'tax-marginal': d.tax.marginal * 100, 'tax-estate': d.tax.estate * 100, 'tax-estate-exempt': d.tax.estateExempt,
+      'proj-equity': d.proj.equity * 100, 'proj-re': d.proj.re * 100,
+      'proj-years': d.proj.years, 'proj-inflation': d.proj.inflation * 100,
+      'ins-current': d.ins.current, 'ins-rec-min': d.ins.recMin, 'ins-rec-max': d.ins.recMax,
+      'firm-name': d.firm.name, 'firm-tag': d.firm.tag,
+    },
+    checkboxes: { 'use-dynasty': d.use.dynasty, 'use-crat': d.use.crat, 'use-daf': d.use.daf, 'use-qoz': d.use.qoz },
+    firmLogo: d.firm.logo || null,
+  });
+
+  // Get all inline scripts from current doc to embed (except chart.js CDN)
+  const allScripts = Array.from(document.querySelectorAll('script')).filter(s => !s.src).map(s => s.textContent).join('\n\n');
+
+  embedScript.textContent = `
+    window.__EMBED__ = ${embedData};
+    ${allScripts}
+    // Bootstrap: hydrate form from embedded data, generate, switch to plan view
+    window.addEventListener('DOMContentLoaded', () => {
+      const e = window.__EMBED__;
+      Object.entries(e.formValues).forEach(([k, v]) => { const el = document.getElementById(k); if (el) el.value = v; });
+      Object.entries(e.checkboxes).forEach(([k, v]) => { const el = document.getElementById(k); if (el) el.checked = v; });
+      if (e.firmLogo) window.__FIRM_LOGO__ = e.firmLogo;
+      document.getElementById('btn-generate').click();
+    });
+  `;
+
+  // Build final HTML
+  const finalHTML = '<!DOCTYPE html>\n<html lang="en">\n' + clone.innerHTML + '\n' + embedScript.outerHTML + '\n</html>';
+
+  // Trigger actual download
+  const blob = new Blob([finalHTML], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const fileName = `Financial Plan - ${d.client.primary.replace(/[^a-z0-9 ]/gi,'')}.html`;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+/* ============================================================
+   AUTO-RENDER CHARTS WHEN FINANCIAL TAB BECOMES ACTIVE
+   ============================================================ */
+const obs = new MutationObserver(() => {
+  if (document.getElementById('panel-financial').classList.contains('active') && window.__PLAN_DATA__) {
+    setTimeout(() => renderCharts(window.__PLAN_DATA__), 60);
+  }
+});
+obs.observe(document.getElementById('panel-financial'), { attributes: true, attributeFilter: ['class'] });
+
+</script>
+
+<script>
+/* ============================================================
+   SUPABASE CLOUD INTEGRATION
+   Save / Load / List / Share plans — no auth.
+   Requires window.__WAVVEST_CONFIG__ from config.js
+   ============================================================ */
+(function () {
+  const cfg = window.__WAVVEST_CONFIG__ || {};
+  const statusEl = document.getElementById('cloud-status');
+  const selectEl = document.getElementById('cloud-load-select');
+  const nameEl   = document.getElementById('cloud-plan-name');
+
+  function setStatus(msg, kind) {
+    statusEl.className = 'cb-status' + (kind ? ' ' + kind : '');
+    statusEl.textContent = msg;
+  }
+
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY ||
+      cfg.SUPABASE_URL.includes('YOUR_') || cfg.SUPABASE_ANON_KEY.includes('YOUR_')) {
+    setStatus('Cloud disabled — edit config.js to enable', 'err');
+    document.getElementById('btn-cloud-save').disabled = true;
+    document.getElementById('btn-cloud-load').disabled = true;
+    document.getElementById('btn-cloud-share').disabled = true;
+    return;
+  }
+
+  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const TABLE = cfg.TABLE_NAME || 'plans';
+
+  // Current plan id (set after save or load)
+  let currentId = null;
+
+  /* ---- Snapshot form state to a portable JSON object ---- */
+  function snapshotForm() {
+    const ids = [
+      'client-primary','client-spouse','client-location','client-year','client-subtitle',
+      'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date',
+      'client-pnw','client-other','biz-income',
+      'dt-funding','dt-exemption','dt-years',
+      'crat-amount','crat-rate','crat-ded',
+      'daf-amount',
+      'qoz-defer','qoz-return','qoz-years',
+      'tax-fed','tax-state','tax-medicare','tax-marginal','tax-estate','tax-estate-exempt',
+      'proj-equity','proj-re','proj-years','proj-inflation',
+      'ins-current','ins-rec-min','ins-rec-max',
+      'firm-name','firm-tag'
+    ];
+    const checks = ['use-dynasty','use-crat','use-daf','use-qoz'];
+    const values = {};
+    const checkboxes = {};
+    ids.forEach(id => { const el = document.getElementById(id); if (el) values[id] = el.value; });
+    checks.forEach(id => { const el = document.getElementById(id); if (el) checkboxes[id] = el.checked; });
+    return { values, checkboxes, firmLogo: window.__FIRM_LOGO__ || null, schemaVersion: 1 };
+  }
+
+  /* ---- Hydrate form from snapshot ---- */
+  function hydrateForm(snap) {
+    if (!snap) return;
+    Object.entries(snap.values || {}).forEach(([k, v]) => {
+      const el = document.getElementById(k); if (el) el.value = v;
+    });
+    Object.entries(snap.checkboxes || {}).forEach(([k, v]) => {
+      const el = document.getElementById(k);
+      if (el) { el.checked = !!v; el.dispatchEvent(new Event('change')); }
+    });
+    if (snap.firmLogo) window.__FIRM_LOGO__ = snap.firmLogo;
+  }
+
+  /* ---- List plans into the dropdown ---- */
+  async function refreshList() {
+    const { data, error } = await sb
+      .from(TABLE)
+      .select('id,name,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(100);
+    if (error) { setStatus('List failed: ' + error.message, 'err'); return; }
+    selectEl.innerHTML = '<option value="">— Saved plans —</option>';
+    (data || []).forEach(row => {
+      const opt = document.createElement('option');
+      opt.value = row.id;
+      const when = row.updated_at ? new Date(row.updated_at).toLocaleDateString() : '';
+      opt.textContent = (row.name || '(untitled)') + (when ? '  ·  ' + when : '');
+      selectEl.appendChild(opt);
+    });
+    setStatus('Connected', 'ok');
+  }
+
+  /* ---- Save (insert or update) ---- */
+  async function savePlan() {
+    const name = (nameEl.value || '').trim() || (document.getElementById('client-primary').value + ' — ' + document.getElementById('client-year').value);
+    const payload = { name, data: snapshotForm() };
+    setStatus('Saving…');
+    let resp;
+    if (currentId) {
+      resp = await sb.from(TABLE).update({ name, data: payload.data, updated_at: new Date().toISOString() }).eq('id', currentId).select('id').single();
+    } else {
+      resp = await sb.from(TABLE).insert(payload).select('id').single();
+    }
+    if (resp.error) { setStatus('Save failed: ' + resp.error.message, 'err'); return; }
+    currentId = resp.data.id;
+    history.replaceState(null, '', '?id=' + encodeURIComponent(currentId));
+    setStatus('Saved ✓', 'ok');
+    refreshList();
+  }
+
+  /* ---- Load by id ---- */
+  async function loadPlan(id) {
+    if (!id) return;
+    setStatus('Loading…');
+    const { data, error } = await sb.from(TABLE).select('id,name,data').eq('id', id).single();
+    if (error) { setStatus('Load failed: ' + error.message, 'err'); return; }
+    currentId = data.id;
+    nameEl.value = data.name || '';
+    hydrateForm(data.data);
+    history.replaceState(null, '', '?id=' + encodeURIComponent(currentId));
+    setStatus('Loaded: ' + (data.name || data.id), 'ok');
+  }
+
+  /* ---- Copy share link to clipboard ---- */
+  async function copyShareLink() {
+    if (!currentId) {
+      // Auto-save first
+      await savePlan();
+      if (!currentId) return;
+    }
+    const url = location.origin + location.pathname + '?id=' + encodeURIComponent(currentId) + '&view=plan';
+    try {
+      await navigator.clipboard.writeText(url);
+      setStatus('Share link copied ✓', 'ok');
+    } catch {
+      prompt('Copy this URL:', url);
+    }
+  }
+
+  /* ---- Wire up buttons ---- */
+  document.getElementById('btn-cloud-save').addEventListener('click', savePlan);
+  document.getElementById('btn-cloud-load').addEventListener('click', () => loadPlan(selectEl.value));
+  document.getElementById('btn-cloud-share').addEventListener('click', copyShareLink);
+  document.getElementById('btn-plan-share').addEventListener('click', copyShareLink);
+
+  /* ---- Initial load: if ?id= in URL, fetch and maybe auto-view ---- */
+  async function boot() {
+    await refreshList();
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    if (id) {
+      await loadPlan(id);
+      if (params.get('view') === 'plan') {
+        document.getElementById('btn-generate').click();
+      }
+    }
+  }
+
+  boot();
+})();
+</script>
+
+</body>
+</html>
