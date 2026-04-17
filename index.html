@@ -820,7 +820,7 @@
     </div>
     <div class="cb-group">
       <span class="cb-label">Plan Name:</span>
-      <input type="text" id="cloud-plan-name" placeholder="e.g., Delaney 2026 Sale">
+      <input type="text" id="cloud-plan-name" placeholder="e.g., Client 2026 Sale">
     </div>
     <div class="cb-group">
       <button class="btn btn-primary btn-sm" id="btn-cloud-save">Save to Cloud</button>
@@ -841,15 +841,15 @@
     <div class="form-grid cols-3">
       <div class="field">
         <label>Primary Client Name</label>
-        <input type="text" id="client-primary" value="Conor Delaney">
+        <input type="text" id="client-primary" value="" placeholder="e.g., John Smith">
       </div>
       <div class="field">
         <label>Spouse Name <span class="hint">(optional)</span></label>
-        <input type="text" id="client-spouse" value="Elizabeth Delaney">
+        <input type="text" id="client-spouse" value="" placeholder="e.g., Jane Smith">
       </div>
       <div class="field">
         <label>Location (City, State)</label>
-        <input type="text" id="client-location" value="Celebration, FL">
+        <input type="text" id="client-location" value="" placeholder="City, State">
       </div>
       <div class="field">
         <label>Plan Year</label>
@@ -874,7 +874,7 @@
     <div class="form-grid cols-3">
       <div class="field">
         <label>Entity Name</label>
-        <input type="text" id="biz-name" value="Good Life Advisors/GLAS">
+        <input type="text" id="biz-name" value="" placeholder="e.g., ABC Corp">
       </div>
       <div class="field">
         <label>Entity Type</label>
@@ -896,7 +896,7 @@
       </div>
       <div class="field">
         <label>Expected Sale Date</label>
-        <input type="text" id="biz-date" value="July 1, 2026">
+        <input type="text" id="biz-date" value="" placeholder="e.g., July 1, 2026">
       </div>
       <div class="field">
         <label>Current Pre-Sale Net Worth</label>
@@ -1238,7 +1238,7 @@ document.getElementById('firm-logo').addEventListener('change', e => {
 
 /* ---- Reset ---- */
 document.getElementById('btn-reset').addEventListener('click', () => {
-  if (confirm('Reset all fields to the default Delaney example?')) location.reload();
+  if (confirm('Reset all fields to the default example values?')) location.reload();
 });
 </script>
 
