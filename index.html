@@ -191,6 +191,123 @@
     .timeline-inner { min-width: 900px; position: relative; height: 160px; }
   }
 
+  /* ===== SCENARIO SLIDERS (Tax & Estate Impact Explorers) =====
+     Interactive "what if" sliders the advisor can drag in front of the
+     client to show how more/less funding of a strategy moves the
+     bottom-line numbers. Pure CSS on range inputs; results update live
+     via JS without regenerating the whole plan. */
+  .scenario-sliders {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 18px 0 8px;
+  }
+  .slider-row {
+    background: var(--cream-light);
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 12px 14px;
+  }
+  .slider-row .slider-label {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--crimson);
+    margin-bottom: 6px;
+  }
+  .slider-row .slider-hint {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 2px;
+  }
+  .slider-row .slider-value {
+    font-family: 'Georgia', serif;
+    font-size: 20px;
+    color: var(--ink);
+    font-weight: 700;
+    margin: 6px 0;
+  }
+  .slider-row input[type="range"] {
+    width: 100%;
+    height: 6px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: linear-gradient(to right, var(--gold), var(--gold-dark));
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+  }
+  .slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--crimson);
+    border: 3px solid #FFF;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.25);
+    cursor: pointer;
+  }
+  .slider-row input[type="range"]::-moz-range-thumb {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--crimson);
+    border: 3px solid #FFF;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.25);
+    cursor: pointer;
+  }
+  .slider-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--cream-panel) 0%, #FDF9EC 100%);
+    border: 2px solid var(--gold);
+    border-radius: 6px;
+  }
+  .slider-results .result {
+    text-align: center;
+  }
+  .slider-results .result .r-label {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .slider-results .result .r-value {
+    font-family: 'Georgia', serif;
+    font-size: 24px;
+    color: var(--gold-dark);
+    font-weight: 700;
+  }
+  .slider-results .result .r-value.pos { color: var(--success); }
+  .slider-results .result .r-value.neg { color: var(--crimson); }
+  .slider-results .result .r-delta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .slider-reset {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: 'Helvetica Neue', sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: 10px;
+  }
+  .slider-reset:hover { color: var(--crimson); border-color: var(--crimson); }
+
   /* ===== ADVISOR-ONLY ELEMENTS =====
      Any element tagged .advisor-only is hidden when the body has
      .client-view. That class is auto-added for signed-in clients and
@@ -3570,8 +3687,47 @@ function renderTransaction(p) {
     </div>
   `;
 
+  // Tax Impact Explorer — slide strategy funding amounts to see live
+  // changes in capital-gains tax savings and family net worth.
+  const maxSale = Math.max(1_000_000, d.biz.sale || 10_000_000);
+  const taxSliders = [
+    { id: 'crat',    path: 'crat.amount',     label: 'CRAT Contribution',    value: d.crat.amount || 0,    max: Math.max(20_000_000, (d.crat.amount || 0) * 2),    step: 500_000 },
+    { id: 'daf',     path: 'daf.amount',      label: 'DAF Contribution',     value: d.daf.amount  || 0,    max: Math.max(15_000_000, (d.daf.amount  || 0) * 2),    step: 250_000 },
+    { id: 'dynasty', path: 'dynasty.funding', label: 'Dynasty Trust Funding', value: d.dynasty.funding || 0, max: Math.max(50_000_000, (d.dynasty.funding || 0) * 2), step: 1_000_000 },
+    { id: 'qsbs',    path: 'qsbs.exclPct',    label: 'QSBS Exclusion %',     value: d.qsbs.exclPct * 100,  max: 100, step: 25, isPercent: true },
+  ];
+  const taxExplorerHTML = `
+    <div class="card" style="border-left: 4px solid var(--gold);" id="tax-explorer-card">
+      <div class="card-title">🎚 Tax Impact Explorer — Drag the Sliders</div>
+      <div class="card-sub">
+        See how adjusting the size of each strategy moves the bottom-line tax owed on this ${p.saleIsAsset ? 'asset' : 'stock'} sale. The baseline values come from the plan as currently configured; drag to explore "more or less" scenarios in real time.
+        <button class="slider-reset" onclick="window.__RESET_TAX_EXPLORER__()">↺ Reset to plan</button>
+      </div>
+      <div class="scenario-sliders">
+        ${taxSliders.map(s => `
+          <div class="slider-row">
+            <div class="slider-label">${s.label}</div>
+            <div class="slider-value" id="tax-val-${s.id}">${s.isPercent ? Math.round(s.value) + '%' : fmtSliderCurrency(s.value)}</div>
+            <input type="range" id="tax-sld-${s.id}"
+                   data-path="${s.path}" data-ispct="${s.isPercent ? 1 : 0}"
+                   min="0" max="${s.max}" step="${s.step}" value="${s.value}">
+            <div class="slider-hint">Plan default: ${s.isPercent ? Math.round(s.value) + '%' : fmtSliderCurrency(s.value)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="slider-results" id="tax-explorer-results">
+        <div class="result"><div class="r-label">Capital Gains Tax Owed</div><div class="r-value neg" id="tax-res-cgTax">${fmt$(p.scenarios.scenAll.totalCGTax)}</div><div class="r-delta" id="tax-res-cgTax-delta">baseline</div></div>
+        <div class="result"><div class="r-label">CG Tax Savings vs. No Planning</div><div class="r-value pos" id="tax-res-cgSav">${fmt$(p.cgTaxSavings)}</div><div class="r-delta" id="tax-res-cgSav-delta">baseline</div></div>
+        <div class="result"><div class="r-label">§1202 QSBS Exclusion</div><div class="r-value pos" id="tax-res-qsbs">${fmt$(p.qsbsTotalSaving)}</div><div class="r-delta" id="tax-res-qsbs-delta">baseline</div></div>
+        <div class="result"><div class="r-label">Total Immediate Tax Savings</div><div class="r-value pos" id="tax-res-total">${fmt$(p.totalImmediate)}</div><div class="r-delta" id="tax-res-total-delta">baseline</div></div>
+      </div>
+    </div>
+  `;
+
   return `
     ${timelineHTML}
+
+    ${taxExplorerHTML}
 
     ${saleStructureCard}
 
@@ -4474,8 +4630,52 @@ function renderEstate(p) {
     </div>
   `;
 
+  // Estate Impact Explorer — drag sliders to see how changing funding
+  // of each strategy moves the Legacy numbers (to heirs / to charity / to tax).
+  const estateSliders = [
+    { id: 'dynasty', path: 'dynasty.funding', label: 'Dynasty Trust Funding', value: d.dynasty.funding || 0, max: Math.max(50_000_000, (d.dynasty.funding || 0) * 2), step: 1_000_000 },
+    { id: 'slat',    path: 'slat.funding',    label: 'SLAT Funding',          value: d.slat.funding    || 0, max: Math.max(30_000_000, (d.slat.funding    || 0) * 2), step: 500_000 },
+    { id: 'idgt',    path: 'idgt.amount',     label: 'IDGT Sale Amount',      value: d.idgt.amount     || 0, max: Math.max(30_000_000, (d.idgt.amount     || 0) * 2), step: 500_000 },
+    { id: 'ilit',    path: 'ilit.coverage',   label: 'ILIT Death Benefit',    value: d.ilit.coverage   || 0, max: Math.max(30_000_000, (d.ilit.coverage   || 0) * 2), step: 500_000 },
+  ];
+  // Compute baseline "Without Planning" legacy numbers (same as the Legacy card above)
+  const baselineNoplanEstate = p.nwWithout_total * Math.pow(1 + d.proj.equity, horizon);
+  const baselineNoplanTax = Math.max(0, baselineNoplanEstate - fedExempt) * d.tax.estate
+    + (p.stateEstateTaxed ? Math.max(0, baselineNoplanEstate - p.stateEstateExemption) * p.stateEstateTopRate : 0);
+  const baselineNoplanToHeirs = Math.max(0, baselineNoplanEstate - baselineNoplanTax);
+
+  const estateExplorerHTML = `
+    <div class="card" style="border-left: 4px solid var(--gold);" id="estate-explorer-card">
+      <div class="card-title">🎚 Estate Impact Explorer — Drag the Sliders</div>
+      <div class="card-sub">
+        Move each strategy's funding up or down to see how it reshapes what your heirs and your charitable causes receive at ${p.dynastyUsesJointLE ? 'joint life expectancy' : 'the plan horizon'} (${horizon} yrs). Numbers update in real time.
+        <button class="slider-reset" onclick="window.__RESET_ESTATE_EXPLORER__()">↺ Reset to plan</button>
+      </div>
+      <div class="scenario-sliders">
+        ${estateSliders.map(s => `
+          <div class="slider-row">
+            <div class="slider-label">${s.label}</div>
+            <div class="slider-value" id="est-val-${s.id}">${fmtSliderCurrency(s.value)}</div>
+            <input type="range" id="est-sld-${s.id}"
+                   data-path="${s.path}"
+                   min="0" max="${s.max}" step="${s.step}" value="${s.value}">
+            <div class="slider-hint">Plan default: ${fmtSliderCurrency(s.value)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="slider-results" id="estate-explorer-results">
+        <div class="result"><div class="r-label">To Heirs (with Plan)</div><div class="r-value pos" id="est-res-heirs">${fmt$(withPlanToHeirs)}</div><div class="r-delta" id="est-res-heirs-delta">vs. no planning: ${fmt$(withPlanToHeirs - baselineNoplanToHeirs)}</div></div>
+        <div class="result"><div class="r-label">To Charity</div><div class="r-value" style="color:var(--gold-dark);" id="est-res-charity">${fmt$(withPlanToCharity)}</div><div class="r-delta" id="est-res-charity-delta">CRAT · CRUT · DAF · CLT</div></div>
+        <div class="result"><div class="r-label">Estate Tax Saved</div><div class="r-value pos" id="est-res-taxsaved">${fmt$(taxDelta)}</div><div class="r-delta" id="est-res-taxsaved-delta">vs. no planning</div></div>
+        <div class="result"><div class="r-label">Total Family + Charity Impact</div><div class="r-value pos" id="est-res-total">${fmt$(withPlanToHeirs + withPlanToCharity)}</div><div class="r-delta" id="est-res-total-delta">Headline number</div></div>
+      </div>
+    </div>
+  `;
+
   return `
     ${legacyCard}
+
+    ${estateExplorerHTML}
 
     ${estateGrowthCard}
 
@@ -4718,6 +4918,35 @@ function renderCharts(p) {
       }
     });
   }
+}
+
+/* ============================================================
+   SCENARIO SLIDERS
+   Clones the current __PLAN_DATA__.input, applies any dotted-path
+   overrides (e.g. { 'crat.amount': 12000000 }), and re-runs computePlan.
+   Used by the Tax Impact Explorer and Estate Impact Explorer cards
+   to let the advisor drag sliders and see live KPI changes without
+   going back to the builder and re-rendering the whole plan.
+   ============================================================ */
+function computePlanWithOverrides(overrides) {
+  if (!window.__PLAN_DATA__) return null;
+  const d = JSON.parse(JSON.stringify(window.__PLAN_DATA__.input));
+  Object.entries(overrides || {}).forEach(([path, value]) => {
+    const parts = path.split('.');
+    let ref = d;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (ref[parts[i]] === undefined) ref[parts[i]] = {};
+      ref = ref[parts[i]];
+    }
+    ref[parts[parts.length - 1]] = value;
+  });
+  try { return computePlan(d); } catch (e) { console.warn('Slider compute failed:', e); return null; }
+}
+
+function fmtSliderCurrency(n) {
+  if (n >= 1_000_000) return '$' + (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)     return '$' + Math.round(n / 1_000)   + 'K';
+  return '$' + Math.round(n).toLocaleString();
 }
 
 /* ============================================================
@@ -5046,6 +5275,110 @@ function generatePlan() {
   // Re-hydrate the persistent checklist (Tax Optimization tab) now that
   // renderTax has produced fresh .check-item elements.
   if (window.__HYDRATE_CHECKLIST__) window.__HYDRATE_CHECKLIST__();
+
+  // Wire up the scenario sliders (Tax Impact Explorer + Estate Impact Explorer)
+  wireScenarioSliders();
+}
+
+/* ============================================================
+   SCENARIO SLIDER EVENT WIRING
+   Attaches input listeners to each slider in both explorer cards.
+   On drag: snapshot all slider values → build overrides object →
+   run computePlanWithOverrides → update the live KPI readouts.
+   ============================================================ */
+function wireScenarioSliders() {
+  // TAX EXPLORER
+  const taxSliders = document.querySelectorAll('#tax-explorer-card input[type="range"]');
+  const updateTax = () => {
+    const overrides = {};
+    taxSliders.forEach(s => {
+      const raw = parseFloat(s.value);
+      const value = s.dataset.ispct === '1' ? raw / 100 : raw;
+      overrides[s.dataset.path] = value;
+      const valEl = document.getElementById(s.id.replace('tax-sld-', 'tax-val-'));
+      if (valEl) valEl.textContent = s.dataset.ispct === '1' ? raw + '%' : fmtSliderCurrency(raw);
+    });
+    const p2 = computePlanWithOverrides(overrides);
+    if (!p2) return;
+    const base = window.__PLAN_DATA__;
+    const setResult = (id, value, baseline) => {
+      const el = document.getElementById(id); if (el) el.textContent = fmt$(value);
+      const deltaEl = document.getElementById(id + '-delta');
+      if (deltaEl) {
+        const delta = value - baseline;
+        deltaEl.textContent = Math.abs(delta) < 1 ? 'baseline' : (delta > 0 ? '+' : '') + fmt$(delta);
+      }
+    };
+    setResult('tax-res-cgTax', p2.scenarios.scenAll.totalCGTax, base.scenarios.scenAll.totalCGTax);
+    setResult('tax-res-cgSav', p2.cgTaxSavings,      base.cgTaxSavings);
+    setResult('tax-res-qsbs',  p2.qsbsTotalSaving,   base.qsbsTotalSaving);
+    setResult('tax-res-total', p2.totalImmediate,    base.totalImmediate);
+  };
+  taxSliders.forEach(s => s.addEventListener('input', updateTax));
+  window.__RESET_TAX_EXPLORER__ = () => {
+    taxSliders.forEach(s => {
+      const base = window.__PLAN_DATA__.input;
+      const parts = s.dataset.path.split('.');
+      let ref = base;
+      parts.forEach(p => { ref = ref?.[p]; });
+      if (typeof ref === 'number') s.value = s.dataset.ispct === '1' ? ref * 100 : ref;
+    });
+    updateTax();
+  };
+
+  // ESTATE EXPLORER
+  const estSliders = document.querySelectorAll('#estate-explorer-card input[type="range"]');
+  const updateEst = () => {
+    const overrides = {};
+    estSliders.forEach(s => {
+      const raw = parseFloat(s.value);
+      overrides[s.dataset.path] = raw;
+      const valEl = document.getElementById(s.id.replace('est-sld-', 'est-val-'));
+      if (valEl) valEl.textContent = fmtSliderCurrency(raw);
+    });
+    const p2 = computePlanWithOverrides(overrides);
+    if (!p2) return;
+    const d = p2.input;
+    const horizon = p2.dynastyYears || d.proj.years;
+    const endRow = p2.estateGrowthRows[Math.min(horizon, p2.estateGrowthRows.length - 1)] || {};
+    const trusts = (endRow.dynastyValue || 0) + (endRow.slatValue || 0) + (endRow.idgtValue || 0) + (endRow.qprtValue || 0);
+    const ilit = d.use.ilit ? d.ilit.coverage : 0;
+    const clientEstate = (endRow.clientLiq || 0) + (endRow.otherGrowth || 0) + (endRow.qozValue || 0);
+    const fedTax = Math.max(0, clientEstate - p2.fedEstateExemption) * d.tax.estate;
+    const stateTax = p2.stateEstateTaxed ? Math.max(0, clientEstate - p2.stateEstateExemption) * p2.stateEstateTopRate : 0;
+    const clientResidual = Math.max(0, clientEstate - fedTax - stateTax);
+    const toHeirs = trusts + ilit + clientResidual;
+
+    const charity = (d.use.crat ? d.crat.amount : 0)
+                  + (d.use.crut ? d.crut.amount : 0)
+                  + (d.use.daf  ? d.daf.amount  : 0)
+                  + (d.use.clt  ? p2.cltCharityTotal : 0);
+
+    const noplanEstate = p2.nwWithout_total * Math.pow(1 + d.proj.equity, horizon);
+    const noplanTax = Math.max(0, noplanEstate - p2.fedEstateExemption) * d.tax.estate
+      + (p2.stateEstateTaxed ? Math.max(0, noplanEstate - p2.stateEstateExemption) * p2.stateEstateTopRate : 0);
+    const noplanHeirs = Math.max(0, noplanEstate - noplanTax);
+    const taxSaved = noplanTax - (fedTax + stateTax);
+
+    const set = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = fmt$(val); };
+    set('est-res-heirs', toHeirs);
+    set('est-res-charity', charity);
+    set('est-res-taxsaved', taxSaved);
+    set('est-res-total', toHeirs + charity);
+    const heirsDeltaEl = document.getElementById('est-res-heirs-delta');
+    if (heirsDeltaEl) heirsDeltaEl.textContent = 'vs. no planning: ' + fmt$(toHeirs - noplanHeirs);
+  };
+  estSliders.forEach(s => s.addEventListener('input', updateEst));
+  window.__RESET_ESTATE_EXPLORER__ = () => {
+    estSliders.forEach(s => {
+      const base = window.__PLAN_DATA__.input;
+      const parts = s.dataset.path.split('.');
+      let ref = base;
+      parts.forEach(p => { ref = ref?.[p]; });
+      if (typeof ref === 'number') s.value = ref;
+    });
+    updateEst();
+  };
 }
 
 document.getElementById('btn-generate').addEventListener('click', generatePlan);
