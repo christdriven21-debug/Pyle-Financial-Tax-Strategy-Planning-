@@ -137,14 +137,35 @@
      Horizontal plan-events visualization. Each milestone is a dot
      anchored at its fractional position along the plan horizon; the
      label floats above/below alternately to avoid overlap. */
+  /* ===== LIFE TIMELINE — dynamic height with lane-stacking =====
+     Labels are assigned to lanes (vertical slots above/below the axis)
+     by a greedy packing algorithm in renderTransaction. Each lane is
+     TIMELINE_LANE_PX tall. Total card height = max(above lanes, below
+     lanes) × lane_px + axis band. The wrapper sets its height from
+     --timeline-above-lanes / --timeline-below-lanes CSS custom props set
+     at render time. This prevents labels from overlapping each other
+     when many events cluster horizontally (e.g. Harrison sale-year). */
   .timeline {
+    --timeline-lane-px: 44;
+    --timeline-axis-band: 40;  /* phase-bg height + dot + padding */
+    --timeline-above-lanes: 2;
+    --timeline-below-lanes: 2;
     position: relative;
     margin: 40px 20px 20px;
-    height: 180px;
+    /* top phase-label (20) + above lanes + axis band + below lanes + bottom padding (10) */
+    height: calc(
+      20px
+      + var(--timeline-above-lanes) * var(--timeline-lane-px) * 1px
+      + var(--timeline-axis-band) * 1px
+      + var(--timeline-below-lanes) * var(--timeline-lane-px) * 1px
+      + 10px
+    );
   }
   .timeline-phase-bg {
     position: absolute;
-    top: 72px; bottom: 72px;
+    /* phase-bg spans the axis band — between above-lanes and below-lanes */
+    top:    calc(20px + var(--timeline-above-lanes) * var(--timeline-lane-px) * 1px);
+    height: calc(var(--timeline-axis-band) * 1px);
     opacity: 0.12;
     border-radius: 3px;
     pointer-events: none;
@@ -168,14 +189,24 @@
   .timeline-phase-label.post-tx { color: var(--success); }
   .timeline-axis {
     position: absolute;
-    left: 0; right: 0; top: 100px;
+    left: 0; right: 0;
+    /* axis line sits at the vertical center of the axis band */
+    top: calc(
+      20px
+      + var(--timeline-above-lanes) * var(--timeline-lane-px) * 1px
+      + (var(--timeline-axis-band) * 1px / 2) - 1.5px
+    );
     height: 3px;
     background: linear-gradient(to right, var(--gold-dark), var(--gold), var(--gold-dark));
     border-radius: 2px;
   }
   .timeline-dot {
     position: absolute;
-    top: 92px;
+    top: calc(
+      20px
+      + var(--timeline-above-lanes) * var(--timeline-lane-px) * 1px
+      + (var(--timeline-axis-band) * 1px / 2) - 9px
+    );
     width: 18px; height: 18px;
     border-radius: 50%;
     background: var(--crimson);
@@ -194,6 +225,7 @@
     font-size: 11px;
     text-align: center;
     line-height: 1.3;
+    /* Each label has its lane set inline via --lane on the element */
   }
   .timeline-label .yr {
     display: block;
@@ -208,11 +240,28 @@
     color: var(--ink);
     font-weight: 500;
   }
-  .timeline-label.above { top: 18px; }
-  .timeline-label.below { bottom: 18px; }
+  /* Lane-based vertical positioning. Lane 0 = closest to axis; higher =
+     further away. "above" labels stack upward from the axis; "below"
+     labels stack downward. Each lane is TIMELINE_LANE_PX tall. */
+  .timeline-label.above {
+    bottom: calc(
+      var(--timeline-below-lanes) * var(--timeline-lane-px) * 1px
+      + var(--timeline-axis-band) * 1px
+      + var(--lane, 0) * var(--timeline-lane-px) * 1px
+      + 10px
+    );
+  }
+  .timeline-label.below {
+    top: calc(
+      20px
+      + var(--timeline-above-lanes) * var(--timeline-lane-px) * 1px
+      + var(--timeline-axis-band) * 1px
+      + var(--lane, 0) * var(--timeline-lane-px) * 1px
+    );
+  }
   @media (max-width: 900px) {
     .timeline { overflow-x: auto; min-width: 100%; }
-    .timeline-inner { min-width: 900px; position: relative; height: 160px; }
+    .timeline-inner { min-width: 900px; position: relative; }
   }
 
   /* ===== SCENARIO SLIDERS (Tax & Estate Impact Explorers) =====
@@ -4225,40 +4274,103 @@ function renderTransaction(p) {
   // Deduplicate + sort by yr
   events.sort((a, b) => a.yr - b.yr);
 
-  // Render: position dots proportionally along the horizon.
+  // Render: position dots proportionally along the horizon, then assign
+  // each label to a VERTICAL LANE using greedy collision-avoidance so
+  // labels that are close horizontally don't overlap each other.
+  //
   // Phase zones: Pre-Transaction = the 6-12 months of prep BEFORE year 0,
   // represented as a 5% left sliver. Transaction Day = narrow ~3% at the
   // boundary. Post-Transaction = the bulk of the horizon.
+  //
+  // Lane packing:
+  //   Each label is ~120px wide; at a ~900-1100px container that's ~11-13%.
+  //   We use LABEL_HALF_WIDTH_PCT = 7 (safe buffer around the dot center).
+  //   For each event (in time order), we alternate preferred side (above/
+  //   below) and find the lowest lane on that side where the label won't
+  //   collide with the previous label already placed in that lane.
+  //   If the preferred side is full, we overflow to the other side.
+  //   The total number of lanes used on each side is pushed to CSS custom
+  //   properties so the timeline grows vertically to fit.
+  const LABEL_HALF_WIDTH_PCT = 7;  // ~120px / ~900px visible ≈ 13% total, half = ~6.5
+  const computePct = (yr) => {
+    if (yr === 0) return 6.5;
+    const raw = 8 + ((yr / horizon) * 92);
+    return Math.max(2, Math.min(98, raw));
+  };
+
+  // Annotate events with their horizontal pct
+  const eventsWithPct = events.map(e => ({ ...e, pct: computePct(e.yr) }));
+
+  // Greedy packing: walk events in pct order; for each, find the first
+  // lane (on preferred side) where leftEdge > previous label's rightEdge.
+  // Preferred side alternates by ORIGINAL order index so the visual
+  // rhythm matches the temporal sequence.
+  const aboveLanes = [];  // aboveLanes[laneIdx] = rightEdge pct of most-recent event in this lane
+  const belowLanes = [];
+  const sortedIndices = eventsWithPct
+    .map((_, i) => i)
+    .sort((a, b) => eventsWithPct[a].pct - eventsWithPct[b].pct);
+
+  sortedIndices.forEach(origIdx => {
+    const e = eventsWithPct[origIdx];
+    const left  = e.pct - LABEL_HALF_WIDTH_PCT;
+    const right = e.pct + LABEL_HALF_WIDTH_PCT;
+    const preferAbove = origIdx % 2 === 0;
+    const firstChoice  = preferAbove ? aboveLanes : belowLanes;
+    const secondChoice = preferAbove ? belowLanes : aboveLanes;
+
+    const tryPlace = (lanes) => {
+      for (let i = 0; i < lanes.length; i++) {
+        if (left > lanes[i]) {
+          lanes[i] = right;
+          return i;
+        }
+      }
+      // No existing lane fits — add a new one
+      lanes.push(right);
+      return lanes.length - 1;
+    };
+
+    // Try preferred side first; allow up to 3 lanes per side before
+    // overflowing to the other side (keeps each side's vertical span in check)
+    let side, lane;
+    if (firstChoice.length < 3 || firstChoice.some(r => left > r)) {
+      lane = tryPlace(firstChoice);
+      side = preferAbove ? 'above' : 'below';
+    } else {
+      lane = tryPlace(secondChoice);
+      side = preferAbove ? 'below' : 'above';
+    }
+    e.side = side;
+    e.lane = lane;
+  });
+
+  const aboveLaneCount = Math.max(2, aboveLanes.length);  // at least 2 for visual balance
+  const belowLaneCount = Math.max(2, belowLanes.length);
+
   const timelineHTML = horizon > 0 ? `
     <div class="card" style="border-left: 4px solid var(--gold);">
       <div class="card-title">Life Timeline — ${horizon}-Year Plan Horizon</div>
       <div class="card-sub">Three phases: <strong style="color: var(--gold-dark);">Pre-Transaction</strong> prep (6–12 months before sale day) → <strong style="color: var(--crimson);">Transaction Day</strong> (the sale closes) → <strong style="color: var(--success);">Post-Transaction</strong> deployment and lifelong tax planning through ${spouseAge > 0 ? 'joint life expectancy' : 'plan horizon'}.</div>
-      <div class="timeline">
+      <div class="timeline" style="--timeline-above-lanes: ${aboveLaneCount}; --timeline-below-lanes: ${belowLaneCount};">
         <!-- Phase background zones -->
         <div class="timeline-phase-bg pre-tx"  style="left: 0; width: 5%;"></div>
         <div class="timeline-phase-bg tx-day"  style="left: 5%; width: 3%;"></div>
         <div class="timeline-phase-bg post-tx" style="left: 8%; right: 0;"></div>
 
-        <!-- Phase labels above -->
+        <!-- Phase labels at very top -->
         <div class="timeline-phase-label pre-tx"  style="left: 0; width: 5%;">Pre-Tx</div>
         <div class="timeline-phase-label tx-day"  style="left: 5%; width: 3%; white-space: nowrap;">Sale</div>
         <div class="timeline-phase-label post-tx" style="left: 8%; right: 0;">Post-Transaction Planning</div>
 
         <div class="timeline-axis"></div>
-        ${events.map((e, i) => {
-          // Events at year 0 live in the "Sale" zone visually (6.5% position)
-          // Events after year 0 distribute across the 8–100% post-tx range
-          const pct = e.yr === 0 ? 6.5 : 8 + ((e.yr / horizon) * 92);
-          const clampedPct = Math.max(2, Math.min(98, pct));
-          const above = i % 2 === 0;
-          return `
-            <div class="timeline-dot ${e.type}" style="left: ${clampedPct}%;" title="${e.year}: ${e.label}"></div>
-            <div class="timeline-label ${above ? 'above' : 'below'}" style="left: ${clampedPct}%;">
-              <span class="yr">${e.year}${e.yr > 0 ? ` · Y${e.yr}` : ''}</span>
-              <span class="ev">${e.label}</span>
-            </div>
-          `;
-        }).join('')}
+        ${eventsWithPct.map(e => `
+          <div class="timeline-dot ${e.type}" style="left: ${e.pct}%;" title="${e.year}: ${e.label}"></div>
+          <div class="timeline-label ${e.side}" style="left: ${e.pct}%; --lane: ${e.lane};">
+            <span class="yr">${e.year}${e.yr > 0 ? ` · Y${e.yr}` : ''}</span>
+            <span class="ev">${e.label}</span>
+          </div>
+        `).join('')}
       </div>
       <div style="margin-top: 16px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
         <strong>Reading the timeline:</strong> <span style="color: var(--crimson);">●</span> crimson = tax or decision event · <span style="color: var(--gold-dark);">●</span> gold = funding or income milestone · <span style="color: var(--success);">●</span> green = tax-free wealth-transfer checkpoint.
