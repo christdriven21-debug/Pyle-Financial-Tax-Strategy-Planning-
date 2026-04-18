@@ -1196,6 +1196,14 @@
         <label>Plan Year</label>
         <input type="number" id="client-year" value="2026">
       </div>
+      <div class="field">
+        <label>Primary Client Age <span class="hint">(at plan year)</span></label>
+        <input type="number" id="client-primary-age" value="55" min="18" max="110">
+      </div>
+      <div class="field">
+        <label>Spouse Age <span class="hint">(leave 0 if single)</span></label>
+        <input type="number" id="client-spouse-age" value="52" min="0" max="110">
+      </div>
       <div class="field" style="grid-column: span 2;">
         <label>Plan Subtitle</label>
         <input type="text" id="client-subtitle" value="Business Sale Strategy with Dynasty Trust & QOZ Investment">
@@ -1684,6 +1692,13 @@
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="tax-amt-exemption" value="133300"></div>
       </div>
       <div class="field">
+        <label>Apply Portability (DSUE)? <span class="hint">(deceased-spouse unused exclusion doubles the federal exemption)</span></label>
+        <select id="tax-portability">
+          <option value="no" selected>No — single exemption</option>
+          <option value="yes">Yes — double exemption via DSUE</option>
+        </select>
+      </div>
+      <div class="field">
         <label>Federal Estate Exemption</label>
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="tax-estate-exempt" value="15000000"></div>
       </div>
@@ -1749,10 +1764,60 @@
     <div id="budget-live" style="margin-top: 16px; padding: 14px 18px; background: var(--cream-light); border-left: 3px solid var(--gold); border-radius: 4px; font-size: 13px;"></div>
   </section>
 
-  <!-- SECTION 7: INSURANCE -->
+  <!-- SECTION 7: RETIREMENT ACCOUNTS & SOCIAL SECURITY -->
   <section class="form-section">
     <div class="section-header">
       <div class="section-number">7</div>
+      <div>
+        <div class="section-title">Retirement Accounts &amp; Social Security</div>
+        <div class="section-help">Drives RMD projections (starting at age 73 per SECURE 2.0), Social Security claiming analysis, and feeds the Annual Budget sustainability check.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-4">
+      <div class="field">
+        <label>Traditional IRA Balance</label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-trad-ira" value="500000"></div>
+      </div>
+      <div class="field">
+        <label>401(k) / 403(b) Balance</label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-401k" value="1500000"></div>
+      </div>
+      <div class="field">
+        <label>Roth IRA Balance</label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-roth-ira" value="250000"></div>
+      </div>
+      <div class="field">
+        <label>HSA Balance</label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-hsa" value="75000"></div>
+      </div>
+      <div class="field">
+        <label>RMD Start Age <span class="hint">(73 per SECURE 2.0; 75 for 1960+)</span></label>
+        <input type="number" id="rmd-start-age" value="73" min="70" max="80">
+      </div>
+      <div class="field">
+        <label>Primary SS Benefit at FRA <span class="hint">(monthly, from SSA.gov estimate)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ss-primary-benefit" value="4500"></div>
+      </div>
+      <div class="field">
+        <label>Spouse SS Benefit at FRA <span class="hint">(monthly)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ss-spouse-benefit" value="2800"></div>
+      </div>
+      <div class="field">
+        <label>Primary Claiming Age</label>
+        <select id="ss-claim-age">
+          <option value="62">62 (earliest)</option>
+          <option value="65">65</option>
+          <option value="67" selected>67 (Full Retirement Age)</option>
+          <option value="70">70 (max delayed credits)</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 8: INSURANCE -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="section-number">8</div>
       <div>
         <div class="section-title">Insurance</div>
         <div class="section-help">Current and recommended life insurance coverage.</div>
@@ -1774,10 +1839,10 @@
     </div>
   </section>
 
-  <!-- SECTION 8: FIRM BRAND -->
+  <!-- SECTION 9: FIRM BRAND -->
   <section class="form-section">
     <div class="section-header">
-      <div class="section-number">8</div>
+      <div class="section-number">9</div>
       <div>
         <div class="section-title">Firm Branding</div>
         <div class="section-help">Upload a logo to replace the default on the plan cover. Default: Pyle Financial Services, Inc.</div>
@@ -2136,24 +2201,24 @@ const STATE_TAX_TABLE = {
   AR: { name: 'Arkansas',        rate: 4.40, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   CA: { name: 'California',      rate: 13.30, qsbsConforms: false, estateTax: false, notes: 'Highest state income tax in the U.S. Does NOT conform to §1202 — CA taxes the full gain on QSBS. No state estate tax (post-2005). Community property state.' },
   CO: { name: 'Colorado',        rate: 4.40, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
-  CT: { name: 'Connecticut',     rate: 6.99, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $13.61M (2024), rate up to 12%. CT also has gift tax.' },
+  CT: { name: 'Connecticut',     rate: 6.99, qsbsConforms: true,  estateTax: true,  estateExempt: 13610000, estateTopRate: 0.12, notes: 'State estate tax applies above $13.61M (2024), rate up to 12%. CT also has gift tax.' },
   DE: { name: 'Delaware',        rate: 6.60, qsbsConforms: true,  estateTax: false, notes: 'Popular trust situs — Dynasty Trusts and Directed Trusts have strong statutory support. No state estate tax since 2018.' },
-  DC: { name: 'District of Columbia', rate: 10.75, qsbsConforms: true, estateTax: true, notes: 'DC estate tax applies above $4.71M (2024) — significantly below federal threshold.' },
+  DC: { name: 'District of Columbia', rate: 10.75, qsbsConforms: true, estateTax: true, estateExempt: 4710000, estateTopRate: 0.16, notes: 'DC estate tax applies above $4.71M (2024) — significantly below federal threshold.' },
   FL: { name: 'Florida',         rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income tax, no state estate tax. Favorable trust situs.' },
   GA: { name: 'Georgia',         rate: 5.39, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
-  HI: { name: 'Hawaii',          rate: 11.00, qsbsConforms: true, estateTax: true,  notes: 'State estate tax applies above $5.49M (2024), rate up to 20%.' },
+  HI: { name: 'Hawaii',          rate: 11.00, qsbsConforms: true, estateTax: true,  estateExempt: 5490000,  estateTopRate: 0.20, notes: 'State estate tax applies above $5.49M (2024), rate up to 20%.' },
   ID: { name: 'Idaho',           rate: 5.80, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state.' },
-  IL: { name: 'Illinois',        rate: 4.95, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $4M — significantly below federal threshold. Rate up to 16%.' },
+  IL: { name: 'Illinois',        rate: 4.95, qsbsConforms: true,  estateTax: true,  estateExempt: 4000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $4M — significantly below federal threshold. Rate up to 16%.' },
   IN: { name: 'Indiana',         rate: 3.00, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   IA: { name: 'Iowa',            rate: 5.70, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax (inheritance tax phased out by 2025).' },
   KS: { name: 'Kansas',          rate: 5.70, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   KY: { name: 'Kentucky',        rate: 4.00, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax but has inheritance tax (beneficiary-class dependent).' },
   LA: { name: 'Louisiana',       rate: 4.25, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state with unique forced-heirship rules.' },
-  ME: { name: 'Maine',           rate: 7.15, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $6.41M (2024).' },
-  MD: { name: 'Maryland',        rate: 5.75, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $5M. Also has state-level inheritance tax.' },
-  MA: { name: 'Massachusetts',   rate: 9.00, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $2M (2023 reform). Cliff rule — entire estate taxable once threshold crossed.' },
+  ME: { name: 'Maine',           rate: 7.15, qsbsConforms: true,  estateTax: true,  estateExempt: 6410000,  estateTopRate: 0.12, notes: 'State estate tax applies above $6.41M (2024).' },
+  MD: { name: 'Maryland',        rate: 5.75, qsbsConforms: true,  estateTax: true,  estateExempt: 5000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $5M. Also has state-level inheritance tax.' },
+  MA: { name: 'Massachusetts',   rate: 9.00, qsbsConforms: true,  estateTax: true,  estateExempt: 2000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $2M (2023 reform). Cliff rule — entire estate taxable once threshold crossed.' },
   MI: { name: 'Michigan',        rate: 4.25, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
-  MN: { name: 'Minnesota',       rate: 9.85, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $3M.' },
+  MN: { name: 'Minnesota',       rate: 9.85, qsbsConforms: true,  estateTax: true,  estateExempt: 3000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $3M.' },
   MS: { name: 'Mississippi',     rate: 4.40, qsbsConforms: false, estateTax: false, notes: 'Does not conform to §1202. No state estate tax.' },
   MO: { name: 'Missouri',        rate: 4.80, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   MT: { name: 'Montana',         rate: 5.90, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
@@ -2162,22 +2227,22 @@ const STATE_TAX_TABLE = {
   NH: { name: 'New Hampshire',   rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income tax on wages (interest/dividend tax phased out in 2027). No state estate tax.' },
   NJ: { name: 'New Jersey',      rate: 10.75, qsbsConforms: false, estateTax: false, notes: 'Does NOT conform to §1202. No state estate tax since 2018 but retains inheritance tax.' },
   NM: { name: 'New Mexico',      rate: 5.90, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state.' },
-  NY: { name: 'New York',        rate: 10.90, qsbsConforms: true, estateTax: true,  notes: 'State estate tax applies above $6.94M (2024). "Cliff" at 105% of exemption — entire estate taxable above that threshold.' },
+  NY: { name: 'New York',        rate: 10.90, qsbsConforms: true, estateTax: true,  estateExempt: 6940000,  estateTopRate: 0.16, estateCliff: true, notes: 'State estate tax applies above $6.94M (2024). "Cliff" at 105% of exemption — entire estate taxable above that threshold.' },
   NC: { name: 'North Carolina',  rate: 4.25, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   ND: { name: 'North Dakota',    rate: 2.50, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   OH: { name: 'Ohio',            rate: 3.50, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   OK: { name: 'Oklahoma',        rate: 4.75, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
-  OR: { name: 'Oregon',          rate: 9.90, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $1M — well below federal. Rate up to 16%.' },
+  OR: { name: 'Oregon',          rate: 9.90, qsbsConforms: true,  estateTax: true,  estateExempt: 1000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $1M — well below federal. Rate up to 16%.' },
   PA: { name: 'Pennsylvania',    rate: 3.07, qsbsConforms: false, estateTax: false, notes: 'Does NOT conform to §1202 — state-level tax still applies. No state estate tax but has inheritance tax (class-based rates).' },
-  RI: { name: 'Rhode Island',    rate: 5.99, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $1.77M (2024).' },
+  RI: { name: 'Rhode Island',    rate: 5.99, qsbsConforms: true,  estateTax: true,  estateExempt: 1770000,  estateTopRate: 0.16, notes: 'State estate tax applies above $1.77M (2024).' },
   SC: { name: 'South Carolina',  rate: 6.20, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   SD: { name: 'South Dakota',    rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income or estate tax. Best-in-class Dynasty Trust situs (no rule against perpetuities, strong privacy).' },
   TN: { name: 'Tennessee',       rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income tax on wages. No state estate tax.' },
   TX: { name: 'Texas',           rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income or estate tax. Community property state.' },
   UT: { name: 'Utah',            rate: 4.55, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
-  VT: { name: 'Vermont',         rate: 8.75, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $5M.' },
+  VT: { name: 'Vermont',         rate: 8.75, qsbsConforms: true,  estateTax: true,  estateExempt: 5000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $5M.' },
   VA: { name: 'Virginia',        rate: 5.75, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
-  WA: { name: 'Washington',      rate: 7.00, qsbsConforms: true,  estateTax: true,  notes: 'State capital gains tax is a 7% excise tax above $262k — separate from income tax. Estate tax applies above $2.193M, rate up to 20%.' },
+  WA: { name: 'Washington',      rate: 7.00, qsbsConforms: true,  estateTax: true,  estateExempt: 2193000,  estateTopRate: 0.20, notes: 'State capital gains tax is a 7% excise tax above $262k — separate from income tax. Estate tax applies above $2.193M, rate up to 20%.' },
   WV: { name: 'West Virginia',   rate: 5.12, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   WI: { name: 'Wisconsin',       rate: 7.65, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state (marital property).' },
   WY: { name: 'Wyoming',         rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income or estate tax. Favorable Dynasty Trust situs.' },
@@ -2356,6 +2421,20 @@ function readForm() {
       location: t('client-location'), year: n('client-year'),
       subtitle: t('client-subtitle'),
       preSaleNW: n('client-pnw'), otherAssets: n('client-other'),
+      primaryAge: n('client-primary-age'),
+      spouseAge:  n('client-spouse-age'),
+    },
+    retirement: {
+      tradIRA: n('ret-trad-ira'),
+      k401:    n('ret-401k'),
+      rothIRA: n('ret-roth-ira'),
+      hsa:     n('ret-hsa'),
+      rmdStartAge: n('rmd-start-age') || 73,
+    },
+    ss: {
+      primaryBenefit: n('ss-primary-benefit'),
+      spouseBenefit:  n('ss-spouse-benefit'),
+      claimAge:       n('ss-claim-age') || 67,
     },
     firm: { name: t('firm-name'), tag: t('firm-tag'), logo: window.__FIRM_LOGO__ },
     biz: {
@@ -2406,6 +2485,7 @@ function readForm() {
       estate: n('tax-estate') / 100, estateExempt: n('tax-estate-exempt'),
       amtPreferences: n('tax-amt-preferences'),
       amtExemption:   n('tax-amt-exemption'),
+      portability:    t('tax-portability') === 'yes',
     },
     proj: {
       equity: n('proj-equity') / 100, re: n('proj-re') / 100,
@@ -2803,11 +2883,105 @@ function computePlan(d) {
     : 0;
 
   // Estate tax exposure
-  const taxableEstateNoPlan = Math.max(0, preSaleNW + salePrice - scenNone.totalCGTax - d.tax.estateExempt);
+  // ──────────────────────────────────────────────────────────────────────
+  // Federal estate tax — with portability (DSUE) optionally doubling the
+  // exemption for a surviving spouse who properly elected.
+  // ──────────────────────────────────────────────────────────────────────
+  const fedEstateExemption = d.tax.estateExempt * (d.tax.portability ? 2 : 1);
+  const taxableEstateNoPlan = Math.max(0, preSaleNW + salePrice - scenNone.totalCGTax - fedEstateExemption);
   const estateTaxNoPlan = taxableEstateNoPlan * d.tax.estate;
-  const taxableEstateWithPlan = Math.max(0, withPlanningTotal - d.tax.estateExempt);
+  const taxableEstateWithPlan = Math.max(0, withPlanningTotal - fedEstateExemption);
   const estateTaxWithPlan = taxableEstateWithPlan * d.tax.estate;
   const estateTaxSavings = estateTaxNoPlan - estateTaxWithPlan;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // STATE estate tax — uses STATE_TAX_TABLE metadata (estateTax flag,
+  // estateExempt, estateTopRate). NY's cliff applies once taxable exceeds
+  // 105% of exemption. If no state estate tax, all values are zero.
+  // ──────────────────────────────────────────────────────────────────────
+  const stateCode = (d.clientState || '').toUpperCase();
+  const stateInfo = (typeof STATE_TAX_TABLE !== 'undefined') ? STATE_TAX_TABLE[stateCode] : null;
+  const stateEstateTaxed      = !!(stateInfo && stateInfo.estateTax);
+  const stateEstateExemption  = stateInfo?.estateExempt  || 0;
+  const stateEstateTopRate    = stateInfo?.estateTopRate || 0;
+  const stateEstateCliff      = !!stateInfo?.estateCliff;
+  let stateEstateTaxNoPlan    = 0;
+  let stateEstateTaxWithPlan  = 0;
+  if (stateEstateTaxed) {
+    const noPlanEstate   = preSaleNW + salePrice - scenNone.totalCGTax;
+    const withPlanEstate = withPlanningTotal;
+    // NY cliff: if estate exceeds 105% of exemption, entire estate is taxable
+    const applyTax = (estate) => {
+      if (stateEstateCliff && estate > stateEstateExemption * 1.05) return estate * stateEstateTopRate;
+      return Math.max(0, estate - stateEstateExemption) * stateEstateTopRate;
+    };
+    stateEstateTaxNoPlan   = applyTax(noPlanEstate);
+    stateEstateTaxWithPlan = applyTax(withPlanEstate);
+  }
+  const stateEstateTaxSavings = stateEstateTaxNoPlan - stateEstateTaxWithPlan;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // RMD (Required Minimum Distributions) — SECURE 2.0 uses IRS Uniform
+  // Lifetime Table. This is a simplified factor lookup for ages 73–100
+  // drawn from the 2022 table (close enough for planning; advisor/CPA
+  // should use the actual table for current-year filings).
+  //   RMD[year] = balance[year_start] / factor[age]
+  //   Only traditional IRA + 401(k) amounts trigger RMDs (not Roth IRA
+  //   during owner's lifetime; HSA similar).
+  // ──────────────────────────────────────────────────────────────────────
+  const IRS_UNIFORM_LIFETIME = {
+    73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0, 79: 21.1,
+    80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8, 85: 16.0, 86: 15.2,
+    87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2, 91: 11.5, 92: 10.8, 93: 10.1,
+    94: 9.5, 95: 8.9, 96: 8.4, 97: 7.8, 98: 7.3, 99: 6.8, 100: 6.4,
+  };
+  const rmdGrowth = d.proj.equity;
+  let rmdBalance = (d.retirement.tradIRA || 0) + (d.retirement.k401 || 0);
+  const rmdRows = [];
+  const rmdStart = d.retirement.rmdStartAge || 73;
+  const startOffset = Math.max(0, rmdStart - (d.client.primaryAge || rmdStart));
+  // Grow balance from plan-start to RMD-start age (no withdrawals)
+  const balAtRmdStart = rmdBalance * Math.pow(1 + rmdGrowth, startOffset);
+  let workingBal = balAtRmdStart;
+  let totalRMDs = 0;
+  for (let age = rmdStart; age <= Math.min(100, rmdStart + 25); age++) {
+    const factor = IRS_UNIFORM_LIFETIME[age] || 6.4;
+    const rmd = workingBal / factor;
+    const incomeTax = rmd * d.tax.marginal;
+    totalRMDs += rmd;
+    rmdRows.push({
+      age,
+      year: d.client.year + (age - (d.client.primaryAge || rmdStart)),
+      balance: workingBal,
+      factor,
+      rmd,
+      incomeTax,
+    });
+    workingBal = Math.max(0, (workingBal - rmd) * (1 + rmdGrowth));
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Social Security claiming — compute benefit adjustments vs. FRA.
+  // FRA = 67 (for anyone born 1960+). Early claiming reduces benefit;
+  // delayed credits add 8%/yr from FRA to 70.
+  //   Claim 62: ~70% of FRA benefit (30% reduction)
+  //   Claim 65: ~86.7% of FRA
+  //   Claim 67: 100% (FRA)
+  //   Claim 70: 124% of FRA (3 years × 8% delayed credits)
+  // ──────────────────────────────────────────────────────────────────────
+  const FRA_ADJUSTMENT = { 62: 0.70, 63: 0.75, 64: 0.80, 65: 0.867, 66: 0.933, 67: 1.00, 68: 1.08, 69: 1.16, 70: 1.24 };
+  const ssClaimAge = d.ss.claimAge || 67;
+  const ssPrimaryMonthly = (d.ss.primaryBenefit || 0) * (FRA_ADJUSTMENT[ssClaimAge] || 1);
+  const ssSpouseMonthly  = (d.ss.spouseBenefit  || 0) * (FRA_ADJUSTMENT[ssClaimAge] || 1);
+  const ssAnnualHousehold = (ssPrimaryMonthly + ssSpouseMonthly) * 12;
+  // Compare all four ages for display
+  const ssComparison = [62, 65, 67, 70].map(age => ({
+    age,
+    factor: FRA_ADJUSTMENT[age],
+    primaryMonthly: (d.ss.primaryBenefit || 0) * FRA_ADJUSTMENT[age],
+    spouseMonthly:  (d.ss.spouseBenefit  || 0) * FRA_ADJUSTMENT[age],
+    household: ((d.ss.primaryBenefit || 0) + (d.ss.spouseBenefit || 0)) * FRA_ADJUSTMENT[age] * 12,
+  }));
 
   return {
     input: d,
@@ -2828,6 +3002,11 @@ function computePlan(d) {
     amti, amtAdjustedExemption, amtTaxable, amtTentative, amtRegularTax, amtLiability, amtTriggered,
     annualBudget, investableBase, requiredDistPct, budgetSafeRate, budgetHeadroom, budgetSustainable, budgetShortfall,
     estateGrowthRows, estateGrowthStart, estateGrowthEnd, estateGrowthMultiple, estateGrowthCAGR,
+    fedEstateExemption,
+    stateEstateTaxed, stateEstateExemption, stateEstateTopRate, stateEstateCliff,
+    stateEstateTaxNoPlan, stateEstateTaxWithPlan, stateEstateTaxSavings,
+    rmdRows, totalRMDs, balAtRmdStart,
+    ssPrimaryMonthly, ssSpouseMonthly, ssAnnualHousehold, ssComparison,
     dynasty20yr, dynastyGrowth,
     cgTaxSavings, totalImmediate,
     nwWithout_netProceeds, nwWithout_total,
@@ -3163,6 +3342,68 @@ function renderFinancial(p) {
           `).join('')}
         </tbody>
       </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Required Minimum Distributions (RMDs) — SECURE 2.0</div>
+      <div class="card-sub">
+        Balance at RMD start (age ${d.retirement.rmdStartAge}): <strong>${fmt$(p.balAtRmdStart)}</strong> · Traditional IRA + 401(k) grown at ${fmtPct(d.proj.equity*100)} from age ${d.client.primaryAge} to ${d.retirement.rmdStartAge}.
+        RMDs calculated via IRS Uniform Lifetime Table (2022). Roth IRA and HSA balances not included (no RMDs during owner's lifetime).
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 14px;">
+        <div class="kpi"><div class="label">First-Year RMD (Age ${d.retirement.rmdStartAge})</div><div class="value">${fmt$(p.rmdRows[0]?.rmd || 0)}</div></div>
+        <div class="kpi"><div class="label">First-Year Income Tax on RMD</div><div class="value">${fmt$(p.rmdRows[0]?.incomeTax || 0)}</div></div>
+        <div class="kpi gold"><div class="label">Cumulative RMDs (25 yrs)</div><div class="value">${fmt$(p.totalRMDs)}</div></div>
+        <div class="kpi"><div class="label">Cumulative Income Tax</div><div class="value">${fmt$(p.totalRMDs * d.tax.marginal)}</div></div>
+      </div>
+      ${p.rmdRows.length > 0 ? `
+      <div style="overflow-x: auto; margin-top: 16px;">
+        <table class="plan-table">
+          <thead><tr><th>Age</th><th>Year</th><th class="num">Balance</th><th class="num">Factor</th><th class="num">RMD</th><th class="num">Income Tax @ ${fmtPct(d.tax.marginal*100)}</th></tr></thead>
+          <tbody>
+            ${[0, 1, 4, 9, 14, 19, 24].filter(i => p.rmdRows[i]).map(i => {
+              const r = p.rmdRows[i];
+              return `<tr><td>${r.age}</td><td>${r.year}</td><td class="num">${fmt$(r.balance)}</td><td class="num">${r.factor.toFixed(1)}</td><td class="num">${fmt$(r.rmd)}</td><td class="num">${fmt$(r.incomeTax)}</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>` : ''}
+      <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Planning note:</strong> RMDs push ordinary income into the top bracket for many HNW clients. Roth conversions before age 73 can materially reduce cumulative RMDs and estate value (see the Roth Conversion strategy).
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Social Security Claiming Strategy</div>
+      <div class="card-sub">Selected claim age: <strong>${d.ss.claimAge}</strong>. Adjustment factor ${(p.ssComparison.find(s => s.age === d.ss.claimAge)?.factor*100).toFixed(1)}% vs. Full Retirement Age (67). Estimates assume both spouses claim at the same age — optimal real-world strategies often stagger.</div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 14px;">
+        <div class="kpi"><div class="label">Primary Monthly Benefit</div><div class="value">${fmt$(p.ssPrimaryMonthly)}</div></div>
+        ${p.ssSpouseMonthly > 0 ? `<div class="kpi"><div class="label">Spouse Monthly Benefit</div><div class="value">${fmt$(p.ssSpouseMonthly)}</div></div>` : ''}
+        <div class="kpi gold"><div class="label">Household Annual SS</div><div class="value">${fmt$(p.ssAnnualHousehold)}</div></div>
+        <div class="kpi success"><div class="label">% of Annual Budget Covered</div><div class="value">${p.annualBudget > 0 ? fmtPct(p.ssAnnualHousehold / p.annualBudget * 100) : '—'}</div></div>
+      </div>
+      <div style="overflow-x: auto; margin-top: 16px;">
+        <table class="plan-table">
+          <thead><tr><th>Claim Age</th><th class="num">Factor</th><th class="num">Primary / mo</th><th class="num">Spouse / mo</th><th class="num">Household / yr</th><th class="num">vs. Age 67</th></tr></thead>
+          <tbody>
+            ${p.ssComparison.map(s => {
+              const fraHousehold = p.ssComparison.find(c => c.age === 67)?.household || 1;
+              const delta = s.household - fraHousehold;
+              return `<tr${s.age === d.ss.claimAge ? ' class="highlight"' : ''}>
+                <td>${s.age}${s.age === 67 ? ' (FRA)' : s.age === 62 ? ' (earliest)' : s.age === 70 ? ' (max)' : ''}</td>
+                <td class="num">${(s.factor*100).toFixed(1)}%</td>
+                <td class="num">${fmt$(s.primaryMonthly)}</td>
+                <td class="num">${fmt$(s.spouseMonthly)}</td>
+                <td class="num"><strong>${fmt$(s.household)}</strong></td>
+                <td class="num ${delta >= 0 ? 'pos' : 'neg'}">${delta === 0 ? '—' : (delta > 0 ? '+' : '') + fmt$(delta)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Planning note:</strong> Delayed credits (8%/yr from FRA to 70) outpace investment returns for most assumption sets. Early claim is sometimes optimal for lower-benefit spouses or clients with shorter life expectancies. Break-even analysis varies by client; consult SSA.gov quick calculator for personalized figures.
+      </div>
     </div>
 
     ${d.use.dynasty ? `
@@ -3510,8 +3751,51 @@ function renderEstate(p) {
     </div>
   `;
 
+  // Federal + State estate tax summary
+  const fedExemption = p.fedEstateExemption;
+  const fedExemptionPills = d.tax.portability
+    ? `<span style="display:inline-block;padding:2px 8px;background:var(--gold);color:var(--ink);font-size:10px;font-weight:700;letter-spacing:1px;border-radius:10px;text-transform:uppercase;margin-left:6px;">DSUE ×2</span>`
+    : '';
+  const stateCode = (d.clientState || '').toUpperCase();
+  const stateNameRender = (typeof STATE_TAX_TABLE !== 'undefined' && STATE_TAX_TABLE[stateCode]) ? STATE_TAX_TABLE[stateCode].name : 'client state';
+
+  const estateTaxCard = `
+    <div class="card" style="border-left: 4px solid ${p.estateTaxSavings + p.stateEstateTaxSavings > 0 ? 'var(--success)' : 'var(--border)'};">
+      <div class="card-title">Estate Tax Exposure — Federal + State</div>
+      <div class="card-sub">
+        Federal estate exemption: <strong>${fmt$(fedExemption)}</strong>${fedExemptionPills}.
+        ${p.stateEstateTaxed ? `${stateNameRender} also imposes a state estate tax (exemption ${fmt$(p.stateEstateExemption)}, top rate ${fmtPct(p.stateEstateTopRate*100)}${p.stateEstateCliff ? ', <strong>cliff</strong> at 105%' : ''}).` : `${stateNameRender} has no state estate tax.`}
+      </div>
+
+      <div class="two-col" style="margin-top: 16px;">
+        <div class="info-card">
+          <h4>Without Planning</h4>
+          <div class="row"><span class="k">Taxable Estate:</span><span class="v">${fmt$(p.taxableEstateNoPlan)}</span></div>
+          <div class="row"><span class="k">Federal Estate Tax:</span><span class="v" style="color: var(--crimson)">${fmt$(p.estateTaxNoPlan)}</span></div>
+          ${p.stateEstateTaxed ? `<div class="row"><span class="k">${stateNameRender} Estate Tax:</span><span class="v" style="color: var(--crimson)">${fmt$(p.stateEstateTaxNoPlan)}</span></div>` : ''}
+          <div class="row"><span class="k">Total Estate Tax:</span><span class="v total" style="color: var(--crimson)">${fmt$(p.estateTaxNoPlan + p.stateEstateTaxNoPlan)}</span></div>
+        </div>
+        <div class="info-card">
+          <h4>With Current Strategy Stack</h4>
+          <div class="row"><span class="k">Taxable Estate:</span><span class="v">${fmt$(p.taxableEstateWithPlan)}</span></div>
+          <div class="row"><span class="k">Federal Estate Tax:</span><span class="v" style="color: var(--success)">${fmt$(p.estateTaxWithPlan)}</span></div>
+          ${p.stateEstateTaxed ? `<div class="row"><span class="k">${stateNameRender} Estate Tax:</span><span class="v" style="color: var(--success)">${fmt$(p.stateEstateTaxWithPlan)}</span></div>` : ''}
+          <div class="row"><span class="k">Total Estate Tax:</span><span class="v total" style="color: var(--success)">${fmt$(p.estateTaxWithPlan + p.stateEstateTaxWithPlan)}</span></div>
+        </div>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 16px;">
+        <div class="kpi success"><div class="label">Federal Tax Saved</div><div class="value">${fmt$(p.estateTaxSavings)}</div></div>
+        ${p.stateEstateTaxed ? `<div class="kpi success"><div class="label">${stateNameRender} State Tax Saved</div><div class="value">${fmt$(p.stateEstateTaxSavings)}</div></div>` : ''}
+        <div class="kpi gold"><div class="label">Total Estate Tax Saved</div><div class="value">${fmt$(p.estateTaxSavings + p.stateEstateTaxSavings)}</div></div>
+      </div>
+    </div>
+  `;
+
   return `
     ${estateGrowthCard}
+
+    ${estateTaxCard}
 
     <div class="card">
       <div class="card-title">Comprehensive Estate Planning Strategy</div>
@@ -4148,6 +4432,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   function snapshotForm() {
     const ids = [
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
+      'client-primary-age','client-spouse-age',
+      'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
+      'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date',
       'client-pnw','client-other','biz-income',
       'dt-funding','dt-exemption','dt-years',
@@ -4165,7 +4452,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'qprt-residence','qprt-term','qprt-7520','qprt-age','qprt-growth','qprt-type',
       'client-state',
       'tax-fed','tax-state','tax-medicare','tax-marginal','tax-estate','tax-estate-exempt',
-      'tax-amt-preferences','tax-amt-exemption',
+      'tax-amt-preferences','tax-amt-exemption','tax-portability',
       'proj-equity','proj-re','proj-years','proj-inflation',
       'ins-current','ins-rec-min','ins-rec-max',
       'budget-fixed','budget-variable','budget-taxes','budget-safe-rate',
