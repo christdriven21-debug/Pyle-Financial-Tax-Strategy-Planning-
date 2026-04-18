@@ -4311,6 +4311,113 @@ function renderEstate(p) {
   const d = p.input;
   const insGap = Math.max(0, d.ins.recMin - d.ins.current);
 
+  // ──────────────────────────────────────────────────────────────────────
+  // LEGACY CARD — "what your family actually inherits at joint LE"
+  // Compared to the "do nothing" counterfactual, and split between
+  // heirs + charity.
+  //
+  // Numbers align with the Estate Growth model (same buckets, same horizon).
+  // Methodology:
+  //   Without Planning = post-sale NW (after full CG tax) compounded for
+  //     horizon years, minus estate tax at death
+  //   With Planning (To Heirs) = sum of trust + insurance buckets + client
+  //     residual estate after tax (at end of plan horizon)
+  //   With Planning (To Charity) = CRAT/CRUT remainder (contribution value,
+  //     conservative — actual remainder depends on payout rate and growth)
+  //     + DAF contribution + CLT total payouts to charity
+  // ──────────────────────────────────────────────────────────────────────
+  const horizon = (p.dynastyYears) || d.proj.years;
+  const growthFactor = Math.pow(1 + d.proj.equity, horizon);
+
+  // "Without Planning" — full sale proceeds compounded, minus estate tax
+  const noplanEstateAtDeath = p.nwWithout_total * growthFactor;
+  const fedExempt = p.fedEstateExemption;
+  const noplanFedTax = Math.max(0, noplanEstateAtDeath - fedExempt) * d.tax.estate;
+  const noplanStateTax = p.stateEstateTaxed
+    ? Math.max(0, noplanEstateAtDeath - p.stateEstateExemption) * p.stateEstateTopRate
+    : 0;
+  const noplanToHeirs = Math.max(0, noplanEstateAtDeath - noplanFedTax - noplanStateTax);
+  const noplanToCharity = 0;
+  const noplanTotalTax = noplanFedTax + noplanStateTax;
+
+  // "With Planning" — trusts + residual client estate + insurance
+  const endRow = p.estateGrowthRows[Math.min(horizon, p.estateGrowthRows.length - 1)] || p.estateGrowthRows[p.estateGrowthRows.length - 1] || {};
+  const trustsToHeirs =
+      (endRow.dynastyValue || 0)
+    + (endRow.slatValue    || 0)
+    + (endRow.idgtValue    || 0)
+    + (endRow.qprtValue    || 0);
+  const ilitToHeirs = d.use.ilit ? d.ilit.coverage : 0;
+  // Client's taxable estate at death: liquid + RE + residual QOZ (after
+  // year-10 rollover). Does NOT include trust buckets (those are outside).
+  const clientEstateAtDeath = (endRow.clientLiq || 0) + (endRow.otherGrowth || 0) + (endRow.qozValue || 0);
+  const withFedTax = Math.max(0, clientEstateAtDeath - fedExempt) * d.tax.estate;
+  const withStateTax = p.stateEstateTaxed
+    ? Math.max(0, clientEstateAtDeath - p.stateEstateExemption) * p.stateEstateTopRate
+    : 0;
+  const clientResidualToHeirs = Math.max(0, clientEstateAtDeath - withFedTax - withStateTax);
+  const withPlanToHeirs = trustsToHeirs + ilitToHeirs + clientResidualToHeirs;
+
+  // Charity — conservative: use contribution amounts (the floor)
+  const charityCRAT = d.use.crat ? d.crat.amount : 0;
+  const charityCRUT = d.use.crut ? d.crut.amount : 0;
+  const charityDAF  = d.use.daf  ? d.daf.amount  : 0;
+  const charityCLT  = d.use.clt  ? p.cltCharityTotal : 0;
+  const withPlanToCharity = charityCRAT + charityCRUT + charityDAF + charityCLT;
+  const withPlanTotalTax = withFedTax + withStateTax;
+
+  const heirsDelta   = withPlanToHeirs - noplanToHeirs;
+  const charityDelta = withPlanToCharity - noplanToCharity;
+  const taxDelta     = noplanTotalTax - withPlanTotalTax;
+
+  const legacyCard = `
+    <div class="card" style="border-left: 4px solid var(--crimson);">
+      <div class="card-title">Legacy at ${p.dynastyUsesJointLE ? 'Joint Life Expectancy' : 'Plan Horizon'} (${horizon} years) — To Heirs · To Charity · To Tax</div>
+      <div class="card-sub">
+        The bottom-line comparison: what your family and the causes you care about actually receive at the end of the plan, versus if you did no planning at all.
+        ${p.dynastyUsesJointLE ? `Based on the ${horizon}-year joint life expectancy of ages ${d.client.primaryAge}${d.client.spouseAge > 0 ? '/' + d.client.spouseAge : ''}.` : ''}
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px;">
+        <div class="info-card" style="border-color: var(--crimson);">
+          <h4 style="color: var(--crimson);">❌ Without Planning</h4>
+          <div class="row"><span class="k">To Heirs (after tax):</span><span class="v" style="color: var(--crimson); font-weight: 700;">${fmt$(noplanToHeirs)}</span></div>
+          <div class="row"><span class="k">To Charity:</span><span class="v">$0</span></div>
+          <div class="row"><span class="k">To Estate Tax:</span><span class="v" style="color: var(--crimson);">${fmt$(noplanTotalTax)}</span></div>
+          <div class="row" style="border-top: 1px solid var(--border-soft); margin-top: 6px; padding-top: 8px;">
+            <span class="k"><strong>Total Estate Value:</strong></span>
+            <span class="v total">${fmt$(noplanEstateAtDeath)}</span>
+          </div>
+        </div>
+        <div class="info-card" style="border-color: var(--success);">
+          <h4 style="color: var(--success);">✅ With Strategic Planning</h4>
+          <div class="row"><span class="k">To Heirs (trusts + residual):</span><span class="v" style="color: var(--success); font-weight: 700;">${fmt$(withPlanToHeirs)}</span></div>
+          <div class="row"><span class="k">To Charity:</span><span class="v" style="color: var(--gold-dark);">${fmt$(withPlanToCharity)}</span></div>
+          <div class="row"><span class="k">To Estate Tax:</span><span class="v">${fmt$(withPlanTotalTax)}</span></div>
+          <div class="row" style="border-top: 1px solid var(--border-soft); margin-top: 6px; padding-top: 8px;">
+            <span class="k"><strong>Total Family + Charitable Impact:</strong></span>
+            <span class="v total" style="color: var(--success);">${fmt$(withPlanToHeirs + withPlanToCharity)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 20px;">
+        <div class="kpi success"><div class="label">Extra to Heirs</div><div class="value">${heirsDelta >= 0 ? '+' : ''}${fmt$(heirsDelta)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">vs. no-planning counterfactual</div></div>
+        <div class="kpi gold"><div class="label">Total Charitable Impact</div><div class="value">${fmt$(withPlanToCharity)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">CRAT · CRUT · DAF · CLT payouts</div></div>
+        <div class="kpi success"><div class="label">Estate Tax Saved</div><div class="value">${fmt$(taxDelta)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Federal + state combined</div></div>
+      </div>
+
+      <div class="callout" style="margin-top: 20px;">
+        <span class="title">🎯 The Headline</span>
+        Through this plan, <strong>${fmt$M(heirsDelta)} more</strong> reaches your heirs than the do-nothing path, <strong>${fmt$M(withPlanToCharity)}</strong> supports the charitable causes you care about, and <strong>${fmt$M(taxDelta)}</strong> that would have gone to federal and state estate tax stays in the family's orbit instead.
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic;">
+        <strong>Methodology:</strong> Heirs totals sum trust buckets (Dynasty, SLAT, IDGT, QPRT residence) + ILIT death benefit + client's residual estate after federal + state estate tax. Charitable totals use contribution/payout floors (CRAT/CRUT remainders often exceed initial contribution; DAF totals may grow over time before grants). All values at joint life expectancy; a CPA should validate the specific death-year tax math against prevailing exemption amounts.
+      </div>
+    </div>
+  `;
+
   // Multi-Year Family Estate Growth card — defaults to joint life expectancy
   // (or primary LE if single) so the chart naturally runs through the
   // end of the clients' expected lifetimes. The dropdown lets the user
@@ -4368,6 +4475,8 @@ function renderEstate(p) {
   `;
 
   return `
+    ${legacyCard}
+
     ${estateGrowthCard}
 
     ${estateTaxCard}
