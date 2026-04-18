@@ -133,6 +133,31 @@
   .client-hidden { display: initial; }
   .is-client .client-hidden { display: none !important; }
 
+  /* ===== ADVISOR-ONLY ELEMENTS =====
+     Any element tagged .advisor-only is hidden when the body has
+     .client-view. That class is auto-added for signed-in clients and
+     can be manually toggled on by team members via "Preview as Client". */
+  body.client-view .advisor-only { display: none !important; }
+  body.client-view .plan-tab[data-tab="tax"],
+  body.client-view .plan-tab[data-tab="compare"] { display: none !important; }
+  body.client-view .tab-panel#panel-tax,
+  body.client-view .tab-panel#panel-compare { display: none !important; }
+  /* "Preview as Client" banner shown to team members who've toggled it on */
+  .client-preview-banner {
+    display: none;
+    background: var(--gold);
+    color: var(--ink);
+    padding: 8px 40px;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-align: center;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--gold-dark);
+  }
+  body.client-preview .client-preview-banner { display: block; }
+
   /* ===== MODE SWITCHER ===== */
   .mode-nav {
     background: var(--cream-light);
@@ -1152,6 +1177,11 @@
   </div>
 </header>
 
+<!-- Banner shown when team member has toggled "Preview as Client" ON -->
+<div class="client-preview-banner">
+  👁 Previewing as Client — simplified view · <a href="#" onclick="document.getElementById('toggle-client-preview').click(); return false;" style="color:var(--crimson);text-decoration:underline;">Exit preview</a>
+</div>
+
 <!-- ========== AUTH BAR ========== -->
 <div class="auth-bar" id="auth-bar">
   <div class="auth-group" id="auth-signed-out">
@@ -1163,6 +1193,10 @@
     <span class="auth-label">Signed in as</span>
     <span class="auth-user" id="auth-user"></span>
     <span class="auth-role" id="auth-role"></span>
+    <label class="team-only" style="font-size:11px;font-family:'Helvetica Neue',sans-serif;display:inline-flex;align-items:center;gap:5px;cursor:pointer;margin-left:8px;" title="Toggle to see the simplified view your client sees">
+      <input type="checkbox" id="toggle-client-preview" style="accent-color:var(--crimson);cursor:pointer;">
+      <span style="font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--crimson);">Preview as Client</span>
+    </label>
     <button class="btn btn-secondary btn-sm team-only" id="btn-auth-mfa" title="Enroll a Time-based One-Time Password (TOTP) authenticator for 2FA">Set up 2FA</button>
     <button class="btn btn-secondary btn-sm" id="btn-auth-signout">Sign Out</button>
     <span class="auth-msg" id="auth-session-ttl"></span>
@@ -3355,7 +3389,7 @@ function renderTransaction(p) {
   const d = p.input;
 
   const saleStructureCard = `
-    <div class="card" style="border-left: 4px solid ${p.saleIsAsset ? 'var(--crimson)' : 'var(--success)'};">
+    <div class="card advisor-only" style="border-left: 4px solid ${p.saleIsAsset ? 'var(--crimson)' : 'var(--success)'};">
       <div class="card-title">Sale Structure: ${p.saleIsAsset ? '⚠️ Asset Sale' : '✓ Stock Sale'}</div>
       <div class="card-sub">
         ${p.saleIsAsset
@@ -3427,7 +3461,7 @@ function renderTransaction(p) {
       </div>
     </div>
 
-    <div class="card">
+    <div class="card advisor-only">
       <div class="card-title">Detailed Tax Comparison: All Scenarios</div>
       <div class="card-sub">Side-by-side comparison of capital gains tax under each strategy combination.</div>
       <table class="plan-table">
@@ -3559,7 +3593,7 @@ function renderFinancial(p) {
       const p10 = pct(0.10), p25 = pct(0.25), p50 = pct(0.50), p75 = pct(0.75), p90 = pct(0.90);
       const deterministic = startValue * Math.pow(1 + mean, years);
       return `
-        <div class="card">
+        <div class="card advisor-only">
           <div class="card-title">Monte Carlo Sensitivity — ${years}-Year Family Net Worth</div>
           <div class="card-sub">
             ${N.toLocaleString()} simulated paths starting from current family NW (${fmt$(startValue)}),
@@ -3582,7 +3616,7 @@ function renderFinancial(p) {
       `;
     })()}
 
-    <div class="card">
+    <div class="card advisor-only">
       <div class="card-title">Detailed Projection Table</div>
       <table class="plan-table">
         <thead>
@@ -5490,6 +5524,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (cloneBtn) cloneBtn.disabled = !(signedIn && isTeam && currentId);
     // Review panel visibility tracks sign-in + loaded plan
     if (typeof refreshReviews === 'function') refreshReviews();
+    // Apply client-view body class: clients always see simplified view;
+    // team members see full view unless they've toggled "Preview as Client"
+    applyClientView();
     // Team-only UI (Client Email field in the builder)
     document.body.classList.toggle('is-client', signedIn && !isTeam);
     document.querySelectorAll('.team-only').forEach(el => el.classList.toggle('hidden', !isTeam));
@@ -5670,6 +5707,38 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   document.getElementById('btn-auth-signin').addEventListener('click', () => signIn(authEmailEl.value.trim()));
   authEmailEl.addEventListener('keydown', e => { if (e.key === 'Enter') signIn(authEmailEl.value.trim()); });
   document.getElementById('btn-auth-signout').addEventListener('click', signOut);
+
+  /* ---- Client view toggle -----------------------------------------
+     Signed-in clients (not team) always see the simplified view.
+     Signed-in team members see the full advisor view by default,
+     but can flip "Preview as Client" to see what their client sees.
+     The toggle state persists via localStorage so advisors don't
+     lose it between sessions or page reloads.
+  */
+  const clientPreviewToggle = document.getElementById('toggle-client-preview');
+  function applyClientView() {
+    const previewFlag = localStorage.getItem('__pyle_client_preview__') === '1';
+    const simplified = !!currentUser && (!isTeam || previewFlag);
+    document.body.classList.toggle('client-view', simplified);
+    // Team-only "preview" banner appears when team has flipped it manually
+    document.body.classList.toggle('client-preview', isTeam && previewFlag);
+    if (clientPreviewToggle) clientPreviewToggle.checked = previewFlag;
+
+    // When we flip into or out of client view while already on a tab that's
+    // now hidden, bounce to the Executive Summary so the view doesn't go blank.
+    if (simplified) {
+      const activeTab = document.querySelector('.plan-tab.active');
+      if (activeTab && ['tax', 'compare'].includes(activeTab.dataset.tab)) {
+        document.querySelector('.plan-tab[data-tab="summary"]')?.click();
+      }
+    }
+  }
+  if (clientPreviewToggle) {
+    clientPreviewToggle.addEventListener('change', (e) => {
+      localStorage.setItem('__pyle_client_preview__', e.target.checked ? '1' : '0');
+      applyClientView();
+    });
+  }
 
   /* ---- Cloud data functions (auth-aware) ---- */
 
