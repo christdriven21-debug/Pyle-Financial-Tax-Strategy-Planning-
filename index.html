@@ -2623,6 +2623,19 @@ function computePlan(d) {
                        + exch1031TaxDeferred + qbiSavings + slatEstateSave + idgtEstateSave
                        + qprtEstateSave;
 
+  // Net worth calculations
+  const preSaleNW = d.client.preSaleNW;
+  const otherAssets = d.client.otherAssets;
+
+  // WITHOUT planning
+  const nwWithout_netProceeds = salePrice - scenNone.totalCGTax;
+  const nwWithout_total = nwWithout_netProceeds + otherAssets;
+
+  // WITH planning
+  const totalPreSaleOutflow = dyAmt + crAmt + dafAmt;
+  const withPlanningProceeds = salePrice - scenAll.totalCGTax;
+  const withPlanningTotal = withPlanningProceeds + otherAssets; // Conor's proceeds (Dynasty Trust separate)
+
   // ──────────────────────────────────────────────────────────────────────
   // Annual Budget & Required Distribution Rate
   //   Total Budget = Fixed + Variable + Tax expenses
@@ -2639,19 +2652,6 @@ function computePlan(d) {
   const budgetHeadroom = investableBase * budgetSafeRate - annualBudget;
   const budgetSustainable = requiredDistPct <= budgetSafeRate;
   const budgetShortfall = Math.max(0, annualBudget - investableBase * budgetSafeRate);
-
-  // Net worth calculations
-  const preSaleNW = d.client.preSaleNW;
-  const otherAssets = d.client.otherAssets;
-
-  // WITHOUT planning
-  const nwWithout_netProceeds = salePrice - scenNone.totalCGTax;
-  const nwWithout_total = nwWithout_netProceeds + otherAssets;
-
-  // WITH planning
-  const totalPreSaleOutflow = dyAmt + crAmt + dafAmt;
-  const withPlanningProceeds = salePrice - scenAll.totalCGTax;
-  const withPlanningTotal = withPlanningProceeds + otherAssets; // Conor's proceeds (Dynasty Trust separate)
 
   // Family post-sale total (includes Dynasty)
   const familyTotalNW = withPlanningTotal + dyAmt;
