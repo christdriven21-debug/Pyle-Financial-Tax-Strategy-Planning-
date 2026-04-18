@@ -888,6 +888,38 @@
   .info-card .row .k { color: var(--ink-soft); font-weight: 600; flex-shrink: 0; }
   .info-card .row .v { color: var(--ink); text-align: right; }
 
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .check-item:hover { background: var(--cream-light); }
+  .check-item input[type="checkbox"] {
+    width: 18px; height: 18px;
+    accent-color: var(--success);
+    cursor: pointer;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .check-item.done .check-text { text-decoration: line-through; color: var(--muted); }
+  .check-item .check-text { flex: 1; font-size: 14px; color: var(--ink); }
+  .check-item .check-stamp {
+    font-size: 11px;
+    color: var(--success);
+    font-style: italic;
+    margin-left: auto;
+    text-align: right;
+    font-family: 'Helvetica Neue', sans-serif;
+    white-space: nowrap;
+  }
+  .check-item[data-readonly="true"] { cursor: default; }
+  .check-item[data-readonly="true"] input { pointer-events: none; }
+  .check-item[data-readonly="true"]:hover { background: transparent; }
+
   .checklist-phase {
     background: var(--cream-light);
     border: 1px solid var(--border);
@@ -3799,43 +3831,88 @@ function renderTax(p) {
       ` : ''}
     </div>
 
-    <div class="card">
-      <div class="card-title">Implementation Checklist</div>
-      <div class="card-sub">Phased action plan to execute the strategy.</div>
+    ${(() => {
+      // Interactive checklist — every <li> becomes a data-keyed checkbox.
+      // State persists to public.plan_checklist via the cloud IIFE; on plan
+      // load, each box's checked/stamp state is hydrated from Supabase.
+      const item = (key, text) => `<li><label class="check-item" data-key="${key}">
+        <input type="checkbox" class="check-box">
+        <span class="check-text">${text}</span>
+        <span class="check-stamp"></span>
+      </label></li>`;
 
-      <div class="checklist-phase">
-        <h4>Pre-Sale (Before ${d.biz.date})</h4>
-        <ul>
-          <li>Engage estate attorney &amp; tax CPA</li>
-          ${d.use.dynasty ? '<li>Restructure entity to create voting/non-voting share classes</li>' : ''}
-          ${d.use.dynasty ? `<li>Establish Dynasty Trust and fund with ${fmt$M(d.dynasty.funding)} non-voting shares</li>` : ''}
-          ${d.use.crat ? `<li>Establish CRAT and fund with ${fmt$M(d.crat.amount)} appreciated assets</li>` : ''}
-          ${d.use.daf ? `<li>Establish Donor Advised Fund and contribute ${fmt$M(d.daf.amount)}</li>` : ''}
-          <li>Update estate documents (wills, trusts, ILITs)</li>
-          <li>Review life insurance coverage</li>
-        </ul>
-      </div>
+      return `
+        <div class="card" id="implementation-checklist">
+          <div class="card-title">Implementation Checklist</div>
+          <div class="card-sub">Phased action plan. <strong>Team members</strong> can check items off — status syncs to the cloud and is visible to the client in read-only mode.</div>
 
-      <div class="checklist-phase">
-        <h4>At Sale Closing</h4>
-        <ul>
-          <li>Execute business sale transaction (${fmt$M(d.biz.sale)})</li>
-          <li>Confirm proper allocation of proceeds across entities</li>
-          <li>Document all transfers and contributions</li>
-          <li>Secure escrow arrangements as needed</li>
-        </ul>
-      </div>
+          <div class="checklist-phase">
+            <h4>Pre-Sale (Before ${d.biz.date || 'sale date'})</h4>
+            <ul>
+              ${item('pre-engage-attorney', 'Engage estate attorney & tax CPA')}
+              ${d.use.dynasty ? item('pre-dynasty-restructure', 'Restructure entity to create voting/non-voting share classes') : ''}
+              ${d.use.dynasty ? item('pre-dynasty-fund', `Establish Dynasty Trust and fund with ${fmt$M(d.dynasty.funding)} non-voting shares`) : ''}
+              ${d.use.crat ? item('pre-crat-fund', `Establish CRAT and fund with ${fmt$M(d.crat.amount)} appreciated assets`) : ''}
+              ${d.use.crut ? item('pre-crut-fund', `Establish CRUT and fund with ${fmt$M(d.crut.amount)} appreciated assets (${fmtPct(d.crut.rate*100)} unitrust payout)`) : ''}
+              ${d.use.clt  ? item('pre-clt-fund',  `Establish CLT and fund with ${fmt$M(d.clt.amount)} (${d.clt.term}-yr term)`) : ''}
+              ${d.use.daf  ? item('pre-daf-fund',  `Establish Donor Advised Fund and contribute ${fmt$M(d.daf.amount)}`) : ''}
+              ${d.use.ilit ? item('pre-ilit-fund', `Fund ILIT with life insurance policy (${fmt$M(d.ilit.coverage)} death benefit, ${d.ilit.premium ? fmt$(d.ilit.premium) + '/yr premium' : 'funded per policy'})`) : ''}
+              ${d.use.slat ? item('pre-slat-fund', `Establish SLAT and fund with ${fmt$M(d.slat.funding)}`) : ''}
+              ${d.use.idgt ? item('pre-idgt-fund', `Establish IDGT and execute installment sale of ${fmt$M(d.idgt.amount)} at ${fmtPct(d.idgt.afr*100)} AFR`) : ''}
+              ${d.use.grat ? item('pre-grat-fund', `Establish ${d.grat.term}-yr GRAT and fund with ${fmt$M(d.grat.transfer)}`) : ''}
+              ${d.use.qprt ? item('pre-qprt-fund', `Establish QPRT and transfer ${d.qprt.type === 'secondary' ? 'vacation home' : 'primary residence'} (${fmt$M(d.qprt.residence)}) for ${d.qprt.term}-yr term`) : ''}
+              ${d.use.roth ? item('pre-roth-convert', `Execute Roth conversion of ${fmt$M(d.roth.amount)} (income-tax event)`) : ''}
+              ${d.use.qsbs && p.qsbsEligible ? item('pre-qsbs-verify', 'Verify §1202 QSBS eligibility: C-Corp status throughout hold period, ≤$50M gross assets at issuance, 5+ yr hold confirmed') : ''}
+              ${item('pre-update-estate-docs', 'Update estate documents (wills, trusts, POAs, healthcare directives)')}
+              ${item('pre-review-beneficiaries', 'Review beneficiary designations on retirement accounts & insurance')}
+              ${item('pre-review-life-insurance', 'Review life insurance coverage vs. recommended minimum')}
+              ${item('pre-portfolio-rebalance', 'Pre-sale portfolio rebalance / harvest losses')}
+              ${item('pre-cpa-amt-check', 'CPA: review AMT exposure for the sale year')}
+            </ul>
+          </div>
 
-      <div class="checklist-phase">
-        <h4>Post-Sale (Within 90 Days)</h4>
-        <ul>
-          ${d.use.qoz ? `<li>Invest ${fmt$(p.scenarios.scenAll.qozInvestment)} in Qualified Opportunity Zone fund (within 180 days)</li>` : ''}
-          <li>Deploy investment proceeds per asset allocation plan</li>
-          <li>File all required tax elections and disclosures</li>
-          <li>Establish ongoing review cadence with advisor team</li>
-        </ul>
-      </div>
-    </div>
+          <div class="checklist-phase">
+            <h4>At Sale Closing</h4>
+            <ul>
+              ${item('sale-execute', `Execute business sale transaction (${fmt$M(d.biz.sale)}, ${p.saleIsAsset ? 'asset sale' : 'stock sale'})`)}
+              ${p.saleIsAsset ? item('sale-338-election', 'Confirm §338(h)(10) election and other closing tax elections are filed') : ''}
+              ${item('sale-allocate-proceeds', 'Confirm proper allocation of proceeds across entities (trusts, DAF, individual)')}
+              ${item('sale-document-transfers', 'Document all transfers and contributions with closing statement')}
+              ${item('sale-escrow', 'Secure escrow arrangements / earnout documentation as needed')}
+              ${item('sale-wire-instructions', 'Verify and execute wire instructions to each receiving entity')}
+            </ul>
+          </div>
+
+          <div class="checklist-phase">
+            <h4>Post-Sale (Within 90–180 Days)</h4>
+            <ul>
+              ${d.use.qoz ? item('post-qoz-invest', `Invest ${fmt$(p.scenarios.scenAll.qozInvestment)} in Qualified Opportunity Zone fund (within 180 days of gain recognition)`) : ''}
+              ${d.use.exch1031 ? item('post-1031-identify', 'Identify §1031 replacement property (45 days from sale)') : ''}
+              ${d.use.exch1031 ? item('post-1031-close',    'Close on §1031 replacement property (180 days from sale)') : ''}
+              ${item('post-deploy-proceeds', 'Deploy investment proceeds per target asset allocation plan')}
+              ${item('post-file-elections', 'File all required tax elections and disclosures (8949, Form 8997 for QOZ, etc.)')}
+              ${item('post-estimated-tax', 'Pay estimated tax on recognized gain (due next quarterly deadline)')}
+              ${item('post-charitable-deduction', 'Substantiate charitable contributions with appraisals + Form 8283 as needed')}
+              ${item('post-review-cadence', 'Establish ongoing annual review cadence with advisor team')}
+              ${item('post-insurance-update', 'Update life insurance beneficiaries + coverage amount')}
+            </ul>
+          </div>
+
+          <div class="checklist-phase">
+            <h4>Year 1 Ongoing</h4>
+            <ul>
+              ${d.use.dynasty ? item('yr1-dynasty-admin', 'Dynasty Trust trustee administration: annual accounting, distributions, investment review') : ''}
+              ${d.use.crat || d.use.crut ? item('yr1-crt-distribution', 'Execute annual CRT distribution per trust terms') : ''}
+              ${d.use.ilit ? item('yr1-ilit-crummey', 'ILIT: send annual Crummey notices to beneficiaries (30-day withdrawal window)') : ''}
+              ${d.use.qprt ? item('yr1-qprt-trustee', `QPRT: confirm grantor paying fair-market rent${d.qprt.term > 1 ? ' (after term end)' : ''} + annual trustee administration`) : ''}
+              ${d.use.roth ? item('yr1-roth-paid', 'Pay income tax due from Roth conversion (estimated tax / with return)') : ''}
+              ${item('yr1-tax-return', 'File year-1 tax return with CPA including all strategy elections')}
+              ${item('yr1-review-meeting', 'Year-1 annual review meeting: compare actual vs. projected outcomes')}
+            </ul>
+          </div>
+        </div>
+      `;
+    })()}
   `;
 }
 
@@ -4448,6 +4525,10 @@ function generatePlan() {
   // Default to Executive Summary tab, then render financial charts when user clicks
   document.querySelectorAll('.plan-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'summary'));
   document.querySelectorAll('.tab-panel').forEach(pn => pn.classList.toggle('active', pn.id === 'panel-summary'));
+
+  // Re-hydrate the persistent checklist (Tax Optimization tab) now that
+  // renderTax has produced fresh .check-item elements.
+  if (window.__HYDRATE_CHECKLIST__) window.__HYDRATE_CHECKLIST__();
 }
 
 document.getElementById('btn-generate').addEventListener('click', generatePlan);
@@ -5180,6 +5261,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     refreshList();
     applyRoleUI();
     refreshReviews();
+    hydrateChecklist();
   }
 
   async function loadPlan(id) {
@@ -5205,6 +5287,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     setStatus('Loaded: ' + (data.name || data.id), 'ok');
     applyRoleUI();
     refreshReviews();
+    hydrateChecklist();
   }
 
   async function copyShareLink() {
@@ -5302,6 +5385,96 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   }
 
   document.getElementById('btn-review-submit').addEventListener('click', postReview);
+
+  /* ---- Persistent Implementation Checklist ----
+     Every .check-item with data-key persists its checked state to
+     public.plan_checklist keyed by (plan_id, item_key). Team members
+     can toggle; clients see it read-only. When the plan renders, we
+     rehydrate each checkbox's state + "completed by / on" stamp from
+     the DB. Toggling a box upserts a new row with the current user's
+     email as the auditor.
+  */
+  async function hydrateChecklist() {
+    if (!currentId || !currentUser) return;
+    // Wait a tick for the renderTax output to land in the DOM
+    await new Promise(r => setTimeout(r, 50));
+
+    const items = document.querySelectorAll('#implementation-checklist .check-item');
+    if (!items.length) return;
+
+    const { data, error } = await sb.from('plan_checklist')
+      .select('item_key,checked,checked_by,checked_at')
+      .eq('plan_id', currentId);
+
+    if (error) {
+      if (error.code === '42P01') {
+        // Migration not yet run — silently no-op, the checklist remains
+        // purely cosmetic until add_checklist.sql is applied.
+        return;
+      }
+      console.warn('Checklist load failed:', error.message);
+      return;
+    }
+
+    const byKey = {};
+    (data || []).forEach(r => { byKey[r.item_key] = r; });
+
+    items.forEach(label => {
+      const key = label.dataset.key;
+      const box = label.querySelector('.check-box');
+      const stamp = label.querySelector('.check-stamp');
+      const row = byKey[key];
+      if (row && row.checked) {
+        box.checked = true;
+        label.classList.add('done');
+        const when = row.checked_at ? new Date(row.checked_at).toLocaleDateString() : '';
+        stamp.textContent = `✓ ${row.checked_by || ''}${when ? ' · ' + when : ''}`;
+      } else {
+        box.checked = false;
+        label.classList.remove('done');
+        stamp.textContent = '';
+      }
+      // Read-only for clients, editable for team
+      if (!isTeam) {
+        label.setAttribute('data-readonly', 'true');
+        box.disabled = true;
+      } else {
+        label.removeAttribute('data-readonly');
+        box.disabled = false;
+        box.onchange = () => persistChecklistToggle(key, box.checked, label, stamp);
+      }
+    });
+  }
+
+  async function persistChecklistToggle(key, checked, label, stamp) {
+    if (!currentUser || !isTeam || !currentId) return;
+    const now = new Date().toISOString();
+    const row = {
+      plan_id: currentId,
+      item_key: key,
+      checked,
+      checked_by: checked ? currentUser.email : null,
+      checked_at: checked ? now : null,
+      updated_at: now,
+    };
+    // Upsert by (plan_id, item_key) unique constraint
+    const { error } = await sb.from('plan_checklist')
+      .upsert(row, { onConflict: 'plan_id,item_key' });
+    if (error) {
+      setStatus('Checklist save failed: ' + error.message, 'err');
+      return;
+    }
+    if (checked) {
+      label.classList.add('done');
+      stamp.textContent = `✓ ${currentUser.email} · ${new Date(now).toLocaleDateString()}`;
+    } else {
+      label.classList.remove('done');
+      stamp.textContent = '';
+    }
+  }
+
+  // Hydrate checklist whenever a plan is (re)generated
+  window.__HYDRATE_CHECKLIST__ = hydrateChecklist;
 
   /* ---- Clone current plan into next year's plan (team-only) ---- */
   async function clonePlanForNextYear() {
