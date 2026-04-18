@@ -1891,9 +1891,16 @@
 
     <div class="strategy-block hidden sale-only" id="block-qoz">
       <h4>QOZ Parameters</h4>
-      <div class="form-grid cols-3">
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        §1400Z-2 lets you defer eligible capital gains by investing the <strong>gain amount</strong> (up to the full gain) into a Qualified Opportunity Fund within <strong>180 days</strong> of recognition. Deferral runs until the earlier of disposition or 12/31/2026. If held 10+ years, all <em>post-investment appreciation</em> is tax-free (basis steps to FMV on sale). Leave the amount at 0 to default to the remaining CG tax.
+      </p>
+      <div class="form-grid cols-4">
         <div class="field">
-          <label>Deferral Period (Years)</label>
+          <label>QOZ Investment Amount <span class="hint">(portion of gain deferred)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qoz-amount" value="5000000"></div>
+        </div>
+        <div class="field">
+          <label>Deferral Period (Years) <span class="hint">until 12/31/2026 recognition</span></label>
           <input type="number" id="qoz-defer" value="5">
         </div>
         <div class="field">
@@ -3134,7 +3141,12 @@ function readForm() {
     },
     crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
     daf: { amount: n('daf-amount') },
-    qoz: { defer: n('qoz-defer'), ret: n('qoz-return') / 100, years: n('qoz-years') },
+    qoz: {
+      amount: n('qoz-amount'),              // portion of gain invested in QOF
+      defer:  n('qoz-defer'),
+      ret:    n('qoz-return') / 100,
+      years:  n('qoz-years'),
+    },
     ilit: {
       coverage: n('ilit-coverage'),
       premium:  n('ilit-premium'),
@@ -3269,17 +3281,26 @@ function computePlan(d) {
   const scenAll = (() => {
     const gain = Math.max(0, grossGain - crGainAvoided - dafGainAvoided);
     const baseTax = gain * combinedCGRate;
+    // QOZ: §1400Z-2 lets the taxpayer defer up to the full gain by
+    // investing a portion into a Qualified Opportunity Fund. The amount
+    // deferred = min(d.qoz.amount, remaining gain). If the advisor left
+    // qoz.amount at 0 (legacy sample), fall back to baseTax amount so
+    // older saved plans still show a QOZ bucket.
+    const qozInvest = d.use.qoz
+      ? Math.min(d.qoz.amount > 0 ? d.qoz.amount : baseTax, gain)
+      : 0;
+    const qozTaxDeferred = qozInvest * combinedCGRate;  // CG tax on the deferred gain
     return {
       name: 'Full Stack + QSBS',
-      dynasty: dyAmt, crat: crAmt, daf: dafAmt, qoz: d.use.qoz ? baseTax : 0,
+      dynasty: dyAmt, crat: crAmt, daf: dafAmt, qoz: qozInvest,
       taxableGain: gain,
       fedTax: gain * d.tax.fed,
       stateTax: gain * d.tax.state,
       medicareTax: gain * d.tax.medicare,
-      totalCGTax: baseTax,
-      qozDeferred: d.use.qoz ? baseTax : 0,
-      qozInvestment: d.use.qoz ? baseTax : 0,
-      qoz10yrValue: d.use.qoz ? baseTax * Math.pow(1 + d.qoz.ret, d.qoz.years) : 0,
+      totalCGTax: baseTax,                       // total CG if no QOZ deferral (still owed eventually)
+      qozDeferred: qozTaxDeferred,               // CG tax temporarily deferred
+      qozInvestment: qozInvest,                  // gain amount rolled into QOF
+      qoz10yrValue: qozInvest * Math.pow(1 + d.qoz.ret, d.qoz.years),
     };
   })();
 
@@ -4113,7 +4134,7 @@ function renderSummary(p) {
     if (d.use.crat) strategies.push({ name: 'Pre-Transaction CRAT', desc: `${fmt$M(d.crat.amount)} Charitable Remainder Annuity Trust with ${fmtPct(d.crat.rate*100)} annual income to beneficiaries.` });
     if (d.use.daf) strategies.push({ name: 'Pre-Transaction DAF', desc: `${fmt$M(d.daf.amount)} Donor Advised Fund for strategic charitable giving.` });
     strategies.push({ name: 'Business Sale', desc: `${fmt$M(d.biz.sale)} sale with strategic tax planning creates significant capital gains efficiencies.` });
-    if (d.use.qoz) strategies.push({ name: 'QOZ Investment', desc: `Remaining capital gains tax reinvested into Qualified Opportunity Zone fund for ${d.qoz.defer}-year tax deferral.` });
+    if (d.use.qoz) strategies.push({ name: 'QOZ Investment', desc: `${fmt$M(p.scenarios.scenAll.qozInvestment)} of gain deferred into a Qualified Opportunity Fund. CG tax (${fmt$M(p.scenarios.scenAll.qozDeferred)}) deferred ${d.qoz.defer} yrs; appreciation tax-free if held ${d.qoz.years}+ yrs.` });
     strategies.push({ name: 'Capital Gains Mitigation', desc: `Layered structure reduces taxable gain by ${fmt$M(p.scenarios.scenNone.taxableGain - p.scenarios.scenAll.taxableGain)}, saving ${fmt$M(p.cgTaxSavings)} in federal taxes.` });
     strategies.push({ name: 'Post-Sale Liquidity', desc: `${fmt$M(p.withPlanningProceeds)} proceeds provide exceptional liquidity for wealth management and estate planning.` });
     if (d.use.dynasty) strategies.push({ name: 'Multi-Generational Wealth', desc: `Dynasty Trust projected to grow to ${fmt$M(p.dynasty20yr)} over ${p.dynastyYears} years${p.dynastyUsesJointLE ? ' (joint life expectancy)' : ''}, tax-free to heirs.` });
@@ -4146,18 +4167,19 @@ function renderSummary(p) {
     ${d.use.qoz ? `
     <div class="card sale-only">
       <div class="card-title">Qualified Opportunity Zone (QOZ) Strategy</div>
-      <div class="card-sub">${d.qoz.defer}-year tax deferral with potential for tax-free appreciation.</div>
+      <div class="card-sub">Defer ${fmt$(p.scenarios.scenAll.qozInvestment)} of eligible capital gain into a Qualified Opportunity Fund. Appreciation tax-free if held ${d.qoz.years}+ years.</div>
 
       <div class="kpi-grid">
-        <div class="kpi"><div class="label">QOZ Investment</div><div class="value">${fmt$(p.scenarios.scenAll.qozInvestment)}</div></div>
+        <div class="kpi"><div class="label">QOZ Investment (Gain Deferred)</div><div class="value">${fmt$(p.scenarios.scenAll.qozInvestment)}</div></div>
+        <div class="kpi gold"><div class="label">CG Tax Deferred</div><div class="value">${fmt$(p.scenarios.scenAll.qozDeferred)}</div></div>
         <div class="kpi gold"><div class="label">Deferral Period</div><div class="value">${d.qoz.defer} Years</div></div>
-        <div class="kpi success"><div class="label">10-Year Hold Benefit</div><div class="value">100% Tax-Free</div></div>
+        <div class="kpi success"><div class="label">${d.qoz.years}-Yr Hold Benefit</div><div class="value">100% Tax-Free on Appreciation</div></div>
         <div class="kpi success"><div class="label">Projected ${d.qoz.years}-Yr Value</div><div class="value">${fmt$(p.scenarios.scenAll.qoz10yrValue)}</div></div>
       </div>
 
       <div class="callout">
         <span class="title">Strategic Benefit</span>
-        Invest remaining capital gains tax into QOZ fund. Defers tax for ${d.qoz.defer} years. If held ${d.qoz.years}+ years, all appreciation is completely tax-free. Plus, full step-up in basis at death.
+        Invest <strong>${fmt$(p.scenarios.scenAll.qozInvestment)}</strong> of gain into a QOF within 180 days of recognition. CG tax (<strong>${fmt$(p.scenarios.scenAll.qozDeferred)}</strong>) is deferred until disposition or 12/31/2026. If held ${d.qoz.years}+ years, the <em>post-investment appreciation</em> — projected ${fmt$(p.scenarios.scenAll.qoz10yrValue - p.scenarios.scenAll.qozInvestment)} — comes out completely tax-free (basis steps to FMV). Plus full step-up in basis at death.
       </div>
     </div>` : ''}
 
@@ -5126,7 +5148,7 @@ function renderTax(p) {
     items.push({ label: 'DAF Charitable Deduction', value: d.daf.amount * d.tax.marginal, desc: `${fmt$M(d.daf.amount)} DAF contribution generates ${fmt$M(d.daf.amount)} immediate deduction. Tax savings at ${fmtPct(d.tax.marginal*100)} marginal rate.` });
   }
   if (d.use.qoz) {
-    items.push({ label: `QOZ Tax Deferral (${d.qoz.defer} Years)`, value: p.scenarios.scenAll.qozDeferred, desc: `Remaining capital gains tax invested into QOZ fund. Defers for ${d.qoz.defer} years. Tax-free if held ${d.qoz.years}+ years.` });
+    items.push({ label: `QOZ Tax Deferral (${d.qoz.defer} Years)`, value: p.scenarios.scenAll.qozDeferred, desc: `${fmt$(p.scenarios.scenAll.qozInvestment)} of gain invested in a Qualified Opportunity Fund within 180 days. CG tax of ${fmt$(p.scenarios.scenAll.qozDeferred)} deferred for ${d.qoz.defer} years. If held ${d.qoz.years}+ years, all appreciation is tax-free on exit. Full basis step-up at death.` });
   }
   if (d.use.qsbs) {
     const regimeLabel = p.qsbsIsPostOBBBA ? 'Post-OBBBA (7/4/2025+)' : 'Pre-OBBBA';
@@ -5680,6 +5702,7 @@ function renderEstate(p) {
     d.use.idgt    && { id: 'idgt',    path: 'idgt.amount',     label: 'IDGT Sale Amount',       value: d.idgt.amount     || 0, step: 500_000,   floor: 30_000_000 },
     d.use.grat    && { id: 'grat',    path: 'grat.transfer',   label: `GRAT Transfer (${d.grat.term || 0}-yr)`, value: d.grat.transfer || 0, step: 500_000, floor: 30_000_000 },
     d.use.qprt    && { id: 'qprt',    path: 'qprt.residence',  label: `QPRT Residence (${d.qprt.term || 0}-yr)`, value: d.qprt.residence || 0, step: 250_000, floor: 15_000_000 },
+    d.use.qoz     && { id: 'qoz',     path: 'qoz.amount',      label: `QOZ Investment (${d.qoz.years || 10}-yr hold)`, value: d.qoz.amount || 0, step: 500_000, floor: 30_000_000 },
     d.use.ilit    && { id: 'ilit',    path: 'ilit.coverage',   label: 'ILIT Death Benefit',     value: d.ilit.coverage   || 0, step: 500_000,   floor: 30_000_000 },
     d.use.crut    && { id: 'crut',    path: 'crut.amount',     label: 'CRUT Contribution',      value: d.crut.amount     || 0, step: 500_000,   floor: 30_000_000 },
     d.use.crat    && { id: 'crat',    path: 'crat.amount',     label: 'CRAT Contribution',      value: d.crat.amount     || 0, step: 500_000,   floor: 30_000_000 },
@@ -6634,7 +6657,7 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'dt-funding': d.dynasty.funding, 'dt-exemption': d.dynasty.exemption, 'dt-years': d.dynasty.years,
       'crat-amount': d.crat.amount, 'crat-rate': d.crat.rate * 100, 'crat-ded': d.crat.dedPct * 100,
       'daf-amount': d.daf.amount,
-      'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years,
+      'qoz-amount': d.qoz.amount, 'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years,
       'tax-fed': d.tax.fed * 100, 'tax-state': d.tax.state * 100, 'tax-medicare': d.tax.medicare * 100,
       'tax-marginal': d.tax.marginal * 100, 'tax-estate': d.tax.estate * 100, 'tax-estate-exempt': d.tax.estateExempt,
       'proj-equity': d.proj.equity * 100, 'proj-re': d.proj.re * 100,
@@ -6731,7 +6754,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'dt-funding','dt-exemption','dt-years','dt-discount','dt-trust-type','dt-situs-favorable','dt-income-yield',
       'crat-amount','crat-rate','crat-ded',
       'daf-amount',
-      'qoz-defer','qoz-return','qoz-years',
+      'qoz-amount','qoz-defer','qoz-return','qoz-years',
       'ilit-coverage','ilit-premium','ilit-years','ilit-pay-years',
       'roth-amount','roth-marginal','roth-years',
       'grat-transfer','grat-term','grat-7520','grat-growth','grat-discount',
