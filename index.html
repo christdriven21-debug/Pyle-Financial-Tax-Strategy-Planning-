@@ -1065,6 +1065,7 @@
       <input type="text" id="cloud-plan-name" placeholder="e.g., Client 2026 Sale">
     </div>
     <div class="cb-group">
+      <button class="btn btn-secondary btn-sm" id="btn-new-plan" title="Start a fresh plan with default values">+ New Plan</button>
       <button class="btn btn-primary btn-sm" id="btn-cloud-save">Save to Cloud</button>
       <button class="btn btn-gold btn-sm" id="btn-cloud-share">Copy Share Link</button>
       <button class="btn btn-secondary btn-sm" id="btn-cloud-download">Download JSON</button>
@@ -1735,6 +1736,15 @@ document.getElementById('firm-logo').addEventListener('change', e => {
 /* ---- Reset ---- */
 document.getElementById('btn-reset').addEventListener('click', () => {
   if (confirm('Reset all fields to the default example values?')) location.reload();
+});
+
+/* ---- New Plan ---- */
+document.getElementById('btn-new-plan').addEventListener('click', () => {
+  if (!confirm('Start a new plan? Any unsaved changes will be lost.')) return;
+  // Strip ?id=... so we don't accidentally reopen the same saved plan,
+  // then reload for a clean-slate form.
+  history.replaceState(null, '', location.pathname);
+  location.reload();
 });
 </script>
 
