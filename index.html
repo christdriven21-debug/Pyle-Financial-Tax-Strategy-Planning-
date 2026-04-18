@@ -343,10 +343,11 @@
   body.plan-type-annual .plan-tab[data-tab="transaction"] { display: none !important; }
   body.plan-type-annual .tab-panel#panel-transaction { display: none !important; }
   /* Hide sale-only strategy cards in the library when Plan Type = Annual */
+  /* QOZ + QSBS are capital-gains-event strategies that only make sense with
+     a liquidity event. §1031 real-estate exchanges are NOT tied to a
+     business sale — they stay available in both modes. */
   body.plan-type-annual .strategy-library .strategy-card[data-id="qoz"],
-  body.plan-type-annual .strategy-library .strategy-card[data-id="qsbs"],
-  body.plan-type-annual .strategy-library .strategy-card[data-id="exch-1031"],
-  body.plan-type-annual .strategy-library .cat-tab[data-cat="capgains"] { display: none !important; }
+  body.plan-type-annual .strategy-library .strategy-card[data-id="qsbs"] { display: none !important; }
 
   /* ===== ADVISOR-ONLY ELEMENTS =====
      Any element tagged .advisor-only is hidden when the body has
@@ -1985,7 +1986,7 @@
       </div>
     </div>
 
-    <div class="strategy-block hidden sale-only" id="block-1031">
+    <div class="strategy-block hidden" id="block-1031">
       <h4>§1031 Like-Kind Exchange Parameters</h4>
       <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
         Investment real estate only (no primary residences). Replacement property must be <strong>identified within 45 days</strong> and <strong>acquired within 180 days</strong> of sale.
@@ -2993,8 +2994,10 @@ document.getElementById('btn-reset').addEventListener('click', () => {
       if (saleEl)  { saleEl.value  = '0'; saleEl.dispatchEvent(new Event('input')); }
       if (basisEl) { basisEl.value = '0'; basisEl.dispatchEvent(new Event('input')); }
       if (recapEl) { recapEl.value = '0'; recapEl.dispatchEvent(new Event('input')); }
-      // Uncheck sale-only strategies
-      ['use-qoz','use-qsbs','use-1031'].forEach(id => {
+      // Uncheck sale-only strategies (QOZ + QSBS require a capital-gains
+      // event; §1031 is a standalone real-estate exchange and stays
+      // available in both plan types).
+      ['use-qoz','use-qsbs'].forEach(id => {
         const el = document.getElementById(id);
         if (el && el.checked) { el.checked = false; el.dispatchEvent(new Event('change')); }
       });
@@ -3019,10 +3022,14 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
    CALCULATION ENGINE
    ============================================================ */
 function readForm() {
+  // Null-safe accessors. If a field is ever removed from the DOM or a
+  // refactor lands an ID rename, these return sensible zero-values instead
+  // of throwing TypeError on `null.value`. Prevents the entire plan-generation
+  // pipeline from crashing on a single missing field.
   const g = id => document.getElementById(id);
-  const n = id => parseFloat(String(g(id).value).replace(/,/g, '')) || 0;
-  const t = id => g(id).value || '';
-  const c = id => g(id).checked;
+  const n = id => { const el = g(id); return el ? (parseFloat(String(el.value).replace(/,/g, '')) || 0) : 0; };
+  const t = id => { const el = g(id); return el ? (el.value || '') : ''; };
+  const c = id => { const el = g(id); return el ? !!el.checked : false; };
   return {
     planType: t('plan-type') || 'sale',
     client: {
@@ -3979,6 +3986,23 @@ function renderSummary(p) {
    ============================================================ */
 function renderTransaction(p) {
   const d = p.input;
+
+  // Annual-mode short-circuit. In plan-type='annual' there is no business
+  // sale, so the "Sale closes / Pre-Transaction / Post-Transaction" timeline
+  // is meaningless. The tab button + panel are also hidden via CSS (see
+  // body.plan-type-annual .tab-panel#panel-transaction), but PDF export
+  // force-shows all panels — so we still need the content to make sense.
+  // Return a reframed card that documents the annual-mode context.
+  if (d.planType === 'annual') {
+    return `
+      <div class="card" style="border-left: 4px solid var(--gold);">
+        <div class="card-title">Transaction Strategy — Not Applicable (Annual Plan)</div>
+        <div class="card-sub">
+          This is an <strong>annual planning</strong> engagement with no liquidity event. The Transaction Strategy tab is only relevant for business-sale clients with a pre-transaction + post-transaction playbook. See <strong>Tax Optimization → Annual Planning Playbook</strong> for the year-over-year action items that replace the transaction timeline.
+        </div>
+      </div>
+    `;
+  }
 
   // Build the life-timeline events dynamically based on which strategies
   // are active + client ages.
