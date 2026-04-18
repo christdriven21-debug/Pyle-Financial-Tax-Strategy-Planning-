@@ -3,6 +3,7 @@
   "appVersion": "pyle-plan-builder-v1",
   "plan": {
     "values": {
+      "plan-type": "annual",
       "client-primary": "Kenechi Okonkwo",
       "client-spouse": "Adaeze Okonkwo",
       "client-location": "Boston, MA",

@@ -332,6 +332,22 @@
   }
   .slider-reset:hover { color: var(--crimson); border-color: var(--crimson); }
 
+  /* ===== PLAN TYPE GATING =====
+     Body gets .plan-type-annual when Plan Type = "Annual Planning".
+     - .sale-only   : hidden when Annual (Section 2, QOZ/QSBS/§1031 blocks,
+                       Transaction Strategy tab + playbooks, etc.)
+     - .annual-only : hidden when NOT Annual (reframed narrative cards
+                       specific to non-sale scenarios). */
+  body.plan-type-annual .sale-only   { display: none !important; }
+  body:not(.plan-type-annual) .annual-only { display: none !important; }
+  body.plan-type-annual .plan-tab[data-tab="transaction"] { display: none !important; }
+  body.plan-type-annual .tab-panel#panel-transaction { display: none !important; }
+  /* Hide sale-only strategy cards in the library when Plan Type = Annual */
+  body.plan-type-annual .strategy-library .strategy-card[data-id="qoz"],
+  body.plan-type-annual .strategy-library .strategy-card[data-id="qsbs"],
+  body.plan-type-annual .strategy-library .strategy-card[data-id="exch-1031"],
+  body.plan-type-annual .strategy-library .cat-tab[data-cat="capgains"] { display: none !important; }
+
   /* ===== ADVISOR-ONLY ELEMENTS =====
      Any element tagged .advisor-only is hidden when the body has
      .client-view. That class is auto-added for signed-in clients and
@@ -1463,6 +1479,26 @@
     <div class="cb-status" id="cloud-status">Connecting…</div>
   </div>
 
+  <!-- SECTION 0: PLAN TYPE (choose before filling anything else) -->
+  <section class="form-section" style="border-left: 4px solid var(--gold);">
+    <div class="section-header">
+      <div class="section-number" style="background: var(--gold-dark);">★</div>
+      <div>
+        <div class="section-title">Plan Type</div>
+        <div class="section-help">Which kind of plan is this? The builder and plan output adapt to the scenario you pick. Switch anytime — no data is lost.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-2">
+      <div class="field" style="grid-column: span 2;">
+        <label>Plan Type</label>
+        <select id="plan-type" style="font-size: 14px; font-weight: 600;">
+          <option value="sale" selected>Business Sale &mdash; pre-transaction + post-transaction planning</option>
+          <option value="annual">Annual Planning &mdash; established client, no liquidity event</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
   <!-- SECTION 1: CLIENT -->
   <section class="form-section">
     <div class="section-header">
@@ -1508,8 +1544,8 @@
     </div>
   </section>
 
-  <!-- SECTION 2: BUSINESS -->
-  <section class="form-section">
+  <!-- SECTION 2: BUSINESS (hidden when Plan Type = Annual) -->
+  <section class="form-section sale-only">
     <div class="section-header">
       <div class="section-number">2</div>
       <div>
@@ -1675,7 +1711,7 @@
       </div>
     </div>
 
-    <div class="strategy-block hidden" id="block-qoz">
+    <div class="strategy-block hidden sale-only" id="block-qoz">
       <h4>QOZ Parameters</h4>
       <div class="form-grid cols-3">
         <div class="field">
@@ -1791,7 +1827,7 @@
       </div>
     </div>
 
-    <div class="strategy-block hidden" id="block-qsbs">
+    <div class="strategy-block hidden sale-only" id="block-qsbs">
       <h4>QSBS §1202 Exclusion Parameters</h4>
       <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
         Requires <strong>C-Corp stock</strong>, originally issued to the holder, held <strong>5+ years</strong>, with the company having ≤$50M in gross assets when the stock was issued.
@@ -1821,7 +1857,7 @@
       </div>
     </div>
 
-    <div class="strategy-block hidden" id="block-1031">
+    <div class="strategy-block hidden sale-only" id="block-1031">
       <h4>§1031 Like-Kind Exchange Parameters</h4>
       <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
         Investment real estate only (no primary residences). Replacement property must be <strong>identified within 45 days</strong> and <strong>acquired within 180 days</strong> of sale.
@@ -2806,6 +2842,40 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   if (confirm('Reset all fields to the default example values?')) location.reload();
 });
 
+/* ============================================================
+   PLAN TYPE TOGGLE
+   Switches builder + plan view between "Business Sale" and
+   "Annual Planning" modes. Sale mode is default (current app).
+   Annual mode hides the business-sale section, QOZ/QSBS/§1031
+   strategies, and the Transaction Strategy tab. It also auto-
+   zeroes biz.sale and biz.basis so downstream calcs don't
+   produce bogus capital-gains numbers.
+   ============================================================ */
+(function () {
+  const sel = document.getElementById('plan-type');
+  if (!sel) return;
+  const apply = () => {
+    const isAnnual = sel.value === 'annual';
+    document.body.classList.toggle('plan-type-annual', isAnnual);
+    if (isAnnual) {
+      // Zero the business-sale fields so CG tax calcs don't fire
+      const saleEl = document.getElementById('biz-sale');
+      const basisEl = document.getElementById('biz-basis');
+      const recapEl = document.getElementById('biz-recapture');
+      if (saleEl)  { saleEl.value  = '0'; saleEl.dispatchEvent(new Event('input')); }
+      if (basisEl) { basisEl.value = '0'; basisEl.dispatchEvent(new Event('input')); }
+      if (recapEl) { recapEl.value = '0'; recapEl.dispatchEvent(new Event('input')); }
+      // Uncheck sale-only strategies
+      ['use-qoz','use-qsbs','use-1031'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.checked) { el.checked = false; el.dispatchEvent(new Event('change')); }
+      });
+    }
+  };
+  sel.addEventListener('change', apply);
+  apply();
+})();
+
 /* ---- New Plan ---- */
 document.getElementById('btn-new-plan').addEventListener('click', () => {
   if (!confirm('Start a new plan? Any unsaved changes will be lost.')) return;
@@ -2826,6 +2896,7 @@ function readForm() {
   const t = id => g(id).value || '';
   const c = id => g(id).checked;
   return {
+    planType: t('plan-type') || 'sale',
     client: {
       primary: t('client-primary'), spouse: t('client-spouse'),
       location: t('client-location'), year: n('client-year'),
@@ -3632,6 +3703,7 @@ function computePlan(d) {
    ============================================================ */
 function renderSummary(p) {
   const d = p.input;
+  const isAnnual = d.planType === 'annual';
 
   // "Today" card — anchors the narrative before any KPI or strategy talk.
   const primaryAge = d.client.primaryAge || 0;
@@ -3646,39 +3718,58 @@ function renderSummary(p) {
       <div class="card-title" style="color: var(--ink);">Today — Where You Are &amp; Where We're Headed</div>
       <div class="card-sub">
         ${primaryAge > 0
-          ? `This plan follows ${d.client.primary || 'you'}${spouseAge > 0 && d.client.spouse ? ` and ${d.client.spouse}` : ''} through ${jointLE > 0 ? `your ${spouseAge > 0 ? 'joint life expectancy' : 'life expectancy'}` : `a ${d.proj.years}-year horizon`} — age ${primaryAge}${spouseAge > 0 ? `/${spouseAge}` : ''} today${jointLE > 0 ? `, planning to age ${primaryAge + jointLE}${spouseAge > 0 ? `/${spouseAge + jointLE}` : ''}` : ''}.`
+          ? `This plan follows ${d.client.primary || 'you'}${spouseAge > 0 && d.client.spouse ? ` and ${d.client.spouse}` : ''} through ${jointLE > 0 ? `your ${spouseAge > 0 ? 'joint life expectancy' : 'life expectancy'}` : `a ${d.proj.years}-year horizon`} — age ${primaryAge}${spouseAge > 0 ? `/${spouseAge}` : ''} today${jointLE > 0 ? `, planning to age ${primaryAge + jointLE}${spouseAge > 0 ? `/${spouseAge + jointLE}` : ''}` : ''}.${isAnnual ? ` <strong>Annual Planning mode:</strong> no liquidity event in view — this is the ongoing year-over-year wealth-optimization plan.` : ''}`
           : `Enter the client's age in the builder to anchor the plan horizon to life expectancy.`}
       </div>
       <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 16px;">
         <div class="kpi"><div class="label">${d.client.spouse ? 'Primary / Spouse Ages' : 'Primary Age'}</div><div class="value">${primaryAge || '—'}${spouseAge > 0 ? ` / ${spouseAge}` : ''}</div></div>
         ${jointLE > 0 ? `<div class="kpi gold"><div class="label">${spouseAge > 0 ? 'Joint Life Expectancy' : 'Life Expectancy'}</div><div class="value">${jointLE} yrs</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Plan horizon: ${d.client.year} → ${horizonEnd}</div></div>` : ''}
-        <div class="kpi"><div class="label">Today's Estate (Pre-Sale)</div><div class="value">${fmt$(todayEstate)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">NW + business + other assets</div></div>
+        <div class="kpi"><div class="label">${isAnnual ? "Today's Estate" : "Today's Estate (Pre-Sale)"}</div><div class="value">${fmt$(todayEstate)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${isAnnual ? 'NW + other assets' : 'NW + business + other assets'}</div></div>
         ${retirementTotal > 0 ? `<div class="kpi"><div class="label">Retirement Accounts</div><div class="value">${fmt$(retirementTotal)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Pre-tax + Roth + HSA</div></div>` : ''}
       </div>
     </div>
   `;
 
   const strategies = [];
-  if (d.use.dynasty) strategies.push({ name: 'Dynasty Trust', desc: `Transfer ${fmt$M(d.dynasty.funding)} in non-voting shares pre-sale using combined family exemption.` });
-  if (d.use.crat) strategies.push({ name: 'Pre-Transaction CRAT', desc: `${fmt$M(d.crat.amount)} Charitable Remainder Annuity Trust with ${fmtPct(d.crat.rate*100)} annual income to beneficiaries.` });
-  if (d.use.daf) strategies.push({ name: 'Pre-Transaction DAF', desc: `${fmt$M(d.daf.amount)} Donor Advised Fund for strategic charitable giving.` });
-  strategies.push({ name: 'Business Sale', desc: `${fmt$M(d.biz.sale)} sale with strategic tax planning creates significant capital gains efficiencies.` });
-  if (d.use.qoz) strategies.push({ name: 'QOZ Investment', desc: `Remaining capital gains tax reinvested into Qualified Opportunity Zone fund for ${d.qoz.defer}-year tax deferral.` });
-  strategies.push({ name: 'Capital Gains Mitigation', desc: `Layered structure reduces taxable gain by ${fmt$M(p.scenarios.scenNone.taxableGain - p.scenarios.scenAll.taxableGain)}, saving ${fmt$M(p.cgTaxSavings)} in federal taxes.` });
-  strategies.push({ name: 'Post-Sale Liquidity', desc: `${fmt$M(p.withPlanningProceeds)} proceeds provide exceptional liquidity for wealth management and estate planning.` });
-  if (d.use.dynasty) strategies.push({ name: 'Multi-Generational Wealth', desc: `Dynasty Trust projected to grow to ${fmt$M(p.dynasty20yr)} over ${p.dynastyYears} years${p.dynastyUsesJointLE ? ' (joint life expectancy)' : ''}, tax-free to heirs.` });
+  if (isAnnual) {
+    // Annual mode — strategy list reflects ongoing income-tax / estate planning, no sale.
+    if (d.use.qbi)     strategies.push({ name: '§199A QBI Deduction', desc: `${fmtPct(d.qbi.pct*100)} deduction on ${fmt$(d.qbi.income)} qualified business income → annual savings: ${fmt$(p.qbiSavings)}.` });
+    if (d.use.roth)    strategies.push({ name: 'Roth Conversion (staged)', desc: `Convert ${fmt$M(d.roth.amount)} over ${d.roth.years} years at ${fmtPct(d.roth.marginal*100)} marginal → ${fmt$(p.rothNetEstateSave)} net estate savings + ${fmt$(p.rothGrowthBenefit)} tax-free growth.` });
+    if (d.use.daf)     strategies.push({ name: 'DAF Bunching', desc: `${fmt$M(d.daf.amount)} Donor-Advised Fund: bundle multiple giving years into one, itemize, then grant on your own cadence.` });
+    if (d.use.dynasty) strategies.push({ name: 'Dynasty Trust', desc: `Transfer ${fmt$M(d.dynasty.funding)} (non-voting shares${d.dynasty.discount > 0 ? `, ${fmtPct(d.dynasty.discount*100)} discount` : ''}) — removes base + all future growth from taxable estate.` });
+    if (d.use.slat)    strategies.push({ name: 'SLAT', desc: `${fmt$M(d.slat.funding)} to Spousal Lifetime Access Trust → ${fmt$(p.slatFutureValue)} to heirs over ${d.slat.years} yrs; spouse retains indirect access.` });
+    if (d.use.idgt)    strategies.push({ name: 'IDGT Installment Sale', desc: `Sell ${fmt$M(d.idgt.amount)} to grantor trust for AFR note (${fmtPct(d.idgt.afr*100)}) → ${fmt$(p.idgtTransferred)} transferred tax-free over ${d.idgt.term} yrs.` });
+    if (d.use.grat)    strategies.push({ name: `GRAT (${d.grat.term}-yr)`, desc: `${fmt$M(d.grat.transfer)} into zeroed-out GRAT at ${fmtPct(d.grat.hurdle*100)} §7520 → ${fmt$(p.gratRemainder)} to heirs gift-tax-free.` });
+    if (d.use.qprt)    strategies.push({ name: `QPRT (${d.qprt.term}-yr)`, desc: `Transfer ${fmt$M(d.qprt.residence)} ${d.qprt.type === 'secondary' ? 'vacation home' : 'primary residence'} for discounted taxable gift of ${fmt$(p.qprtTaxableGift)}.` });
+    if (d.use.ilit)    strategies.push({ name: 'ILIT', desc: `${fmt$M(d.ilit.coverage)} life insurance held outside estate → ${fmt$(p.ilitEstateSave)} estate-tax saving at ${fmtPct(d.tax.estate*100)}.` });
+    if (d.use.crut)    strategies.push({ name: 'CRUT', desc: `${fmt$M(d.crut.amount)} Charitable Remainder Unitrust, ${fmtPct(d.crut.rate*100)} variable payout → first-year income ${fmt$(p.crutIncome)}; eliminates CG on contribution.` });
+    if (d.use.crat)    strategies.push({ name: 'CRAT', desc: `${fmt$M(d.crat.amount)} Charitable Remainder Annuity Trust, ${fmtPct(d.crat.rate*100)} fixed annuity; estate removal + charitable deduction.` });
+    if (d.use.clt)     strategies.push({ name: `CLT (${d.clt.term}-yr)`, desc: `${fmt$M(d.clt.amount)} into Charitable Lead Trust → ${fmt$(p.cltRemainderValue)} remainder to heirs gift-tax-free at term end.` });
+    if (!strategies.length) strategies.push({ name: 'No strategies selected yet', desc: 'Open the Builder and toggle strategies on to see the plan populate. Start with the Strategy Library chips.' });
+    strategies.push({ name: 'Annual Review Cadence', desc: `Refresh the plan every 12 months — beneficiary updates, tax-law changes, rebalancing, DAF grants, insurance & estate-doc review.` });
+  } else {
+    // Business-sale mode — original strategy list.
+    if (d.use.dynasty) strategies.push({ name: 'Dynasty Trust', desc: `Transfer ${fmt$M(d.dynasty.funding)} in non-voting shares pre-sale using combined family exemption.` });
+    if (d.use.crat) strategies.push({ name: 'Pre-Transaction CRAT', desc: `${fmt$M(d.crat.amount)} Charitable Remainder Annuity Trust with ${fmtPct(d.crat.rate*100)} annual income to beneficiaries.` });
+    if (d.use.daf) strategies.push({ name: 'Pre-Transaction DAF', desc: `${fmt$M(d.daf.amount)} Donor Advised Fund for strategic charitable giving.` });
+    strategies.push({ name: 'Business Sale', desc: `${fmt$M(d.biz.sale)} sale with strategic tax planning creates significant capital gains efficiencies.` });
+    if (d.use.qoz) strategies.push({ name: 'QOZ Investment', desc: `Remaining capital gains tax reinvested into Qualified Opportunity Zone fund for ${d.qoz.defer}-year tax deferral.` });
+    strategies.push({ name: 'Capital Gains Mitigation', desc: `Layered structure reduces taxable gain by ${fmt$M(p.scenarios.scenNone.taxableGain - p.scenarios.scenAll.taxableGain)}, saving ${fmt$M(p.cgTaxSavings)} in federal taxes.` });
+    strategies.push({ name: 'Post-Sale Liquidity', desc: `${fmt$M(p.withPlanningProceeds)} proceeds provide exceptional liquidity for wealth management and estate planning.` });
+    if (d.use.dynasty) strategies.push({ name: 'Multi-Generational Wealth', desc: `Dynasty Trust projected to grow to ${fmt$M(p.dynasty20yr)} over ${p.dynastyYears} years${p.dynastyUsesJointLE ? ' (joint life expectancy)' : ''}, tax-free to heirs.` });
+  }
 
   return `
     ${todayCard}
 
     <div class="card">
-      <div class="card-title">Plan Overview — Business Sale &amp; Wealth Transition</div>
-      <div class="card-sub">Strategic overview of pre-sale planning and post-sale wealth positioning.</div>
+      <div class="card-title">${isAnnual ? 'Plan Overview — Annual Wealth Optimization' : 'Plan Overview — Business Sale &amp; Wealth Transition'}</div>
+      <div class="card-sub">${isAnnual ? 'Strategic overview of this year\'s income-tax, estate, and wealth-transfer plan — refreshed annually.' : 'Strategic overview of pre-sale planning and post-sale wealth positioning.'}</div>
 
       <div class="kpi-grid">
-        <div class="kpi success"><div class="label">Post-Sale Family Net Worth</div><div class="value">${fmt$(p.familyTotalNW)}</div></div>
-        <div class="kpi gold"><div class="label">Annual Income (Post-Sale)</div><div class="value">${fmt$(p.annualIncome)}</div></div>
-        <div class="kpi success"><div class="label">Total Tax Savings</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
+        <div class="kpi success"><div class="label">${isAnnual ? 'Family Net Worth' : 'Post-Sale Family Net Worth'}</div><div class="value">${fmt$(p.familyTotalNW)}</div></div>
+        <div class="kpi gold"><div class="label">${isAnnual ? 'Projected Annual Income' : 'Annual Income (Post-Sale)'}</div><div class="value">${fmt$(p.annualIncome)}</div></div>
+        <div class="kpi success"><div class="label">${isAnnual ? 'Annual + Estate Tax Savings' : 'Total Tax Savings'}</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
         <div class="kpi ink"><div class="label">Insurance Coverage</div><div class="value">${fmt$(d.ins.current)}</div></div>
       </div>
 
@@ -3693,7 +3784,7 @@ function renderSummary(p) {
     </div>
 
     ${d.use.qoz ? `
-    <div class="card">
+    <div class="card sale-only">
       <div class="card-title">Qualified Opportunity Zone (QOZ) Strategy</div>
       <div class="card-sub">${d.qoz.defer}-year tax deferral with potential for tax-free appreciation.</div>
 
@@ -3728,7 +3819,7 @@ function renderSummary(p) {
       </div>
     </div>` : ''}
 
-    <div class="card">
+    <div class="card sale-only">
       <div class="card-title">Financial Snapshot — Pre &amp; Post Transaction</div>
       <div class="kpi-grid">
         <div class="kpi ink"><div class="label">Pre-Sale Net Worth</div><div class="value">${fmt$(d.client.preSaleNW)}</div></div>
@@ -3737,6 +3828,19 @@ function renderSummary(p) {
         <div class="kpi"><div class="label">Cap Gains Tax (Paid)</div><div class="value">${fmt$(p.scenarios.scenAll.totalCGTax)}</div></div>
         <div class="kpi success"><div class="label">Total Tax Savings</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
         <div class="kpi gold"><div class="label">Net Proceeds After Tax</div><div class="value">${fmt$(p.familyTotalProceeds)}</div></div>
+      </div>
+    </div>
+
+    <div class="card annual-only">
+      <div class="card-title">Financial Snapshot — This Year</div>
+      <div class="card-sub">Point-in-time view of the household balance sheet and this year's projected income + tax picture.</div>
+      <div class="kpi-grid">
+        <div class="kpi ink"><div class="label">Household Net Worth</div><div class="value">${fmt$(d.client.preSaleNW)}</div></div>
+        <div class="kpi"><div class="label">Other Assets</div><div class="value">${fmt$(d.client.otherAssets)}</div></div>
+        ${retirementTotal > 0 ? `<div class="kpi"><div class="label">Retirement Accounts</div><div class="value">${fmt$(retirementTotal)}</div></div>` : ''}
+        <div class="kpi gold"><div class="label">Insurance Coverage</div><div class="value">${fmt$(d.ins.current)}</div></div>
+        <div class="kpi success"><div class="label">Annual Tax Savings (Combined)</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
+        <div class="kpi success"><div class="label">Family Net Worth (Projected)</div><div class="value">${fmt$(p.familyTotalNW)}</div></div>
       </div>
     </div>
   `;
@@ -3959,7 +4063,7 @@ function renderTransaction(p) {
   });
 
   const preTransactionCard = `
-    <div class="card" style="border-left: 4px solid var(--gold-dark);">
+    <div class="card sale-only" style="border-left: 4px solid var(--gold-dark);">
       <div class="card-title">📋 Pre-Transaction Playbook</div>
       <div class="card-sub">Everything that must be in place <strong>before</strong> sale day. The timing matters: trusts funded too close to the sale can be challenged by the IRS. Start 6–12 months before a known closing.</div>
       <div style="margin-top: 16px;">
@@ -4032,7 +4136,7 @@ function renderTransaction(p) {
   });
 
   const postTransactionCard = `
-    <div class="card" style="border-left: 4px solid var(--success);">
+    <div class="card sale-only" style="border-left: 4px solid var(--success);">
       <div class="card-title">📋 Post-Transaction Playbook</div>
       <div class="card-sub">Everything that happens <strong>after</strong> sale day. Several items are time-sensitive — miss the 180-day QOZ window or the 45-day §1031 identification deadline and the strategy dies.</div>
       <div style="margin-top: 16px;">
@@ -4435,6 +4539,90 @@ function renderFinancial(p) {
    ============================================================ */
 function renderTax(p) {
   const d = p.input;
+
+  // ========== ANNUAL PLANNING PLAYBOOK ==========
+  // Shown only when Plan Type = Annual. Replaces the Pre/Post-Transaction
+  // Playbooks (which are on the hidden Transaction Strategy tab).
+  const annualPlaybookItems = [];
+  if (d.use.qbi) annualPlaybookItems.push({
+    icon: '📊', title: '§199A QBI Deduction — Filed Annually',
+    timing: 'Each tax return',
+    detail: `${fmt$(d.qbi.income)} qualifying business income × ${fmtPct(d.qbi.pct*100)} deduction = <strong>${fmt$(p.qbiDeduction)}</strong> deduction, saving <strong>${fmt$(p.qbiSavings)}</strong>/yr at ${fmtPct(d.tax.marginal*100)} marginal rate. ${d.qbi.sstb ? '<strong>⚠️ SSTB flagged</strong> — verify taxable-income band; deduction may be phased out entirely above upper threshold.' : 'Non-SSTB — full deduction available.'}`,
+  });
+  if (d.use.roth) annualPlaybookItems.push({
+    icon: '🔄', title: 'Roth Conversion',
+    timing: 'Before age 73 (RMD trigger)',
+    detail: `Convert ${fmt$M(d.roth.amount)} of traditional IRA/401(k) to Roth at today's ${fmtPct(d.roth.marginal*100)} marginal rate. Income tax paid now: <strong>${fmt$(p.rothIncomeTax)}</strong>. Removes <strong>${fmt$M(d.roth.amount)} + ${fmt$(p.rothGrowthBenefit)}</strong> of future growth from taxable estate. Best done over multiple years to stay under bracket breaks.`,
+  });
+  if (d.use.daf) annualPlaybookItems.push({
+    icon: '💝', title: 'DAF — Bunching Strategy',
+    timing: 'Every 2–3 years',
+    detail: `Bunch ${fmt$M(d.daf.amount)} of charitable giving into a DAF in concentration years (itemized deduction) — then grant to charities over time. Current-year deduction: <strong>${fmt$(p.dafDeduction)}</strong>, saving <strong>${fmt$(p.dafDeduction * d.tax.marginal)}</strong> at ${fmtPct(d.tax.marginal*100)} marginal.`,
+  });
+  if (d.use.dynasty) annualPlaybookItems.push({
+    icon: '🏛️', title: 'Dynasty Trust — Funded / Topped Up',
+    timing: 'Using annual + lifetime exemption',
+    detail: `${fmt$M(d.dynasty.funding)} Dynasty Trust ${d.dynasty.discount > 0 ? `@ ${fmtPct(d.dynasty.discount*100)} discount → reported gift ${fmt$M(p.dynastyGiftValue)}` : ''}. Grantor trust status (Rev. Rul. 2004-64) — grantor pays trust income tax as additional tax-free gifts. Additional top-ups via annual exclusion gifts ($19k × beneficiaries) accumulate without exemption use.`,
+  });
+  if (d.use.slat) annualPlaybookItems.push({
+    icon: '👥', title: 'SLAT (Spousal Lifetime Access Trust)',
+    timing: 'One-time funding',
+    detail: `${fmt$M(d.slat.funding)} into SLAT for spouse's benefit. Uses lifetime exemption. Spouse retains indirect access via distributions. <strong>Reciprocal trust doctrine caution</strong>: if both spouses fund SLATs, terms must differ materially.`,
+  });
+  if (d.use.idgt) annualPlaybookItems.push({
+    icon: '🔒', title: 'IDGT Installment Sale',
+    timing: 'One-time transaction',
+    detail: `Sell ${fmt$M(d.idgt.amount)} of appreciating assets to a pre-funded IDGT for AFR-rate (${fmtPct(d.idgt.afr*100)}) installment note. Appreciation above AFR transfers gift-tax-free — projected <strong>${fmt$M(p.idgtTransferred)}</strong> wealth transfer over ${d.idgt.term} years.`,
+  });
+  if (d.use.grat) annualPlaybookItems.push({
+    icon: '📈', title: 'GRAT (Grantor Retained Annuity Trust)',
+    timing: 'Short-term, repeatable',
+    detail: `${d.grat.term}-year rolling GRATs of ${fmt$M(d.grat.transfer)} each — zero-out structure. Appreciation above ${fmtPct(d.grat.hurdle*100)} §7520 hurdle transfers gift-tax-free. Roll fresh GRATs every 2–3 years to capture market gains; survivor-of-term benefit.`,
+  });
+  if (d.use.qprt) annualPlaybookItems.push({
+    icon: '🏠', title: 'QPRT — Residence Transfer',
+    timing: 'One-time funding',
+    detail: `Transfer ${d.qprt.type === 'secondary' ? 'secondary home' : 'primary residence'} (${fmt$M(d.qprt.residence)}) into ${d.qprt.term}-year QPRT. Discounted gift: ${fmt$(p.qprtTaxableGift)} today. Residence passes to heirs at term end. Grantor pays fair-market rent to continue occupancy after term.`,
+  });
+  if (d.use.ilit) annualPlaybookItems.push({
+    icon: '🛡', title: 'ILIT — Life Insurance Outside Estate',
+    timing: `${p.ilitPayYears}-pay schedule`,
+    detail: `${fmt$M(d.ilit.coverage)} death benefit owned by ILIT — permanently outside taxable estate. Annual Crummey notices to beneficiaries convert premium gifts to present-interest gifts, qualifying for $19k annual exclusion. Premium: $${d.ilit.premium.toLocaleString()}/yr × ${p.ilitPayYears} yrs.`,
+  });
+  if (d.use.crut || d.use.crat) annualPlaybookItems.push({
+    icon: '🎗', title: d.use.crut ? 'CRUT (Charitable Remainder Unitrust)' : 'CRAT (Charitable Remainder Annuity Trust)',
+    timing: 'One-time funding + annual distributions',
+    detail: `${d.use.crut ? `${fmt$M(d.crut.amount)} into CRUT with variable ${fmtPct(d.crut.rate*100)} payout (re-valued annually — inflation-hedged). First-year income: ${fmt$(p.crutIncome)}.` : `${fmt$M(d.crat.amount)} into CRAT with fixed ${fmtPct(d.crat.rate*100)} annuity. Annual payout: ${fmt$(d.crat.amount * d.crat.rate)}.`} Charitable deduction at funding: ${fmt$((d.use.crut ? p.crutDeduction : p.cratDeduction))}, saving ${fmt$((d.use.crut ? p.crutDeduction : p.cratDeduction) * d.tax.marginal)} at ${fmtPct(d.tax.marginal*100)} marginal.`,
+  });
+  if (d.use.clt) annualPlaybookItems.push({
+    icon: '🎗', title: 'CLT (Charitable Lead Trust)',
+    timing: 'One-time funding',
+    detail: `${fmt$M(d.clt.amount)} into CLT paying ${fmt$(d.clt.payout)}/yr to charity for ${d.clt.term} years. At ${fmtPct(d.clt.growth*100)} expected growth vs. ${fmtPct(d.clt.hurdle*100)} §7520 hurdle, <strong>${fmt$(p.cltRemainderValue)}</strong> passes to heirs gift-tax-free at term end.`,
+  });
+  annualPlaybookItems.push({
+    icon: '🎯', title: 'Annual Review Cadence',
+    timing: 'Every 12 months',
+    detail: `Refresh the plan annually: beneficiary updates, tax-law changes (exemptions, rates, phase-outs), rebalancing, DAF grants, insurance review, estate-document review, charitable giving strategy. Use "Clone → Next Year" to create next year's plan from this one.`,
+  });
+
+  const annualPlaybookCard = `
+    <div class="card annual-only" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📋 Annual Planning Playbook — Ongoing Wealth Optimization</div>
+      <div class="card-sub">No liquidity event in view. This is the year-over-year discipline: minimize current-year income tax, build out estate structures progressively, and refresh as tax law and family circumstances change.</div>
+      <div style="margin-top: 16px;">
+        ${annualPlaybookItems.map(item => `
+          <div style="margin-bottom: 16px; padding: 14px 16px; background: var(--cream-light); border-left: 3px solid var(--gold); border-radius: 3px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+              <strong style="color: var(--ink); font-size: 14px;">${item.icon} ${item.title}</strong>
+              <span style="font-size: 11px; font-family: 'Helvetica Neue', sans-serif; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700;">${item.timing}</span>
+            </div>
+            <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.5;">${item.detail}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
   const items = [];
   if (d.use.dynasty) {
     const isGrantor = d.dynasty.trustType === 'grantor';
@@ -4609,6 +4797,8 @@ function renderTax(p) {
   const totalAll = items.reduce((s, i) => s + i.value, 0);
 
   return `
+    ${annualPlaybookCard}
+
     <div class="card">
       <div class="card-title">Comprehensive Tax Optimization Strategy</div>
       <div class="card-sub">Strategy-by-strategy breakdown of all tax benefits.</div>
@@ -6038,6 +6228,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   /* ---- Snapshot form state to a portable JSON object ---- */
   function snapshotForm() {
     const ids = [
+      'plan-type',
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
       'client-primary-age','client-spouse-age',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
@@ -6087,6 +6278,10 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     });
     if (snap.firmLogo) window.__FIRM_LOGO__ = snap.firmLogo;
     if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
+    // Re-apply Plan Type body class (hydrateForm sets the value but doesn't fire
+    // change, so the plan-type IIFE's listener needs a manual trigger)
+    const planTypeEl = document.getElementById('plan-type');
+    if (planTypeEl) planTypeEl.dispatchEvent(new Event('change'));
   }
 
   /* ---- Download current form state as a local JSON file (offline-safe) ---- */
