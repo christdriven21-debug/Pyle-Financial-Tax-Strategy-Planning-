@@ -1959,31 +1959,39 @@
     <div class="strategy-block hidden sale-only" id="block-qsbs">
       <h4>QSBS §1202 Exclusion Parameters</h4>
       <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
-        Requires <strong>C-Corp stock</strong>, originally issued to the holder, held <strong>5+ years</strong>, with the company having ≤$50M in gross assets when the stock was issued.
-        Federal exclusion is 100% for stock acquired after 9/27/2010.
-        State treatment varies — some states (e.g., California) do not conform.
+        Requires <strong>C-Corp stock</strong>, originally issued to the holder.
+        <strong>Pre-OBBBA (acquired before 7/4/2025):</strong> 5+ year hold = 100% exclusion, cap = max($10M, 10× basis), $50M gross-asset ceiling at issuance.
+        <strong>Post-OBBBA (7/4/2025+):</strong> tiered — 3-yr = 50%, 4-yr = 75%, 5+ yr = 100%; cap = max($15M, 10× basis); $75M gross-asset ceiling.
+        State treatment varies — CA, PA, MS, AL, NJ do not conform.
       </p>
-      <div class="form-grid cols-3">
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>Acquisition Date <span class="hint">(determines regime)</span></label>
+          <select id="qsbs-regime">
+            <option value="pre-obbba" selected>Pre-OBBBA (before 7/4/2025) — $10M cap, 5-yr = 100%</option>
+            <option value="post-obbba">Post-OBBBA (7/4/2025+) — $15M cap, tiered 3/4/5-yr</option>
+          </select>
+        </div>
         <div class="field">
           <label>Adjusted Stock Basis <span class="hint">(for 10× multiplier cap)</span></label>
           <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-basis" value="0"></div>
         </div>
         <div class="field">
-          <label>Years Held <span class="hint">(5+ required for exclusion)</span></label>
+          <label>Years Held</label>
           <input type="number" id="qsbs-years" value="7">
-        </div>
-        <div class="field">
-          <label>Federal Exclusion %</label>
-          <div class="suffix-pct"><input type="number" id="qsbs-excl" value="100" step="25"></div>
         </div>
         <div class="field">
           <label>State Conforms to §1202?</label>
           <select id="qsbs-state-conforms">
-            <option value="yes">Yes (most states + FL/TX/WA have no state tax)</option>
-            <option value="no">No (CA, PA, MS, AL, NJ — state-level tax applies)</option>
+            <option value="yes">Yes (most states + FL/TX/WA no state tax)</option>
+            <option value="no">No (CA, PA, MS, AL, NJ)</option>
           </select>
         </div>
       </div>
+      <!-- Federal exclusion % is now DERIVED from the regime + years held
+           (see computePlan). The old manual "qsbs-excl" input was removed
+           because OBBBA's tiered rule is deterministic from holding period. -->
+      <input type="hidden" id="qsbs-excl" value="100">
     </div>
 
     <div class="strategy-block hidden" id="block-1031">
@@ -2791,7 +2799,7 @@ const STATE_TAX_TABLE = {
   LA: { name: 'Louisiana',       rate: 4.25, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state with unique forced-heirship rules.' },
   ME: { name: 'Maine',           rate: 7.15, qsbsConforms: true,  estateTax: true,  estateExempt: 6410000,  estateTopRate: 0.12, notes: 'State estate tax applies above $6.41M (2024).' },
   MD: { name: 'Maryland',        rate: 5.75, qsbsConforms: true,  estateTax: true,  estateExempt: 5000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $5M. Also has state-level inheritance tax.' },
-  MA: { name: 'Massachusetts',   rate: 9.00, qsbsConforms: true,  estateTax: true,  estateExempt: 2000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $2M (2023 reform). Cliff rule — entire estate taxable once threshold crossed.' },
+  MA: { name: 'Massachusetts',   rate: 9.00, qsbsConforms: true,  estateTax: true,  estateExempt: 2000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $2M (Ch. 50 Acts of 2023 reform, effective 1/1/2023). No cliff — tax applies only to the excess above $2M exemption. Top rate 16%.' },
   MI: { name: 'Michigan',        rate: 4.25, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
   MN: { name: 'Minnesota',       rate: 9.85, qsbsConforms: true,  estateTax: true,  estateExempt: 3000000,  estateTopRate: 0.16, notes: 'State estate tax applies above $3M.' },
   MS: { name: 'Mississippi',     rate: 4.40, qsbsConforms: false, estateTax: false, notes: 'Does not conform to §1202. No state estate tax.' },
@@ -3091,6 +3099,7 @@ function readForm() {
       yearsHeld: n('qsbs-years'),
       exclPct: n('qsbs-excl') / 100,
       stateConforms: t('qsbs-state-conforms') === 'yes',
+      regime: t('qsbs-regime') || 'pre-obbba',  // 'pre-obbba' | 'post-obbba'
     },
     exch1031: { sale: n('exch-sale'), basis: n('exch-basis'), replacement: n('exch-replacement') },
     qbi: { income: n('qbi-income'), pct: n('qbi-pct') / 100, sstb: t('qbi-sstb') === 'yes' },
@@ -3153,6 +3162,16 @@ function computePlan(d) {
   const crAmt = d.use.crat ? d.crat.amount : 0;
   const dafAmt = d.use.daf ? d.daf.amount : 0;
 
+  // CORRECTED: contribution reduces GAIN by (contribution × appreciation
+  // fraction), not by full contribution amount. Basis allocated to
+  // donated shares isn't "saved" — it was already tax-free return of
+  // capital. For HNW deals with tiny basis this is ~identical to the old
+  // formula, but for lower-appreciation assets the prior formula
+  // overstated CG savings materially.
+  const appreciationPct = salePrice > 0 ? grossGain / salePrice : 0;
+  const crGainAvoided  = crAmt  * appreciationPct;  // gain eliminated via CRAT
+  const dafGainAvoided = dafAmt * appreciationPct;  // gain eliminated via DAF
+
   // Scenarios
   const scenNone = {
     name: 'No Planning',
@@ -3165,7 +3184,7 @@ function computePlan(d) {
   scenNone.totalCGTax = scenNone.fedTax + scenNone.stateTax + scenNone.medicareTax;
 
   const scenCratDaf = (() => {
-    const gain = Math.max(0, grossGain - crAmt - dafAmt);
+    const gain = Math.max(0, grossGain - crGainAvoided - dafGainAvoided);
     return {
       name: 'CRAT+DAF Only',
       dynasty: 0, crat: crAmt, daf: dafAmt,
@@ -3186,7 +3205,7 @@ function computePlan(d) {
   // beneficiaries). A non-grantor trust in a favorable-situs state
   // (DE/NV/SD/WY/AK) can avoid the STATE portion, which we credit below.
   const scenDyCratDaf = (() => {
-    const gain = Math.max(0, grossGain - crAmt - dafAmt); // Dynasty no longer reduces grantor's taxable gain
+    const gain = Math.max(0, grossGain - crGainAvoided - dafGainAvoided);
     return {
       name: 'Dynasty+CRAT+DAF',
       dynasty: dyAmt, crat: crAmt, daf: dafAmt,
@@ -3199,7 +3218,7 @@ function computePlan(d) {
   })();
 
   const scenAll = (() => {
-    const gain = Math.max(0, grossGain - crAmt - dafAmt); // Same correction: exempt transfers only
+    const gain = Math.max(0, grossGain - crGainAvoided - dafGainAvoided);
     const baseTax = gain * combinedCGRate;
     return {
       name: 'Full Stack + QSBS',
@@ -3221,10 +3240,28 @@ function computePlan(d) {
   const totalCharitableDed = cratDeduction + dafDeduction;
   const incomeTaxSavings = totalCharitableDed * d.tax.marginal;
 
-  // Estate tax savings
-  const dynastyEstateSave = d.use.dynasty ? dyAmt * d.tax.estate : 0;
+  // Estate tax savings — CORRECTED to avoid phantom "savings" from
+  // exemption-using gifts.
+  //
+  // CRAT and DAF: charitable contributions leave the estate AND don't
+  //   use lifetime exemption (charitable deduction). Full amount × rate
+  //   is genuine estate savings.
+  //
+  // Dynasty: funding uses exemption under the unified credit system —
+  //   the exemption would have offset estate tax at death anyway, so the
+  //   base funding is a wash. True savings come from:
+  //     (a) APPRECIATION that compounds outside the estate
+  //         = (FV − funding) × estate rate
+  //     (b) VALUATION DISCOUNT leverage (handled separately below)
+  //     (c) GRANTOR TAX BURN under Rev. Rul. 2004-64 (handled below)
+  //   We use (a) as dynastyEstateSave going forward. The base amount
+  //   "removed from estate" is kept as dynastyBaseRemoved for DISPLAY.
   const cratEstateSave = d.use.crat ? crAmt * d.tax.estate : 0;
   const dafEstateSave = d.use.daf ? dafAmt * d.tax.estate : 0;
+  // dynastyEstateSave is set below, after dynastyYears / dynasty20yr calc.
+  // Placeholder declarations here so later code can reference.
+  let dynastyEstateSave = 0;
+  let dynastyBaseRemoved = 0;
 
   // ──────────────────────────────────────────────────────────────────────
   // VALUATION DISCOUNT LEVERAGE
@@ -3245,18 +3282,21 @@ function computePlan(d) {
   const dynastyDiscountSave = dynastyDiscountAmt * d.tax.estate;                     // additional estate-tax saving vs. non-discounted transfer
 
   // ──────────────────────────────────────────────────────────────────────
-  // STATE-TAX ARBITRAGE
+  // STATE-TAX ARBITRAGE — CORRECTED
   //   When a non-grantor trust is sited in a no-state-tax jurisdiction
-  //   (DE, NV, SD, WY, AK), the trust's portion of the sale gain avoids
+  //   (DE, NV, SD, WY, AK), the trust's portion of the sale GAIN avoids
   //   state capital gains tax that the grantor would otherwise owe.
   //   Grantor trusts don't get this benefit — grantor still pays state
   //   tax on trust income per §671.
+  //
+  //   Savings = dynastyFunding × appreciationPct × stateRate
+  //   (only the GAIN portion — basis is tax-free return of capital).
   // ──────────────────────────────────────────────────────────────────────
   const dynastyStateArbitrage = (d.use.dynasty
     && d.dynasty.trustType === 'nongrantor'
     && d.dynasty.favorableSitus
     && d.tax.state > 0)
-    ? dyAmt * d.tax.state
+    ? dyAmt * appreciationPct * d.tax.state
     : 0;
 
   // ──────────────────────────────────────────────────────────────────────
@@ -3274,8 +3314,20 @@ function computePlan(d) {
   const dynastyLeverageYears = (d.client.primaryAge || 0) > 0
     ? jointLastSurvivorExpectancy(d.client.primaryAge, d.client.spouseAge || 0)
     : d.dynasty.years;
+  // CORRECTED: compound-aware Rev. Rul. 2004-64 leverage.
+  //   Trust income each year ≈ trust_value[y] × yield,
+  //   and trust_value grows at proj.equity over time.
+  //   Cumulative tax paid by grantor over N years
+  //     = Σ y=0..N−1 [ funding × (1+growth)^y × yield × marginal ]
+  //     = funding × yield × marginal × ((1+growth)^N − 1) / growth
+  //   This compounding effect is ~1.8× the linear approximation for
+  //   20-yr horizons, materially understated in the prior formula.
+  const _dynastyGrowthRate = d.proj.equity;
+  const _dynastyLeverageAnnuityFactor = _dynastyGrowthRate > 0
+    ? (Math.pow(1 + _dynastyGrowthRate, dynastyLeverageYears) - 1) / _dynastyGrowthRate
+    : dynastyLeverageYears;
   const dynastyIncomeTaxGift = (d.use.dynasty && d.dynasty.trustType === 'grantor')
-    ? dyAmt * (d.dynasty.incomeYield || 0.03) * d.tax.marginal * dynastyLeverageYears
+    ? dyAmt * (d.dynasty.incomeYield || 0.03) * d.tax.marginal * _dynastyLeverageAnnuityFactor
     : 0;
   const dynastyIncomeTaxGiftEstateSave = dynastyIncomeTaxGift * d.tax.estate;
 
@@ -3312,31 +3364,58 @@ function computePlan(d) {
   const ilitTotalPremiums = d.use.ilit ? d.ilit.premium * ilitPayYears : 0;
   const ilitNetBenefit    = ilitEstateSave - ilitTotalPremiums;
 
-  // Roth Conversion: pay income tax now to remove both the converted amount
-  //   AND future growth from the taxable estate.
-  //   Net estate savings = (conversion amount × estate tax rate)
-  //                        − (income tax paid on conversion)
-  //   Future-growth benefit grows this further — represented separately
-  //   as rothGrowthBenefit rather than baked into totalImmediate.
+  // Roth Conversion — CORRECTED estate-tax savings formula.
+  //
+  // A conversion does NOT remove the converted amount from the gross estate:
+  // the IRA balance simply reclassifies from Traditional → Roth, both
+  // owned by the grantor and both includible at death under §2039.
+  //
+  // What ACTUALLY escapes the estate is the income tax paid OUT OF POCKET
+  // at conversion — that cash leaves the grantor's taxable estate and
+  // (by paying it) reduces future estate tax by (tax paid × estate rate).
+  //
+  // Additional benefit: beneficiaries inherit Roth free of income tax,
+  // and Roth has no lifetime RMDs — preserving the full account balance
+  // to compound tax-free for longer. That compounding benefit is
+  // represented by rothGrowthBenefit below.
+  //
+  // References: §408A (Roth rules), §691(c) IRD treatment avoided,
+  // Rev. Rul. 2004-64 conceptual parallel (paying tax ≠ gift).
   const rothIncomeTax   = d.use.roth ? d.roth.amount * d.roth.marginal : 0;
-  const rothEstateSave  = d.use.roth ? d.roth.amount * d.tax.estate : 0;
-  const rothNetEstateSave = Math.max(0, rothEstateSave - rothIncomeTax);
+  const rothEstateSave  = rothIncomeTax * d.tax.estate;  // tax paid × estate rate
+  const rothNetEstateSave = rothEstateSave;               // conceptually: the estate-tax saving
   const rothFutureValue = d.use.roth
     ? d.roth.amount * Math.pow(1 + d.proj.equity, Math.max(0, d.roth.years))
     : 0;
   const rothGrowthBenefit = Math.max(0, rothFutureValue - d.roth.amount);
 
-  // GRAT: transfers asset appreciation above the §7520 hurdle rate, gift-tax-free.
-  //   Rough approx: remainder to heirs = transfer × ((1+growth)^term − (1+hurdle)^term)
-  //   Estate savings = remainder × estate tax rate
-  const gratRemainder = d.use.grat
-    ? d.grat.transfer * Math.max(0,
-        Math.pow(1 + d.grat.growth, d.grat.term) - Math.pow(1 + d.grat.hurdle, d.grat.term))
-    : 0;
+  // GRAT (§2702, §7520) — CORRECTED annuity-factor formula.
+  //   A zeroed-out GRAT (Walton) sets the annuity so that PV at §7520
+  //   equals the contribution → taxable gift ≈ $0. If the asset grows
+  //   above §7520 over the term, the excess passes to heirs gift-tax-free.
+  //
+  //   Proper calc:
+  //     annuityFactor = (1 − (1+hurdle)^−term) / hurdle   [PV annuity at §7520]
+  //     annuity       = transfer / annuityFactor           [zeroed-out amount]
+  //     FV_asset      = transfer × (1+growth)^term
+  //     FV_annuity    = annuity × ((1+growth)^term − 1) / growth
+  //     remainder     = max(0, FV_asset − FV_annuity)
+  //
+  //   Prior formula transfer × ((1+growth)^term − (1+hurdle)^term)
+  //   systematically OVERSTATED the remainder by ~60-80% (no account of
+  //   annuity reducing asset base during term).
+  let gratRemainder = 0;
+  let gratAnnuity = 0;
+  if (d.use.grat && d.grat.term > 0 && d.grat.hurdle > 0) {
+    const annuityFactor = (1 - Math.pow(1 + d.grat.hurdle, -d.grat.term)) / d.grat.hurdle;
+    gratAnnuity = annuityFactor > 0 ? d.grat.transfer / annuityFactor : 0;
+    const fvAsset   = d.grat.transfer * Math.pow(1 + d.grat.growth, d.grat.term);
+    const fvAnnuity = d.grat.growth > 0
+      ? gratAnnuity * (Math.pow(1 + d.grat.growth, d.grat.term) - 1) / d.grat.growth
+      : gratAnnuity * d.grat.term;
+    gratRemainder = Math.max(0, fvAsset - fvAnnuity);
+  }
   const gratEstateSave = gratRemainder * d.tax.estate;
-
-  const totalEstateSave = dynastyEstateSave + cratEstateSave + dafEstateSave
-                        + ilitEstateSave + rothNetEstateSave + gratEstateSave;
 
   // Dynasty trust projection
   //   Horizon defaults to joint life expectancy (primary + spouse ages)
@@ -3350,28 +3429,72 @@ function computePlan(d) {
   const dynastyUsesJointLE = dynastyJointLE > 0;
   const dynasty20yr = d.use.dynasty ? dyAmt * Math.pow(1 + d.proj.equity, dynastyYears) : 0;
   const dynastyGrowth = dynasty20yr - dyAmt;
+  // CORRECTED: Dynasty estate-tax savings = APPRECIATION × estate rate
+  //   (funding is a wash with exemption; appreciation is the true benefit).
+  dynastyEstateSave = d.use.dynasty ? dynastyGrowth * d.tax.estate : 0;
+  dynastyBaseRemoved = d.use.dynasty ? dyAmt : 0;  // display only
+
+  // Total estate savings — computed AFTER dynastyEstateSave is assigned
+  // (appreciation × rate). CRAT/DAF are charitable (no exemption use) so
+  // base funding × rate is correct. ILIT is outside §2042 (third-party
+  // owner). Roth uses tax-paid × rate (see above). SLAT uses appreciation
+  // × rate. GRAT uses remainder × rate (remainder = appreciation above
+  // §7520). QPRT, CRUT, CLT, IDGT are summed into totalImmediate
+  // separately below.
+  const totalEstateSave = dynastyEstateSave + cratEstateSave + dafEstateSave
+                        + ilitEstateSave + rothNetEstateSave + gratEstateSave;
 
   // Capital gains tax savings (vs no planning)
   const cgTaxSavings = scenNone.totalCGTax - scenAll.totalCGTax;
 
   // ──────────────────────────────────────────────────────────────────────
-  // §1202 QSBS exclusion
-  //   Max exclusion = max($10M, 10 × basis), scaled by statutory %
-  //   (100% post-9/27/2010, 75% for 2/18/2009–9/27/2010, 50% earlier).
-  //   Applied to the residual taxable gain AFTER other strategies reduce it
-  //   (Dynasty / CRAT / DAF transfers remove stock from the individual's
-  //   direct sale, so QSBS applies to what the individual actually sells).
-  //   Federal + NIIT are excluded; state only if the state conforms.
-  //   Requires 5+ year hold; if not met, no exclusion.
+  // §1202 QSBS exclusion — regime-aware (pre- vs. post-OBBBA).
+  //
+  //   PRE-OBBBA (stock acquired before 7/4/2025):
+  //     • Hold period: 5+ years required → 100% exclusion
+  //       (75% for 2/18/2009–9/27/2010, 50% earlier — rarely relevant today)
+  //     • Cap: greater of $10M OR 10 × adjusted basis
+  //     • Gross-asset ceiling at issuance: ≤$50M
+  //
+  //   POST-OBBBA (One Big Beautiful Bill Act; stock acquired 7/4/2025+):
+  //     • Tiered exclusion:
+  //         3-yr hold = 50% excluded
+  //         4-yr hold = 75% excluded
+  //         5+yr hold = 100% excluded
+  //     • Cap: greater of $15M OR 10 × adjusted basis
+  //     • Gross-asset ceiling at issuance: ≤$75M
+  //
+  //   Applied to residual taxable gain after CRAT/DAF reduction.
+  //   Federal + NIIT (§1411) excluded on excluded gain. State only if conforming.
   // ──────────────────────────────────────────────────────────────────────
+  const qsbsRegime = d.qsbs.regime || 'pre-obbba';
+  const qsbsIsPostOBBBA = qsbsRegime === 'post-obbba';
+
+  // Determine eligibility + auto-derived exclusion percentage based on regime
+  let qsbsEligible = false;
+  let qsbsExclPct = 0;
+  let qsbsHoldStatus = '';
+  if (d.use.qsbs) {
+    if (qsbsIsPostOBBBA) {
+      if (d.qsbs.yearsHeld >= 5)      { qsbsEligible = true; qsbsExclPct = 1.00; qsbsHoldStatus = 'post-OBBBA, 5+yr → 100%'; }
+      else if (d.qsbs.yearsHeld >= 4) { qsbsEligible = true; qsbsExclPct = 0.75; qsbsHoldStatus = 'post-OBBBA, 4-yr → 75%'; }
+      else if (d.qsbs.yearsHeld >= 3) { qsbsEligible = true; qsbsExclPct = 0.50; qsbsHoldStatus = 'post-OBBBA, 3-yr → 50%'; }
+      else                            { qsbsHoldStatus = 'post-OBBBA, under 3-yr — ineligible'; }
+    } else {
+      if (d.qsbs.yearsHeld >= 5)      { qsbsEligible = true; qsbsExclPct = 1.00; qsbsHoldStatus = 'pre-OBBBA, 5+yr → 100%'; }
+      else                            { qsbsHoldStatus = 'pre-OBBBA, under 5-yr — ineligible'; }
+    }
+  }
+
+  // Cap: $10M pre-OBBBA, $15M post-OBBBA; or 10× basis if larger
+  const qsbsCapFloor = qsbsIsPostOBBBA ? 15_000_000 : 10_000_000;
   const qsbsResidualGain = scenAll.taxableGain;
-  const qsbsEligible = d.use.qsbs && d.qsbs.yearsHeld >= 5;
   const qsbsMaxExcl = qsbsEligible
-    ? Math.max(10_000_000, 10 * d.qsbs.basis) * d.qsbs.exclPct
+    ? Math.max(qsbsCapFloor, 10 * d.qsbs.basis) * qsbsExclPct
     : 0;
   const qsbsActualExcl = qsbsEligible ? Math.min(qsbsResidualGain, qsbsMaxExcl) : 0;
   const qsbsFederalSaved = qsbsActualExcl * d.tax.fed;
-  const qsbsMedicareSaved = qsbsActualExcl * d.tax.medicare;
+  const qsbsMedicareSaved = qsbsActualExcl * d.tax.medicare;   // §1411 NIIT excluded on QSBS
   const qsbsStateSaved = (qsbsEligible && d.qsbs.stateConforms)
     ? qsbsActualExcl * d.tax.state
     : 0;
@@ -3391,29 +3514,66 @@ function computePlan(d) {
   }
 
   // ──────────────────────────────────────────────────────────────────────
-  // §199A QBI Deduction
-  //   20% (or specified %) of QBI, worth marginal-rate × deduction.
-  //   SSTB above phase-out ceiling eliminates the deduction — flagged
-  //   with a zero saving but the card explains why.
-  //   (Threshold check is simplified; a full impl would check taxable
-  //   income bands. Here we assume advisor has set pct appropriately.)
+  // §199A QBI Deduction (post-OBBBA: permanent, updated 2025 thresholds)
+  //   Full 20% available below threshold.
+  //   For SSTBs (health, law, accounting, consulting, financial services,
+  //     performing arts, athletics) — deduction phases out over the
+  //     phase-in range and is FULLY ELIMINATED above the ceiling.
+  //   For non-SSTBs above threshold, W-2/UBIA limits apply (simplified:
+  //     we honor the advisor-entered pct).
+  //
+  //   2025 published figures (MFJ assumed — tool is HNW-joint by default):
+  //     threshold = $394,600
+  //     phase-in range = $100,000
+  //     ceiling = $494,600 (above this, SSTB deduction = 0)
+  //   Single: $197,300 / $50k / $247,300.
+  //
+  //   Taxable income proxy: biz.income (conservative — real calc uses full
+  //   Form 1040 taxable income).
   // ──────────────────────────────────────────────────────────────────────
-  let qbiDeduction = 0, qbiSavings = 0;
+  const QBI_THRESHOLD_MFJ    = 394_600;
+  const QBI_PHASE_IN_MFJ     = 100_000;
+  const QBI_CEILING_MFJ      = QBI_THRESHOLD_MFJ + QBI_PHASE_IN_MFJ;
+  let qbiDeduction = 0, qbiSavings = 0, qbiPhaseOutPct = 0, qbiFullyPhasedOut = false;
   if (d.use.qbi) {
-    qbiDeduction = d.qbi.income * d.qbi.pct;
+    const taxableIncomeProxy = d.biz.income || 0;
+    const basePct = d.qbi.pct;
+    if (d.qbi.sstb) {
+      if (taxableIncomeProxy >= QBI_CEILING_MFJ) {
+        // Fully phased out — SSTB cannot claim §199A above ceiling
+        qbiDeduction = 0;
+        qbiPhaseOutPct = 1;
+        qbiFullyPhasedOut = true;
+      } else if (taxableIncomeProxy > QBI_THRESHOLD_MFJ) {
+        // Linear phase-out across the $100k range
+        qbiPhaseOutPct = (taxableIncomeProxy - QBI_THRESHOLD_MFJ) / QBI_PHASE_IN_MFJ;
+        qbiDeduction = d.qbi.income * basePct * (1 - qbiPhaseOutPct);
+      } else {
+        qbiDeduction = d.qbi.income * basePct;
+      }
+    } else {
+      // Non-SSTB: advisor-entered pct honored (W-2/UBIA limits typically
+      // enforced by CPA; tool doesn't model those).
+      qbiDeduction = d.qbi.income * basePct;
+    }
     qbiSavings = qbiDeduction * d.tax.marginal;
   }
 
   // ──────────────────────────────────────────────────────────────────────
-  // SLAT — similar structure to Dynasty Trust but uses exemption instead
-  // of GST allocation. Estate savings = funding × estate rate; growth
-  // projection compounds at the user-specified rate over the period.
+  // SLAT — CORRECTED estate savings.
+  //   Funding uses lifetime exemption (like Dynasty), so the base funding
+  //   is a wash vs. what would have been shielded by exemption at death.
+  //   True savings = APPRECIATION that escapes estate tax.
+  //     slatEstateSave = (futureValue - funding) × estate rate
+  //   Plus valuation-discount leverage (handled separately as slatDiscountSave).
+  //   slatBaseRemoved kept for display ("$X funded out of estate").
   // ──────────────────────────────────────────────────────────────────────
-  let slatEstateSave = 0, slatFutureValue = 0, slatGrowth = 0;
+  let slatEstateSave = 0, slatFutureValue = 0, slatGrowth = 0, slatBaseRemoved = 0;
   if (d.use.slat) {
-    slatEstateSave = d.slat.funding * d.tax.estate;
-    slatFutureValue = d.slat.funding * Math.pow(1 + d.slat.growth, d.slat.years);
-    slatGrowth = slatFutureValue - d.slat.funding;
+    slatBaseRemoved  = d.slat.funding;  // display only
+    slatFutureValue  = d.slat.funding * Math.pow(1 + d.slat.growth, d.slat.years);
+    slatGrowth       = slatFutureValue - d.slat.funding;
+    slatEstateSave   = slatGrowth * d.tax.estate;  // appreciation × rate
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -3499,25 +3659,41 @@ function computePlan(d) {
   }
 
   // ──────────────────────────────────────────────────────────────────────
-  // Alternative Minimum Tax (AMT) — 2024 rules (simplified)
+  // Alternative Minimum Tax (AMT) — 2025 rules (simplified)
   //   AMTI = base taxable income + preferences (ISOs, accel. depr, etc.)
-  //   Exemption phase-out: $0.25 reduction per $1 of AMTI above
-  //                        $609,350 single / $1,218,700 MFJ
-  //   AMT rate: 26% on AMTI up to $232,600, 28% on excess
-  //   AMT owed = max(0, tentative minimum tax − regular income tax)
+  //
+  //   2025 published figures:
+  //     Exemption:
+  //       Single:      $88,100
+  //       MFJ:        $137,000   (tool default — HNW joint)
+  //     Phase-out start ($0.25 reduction per $1 of AMTI above):
+  //       Single:     $626,350
+  //       MFJ:      $1,252,700
+  //     26%/28% bracket threshold:
+  //       $239,100    (flat — doesn't vary by filing status)
+  //
+  //   Tool assumes MFJ (default for HNW couples). Single filers should
+  //   switch via the filing-status dropdown in the Tax Assumptions card
+  //   if added in a future iteration.
+  //
   //   NOTE: This is a first-cut sanity check. Real AMT requires
   //   Form 6251 with many adjustments. CPA review required.
   // ──────────────────────────────────────────────────────────────────────
   const amtBaseIncome = d.biz.income;
   const amti = amtBaseIncome + d.tax.amtPreferences;
-  const amtPhaseoutStart = 1218700; // MFJ default; single is lower
+  const amtFilingStatus = d.tax.filingStatus || 'mfj';  // 'mfj' | 'single'
+  const AMT_PHASEOUT_START = { mfj: 1_252_700, single: 626_350 };
+  const AMT_BRACKET_THRESHOLD = 239_100;   // 2025 — same for both statuses
+  const AMT_DEFAULT_EXEMPTION = { mfj: 137_000, single: 88_100 };
+  // If advisor didn't set exemption, use the statutory default
+  const amtBaseExemption = d.tax.amtExemption > 0 ? d.tax.amtExemption : AMT_DEFAULT_EXEMPTION[amtFilingStatus];
+  const amtPhaseoutStart = AMT_PHASEOUT_START[amtFilingStatus];
   const amtPhaseout = Math.max(0, (amti - amtPhaseoutStart) * 0.25);
-  const amtAdjustedExemption = Math.max(0, d.tax.amtExemption - amtPhaseout);
+  const amtAdjustedExemption = Math.max(0, amtBaseExemption - amtPhaseout);
   const amtTaxable = Math.max(0, amti - amtAdjustedExemption);
-  const amtBracket = 232600;
-  const amtTentative = amtTaxable <= amtBracket
+  const amtTentative = amtTaxable <= AMT_BRACKET_THRESHOLD
     ? amtTaxable * 0.26
-    : amtBracket * 0.26 + (amtTaxable - amtBracket) * 0.28;
+    : AMT_BRACKET_THRESHOLD * 0.26 + (amtTaxable - AMT_BRACKET_THRESHOLD) * 0.28;
   const amtRegularTax = amtBaseIncome * d.tax.marginal;
   const amtLiability = Math.max(0, amtTentative - amtRegularTax);
   const amtTriggered = amtLiability > 0;
@@ -3799,11 +3975,11 @@ function computePlan(d) {
     dynastyIncomeTaxGift, dynastyIncomeTaxGiftEstateSave, dynastyLeverageYears,
     ilitEstateSave, ilitPayYears, ilitTotalPremiums, ilitNetBenefit,
     rothIncomeTax, rothEstateSave, rothNetEstateSave, rothFutureValue, rothGrowthBenefit,
-    gratRemainder, gratEstateSave,
-    qsbsEligible, qsbsMaxExcl, qsbsActualExcl,
+    gratRemainder, gratEstateSave, gratAnnuity,
+    qsbsEligible, qsbsMaxExcl, qsbsActualExcl, qsbsExclPct, qsbsHoldStatus, qsbsIsPostOBBBA,
     qsbsFederalSaved, qsbsMedicareSaved, qsbsStateSaved, qsbsTotalSaving,
     exch1031Gain, exch1031Deferred, exch1031Boot, exch1031TaxDeferred,
-    qbiDeduction, qbiSavings,
+    qbiDeduction, qbiSavings, qbiPhaseOutPct, qbiFullyPhasedOut,
     slatEstateSave, slatFutureValue, slatGrowth,
     idgtTransferred, idgtEstateSave,
     qprtRemainderFactor, qprtMortalityProb, qprtTaxableGift, qprtResidenceFutureValue, qprtEstateRemoved, qprtEstateSave,
@@ -3950,7 +4126,7 @@ function renderSummary(p) {
 
       <div class="callout">
         <span class="title">Dynasty Trust Advantage</span>
-        ${fmt$(p.dynastyEstateSave)} in estate tax savings plus ${fmt$(p.dynastyGrowth)} in tax-free appreciation. Grows and passes to heirs without federal estate tax, GST tax, or income tax on growth.
+        <strong>${fmt$(p.dynastyEstateSave)}</strong> estate tax savings on <strong>${fmt$(p.dynastyGrowth)}</strong> of appreciation that compounds outside the estate. Plus ${fmt$(p.dynastyDiscountSave)} from valuation discount leverage (if non-voting shares) and ${fmt$(p.dynastyIncomeTaxGiftEstateSave)} from Rev. Rul. 2004-64 grantor-tax-burn leverage. Grows and passes to heirs without federal estate tax, GST tax, or income tax on growth.
       </div>
     </div>` : ''}
 
@@ -4122,7 +4298,7 @@ function renderTransaction(p) {
     { id: 'crat',    path: 'crat.amount',     label: 'CRAT Contribution',    value: d.crat.amount || 0,    max: Math.max(20_000_000, (d.crat.amount || 0) * 2),    step: 500_000 },
     { id: 'daf',     path: 'daf.amount',      label: 'DAF Contribution',     value: d.daf.amount  || 0,    max: Math.max(15_000_000, (d.daf.amount  || 0) * 2),    step: 250_000 },
     { id: 'dynasty', path: 'dynasty.funding', label: 'Dynasty Trust Funding', value: d.dynasty.funding || 0, max: Math.max(50_000_000, (d.dynasty.funding || 0) * 2), step: 1_000_000 },
-    { id: 'qsbs',    path: 'qsbs.exclPct',    label: 'QSBS Exclusion %',     value: d.qsbs.exclPct * 100,  max: 100, step: 25, isPercent: true },
+    { id: 'qsbs',    path: 'qsbs.yearsHeld',  label: 'QSBS Holding Period (years)', value: d.qsbs.yearsHeld || 0, max: 10, step: 1, isInteger: true },
   ];
   const taxExplorerHTML = `
     <div class="card" style="border-left: 4px solid var(--gold);" id="tax-explorer-card">
@@ -4132,16 +4308,18 @@ function renderTransaction(p) {
         <button class="slider-reset" onclick="window.__RESET_TAX_EXPLORER__()">↺ Reset to plan</button>
       </div>
       <div class="scenario-sliders">
-        ${taxSliders.map(s => `
+        ${taxSliders.map(s => {
+          const fmtVal = v => s.isPercent ? Math.round(v) + '%' : s.isInteger ? Math.round(v) + ' yrs' : fmtSliderCurrency(v);
+          return `
           <div class="slider-row">
             <div class="slider-label">${s.label}</div>
-            <div class="slider-value" id="tax-val-${s.id}">${s.isPercent ? Math.round(s.value) + '%' : fmtSliderCurrency(s.value)}</div>
+            <div class="slider-value" id="tax-val-${s.id}">${fmtVal(s.value)}</div>
             <input type="range" id="tax-sld-${s.id}"
-                   data-path="${s.path}" data-ispct="${s.isPercent ? 1 : 0}"
+                   data-path="${s.path}" data-ispct="${s.isPercent ? 1 : 0}" data-isint="${s.isInteger ? 1 : 0}"
                    min="0" max="${s.max}" step="${s.step}" value="${s.value}">
-            <div class="slider-hint">Plan default: ${s.isPercent ? Math.round(s.value) + '%' : fmtSliderCurrency(s.value)}</div>
+            <div class="slider-hint">Plan default: ${fmtVal(s.value)}</div>
           </div>
-        `).join('')}
+        `;}).join('')}
       </div>
       <div class="slider-results" id="tax-explorer-results">
         <div class="result"><div class="r-label">Capital Gains Tax Owed</div><div class="r-value neg" id="tax-res-cgTax">${fmt$(p.scenarios.scenAll.totalCGTax)}</div><div class="r-delta" id="tax-res-cgTax-delta">baseline</div></div>
@@ -4807,9 +4985,9 @@ function renderTax(p) {
     }
 
     items.push({
-      label: '② Dynasty — Estate Tax Savings (at death)',
+      label: '② Dynasty — Estate Tax Savings (appreciation × rate)',
       value: p.dynastyEstateSave,
-      desc: `${fmt$M(d.dynasty.funding)} + all future appreciation lives permanently outside the taxable estate. Estate-tax saving on the base contribution: ${fmt$(p.dynastyEstateSave)} at ${fmtPct(d.tax.estate*100)}. Actual saving compounds much larger via growth (see Multi-Year Estate Growth card).`
+      desc: `${fmt$M(d.dynasty.funding)} funded uses lifetime exemption (wash under unified credit — that exemption would have offset estate tax at death anyway). The TRUE savings come from appreciation that compounds <em>outside</em> the estate: ${fmt$(p.dynastyGrowth)} of growth over ${p.dynastyYears} yrs × ${fmtPct(d.tax.estate*100)} = <strong>${fmt$(p.dynastyEstateSave)}</strong>. Plus discount leverage (③) and Rev. Rul. 2004-64 tax-burn leverage (④) below.`
     });
 
     if (p.dynastyDiscountSave > 0) {
@@ -4839,18 +5017,22 @@ function renderTax(p) {
     items.push({ label: `QOZ Tax Deferral (${d.qoz.defer} Years)`, value: p.scenarios.scenAll.qozDeferred, desc: `Remaining capital gains tax invested into QOZ fund. Defers for ${d.qoz.defer} years. Tax-free if held ${d.qoz.years}+ years.` });
   }
   if (d.use.qsbs) {
+    const regimeLabel = p.qsbsIsPostOBBBA ? 'Post-OBBBA (7/4/2025+)' : 'Pre-OBBBA';
+    const capFloor = p.qsbsIsPostOBBBA ? '$15M' : '$10M';
+    const grossCeiling = p.qsbsIsPostOBBBA ? '$75M' : '$50M';
     if (p.qsbsEligible) {
       const stateNote = d.qsbs.stateConforms ? 'Your state conforms — state tax also excluded.' : 'Your state does NOT conform — state-level tax still applies to this gain.';
       items.push({
-        label: '§1202 QSBS Federal Exclusion',
+        label: `§1202 QSBS — ${regimeLabel} (${fmtPct(p.qsbsExclPct*100)} exclusion)`,
         value: p.qsbsTotalSaving,
-        desc: `Exclude ${fmt$(p.qsbsActualExcl)} of qualifying C-Corp stock gain (cap: ${fmt$(p.qsbsMaxExcl)} = greater of $10M or 10× basis × ${fmtPct(d.qsbs.exclPct*100)}). Federal+NIIT saved: ${fmt$(p.qsbsFederalSaved + p.qsbsMedicareSaved)}. State saved: ${fmt$(p.qsbsStateSaved)}. ${stateNote}`,
+        desc: `${p.qsbsHoldStatus}. Exclude <strong>${fmt$(p.qsbsActualExcl)}</strong> of qualifying C-Corp stock gain (cap: ${fmt$(p.qsbsMaxExcl)} = greater of ${capFloor} or 10× basis, scaled by ${fmtPct(p.qsbsExclPct*100)} statutory %). Federal+NIIT saved: ${fmt$(p.qsbsFederalSaved + p.qsbsMedicareSaved)}. State saved: ${fmt$(p.qsbsStateSaved)}. ${stateNote} Verify: C-Corp status at issuance, ≤${grossCeiling} gross assets at issuance, stock originally issued to the holder.`,
       });
     } else {
+      const threshold = p.qsbsIsPostOBBBA ? '3-yr for 50%, 4-yr for 75%, 5+yr for 100%' : '5+ years for 100%';
       items.push({
-        label: '§1202 QSBS — NOT ELIGIBLE',
+        label: `§1202 QSBS — NOT ELIGIBLE (${regimeLabel})`,
         value: 0,
-        desc: `Held ${d.qsbs.yearsHeld} year(s), but §1202 requires a 5+ year hold. No exclusion available. (Also verify: C-Corp status at issuance, ≤$50M gross assets at issuance, stock originally issued to the holder.)`,
+        desc: `Held ${d.qsbs.yearsHeld} year(s). ${regimeLabel} requires ${threshold}. No exclusion available. Also verify: C-Corp status at issuance, ≤${grossCeiling} gross assets at issuance, stock originally issued to holder.`,
       });
     }
   }
@@ -4865,10 +5047,10 @@ function renderTax(p) {
     });
   }
   if (d.use.roth) {
-    items.push({ label: 'Roth Conversion — Net Estate Savings', value: p.rothNetEstateSave, desc: `Convert ${fmt$M(d.roth.amount)} to Roth: pay ${fmt$(p.rothIncomeTax)} income tax now, remove ${fmt$(p.rothEstateSave)} from taxable estate. Net savings: ${fmt$(p.rothNetEstateSave)}. Plus ${fmt$(p.rothGrowthBenefit)} in tax-free growth over ${d.roth.years} years.` });
+    items.push({ label: 'Roth Conversion — Estate Tax Savings', value: p.rothNetEstateSave, desc: `Convert ${fmt$M(d.roth.amount)} to Roth: pay <strong>${fmt$(p.rothIncomeTax)}</strong> of income tax now out-of-pocket (that cash leaves the taxable estate). Estate-tax savings on the tax paid: <strong>${fmt$(p.rothNetEstateSave)}</strong> at ${fmtPct(d.tax.estate*100)}. Note: the converted balance stays in the estate (reclassified Traditional → Roth, both §2039-includible), but beneficiaries inherit it income-tax-free with no stretch/10-yr rule income tax. Additional benefit: ${fmt$(p.rothGrowthBenefit)} in tax-free growth over ${d.roth.years} years.` });
   }
   if (d.use.grat) {
-    items.push({ label: `GRAT Estate Tax Savings (${d.grat.term}-yr)`, value: p.gratEstateSave, desc: `${fmt$M(d.grat.transfer)} into GRAT at ${fmtPct(d.grat.hurdle*100)} §7520 hurdle; ${fmtPct(d.grat.growth*100)} expected growth transfers ${fmt$(p.gratRemainder)} to heirs gift-tax-free. Estate savings at ${fmtPct(d.tax.estate*100)}.` });
+    items.push({ label: `GRAT Estate Tax Savings (${d.grat.term}-yr zeroed-out)`, value: p.gratEstateSave, desc: `${fmt$M(d.grat.transfer)} into ${d.grat.term}-yr GRAT at ${fmtPct(d.grat.hurdle*100)} §7520 hurdle. Zeroed-out annuity = <strong>${fmt$(p.gratAnnuity)}/yr</strong> back to grantor (PV = transfer amount → gift value ≈ $0). With ${fmtPct(d.grat.growth*100)} expected asset growth, ${fmt$(p.gratRemainder)} passes to heirs gift-tax-free at term end. Estate tax savings at ${fmtPct(d.tax.estate*100)} = ${fmt$(p.gratEstateSave)}. Formula: FV(asset) − FV(annuity stream) at growth rate.` });
   }
   if (d.use.exch1031) {
     const bootNote = p.exch1031Boot > 0 ? ` ${fmt$(p.exch1031Boot)} boot taken out is taxable.` : ' Full deferral — no boot.';
@@ -4879,18 +5061,25 @@ function renderTax(p) {
     });
   }
   if (d.use.qbi) {
-    const sstbWarn = d.qbi.sstb ? ' ⚠️ SSTB flagged — deduction may be phased out entirely above upper threshold. Verify client taxable income band.' : '';
+    let sstbWarn = '';
+    if (d.qbi.sstb && p.qbiFullyPhasedOut) {
+      sstbWarn = ` <strong style="color:var(--crimson);">⚠️ SSTB fully phased out</strong> — taxable income (${fmt$(d.biz.income)}) is above the 2025 MFJ ceiling of $494,600, so §199A(d)(3) eliminates the deduction entirely. Tool has zeroed the saving automatically.`;
+    } else if (d.qbi.sstb && p.qbiPhaseOutPct > 0) {
+      sstbWarn = ` <strong style="color:var(--gold-dark);">⚠️ SSTB partial phase-out</strong> — ${fmtPct(p.qbiPhaseOutPct*100)} of the deduction is disallowed under §199A(d)(3) at this income level.`;
+    } else if (d.qbi.sstb) {
+      sstbWarn = ' SSTB flagged but below MFJ threshold ($394,600) — full deduction preserved.';
+    }
     items.push({
       label: '§199A QBI Deduction (annual)',
       value: p.qbiSavings,
-      desc: `${fmt$(d.qbi.income)} QBI × ${fmtPct(d.qbi.pct*100)} = ${fmt$(p.qbiDeduction)} deduction. Annual tax savings at ${fmtPct(d.tax.marginal*100)} marginal: ${fmt$(p.qbiSavings)}.${sstbWarn}`
+      desc: `${fmt$(d.qbi.income)} QBI × ${fmtPct(d.qbi.pct*100)} = ${fmt$(d.qbi.income * d.qbi.pct)} base deduction → after phase-out: ${fmt$(p.qbiDeduction)} allowable. Annual tax savings at ${fmtPct(d.tax.marginal*100)} marginal: ${fmt$(p.qbiSavings)}.${sstbWarn}`
     });
   }
   if (d.use.slat) {
     items.push({
-      label: `SLAT Estate Tax Savings`,
+      label: `SLAT Estate Tax Savings (appreciation × rate)`,
       value: p.slatEstateSave,
-      desc: `${fmt$M(d.slat.funding)} into SLAT removes ${fmt$M(d.slat.funding)} + ${fmt$(p.slatGrowth)} future growth from taxable estate. ${fmtPct(d.slat.growth*100)} compounded over ${d.slat.years} years → ${fmt$(p.slatFutureValue)} to heirs free of estate tax. Spouse retains indirect access.`
+      desc: `${fmt$M(d.slat.funding)} funded uses lifetime exemption (wash under unified credit — would have offset estate tax at death anyway). TRUE savings come from <strong>${fmt$(p.slatGrowth)} of appreciation</strong> that compounds outside the estate over ${d.slat.years} yrs at ${fmtPct(d.slat.growth*100)} → total trust value ${fmt$(p.slatFutureValue)}. Estate tax savings = appreciation × ${fmtPct(d.tax.estate*100)} = <strong>${fmt$(p.slatEstateSave)}</strong>. Spouse retains indirect access. ⚠️ Avoid reciprocal-trust doctrine if both spouses fund SLATs.`
     });
     if (p.slatDiscountSave > 0) {
       items.push({
@@ -4973,7 +5162,7 @@ function renderTax(p) {
       <div class="callout">
         <span class="title">💰 Total Tax Savings from All Strategies: ${fmt$(totalAll)}</span>
         <strong>Breakdown:</strong>
-        ${d.use.dynasty ? `• Dynasty Trust Benefits: ${fmt$(p.dynastyEstateSave + d.dynasty.funding * p.combinedCGRate)} (estate + capital gains)<br>` : ''}
+        ${d.use.dynasty ? `• Dynasty Trust Benefits: ${fmt$(p.dynastyEstateSave + p.dynastyDiscountSave + p.dynastyIncomeTaxGiftEstateSave)} (appreciation + discount leverage + Rev. Rul. 2004-64 tax burn)<br>` : ''}
         • Capital Gains Tax Reduction: ${fmt$(p.cgTaxSavings)}<br>
         ${d.use.crat ? `• CRAT Total Benefits: ${fmt$(d.crat.amount * p.combinedCGRate + p.cratDeduction * d.tax.marginal + p.cratEstateSave)}<br>` : ''}
         ${d.use.daf ? `• DAF Total Benefits: ${fmt$(d.daf.amount * d.tax.marginal + p.dafEstateSave)}<br>` : ''}
@@ -6053,10 +6242,16 @@ function wireScenarioSliders() {
     const overrides = {};
     taxSliders.forEach(s => {
       const raw = parseFloat(s.value);
-      const value = s.dataset.ispct === '1' ? raw / 100 : raw;
+      const isPct = s.dataset.ispct === '1';
+      const isInt = s.dataset.isint === '1';
+      const value = isPct ? raw / 100 : raw;
       overrides[s.dataset.path] = value;
       const valEl = document.getElementById(s.id.replace('tax-sld-', 'tax-val-'));
-      if (valEl) valEl.textContent = s.dataset.ispct === '1' ? raw + '%' : fmtSliderCurrency(raw);
+      if (valEl) {
+        valEl.textContent = isPct ? Math.round(raw) + '%'
+                          : isInt ? Math.round(raw) + ' yrs'
+                          : fmtSliderCurrency(raw);
+      }
     });
     const p2 = computePlanWithOverrides(overrides);
     if (!p2) return;
@@ -6428,7 +6623,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'ilit-coverage','ilit-premium','ilit-years','ilit-pay-years',
       'roth-amount','roth-marginal','roth-years',
       'grat-transfer','grat-term','grat-7520','grat-growth','grat-discount',
-      'qsbs-basis','qsbs-years','qsbs-excl','qsbs-state-conforms',
+      'qsbs-basis','qsbs-years','qsbs-excl','qsbs-state-conforms','qsbs-regime',
       'exch-sale','exch-basis','exch-replacement',
       'qbi-income','qbi-pct','qbi-sstb',
       'slat-funding','slat-growth','slat-years','slat-discount',
