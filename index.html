@@ -1267,6 +1267,78 @@
   .disclaimer strong { color: var(--crimson); }
 
   /* ===== PRINT ===== */
+  /* ===== LIFE TIMELINE — PRINT / PDF FLOW LAYOUT =====
+     Screen timeline = absolute-positioned dots + floating labels anchored
+     by % across the horizon. That works on wide screens but fails on print
+     and in html2pdf captures: labels overlap, fall off the right edge, or
+     collide with the phase zone strip.
+
+     For print + PDF, we re-layout the timeline as a clean vertical list:
+       [Phase Heading]
+         2026 · Y0        Sale closes
+         2026 · Y0        Pre-sale trusts funded + QSBS locked
+         2031 · Y5        QOZ deferred gain triggered (Year 5)
+         ...
+     No absolute positioning, no overlap, easy to scan on paper.
+
+     .print-layout is added to the html2pdf clone root before rendering; it
+     mirrors the @media print behavior for the on-screen PDF capture path. */
+  .print-layout .timeline {
+    position: static !important;
+    height: auto !important;
+    margin: 16px 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    page-break-inside: avoid;
+  }
+  .print-layout .timeline-phase-bg,
+  .print-layout .timeline-axis,
+  .print-layout .timeline-dot { display: none !important; }
+  .print-layout .timeline-phase-label {
+    position: static !important;
+    width: auto !important;
+    left: auto !important;
+    right: auto !important;
+    display: block !important;
+    padding: 6px 10px !important;
+    margin-top: 8px !important;
+    border-left: 3px solid currentColor !important;
+    background: #f8f5ec !important;
+    font-size: 9px !important;
+    letter-spacing: 1.2px !important;
+    text-align: left !important;
+  }
+  .print-layout .timeline-label {
+    position: static !important;
+    width: 100% !important;
+    transform: none !important;
+    left: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 12px !important;
+    padding: 5px 10px 5px 24px !important;
+    text-align: left !important;
+    border-bottom: 1px dotted #d8d2bd !important;
+    page-break-inside: avoid;
+  }
+  .print-layout .timeline-label.above,
+  .print-layout .timeline-label.below { top: auto !important; bottom: auto !important; }
+  .print-layout .timeline-label .yr {
+    display: inline-block !important;
+    min-width: 110px !important;
+    margin-bottom: 0 !important;
+    font-size: 10px !important;
+    color: #8a1a25 !important;
+  }
+  .print-layout .timeline-label .ev {
+    flex: 1 !important;
+    font-size: 11px !important;
+    color: #1a1a1a !important;
+  }
+
   @media print {
     .mode-nav, .plan-actions, .brand-bar { display: none !important; }
     .plan-tabs { display: none !important; }
@@ -1274,6 +1346,62 @@
     body { background: #fff; }
     .card { box-shadow: none; page-break-inside: avoid; }
     table.plan-table { page-break-inside: avoid; }
+    .kpi, .callout { page-break-inside: avoid; }
+
+    /* Apply the same flow layout on browser Print. */
+    .timeline {
+      position: static !important;
+      height: auto !important;
+      margin: 16px 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 6px !important;
+    }
+    .timeline-phase-bg,
+    .timeline-axis,
+    .timeline-dot { display: none !important; }
+    .timeline-phase-label {
+      position: static !important;
+      width: auto !important;
+      left: auto !important;
+      right: auto !important;
+      display: block !important;
+      padding: 6px 10px !important;
+      margin-top: 8px !important;
+      border-left: 3px solid currentColor !important;
+      background: #f8f5ec !important;
+      font-size: 9px !important;
+      letter-spacing: 1.2px !important;
+      text-align: left !important;
+    }
+    .timeline-label {
+      position: static !important;
+      width: 100% !important;
+      transform: none !important;
+      left: auto !important;
+      top: auto !important;
+      bottom: auto !important;
+      display: flex !important;
+      align-items: baseline !important;
+      gap: 12px !important;
+      padding: 5px 10px 5px 24px !important;
+      text-align: left !important;
+      border-bottom: 1px dotted #d8d2bd !important;
+    }
+    .timeline-label.above,
+    .timeline-label.below { top: auto !important; bottom: auto !important; }
+    .timeline-label .yr {
+      display: inline-block !important;
+      min-width: 110px !important;
+      margin-bottom: 0 !important;
+      font-size: 10px !important;
+      color: #8a1a25 !important;
+    }
+    .timeline-label .ev {
+      flex: 1 !important;
+      font-size: 11px !important;
+      color: #1a1a1a !important;
+    }
   }
 
   /* Make all data tables horizontally scrollable on narrow screens */
@@ -6086,6 +6214,9 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
   // without disturbing the current on-screen tab selection.
   const planView = document.getElementById('plan-view');
   const captureRoot = planView.cloneNode(true);
+  // .print-layout triggers the flow-layout rules for the Life Timeline (see
+  // CSS above the @media print block) — avoids label overlap in the PDF.
+  captureRoot.classList.add('print-layout');
   captureRoot.style.cssText = 'position:fixed; left:-99999px; top:0; width:900px; background:#F5F1E8;';
   captureRoot.querySelectorAll('.plan-actions, .plan-tabs').forEach(el => el.remove());
   captureRoot.querySelectorAll('.tab-panel').forEach(p => { p.classList.add('active'); p.style.display = 'block'; p.style.pageBreakAfter = 'always'; });
