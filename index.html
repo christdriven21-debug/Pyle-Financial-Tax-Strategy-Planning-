@@ -6,6 +6,7 @@
 <title>Pyle Financial Services, Inc — Comprehensive Financial Plan Builder</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 <script src="./config.js"></script>
 <style>
   :root {
@@ -506,6 +507,84 @@
   .cloud-bar .cb-status.ok { color: var(--success); font-style: normal; }
   .cloud-bar .cb-status.err { color: var(--crimson); font-style: normal; }
   .cloud-bar .cb-group { display: flex; align-items: center; gap: 8px; }
+
+  /* ===== REVIEW / COMMENTS PANEL ===== */
+  .review-panel {
+    background: var(--cream-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 22px;
+    margin: 16px 40px;
+    box-shadow: 0 2px 6px rgba(139, 118, 64, 0.05);
+  }
+  .review-panel.hidden { display: none !important; }
+  .review-panel h3 {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--crimson);
+    margin-bottom: 12px;
+  }
+  .review-list { margin-bottom: 14px; }
+  .review-empty { font-size: 13px; color: var(--muted); font-style: italic; padding: 8px 0; }
+  .review-item {
+    padding: 10px 14px;
+    background: var(--cream-light);
+    border-left: 3px solid var(--gold);
+    border-radius: 3px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .review-item.approved { border-left-color: var(--success); background: var(--success-light); }
+  .review-item.changes_requested { border-left-color: var(--crimson); background: #FDE8E8; }
+  .review-item .meta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+  .review-item .meta .status-pill {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    margin-left: 6px;
+  }
+  .review-item .status-pill.comment            { background: var(--border-soft); color: var(--ink-soft); }
+  .review-item .status-pill.approved           { background: var(--success); color: var(--cream); }
+  .review-item .status-pill.changes_requested  { background: var(--crimson); color: var(--cream); }
+  .review-item .comment { color: var(--ink); white-space: pre-wrap; }
+  .review-form { border-top: 1px solid var(--border-soft); padding-top: 14px; }
+  .review-form textarea {
+    width: 100%;
+    min-height: 60px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    resize: vertical;
+    margin-bottom: 10px;
+  }
+  .review-form .form-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .review-form select {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--cream-light);
+  }
 
   /* ===== PLAN VIEW ===== */
   .plan-header {
@@ -1074,6 +1153,10 @@
       <button class="btn btn-secondary btn-sm" id="btn-cloud-upload">Upload JSON</button>
       <input type="file" id="precisefp-input" accept=".csv,text/csv" style="display:none">
       <button class="btn btn-gold btn-sm" id="btn-precisefp-import" title="Import client data from a PreciseFP CSV export">Import PreciseFP CSV</button>
+      <input type="file" id="emoney-input" accept="application/json,.json" style="display:none">
+      <button class="btn btn-secondary btn-sm" id="btn-emoney-import" title="Import a client fact-finder JSON from eMoney (Facts Finder export)">Import eMoney</button>
+      <input type="file" id="mgp-input" accept="application/json,.json" style="display:none">
+      <button class="btn btn-secondary btn-sm" id="btn-mgp-import" title="Import a client fact-finder JSON from MoneyGuidePro">Import MGP</button>
     </div>
     <div class="cb-status" id="cloud-status">Connecting…</div>
   </div>
@@ -1508,6 +1591,14 @@
         <div class="suffix-pct"><input type="number" id="tax-estate" value="40" step="0.1"></div>
       </div>
       <div class="field">
+        <label>AMT Preference Items <span class="hint">(ISO exercise, accelerated depreciation, etc.)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="tax-amt-preferences" value="0"></div>
+      </div>
+      <div class="field">
+        <label>AMTI Exemption <span class="hint">(default $133,300 MFJ, $85,700 single for 2024)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="tax-amt-exemption" value="133300"></div>
+      </div>
+      <div class="field">
         <label>Federal Estate Exemption</label>
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="tax-estate-exempt" value="15000000"></div>
       </div>
@@ -1604,8 +1695,9 @@
 <main id="plan-view" class="hidden">
   <div class="plan-actions">
     <button class="btn btn-secondary" id="btn-edit">← Edit Data</button>
-    <button class="btn btn-gold" id="btn-print">Print / PDF</button>
-    <button class="btn btn-primary" id="btn-download">Download Plan</button>
+    <button class="btn btn-gold" id="btn-print">Print</button>
+    <button class="btn btn-gold" id="btn-pdf">Download PDF</button>
+    <button class="btn btn-primary" id="btn-download">Download HTML</button>
     <button class="btn btn-gold" id="btn-plan-share">Copy Share Link</button>
   </div>
 
@@ -1618,6 +1710,25 @@
       <div class="subtitle" id="plan-subtitle">—</div>
     </div>
   </header>
+
+  <!-- REVIEW / COMMENTS PANEL (populated by JS when a plan is loaded) -->
+  <div class="review-panel hidden" id="review-panel">
+    <h3>Reviews &amp; Comments</h3>
+    <div class="review-list" id="review-list"></div>
+    <div class="review-form" id="review-form">
+      <textarea id="review-comment" placeholder="Leave a comment on this plan…"></textarea>
+      <div class="form-actions">
+        <label style="font-size: 12px; color: var(--muted);">Status:</label>
+        <select id="review-status">
+          <option value="comment">Comment</option>
+          <option value="approved">Approve Plan</option>
+          <option value="changes_requested">Request Changes</option>
+        </select>
+        <button class="btn btn-primary btn-sm" id="btn-review-submit">Post Review</button>
+        <span style="font-size: 11px; color: var(--muted); margin-left: auto;" id="review-status-msg"></span>
+      </div>
+    </div>
+  </div>
 
   <nav class="plan-tabs">
     <button class="plan-tab active" data-tab="summary">Executive Summary</button>
@@ -1897,57 +2008,57 @@ const TAG_LABELS = {
    verify for any specific client — rates change annually).
    ============================================================ */
 const STATE_TAX_TABLE = {
-  AL: { name: 'Alabama',         rate: 5.00, qsbsConforms: false },
-  AK: { name: 'Alaska',          rate: 0.00, qsbsConforms: true  },
-  AZ: { name: 'Arizona',         rate: 2.50, qsbsConforms: true  },
-  AR: { name: 'Arkansas',        rate: 4.40, qsbsConforms: true  },
-  CA: { name: 'California',      rate: 13.30, qsbsConforms: false },
-  CO: { name: 'Colorado',        rate: 4.40, qsbsConforms: true  },
-  CT: { name: 'Connecticut',     rate: 6.99, qsbsConforms: true  },
-  DE: { name: 'Delaware',        rate: 6.60, qsbsConforms: true  },
-  DC: { name: 'District of Columbia', rate: 10.75, qsbsConforms: true },
-  FL: { name: 'Florida',         rate: 0.00, qsbsConforms: true  },
-  GA: { name: 'Georgia',         rate: 5.39, qsbsConforms: true  },
-  HI: { name: 'Hawaii',          rate: 11.00, qsbsConforms: true },
-  ID: { name: 'Idaho',           rate: 5.80, qsbsConforms: true  },
-  IL: { name: 'Illinois',        rate: 4.95, qsbsConforms: true  },
-  IN: { name: 'Indiana',         rate: 3.00, qsbsConforms: true  },
-  IA: { name: 'Iowa',            rate: 5.70, qsbsConforms: true  },
-  KS: { name: 'Kansas',          rate: 5.70, qsbsConforms: true  },
-  KY: { name: 'Kentucky',        rate: 4.00, qsbsConforms: true  },
-  LA: { name: 'Louisiana',       rate: 4.25, qsbsConforms: true  },
-  ME: { name: 'Maine',           rate: 7.15, qsbsConforms: true  },
-  MD: { name: 'Maryland',        rate: 5.75, qsbsConforms: true  },
-  MA: { name: 'Massachusetts',   rate: 9.00, qsbsConforms: true  },
-  MI: { name: 'Michigan',        rate: 4.25, qsbsConforms: true  },
-  MN: { name: 'Minnesota',       rate: 9.85, qsbsConforms: true  },
-  MS: { name: 'Mississippi',     rate: 4.40, qsbsConforms: false },
-  MO: { name: 'Missouri',        rate: 4.80, qsbsConforms: true  },
-  MT: { name: 'Montana',         rate: 5.90, qsbsConforms: true  },
-  NE: { name: 'Nebraska',        rate: 5.84, qsbsConforms: true  },
-  NV: { name: 'Nevada',          rate: 0.00, qsbsConforms: true  },
-  NH: { name: 'New Hampshire',   rate: 0.00, qsbsConforms: true  },
-  NJ: { name: 'New Jersey',      rate: 10.75, qsbsConforms: false },
-  NM: { name: 'New Mexico',      rate: 5.90, qsbsConforms: true  },
-  NY: { name: 'New York',        rate: 10.90, qsbsConforms: true },
-  NC: { name: 'North Carolina',  rate: 4.25, qsbsConforms: true  },
-  ND: { name: 'North Dakota',    rate: 2.50, qsbsConforms: true  },
-  OH: { name: 'Ohio',            rate: 3.50, qsbsConforms: true  },
-  OK: { name: 'Oklahoma',        rate: 4.75, qsbsConforms: true  },
-  OR: { name: 'Oregon',          rate: 9.90, qsbsConforms: true  },
-  PA: { name: 'Pennsylvania',    rate: 3.07, qsbsConforms: false },
-  RI: { name: 'Rhode Island',    rate: 5.99, qsbsConforms: true  },
-  SC: { name: 'South Carolina',  rate: 6.20, qsbsConforms: true  },
-  SD: { name: 'South Dakota',    rate: 0.00, qsbsConforms: true  },
-  TN: { name: 'Tennessee',       rate: 0.00, qsbsConforms: true  },
-  TX: { name: 'Texas',           rate: 0.00, qsbsConforms: true  },
-  UT: { name: 'Utah',            rate: 4.55, qsbsConforms: true  },
-  VT: { name: 'Vermont',         rate: 8.75, qsbsConforms: true  },
-  VA: { name: 'Virginia',        rate: 5.75, qsbsConforms: true  },
-  WA: { name: 'Washington',      rate: 7.00, qsbsConforms: true  },
-  WV: { name: 'West Virginia',   rate: 5.12, qsbsConforms: true  },
-  WI: { name: 'Wisconsin',       rate: 7.65, qsbsConforms: true  },
-  WY: { name: 'Wyoming',         rate: 0.00, qsbsConforms: true  },
+  AL: { name: 'Alabama',         rate: 5.00, qsbsConforms: false, estateTax: false, notes: 'No state estate tax. Does not conform to §1202 — state-level capital gains still apply on QSBS.' },
+  AK: { name: 'Alaska',          rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income or estate tax.' },
+  AZ: { name: 'Arizona',         rate: 2.50, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state — spousal basis step-up benefits apply.' },
+  AR: { name: 'Arkansas',        rate: 4.40, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  CA: { name: 'California',      rate: 13.30, qsbsConforms: false, estateTax: false, notes: 'Highest state income tax in the U.S. Does NOT conform to §1202 — CA taxes the full gain on QSBS. No state estate tax (post-2005). Community property state.' },
+  CO: { name: 'Colorado',        rate: 4.40, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  CT: { name: 'Connecticut',     rate: 6.99, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $13.61M (2024), rate up to 12%. CT also has gift tax.' },
+  DE: { name: 'Delaware',        rate: 6.60, qsbsConforms: true,  estateTax: false, notes: 'Popular trust situs — Dynasty Trusts and Directed Trusts have strong statutory support. No state estate tax since 2018.' },
+  DC: { name: 'District of Columbia', rate: 10.75, qsbsConforms: true, estateTax: true, notes: 'DC estate tax applies above $4.71M (2024) — significantly below federal threshold.' },
+  FL: { name: 'Florida',         rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income tax, no state estate tax. Favorable trust situs.' },
+  GA: { name: 'Georgia',         rate: 5.39, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  HI: { name: 'Hawaii',          rate: 11.00, qsbsConforms: true, estateTax: true,  notes: 'State estate tax applies above $5.49M (2024), rate up to 20%.' },
+  ID: { name: 'Idaho',           rate: 5.80, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state.' },
+  IL: { name: 'Illinois',        rate: 4.95, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $4M — significantly below federal threshold. Rate up to 16%.' },
+  IN: { name: 'Indiana',         rate: 3.00, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  IA: { name: 'Iowa',            rate: 5.70, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax (inheritance tax phased out by 2025).' },
+  KS: { name: 'Kansas',          rate: 5.70, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  KY: { name: 'Kentucky',        rate: 4.00, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax but has inheritance tax (beneficiary-class dependent).' },
+  LA: { name: 'Louisiana',       rate: 4.25, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state with unique forced-heirship rules.' },
+  ME: { name: 'Maine',           rate: 7.15, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $6.41M (2024).' },
+  MD: { name: 'Maryland',        rate: 5.75, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $5M. Also has state-level inheritance tax.' },
+  MA: { name: 'Massachusetts',   rate: 9.00, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $2M (2023 reform). Cliff rule — entire estate taxable once threshold crossed.' },
+  MI: { name: 'Michigan',        rate: 4.25, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  MN: { name: 'Minnesota',       rate: 9.85, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $3M.' },
+  MS: { name: 'Mississippi',     rate: 4.40, qsbsConforms: false, estateTax: false, notes: 'Does not conform to §1202. No state estate tax.' },
+  MO: { name: 'Missouri',        rate: 4.80, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  MT: { name: 'Montana',         rate: 5.90, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  NE: { name: 'Nebraska',        rate: 5.84, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax but has inheritance tax.' },
+  NV: { name: 'Nevada',          rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income or estate tax. Favorable trust situs.' },
+  NH: { name: 'New Hampshire',   rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income tax on wages (interest/dividend tax phased out in 2027). No state estate tax.' },
+  NJ: { name: 'New Jersey',      rate: 10.75, qsbsConforms: false, estateTax: false, notes: 'Does NOT conform to §1202. No state estate tax since 2018 but retains inheritance tax.' },
+  NM: { name: 'New Mexico',      rate: 5.90, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state.' },
+  NY: { name: 'New York',        rate: 10.90, qsbsConforms: true, estateTax: true,  notes: 'State estate tax applies above $6.94M (2024). "Cliff" at 105% of exemption — entire estate taxable above that threshold.' },
+  NC: { name: 'North Carolina',  rate: 4.25, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  ND: { name: 'North Dakota',    rate: 2.50, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  OH: { name: 'Ohio',            rate: 3.50, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  OK: { name: 'Oklahoma',        rate: 4.75, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  OR: { name: 'Oregon',          rate: 9.90, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $1M — well below federal. Rate up to 16%.' },
+  PA: { name: 'Pennsylvania',    rate: 3.07, qsbsConforms: false, estateTax: false, notes: 'Does NOT conform to §1202 — state-level tax still applies. No state estate tax but has inheritance tax (class-based rates).' },
+  RI: { name: 'Rhode Island',    rate: 5.99, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $1.77M (2024).' },
+  SC: { name: 'South Carolina',  rate: 6.20, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  SD: { name: 'South Dakota',    rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income or estate tax. Best-in-class Dynasty Trust situs (no rule against perpetuities, strong privacy).' },
+  TN: { name: 'Tennessee',       rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income tax on wages. No state estate tax.' },
+  TX: { name: 'Texas',           rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income or estate tax. Community property state.' },
+  UT: { name: 'Utah',            rate: 4.55, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  VT: { name: 'Vermont',         rate: 8.75, qsbsConforms: true,  estateTax: true,  notes: 'State estate tax applies above $5M.' },
+  VA: { name: 'Virginia',        rate: 5.75, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  WA: { name: 'Washington',      rate: 7.00, qsbsConforms: true,  estateTax: true,  notes: 'State capital gains tax is a 7% excise tax above $262k — separate from income tax. Estate tax applies above $2.193M, rate up to 20%.' },
+  WV: { name: 'West Virginia',   rate: 5.12, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax.' },
+  WI: { name: 'Wisconsin',       rate: 7.65, qsbsConforms: true,  estateTax: false, notes: 'No state estate tax. Community property state (marital property).' },
+  WY: { name: 'Wyoming',         rate: 0.00, qsbsConforms: true,  estateTax: false, notes: 'No state income or estate tax. Favorable Dynasty Trust situs.' },
 };
 
 (function () {
@@ -2070,6 +2181,8 @@ function readForm() {
       fed: n('tax-fed') / 100, state: n('tax-state') / 100,
       medicare: n('tax-medicare') / 100, marginal: n('tax-marginal') / 100,
       estate: n('tax-estate') / 100, estateExempt: n('tax-estate-exempt'),
+      amtPreferences: n('tax-amt-preferences'),
+      amtExemption:   n('tax-amt-exemption'),
     },
     proj: {
       equity: n('proj-equity') / 100, re: n('proj-re') / 100,
@@ -2267,6 +2380,30 @@ function computePlan(d) {
     idgtEstateSave = idgtTransferred * d.tax.estate;
   }
 
+  // ──────────────────────────────────────────────────────────────────────
+  // Alternative Minimum Tax (AMT) — 2024 rules (simplified)
+  //   AMTI = base taxable income + preferences (ISOs, accel. depr, etc.)
+  //   Exemption phase-out: $0.25 reduction per $1 of AMTI above
+  //                        $609,350 single / $1,218,700 MFJ
+  //   AMT rate: 26% on AMTI up to $232,600, 28% on excess
+  //   AMT owed = max(0, tentative minimum tax − regular income tax)
+  //   NOTE: This is a first-cut sanity check. Real AMT requires
+  //   Form 6251 with many adjustments. CPA review required.
+  // ──────────────────────────────────────────────────────────────────────
+  const amtBaseIncome = d.biz.income;
+  const amti = amtBaseIncome + d.tax.amtPreferences;
+  const amtPhaseoutStart = 1218700; // MFJ default; single is lower
+  const amtPhaseout = Math.max(0, (amti - amtPhaseoutStart) * 0.25);
+  const amtAdjustedExemption = Math.max(0, d.tax.amtExemption - amtPhaseout);
+  const amtTaxable = Math.max(0, amti - amtAdjustedExemption);
+  const amtBracket = 232600;
+  const amtTentative = amtTaxable <= amtBracket
+    ? amtTaxable * 0.26
+    : amtBracket * 0.26 + (amtTaxable - amtBracket) * 0.28;
+  const amtRegularTax = amtBaseIncome * d.tax.marginal;
+  const amtLiability = Math.max(0, amtTentative - amtRegularTax);
+  const amtTriggered = amtLiability > 0;
+
   // Total immediate tax savings
   const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave + qsbsTotalSaving
                        + exch1031TaxDeferred + qbiSavings + slatEstateSave + idgtEstateSave;
@@ -2369,6 +2506,7 @@ function computePlan(d) {
     qbiDeduction, qbiSavings,
     slatEstateSave, slatFutureValue, slatGrowth,
     idgtTransferred, idgtEstateSave,
+    amti, amtAdjustedExemption, amtTaxable, amtTentative, amtRegularTax, amtLiability, amtTriggered,
     dynasty20yr, dynastyGrowth,
     cgTaxSavings, totalImmediate,
     nwWithout_netProceeds, nwWithout_total,
@@ -2605,6 +2743,57 @@ function renderFinancial(p) {
       <div class="chart-container" style="height: 380px;"><canvas id="chart-projection"></canvas></div>
     </div>
 
+    ${(() => {
+      // Monte Carlo: simulate N paths of the family total NW under random
+      // annual returns (normal distribution, mean=proj.equity, std_dev=16%).
+      // Return percentile bands at the final year.
+      const N = 2000;
+      const mean = d.proj.equity;
+      const sigma = 0.16;
+      const years = d.proj.years;
+      const startValue = p.familyTotalNW;
+      const results = new Array(N);
+      // Box-Muller for normal random
+      const randn = () => {
+        const u = 1 - Math.random(), v = Math.random();
+        return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      };
+      for (let i = 0; i < N; i++) {
+        let v = startValue;
+        for (let y = 0; y < years; y++) {
+          const r = mean + sigma * randn();
+          v *= 1 + r;
+        }
+        results[i] = v;
+      }
+      results.sort((a, b) => a - b);
+      const pct = q => results[Math.floor(N * q)];
+      const p10 = pct(0.10), p25 = pct(0.25), p50 = pct(0.50), p75 = pct(0.75), p90 = pct(0.90);
+      const deterministic = startValue * Math.pow(1 + mean, years);
+      return `
+        <div class="card">
+          <div class="card-title">Monte Carlo Sensitivity — ${years}-Year Family Net Worth</div>
+          <div class="card-sub">
+            ${N.toLocaleString()} simulated paths starting from current family NW (${fmt$(startValue)}),
+            applying random annual returns drawn from a normal distribution
+            (mean = ${fmtPct(mean*100)}, std dev = ${fmtPct(sigma*100)}).
+            Deterministic projection = ${fmt$(deterministic)} — compare to p50 below.
+          </div>
+          <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 16px;">
+            <div class="kpi"><div class="label">10th Percentile (Bad Case)</div><div class="value">${fmt$(p10)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">90% of paths finished above this</div></div>
+            <div class="kpi"><div class="label">25th Percentile</div><div class="value">${fmt$(p25)}</div></div>
+            <div class="kpi success"><div class="label">Median (p50)</div><div class="value">${fmt$(p50)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Central outcome</div></div>
+            <div class="kpi"><div class="label">75th Percentile</div><div class="value">${fmt$(p75)}</div></div>
+            <div class="kpi"><div class="label">90th Percentile (Good Case)</div><div class="value">${fmt$(p90)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">10% of paths finished above this</div></div>
+          </div>
+          <div class="callout" style="margin-top: 16px;">
+            <span class="title">📐 How to interpret</span>
+            The wide spread between p10 and p90 reflects market volatility over ${years} years. A single deterministic line (the chart above) understates the range of real outcomes. Use the p10 and p25 numbers for downside-sensitive planning (e.g., "can the plan survive if markets disappoint?"). Assumed volatility (σ = ${fmtPct(sigma*100)}) is broadly appropriate for a diversified equity portfolio — reduce for more conservative portfolios (e.g., σ = 10% for 60/40).
+          </div>
+        </div>
+      `;
+    })()}
+
     <div class="card">
       <div class="card-title">Detailed Projection Table</div>
       <table class="plan-table">
@@ -2786,6 +2975,33 @@ function renderTax(p) {
         ${d.use.idgt ? `• IDGT Estate Freeze: ${fmt$(p.idgtEstateSave)} (${fmt$(p.idgtTransferred)} transferred)<br>` : ''}
         ${d.use.qoz ? `• QOZ Deferral: ${fmt$(p.scenarios.scenAll.qozDeferred)} (plus tax-free appreciation)<br>` : ''}
       </div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid ${p.amtTriggered ? 'var(--crimson)' : 'var(--success)'};">
+      <div class="card-title">${p.amtTriggered ? '⚠️ Alternative Minimum Tax (AMT) Exposure' : '✓ AMT Check — No Exposure Flagged'}</div>
+      <div class="card-sub">
+        ${p.amtTriggered
+          ? 'Based on current income + preference items, tentative minimum tax exceeds regular income tax. AMT is payable on top of regular tax. Verify with CPA — full AMT calculation is Form 6251 with many line-item adjustments not modeled here.'
+          : 'Tentative minimum tax is below regular income tax, so no AMT liability at current inputs. AMT risk should still be re-checked annually — large charitable deductions, ISO exercises, or accelerated depreciation can trigger it.'}
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="kpi"><div class="label">AMTI</div><div class="value">${fmt$(p.amti)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Base income (${fmt$(d.biz.income)}) + preferences (${fmt$(d.tax.amtPreferences)})</div></div>
+        <div class="kpi"><div class="label">Adjusted AMTI Exemption</div><div class="value">${fmt$(p.amtAdjustedExemption)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">After phase-out above $1.22M threshold</div></div>
+        <div class="kpi"><div class="label">Tentative Minimum Tax</div><div class="value">${fmt$(p.amtTentative)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">26% up to $232.6k AMTI; 28% above</div></div>
+        <div class="kpi"><div class="label">Regular Income Tax (est.)</div><div class="value">${fmt$(p.amtRegularTax)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Base income × ${fmtPct(d.tax.marginal*100)} marginal rate</div></div>
+        <div class="kpi ${p.amtTriggered ? 'warning' : 'success'}"><div class="label">AMT Liability (Additional Tax)</div><div class="value">${fmt$(p.amtLiability)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">= max(0, tentative minimum − regular)</div></div>
+      </div>
+
+      ${p.amtTriggered ? `
+        <div class="callout" style="margin-top: 16px; border-color: var(--crimson);">
+          <span class="title" style="color: var(--crimson);">🔴 Action Items</span>
+          • Review timing of large charitable contributions — AMT limits benefit<br>
+          • If ISO exercise is involved, consider disqualifying disposition vs. AMT-triggering qualifying disposition<br>
+          • Large state tax deductions lose value under AMT — SALT cap may dominate<br>
+          • Consult CPA before year-end — AMT is often best managed via income-timing decisions in Q4
+        </div>
+      ` : ''}
     </div>
 
     <div class="card">
@@ -3026,7 +3242,17 @@ function renderEstate(p) {
       <p><strong>Past Performance:</strong> The performance data shown represents projections based on stated assumptions and does not guarantee future results. Actual results will vary based on market conditions, tax law changes, and individual circumstances.</p>
       <p><strong>QOZ Disclaimer:</strong> Qualified Opportunity Zone investments are subject to specific IRS requirements and regulations. QOZ tax benefits require compliance with holding period and reinvestment rules. Consult a qualified tax professional.</p>
       ${d.use.dynasty ? '<p><strong>Dynasty Trust Note:</strong> Dynasty Trust is an additional structure that is not already included in the primary net worth calculations. It represents wealth transferred to heirs and does not belong to the grantor.</p>' : ''}
-      <p><strong>Tax Assumptions:</strong> Federal cap gains ${fmtPct(d.tax.fed*100)}, state ${fmtPct(d.tax.state*100)}, Medicare ${fmtPct(d.tax.medicare*100)}, marginal income ${fmtPct(d.tax.marginal*100)}, estate ${fmtPct(d.tax.estate*100)}. Tax rates are subject to change.</p>
+      ${d.use.qsbs ? '<p><strong>§1202 QSBS:</strong> Exclusion requires C-Corp status throughout the holding period, ≤$50M gross assets at stock issuance, original issuance to the holder, and a 5+ year hold. State conformity varies — CA, PA, MS, AL, and NJ do NOT conform, and state-level capital gains still apply in those jurisdictions. CPA confirmation of eligibility is essential before relying on the exclusion.</p>' : ''}
+      ${d.use.slat ? '<p><strong>SLAT Reciprocal Trust Doctrine:</strong> If both spouses create SLATs for each other, the IRS may apply the reciprocal trust doctrine and collapse both trusts back into the respective estates. Material differences in terms (timing, beneficiaries, trustees, distribution standards) are required to defeat this doctrine. Legal counsel review is required.</p>' : ''}
+      ${d.use.idgt ? '<p><strong>IDGT Grantor-Trust Status:</strong> Assumes grantor retains a power described in IRC §§671-679 that triggers grantor-trust income tax status without causing estate inclusion under §§2036-2038. Precise drafting is essential — defective drafting that causes estate inclusion eliminates the benefit.</p>' : ''}
+      ${p.amtTriggered ? '<p><strong>AMT Liability Flagged:</strong> The simplified AMT estimate suggests a tentative minimum tax in excess of regular income tax. Full AMT computation (Form 6251) involves many adjustments not modeled here — CPA review required before relying on this figure.</p>' : ''}
+      ${(() => {
+        const stateCode = (d.clientState || '').toUpperCase();
+        const info = (typeof STATE_TAX_TABLE !== 'undefined') ? STATE_TAX_TABLE[stateCode] : null;
+        if (!info) return '';
+        return `<p><strong>${info.name} State Tax:</strong> ${info.notes} Top marginal state rate used in this plan: ${info.rate.toFixed(2)}%.${info.estateTax ? ' <strong>Note: This state imposes an estate/inheritance tax separate from federal</strong> — the plan\'s estate projections use the federal rate only; state-level exposure should be modeled separately.' : ''}</p>`;
+      })()}
+      <p><strong>Tax Assumptions:</strong> Federal cap gains ${fmtPct(d.tax.fed*100)}, state ${fmtPct(d.tax.state*100)}, Medicare ${fmtPct(d.tax.medicare*100)}, marginal income ${fmtPct(d.tax.marginal*100)}, estate ${fmtPct(d.tax.estate*100)}. Tax rates are subject to change. Calculations throughout this plan are first-cut estimates; a qualified CPA should validate each strategy's tax math before distribution to clients.</p>
     </div>
   `;
 }
@@ -3223,6 +3449,47 @@ document.getElementById('btn-print').addEventListener('click', () => {
 });
 
 /* ============================================================
+   DOWNLOAD PDF — uses html2pdf.js to capture the plan view
+   (brand bar + plan header + all 5 tabs in sequence) and save
+   a client-branded PDF. Better than the print dialog for
+   one-click delivery to clients.
+   ============================================================ */
+document.getElementById('btn-pdf').addEventListener('click', async () => {
+  if (!window.__PLAN_DATA__) { alert('Please generate a plan first.'); return; }
+  if (!window.html2pdf) { alert('PDF library not loaded yet — wait a second and try again.'); return; }
+
+  const d = window.__PLAN_DATA__.input;
+  const primary = (d.client.primary || 'Plan').trim();
+  const fileName = `Pyle Plan — ${primary} — ${d.client.year}.pdf`.replace(/[/\\:*?"<>|]/g, '-');
+
+  // Build a hidden print-friendly clone so we can capture all 5 tabs stacked,
+  // without disturbing the current on-screen tab selection.
+  const planView = document.getElementById('plan-view');
+  const captureRoot = planView.cloneNode(true);
+  captureRoot.style.cssText = 'position:fixed; left:-99999px; top:0; width:900px; background:#F5F1E8;';
+  captureRoot.querySelectorAll('.plan-actions, .plan-tabs').forEach(el => el.remove());
+  captureRoot.querySelectorAll('.tab-panel').forEach(p => { p.classList.add('active'); p.style.display = 'block'; p.style.pageBreakAfter = 'always'; });
+  document.body.appendChild(captureRoot);
+
+  try {
+    await html2pdf().from(captureRoot).set({
+      margin: [12, 12, 14, 12],
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.96 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    }).save();
+  } catch (err) {
+    alert('PDF generation failed: ' + err.message + '\n\nFalling back to the Print dialog — use "Save as PDF" there.');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('active'));
+    window.print();
+  } finally {
+    captureRoot.remove();
+  }
+});
+
+/* ============================================================
    DOWNLOAD PLAN — saves a self-contained HTML file with the
    plan data & logo baked in, opens directly to Plan view.
    ============================================================ */
@@ -3353,6 +3620,7 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
       'idgt-amount','idgt-afr','idgt-growth','idgt-term',
       'client-state',
       'tax-fed','tax-state','tax-medicare','tax-marginal','tax-estate','tax-estate-exempt',
+      'tax-amt-preferences','tax-amt-exemption',
       'proj-equity','proj-re','proj-years','proj-inflation',
       'ins-current','ins-rec-min','ins-rec-max',
       'firm-name','firm-tag'
@@ -3602,6 +3870,79 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     }
   }
 
+  /* ---- eMoney / MoneyGuidePro importer ------------------------------
+     Both tools export client data as JSON. Shapes differ between the
+     two, but a generic field mapper that looks for common keys
+     covers 80% of what we need. If a specific vendor field isn't
+     matched, the advisor will still need to fill remaining blanks
+     by hand — status message reports how many fields were mapped.
+
+     To extend to vendor-specific schemas, add entries to the
+     FIELD_ALIASES table below: the key is the builder form ID,
+     the value is a list of vendor field names to search for.
+     ----------------------------------------------------------------- */
+  const VENDOR_FIELD_ALIASES = {
+    'client-primary':  ['client_name','primary_name','first_name_last_name','clientFullName','ownerName','PrimaryName','clientName'],
+    'client-spouse':   ['spouse_name','co_client_name','spouseFullName','spouseName','SpouseName'],
+    'client-location': ['city_state','residence','clientLocation','address_city_state','Location'],
+    'client-pnw':      ['net_worth','total_net_worth','netWorth','NetWorth','totalNetWorth'],
+    'client-other':    ['other_assets','non_business_assets','personalAssets','personal_property','OtherAssets'],
+    'biz-name':        ['business_name','entity_name','businessName','BusinessName','companyName'],
+    'biz-sale':        ['sale_price','business_value','expected_sale_price','saleValue','SalePrice','businessValue'],
+    'biz-basis':       ['tax_basis','business_basis','costBasis','CostBasis','adjustedBasis'],
+    'biz-income':      ['annual_income','business_income','totalIncome','TotalIncome','grossIncome','income'],
+    'ins-current':     ['current_life_insurance','total_life_insurance','deathBenefit','LifeInsuranceTotal'],
+  };
+
+  function findFieldValue(obj, aliases, depth = 0) {
+    if (!obj || depth > 6) return null;
+    if (Array.isArray(obj)) {
+      for (const item of obj) {
+        const v = findFieldValue(item, aliases, depth + 1);
+        if (v !== null) return v;
+      }
+      return null;
+    }
+    if (typeof obj !== 'object') return null;
+    for (const [key, val] of Object.entries(obj)) {
+      const normKey = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const alias of aliases) {
+        const normAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (normKey === normAlias && (typeof val === 'string' || typeof val === 'number')) return val;
+      }
+      // Recurse into nested objects
+      if (val && typeof val === 'object') {
+        const v = findFieldValue(val, aliases, depth + 1);
+        if (v !== null) return v;
+      }
+    }
+    return null;
+  }
+
+  async function importVendorJSON(file, vendorLabel) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const values = {};
+      for (const [formId, aliases] of Object.entries(VENDOR_FIELD_ALIASES)) {
+        const v = findFieldValue(parsed, aliases);
+        if (v !== null) values[formId] = String(v);
+      }
+      const filled = Object.keys(values).length;
+      if (filled === 0) {
+        setStatus(`${vendorLabel} import: no recognizable fields found. If this is a valid export, share the JSON sample with your admin to extend the field aliases.`, 'err');
+        return;
+      }
+      hydrateForm({ values, checkboxes: {}, schemaVersion: 1 });
+      currentId = null;
+      history.replaceState(null, '', location.pathname);
+      setStatus(`${vendorLabel} import: filled ${filled}/${Object.keys(VENDOR_FIELD_ALIASES).length} recognized fields — review and fill any gaps manually`, 'ok');
+    } catch (err) {
+      setStatus(`${vendorLabel} import failed: ${err.message}`, 'err');
+    }
+  }
+
   /* ---- Wire local (offline-safe) buttons first, so they work even if
          Supabase is unreachable or not configured ---- */
   document.getElementById('btn-cloud-download').addEventListener('click', downloadJSON);
@@ -3611,6 +3952,12 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
   const pfpInput = document.getElementById('precisefp-input');
   document.getElementById('btn-precisefp-import').addEventListener('click', () => pfpInput.click());
   pfpInput.addEventListener('change', e => importPreciseFPCSV(e.target.files[0]));
+  const emoneyInput = document.getElementById('emoney-input');
+  document.getElementById('btn-emoney-import').addEventListener('click', () => emoneyInput.click());
+  emoneyInput.addEventListener('change', e => importVendorJSON(e.target.files[0], 'eMoney'));
+  const mgpInput = document.getElementById('mgp-input');
+  document.getElementById('btn-mgp-import').addEventListener('click', () => mgpInput.click());
+  mgpInput.addEventListener('change', e => importVendorJSON(e.target.files[0], 'MoneyGuidePro'));
 
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY ||
       cfg.SUPABASE_URL.includes('YOUR_') || cfg.SUPABASE_ANON_KEY.includes('YOUR_')) {
@@ -3669,6 +4016,8 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     // Clone-for-next-year only works when a team member has a saved plan loaded
     const cloneBtn = document.getElementById('btn-clone-year');
     if (cloneBtn) cloneBtn.disabled = !(signedIn && isTeam && currentId);
+    // Review panel visibility tracks sign-in + loaded plan
+    if (typeof refreshReviews === 'function') refreshReviews();
     // Team-only UI (Client Email field in the builder)
     document.body.classList.toggle('is-client', signedIn && !isTeam);
     document.querySelectorAll('.team-only').forEach(el => el.classList.toggle('hidden', !isTeam));
@@ -3774,6 +4123,7 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     setStatus('Saved ✓', 'ok');
     refreshList();
     applyRoleUI();
+    refreshReviews();
   }
 
   async function loadPlan(id) {
@@ -3798,6 +4148,7 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     history.replaceState(null, '', '?id=' + encodeURIComponent(currentId));
     setStatus('Loaded: ' + (data.name || data.id), 'ok');
     applyRoleUI();
+    refreshReviews();
   }
 
   async function copyShareLink() {
@@ -3814,6 +4165,87 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
       prompt('Copy this URL:', url);
     }
   }
+
+  /* ---- Plan Reviews (comments + approvals) ----
+     Team members can write any review. Clients can read reviews on
+     their own assigned plan. All gated behind sign-in. RLS on
+     plan_reviews table enforces authorization — JS is cosmetic only.
+  */
+  const reviewPanel    = document.getElementById('review-panel');
+  const reviewList     = document.getElementById('review-list');
+  const reviewForm     = document.getElementById('review-form');
+  const reviewComment  = document.getElementById('review-comment');
+  const reviewStatusEl = document.getElementById('review-status');
+  const reviewMsgEl    = document.getElementById('review-status-msg');
+
+  const STATUS_LABELS = { comment: 'Comment', approved: 'Approved', changes_requested: 'Changes Requested' };
+
+  async function refreshReviews() {
+    if (!currentId || !currentUser) { reviewPanel.classList.add('hidden'); return; }
+    reviewPanel.classList.remove('hidden');
+    reviewForm.style.display = isTeam ? '' : 'none';
+
+    const { data, error } = await sb.from('plan_reviews')
+      .select('id,reviewer_email,comment,status,created_at')
+      .eq('plan_id', currentId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (error.code === '42P01') {
+        reviewList.innerHTML = `<div class="review-empty">Reviews feature not initialized yet. Run <code>supabase/add_reviews.sql</code> in Supabase SQL Editor to enable.</div>`;
+      } else {
+        reviewList.innerHTML = `<div class="review-empty">Could not load reviews: ${error.message}</div>`;
+      }
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      reviewList.innerHTML = `<div class="review-empty">No reviews yet.${isTeam ? ' Be the first to leave a comment or approval below.' : ''}</div>`;
+      return;
+    }
+
+    reviewList.innerHTML = data.map(r => {
+      const when = new Date(r.created_at).toLocaleString();
+      const comment = (r.comment || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return `
+        <div class="review-item ${r.status}">
+          <div class="meta">
+            ${r.reviewer_email} · ${when}
+            <span class="status-pill ${r.status}">${STATUS_LABELS[r.status] || r.status}</span>
+          </div>
+          ${comment ? `<div class="comment">${comment}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function postReview() {
+    if (!currentUser || !isTeam) { reviewMsgEl.textContent = 'Sign in as team to post'; return; }
+    if (!currentId) { reviewMsgEl.textContent = 'Save plan first'; return; }
+    const comment = reviewComment.value.trim();
+    const status = reviewStatusEl.value;
+    if (!comment && status === 'comment') { reviewMsgEl.textContent = 'Comment required'; return; }
+
+    reviewMsgEl.textContent = 'Posting…';
+    const row = {
+      plan_id: currentId,
+      reviewer_email: currentUser.email,
+      comment: comment || null,
+      status,
+    };
+    const { error } = await sb.from('plan_reviews').insert(row);
+    if (error) {
+      reviewMsgEl.textContent = 'Post failed: ' + error.message;
+      return;
+    }
+    reviewComment.value = '';
+    reviewStatusEl.value = 'comment';
+    reviewMsgEl.textContent = 'Posted ✓';
+    refreshReviews();
+    setTimeout(() => { reviewMsgEl.textContent = ''; }, 3000);
+  }
+
+  document.getElementById('btn-review-submit').addEventListener('click', postReview);
 
   /* ---- Clone current plan into next year's plan (team-only) ---- */
   async function clonePlanForNextYear() {
