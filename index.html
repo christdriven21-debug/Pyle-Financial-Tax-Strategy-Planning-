@@ -993,6 +993,8 @@
       <button class="btn btn-secondary btn-sm" id="btn-cloud-download">Download JSON</button>
       <input type="file" id="cloud-upload-input" accept="application/json,.json" style="display:none">
       <button class="btn btn-secondary btn-sm" id="btn-cloud-upload">Upload JSON</button>
+      <input type="file" id="precisefp-input" accept=".csv,text/csv" style="display:none">
+      <button class="btn btn-gold btn-sm" id="btn-precisefp-import" title="Import client data from a PreciseFP CSV export">Import PreciseFP CSV</button>
     </div>
     <div class="cb-status" id="cloud-status">Connecting…</div>
   </div>
@@ -2555,12 +2557,196 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     reader.readAsText(file);
   }
 
+  /* ---- PreciseFP CSV import -----------------------------------------
+     Parses a PreciseFP fact-finder CSV export and maps key fields into
+     our form. Works offline (no server, no API). The CSV is organized
+     as repeating (section header, sub-section header, field-label row,
+     value row) blocks — we walk it statefully.
+     --------------------------------------------------------------- */
+
+  // RFC-4180-ish CSV parser: handles quoted fields with commas/newlines inside.
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false, i = 0;
+    while (i < text.length) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++;
+      } else {
+        if (c === '"') { inQuotes = true; i++; continue; }
+        if (c === ',') { row.push(field); field = ''; i++; continue; }
+        if (c === '\r') { i++; continue; }
+        if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+        field += c; i++;
+      }
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  // Walk the parsed rows, extracting the fields we care about.
+  // Returns a partial snapshot ready to feed into hydrateForm().
+  function mapPreciseFPRows(rows) {
+    const snap = { values: {}, checkboxes: {} };
+    let section = '';
+    let subsection = '';
+    let headers = null;
+    let clientContext = null; // 'primary' | 'spouse' | null
+    const personNames = []; // order they appear: primary, then spouse
+    const lifeBalances = [];
+
+    const normalize = s => (s || '').toString().trim();
+
+    function rowIsAllEmpty(r) { return r.every(c => !normalize(c)); }
+
+    for (let rIdx = 0; rIdx < rows.length; rIdx++) {
+      const r = rows[rIdx];
+      const first = normalize(r[0]);
+
+      if (!first && rowIsAllEmpty(r)) continue;
+
+      // Section change: "Section: ..."
+      if (first.startsWith('Section:')) {
+        section = first.replace(/^Section:\s*/, '').trim();
+        subsection = '';
+        headers = null;
+        clientContext = null;
+        continue;
+      }
+
+      // Person-name rows in Client Details / Employment — e.g. "Conor Delaney"
+      // appear as the first column with everything else empty.
+      if (first && r.slice(1).every(c => !normalize(c))) {
+        // Could be a person name OR a sub-section header (like "Personal Details")
+        // Heuristic: if it matches Firstname Lastname pattern AND we're in
+        // one of the per-person sections, treat as client switch.
+        const looksLikePersonName = /^[A-Z][a-zA-Z-]+ [A-Z][a-zA-Z-]+$/.test(first);
+        if (looksLikePersonName) {
+          if (!personNames.includes(first)) personNames.push(first);
+          clientContext = personNames.indexOf(first) === 0 ? 'primary' : 'spouse';
+        } else {
+          subsection = first;
+        }
+        headers = null;
+        continue;
+      }
+
+      // Header row: multiple non-empty cells
+      const nonEmpty = r.filter(c => normalize(c)).length;
+      if (nonEmpty >= 2) {
+        // Heuristic: if this row is "labels" and the NEXT row (if any) is
+        // "values" matching column-count, this is a header row.
+        const looksLikeHeader = r.some(c => /^[A-Z][a-zA-Z/ &#'()]+/.test(normalize(c))) && !r.some(c => /^\d[\d,.]*$/.test(normalize(c)));
+        if (looksLikeHeader) {
+          headers = r.map(normalize);
+          continue;
+        }
+      }
+
+      // Data row — interpret using current section/subsection/headers
+      if (headers) {
+        extractFromDataRow(r, headers, section, subsection, clientContext, snap, lifeBalances);
+      }
+    }
+
+    // Post-processing
+    if (personNames[0]) snap.values['client-primary'] = personNames[0];
+    if (personNames[1]) snap.values['client-spouse'] = personNames[1];
+    if (lifeBalances.length) {
+      snap.values['ins-current'] = String(lifeBalances.reduce((a, b) => a + b, 0));
+    }
+    return snap;
+  }
+
+  function extractFromDataRow(r, headers, section, subsection, ctx, snap, lifeBalances) {
+    const col = label => {
+      const idx = headers.indexOf(label);
+      return idx >= 0 ? (r[idx] || '').toString().trim() : '';
+    };
+    const toNum = s => parseFloat(String(s).replace(/[^0-9.-]/g, '')) || 0;
+
+    // Section: Client Details -> Contact Details -> Home Address (city, state)
+    if (section === 'Client Details' && ctx === 'primary') {
+      const addr = col('Home Address');
+      if (addr) {
+        // "1007 Indigo Dr, , Celebration, FL, 34747" -> "Celebration, FL"
+        const parts = addr.split(',').map(s => s.trim()).filter(Boolean);
+        // last two meaningful are usually city, state (before zip)
+        if (parts.length >= 3) {
+          const state = parts[parts.length - 2];
+          const city = parts[parts.length - 3];
+          if (city && state && state.length <= 3) {
+            snap.values['client-location'] = `${city}, ${state}`;
+          }
+        }
+      }
+    }
+
+    // Section: Employment & Income -> Annual Income -> Total Income (for primary)
+    if (section === 'Employment & Income' && subsection === 'Annual Income' && ctx === 'primary') {
+      const total = toNum(col('Total Income'));
+      if (total) snap.values['biz-income'] = String(total);
+    }
+
+    // Section: Assets -> Business Assets (first row) -> biz-name, biz-sale
+    if (section === 'Assets' && subsection === 'Business Assets') {
+      const name = col('Name');
+      const value = toNum(col('Current Value'));
+      if (value && !snap.values['biz-sale']) {
+        if (name) snap.values['biz-name'] = name;
+        snap.values['biz-sale'] = String(value);
+      }
+    }
+
+    // Section: Cash Flow & Net Worth -> Net Worth
+    if (section === 'Cash Flow & Net Worth' && subsection === 'Net Worth') {
+      const nw = toNum(col('Net Worth'));
+      if (nw) snap.values['client-pnw'] = String(nw);
+      const personal = toNum(col('Personal Property'));
+      if (personal) snap.values['client-other'] = String(personal);
+    }
+
+    // Section: Insurance -> Life Insurance -> sum of Balance column
+    if (section === 'Insurance' && subsection === 'Life Insurance') {
+      const bal = toNum(col('Balance'));
+      if (bal) lifeBalances.push(bal);
+    }
+  }
+
+  async function importPreciseFPCSV(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const rows = parseCSV(text);
+      const snap = mapPreciseFPRows(rows);
+      const filled = Object.keys(snap.values).length;
+      if (filled === 0) {
+        setStatus('PreciseFP import: no recognizable fields found in CSV', 'err');
+        return;
+      }
+      hydrateForm(snap);
+      currentId = null;
+      history.replaceState(null, '', location.pathname);
+      const primary = snap.values['client-primary'] || 'client';
+      setStatus(`PreciseFP import: filled ${filled} fields for ${primary} — review and click Generate`, 'ok');
+    } catch (err) {
+      setStatus('PreciseFP import failed: ' + err.message, 'err');
+    }
+  }
+
   /* ---- Wire local (offline-safe) buttons first, so they work even if
          Supabase is unreachable or not configured ---- */
   document.getElementById('btn-cloud-download').addEventListener('click', downloadJSON);
   const uploadInput = document.getElementById('cloud-upload-input');
   document.getElementById('btn-cloud-upload').addEventListener('click', () => uploadInput.click());
   uploadInput.addEventListener('change', e => uploadJSON(e.target.files[0]));
+  const pfpInput = document.getElementById('precisefp-input');
+  document.getElementById('btn-precisefp-import').addEventListener('click', () => pfpInput.click());
+  pfpInput.addEventListener('change', e => importPreciseFPCSV(e.target.files[0]));
 
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY ||
       cfg.SUPABASE_URL.includes('YOUR_') || cfg.SUPABASE_ANON_KEY.includes('YOUR_')) {
