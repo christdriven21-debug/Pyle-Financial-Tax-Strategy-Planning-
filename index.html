@@ -1252,6 +1252,17 @@
         <input type="text" id="biz-date" value="" placeholder="e.g., July 1, 2026">
       </div>
       <div class="field">
+        <label>Sale Structure <span class="hint">(asset sale has depreciation recapture / §1245 ordinary-income treatment)</span></label>
+        <select id="biz-sale-type">
+          <option value="stock" selected>Stock Sale (buyer takes entity + liabilities)</option>
+          <option value="asset">Asset Sale (buyer cherry-picks; seller owes recapture as ordinary)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Depreciation Recapture / §1245 Amount <span class="hint">(asset sale only; taxed as ordinary income)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-recapture" value="0"></div>
+      </div>
+      <div class="field">
         <label>Current Pre-Sale Net Worth</label>
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="client-pnw" value="65000000"></div>
       </div>
@@ -2507,6 +2518,8 @@ function readForm() {
       name: t('biz-name'), type: t('biz-type'), ownership: n('biz-ownership'),
       sale: n('biz-sale'), basis: n('biz-basis'),
       date: t('biz-date'), income: n('biz-income'),
+      saleType: t('biz-sale-type') || 'stock',
+      recapture: n('biz-recapture'),
     },
     use: {
       dynasty: c('use-dynasty'), crat: c('use-crat'), daf: c('use-daf'), qoz: c('use-qoz'),
@@ -2575,6 +2588,18 @@ function computePlan(d) {
   const salePrice = d.biz.sale;
   const basis = d.biz.basis;
   const grossGain = salePrice - basis;
+
+  // Asset vs. Stock sale treatment
+  //   Stock sale: entire gain is LTCG (standard path below)
+  //   Asset sale: §1245 depreciation recapture taxed as ORDINARY income
+  //     (at marginal rate, not CG rate); remainder of gain is LTCG
+  //   Savings from structuring as a stock sale = (recapture × marginal) − (recapture × CG rate)
+  //   Only meaningful if d.biz.recapture > 0
+  const saleIsAsset = d.biz.saleType === 'asset';
+  const recaptureAmount = saleIsAsset ? d.biz.recapture : 0;
+  const recaptureOrdinaryTax = recaptureAmount * d.tax.marginal;
+  const recaptureCGTaxIfStock = recaptureAmount * combinedCGRate;
+  const assetVsStockPenalty = Math.max(0, recaptureOrdinaryTax - recaptureCGTaxIfStock);
 
   // Strategy amounts (zero if strategy disabled)
   const dyAmt = d.use.dynasty ? d.dynasty.funding : 0;
@@ -3122,6 +3147,7 @@ function computePlan(d) {
     stateEstateTaxNoPlan, stateEstateTaxWithPlan, stateEstateTaxSavings,
     rmdRows, totalRMDs, balAtRmdStart,
     ssPrimaryMonthly, ssSpouseMonthly, ssAnnualHousehold, ssComparison,
+    saleIsAsset, recaptureAmount, recaptureOrdinaryTax, recaptureCGTaxIfStock, assetVsStockPenalty,
     dynasty20yr, dynastyGrowth,
     cgTaxSavings, totalImmediate,
     nwWithout_netProceeds, nwWithout_total,
@@ -3229,7 +3255,34 @@ function renderSummary(p) {
    ============================================================ */
 function renderTransaction(p) {
   const d = p.input;
+
+  const saleStructureCard = `
+    <div class="card" style="border-left: 4px solid ${p.saleIsAsset ? 'var(--crimson)' : 'var(--success)'};">
+      <div class="card-title">Sale Structure: ${p.saleIsAsset ? '⚠️ Asset Sale' : '✓ Stock Sale'}</div>
+      <div class="card-sub">
+        ${p.saleIsAsset
+          ? `Asset sale — buyer takes selected assets; seller is responsible for entity wind-down and <strong>depreciation recapture</strong> is taxed as ordinary income (not LTCG). §1245 recapture amount: ${fmt$(d.biz.recapture)}.`
+          : `Stock sale — buyer acquires the entity including its liabilities. Entire gain qualifies as long-term capital gain. Typically the more tax-efficient structure for the seller, though buyers often prefer asset sales for step-up and liability avoidance.`
+        }
+      </div>
+      ${p.saleIsAsset && d.biz.recapture > 0 ? `
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 14px;">
+          <div class="kpi"><div class="label">Recapture Amount (§1245)</div><div class="value">${fmt$(d.biz.recapture)}</div></div>
+          <div class="kpi warning"><div class="label">Ordinary Tax (asset sale)</div><div class="value">${fmt$(p.recaptureOrdinaryTax)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">@ ${fmtPct(d.tax.marginal*100)} marginal</div></div>
+          <div class="kpi"><div class="label">CG Tax if Stock Sale</div><div class="value">${fmt$(p.recaptureCGTaxIfStock)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">@ ${fmtPct(p.combinedCGRate*100)} combined CG</div></div>
+          <div class="kpi ${p.assetVsStockPenalty > 0 ? 'warning' : 'success'}"><div class="label">Asset-Sale Penalty</div><div class="value">${fmt$(p.assetVsStockPenalty)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Extra tax from ordinary treatment</div></div>
+        </div>
+        <div class="callout" style="margin-top: 16px; border-color: var(--crimson);">
+          <span class="title" style="color: var(--crimson);">🔴 Negotiation Leverage</span>
+          An asset sale costs the seller ${fmt$(p.assetVsStockPenalty)} more in tax than a stock sale at these numbers. Counter-offer a gross-up clause (buyer compensates seller for the tax delta), or structure as a hybrid (§338(h)(10) election for certain entities, F-reorg, Rev. Rul. 99-6, etc.). Without QSBS eligibility, asset sales also foreclose the §1202 exclusion path.
+        </div>
+      ` : ''}
+    </div>
+  `;
+
   return `
+    ${saleStructureCard}
+
     <div class="card">
       <div class="card-title">Business Sale &amp; Tax Optimization Strategy</div>
       <div class="card-sub">Comparing outcomes: strategic planning vs. no planning.</div>
@@ -4576,7 +4629,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'client-primary-age','client-spouse-age',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
-      'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date',
+      'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
       'client-pnw','client-other','biz-income',
       'dt-funding','dt-exemption','dt-years',
       'crat-amount','crat-rate','crat-ded',
