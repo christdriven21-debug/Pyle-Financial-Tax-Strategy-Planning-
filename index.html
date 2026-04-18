@@ -1595,12 +1595,30 @@
           <div class="suffix-pct"><input type="number" id="dt-discount" value="35" step="1"></div>
         </div>
         <div class="field">
+          <label>Trust Tax Type <span class="hint">(who pays income tax on trust assets)</span></label>
+          <select id="dt-trust-type">
+            <option value="grantor" selected>Grantor Trust (grantor pays — Rev. Rul. 2004-64 gift)</option>
+            <option value="nongrantor">Non-Grantor Trust (trust pays its own tax)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Favorable Situs? <span class="hint">(DE, NV, SD, WY, AK — 0% state tax)</span></label>
+          <select id="dt-situs-favorable">
+            <option value="no" selected>No (inherits grantor's state)</option>
+            <option value="yes">Yes (no-state-tax jurisdiction)</option>
+          </select>
+        </div>
+        <div class="field">
           <label>Combined Family Exemption</label>
           <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dt-exemption" value="15000000"></div>
         </div>
         <div class="field">
-          <label>Projection Period (Years) <span class="hint">(auto-overridden to joint life expectancy when primary/spouse ages are set)</span></label>
+          <label>Projection Period (Years) <span class="hint">(auto-overridden to joint life expectancy)</span></label>
           <input type="number" id="dt-years" value="20">
+        </div>
+        <div class="field">
+          <label>Assumed Annual Trust Income Yield <span class="hint">(for grantor tax-gift leverage calc)</span></label>
+          <div class="suffix-pct"><input type="number" id="dt-income-yield" value="3" step="0.5"></div>
         </div>
       </div>
     </div>
@@ -2818,7 +2836,15 @@ function readForm() {
       exch1031: c('use-1031'), qbi: c('use-qbi'), slat: c('use-slat'), idgt: c('use-idgt'),
       qprt: c('use-qprt'), crut: c('use-crut'), clt: c('use-clt'),
     },
-    dynasty: { funding: n('dt-funding'), exemption: n('dt-exemption'), years: n('dt-years'), discount: n('dt-discount') / 100 },
+    dynasty: {
+      funding: n('dt-funding'),
+      exemption: n('dt-exemption'),
+      years: n('dt-years'),
+      discount: n('dt-discount') / 100,
+      trustType: t('dt-trust-type') || 'grantor',
+      favorableSitus: t('dt-situs-favorable') === 'yes',
+      incomeYield: n('dt-income-yield') / 100,
+    },
     crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
     daf: { amount: n('daf-amount') },
     qoz: { defer: n('qoz-defer'), ret: n('qoz-return') / 100, years: n('qoz-years') },
@@ -2921,8 +2947,16 @@ function computePlan(d) {
     };
   })();
 
+  // IMPORTANT: only TAX-EXEMPT entities (CRAT, CRUT, DAF) truly eliminate
+  // capital-gains tax on the transferred shares. Dynasty Trust, SLAT, IDGT,
+  // and GRAT are generally grantor trusts — the grantor pays the CG tax on
+  // those shares when the business sells, even though the economic value
+  // sits in the trust. That's actually a FEATURE (Rev. Rul. 2004-64: the
+  // grantor's tax payment is treated as an additional tax-free gift to the
+  // beneficiaries). A non-grantor trust in a favorable-situs state
+  // (DE/NV/SD/WY/AK) can avoid the STATE portion, which we credit below.
   const scenDyCratDaf = (() => {
-    const gain = Math.max(0, grossGain - dyAmt - crAmt - dafAmt);
+    const gain = Math.max(0, grossGain - crAmt - dafAmt); // Dynasty no longer reduces grantor's taxable gain
     return {
       name: 'Dynasty+CRAT+DAF',
       dynasty: dyAmt, crat: crAmt, daf: dafAmt,
@@ -2935,11 +2969,10 @@ function computePlan(d) {
   })();
 
   const scenAll = (() => {
-    const gain = Math.max(0, grossGain - dyAmt - crAmt - dafAmt);
+    const gain = Math.max(0, grossGain - crAmt - dafAmt); // Same correction: exempt transfers only
     const baseTax = gain * combinedCGRate;
-    // QOZ defers the tax liability itself; invested at QOZ return over projection period
     return {
-      name: 'Dynasty+CRAT+DAF+QOZ',
+      name: 'Full Stack + QSBS',
       dynasty: dyAmt, crat: crAmt, daf: dafAmt, qoz: d.use.qoz ? baseTax : 0,
       taxableGain: gain,
       fedTax: gain * d.tax.fed,
@@ -2980,6 +3013,41 @@ function computePlan(d) {
   const dynastyGiftValue   = d.use.dynasty ? dyAmt * (1 - dynastyDiscountPct) : 0; // reported gift amount
   const dynastyDiscountAmt = d.use.dynasty ? dyAmt * dynastyDiscountPct : 0;        // economic value that "escaped" the gift ledger
   const dynastyDiscountSave = dynastyDiscountAmt * d.tax.estate;                     // additional estate-tax saving vs. non-discounted transfer
+
+  // ──────────────────────────────────────────────────────────────────────
+  // STATE-TAX ARBITRAGE
+  //   When a non-grantor trust is sited in a no-state-tax jurisdiction
+  //   (DE, NV, SD, WY, AK), the trust's portion of the sale gain avoids
+  //   state capital gains tax that the grantor would otherwise owe.
+  //   Grantor trusts don't get this benefit — grantor still pays state
+  //   tax on trust income per §671.
+  // ──────────────────────────────────────────────────────────────────────
+  const dynastyStateArbitrage = (d.use.dynasty
+    && d.dynasty.trustType === 'nongrantor'
+    && d.dynasty.favorableSitus
+    && d.tax.state > 0)
+    ? dyAmt * d.tax.state
+    : 0;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // GRANTOR TRUST INCOME TAX LEVERAGE (Rev. Rul. 2004-64)
+  //   A grantor trust's income is taxed to the grantor each year. The
+  //   grantor's payment of that tax is NOT treated as a gift — it's
+  //   effectively an additional tax-free wealth transfer to the trust.
+  //   Over joint life expectancy, this compounds significantly.
+  //   Approximation: funded_amount × income_yield × marginal_rate × years
+  //   (conservative — in reality, trust income grows with trust value).
+  //   Additional estate savings value: gift_total × estate_rate
+  //   (since that cash never entered the grantor's taxable estate).
+  // ──────────────────────────────────────────────────────────────────────
+  // Joint LE will be used as the leverage period if ages are set; otherwise dt-years
+  const dynastyLeverageYears = (d.client.primaryAge || 0) > 0
+    ? jointLastSurvivorExpectancy(d.client.primaryAge, d.client.spouseAge || 0)
+    : d.dynasty.years;
+  const dynastyIncomeTaxGift = (d.use.dynasty && d.dynasty.trustType === 'grantor')
+    ? dyAmt * (d.dynasty.incomeYield || 0.03) * d.tax.marginal * dynastyLeverageYears
+    : 0;
+  const dynastyIncomeTaxGiftEstateSave = dynastyIncomeTaxGift * d.tax.estate;
 
   const slatDiscountPct = d.use.slat ? (d.slat.discount || 0) : 0;
   const slatGiftValue   = d.use.slat ? d.slat.funding * (1 - slatDiscountPct) : 0;
@@ -3228,7 +3296,9 @@ function computePlan(d) {
   const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave + qsbsTotalSaving
                        + exch1031TaxDeferred + qbiSavings + slatEstateSave + idgtEstateSave
                        + qprtEstateSave + crutEstateSave + crutIncomeTaxSavings + cltEstateSave
-                       + totalDiscountSavings;
+                       + totalDiscountSavings
+                       + dynastyStateArbitrage
+                       + dynastyIncomeTaxGiftEstateSave;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -3495,6 +3565,8 @@ function computePlan(d) {
     idgtGiftValue, idgtDiscountAmt, idgtDiscountSave,
     gratDiscountAmt, gratDiscountSave,
     totalDiscountSavings,
+    dynastyStateArbitrage,
+    dynastyIncomeTaxGift, dynastyIncomeTaxGiftEstateSave, dynastyLeverageYears,
     ilitEstateSave, ilitPayYears, ilitTotalPremiums, ilitNetBenefit,
     rothIncomeTax, rothEstateSave, rothNetEstateSave, rothFutureValue, rothGrowthBenefit,
     gratRemainder, gratEstateSave,
@@ -4167,22 +4239,49 @@ function renderTax(p) {
   const d = p.input;
   const items = [];
   if (d.use.dynasty) {
+    const isGrantor = d.dynasty.trustType === 'grantor';
     const discountLabel = d.dynasty.discount > 0 ? ` @ ${fmtPct(d.dynasty.discount*100)} discount` : '';
-    items.push({
-      label: '① Dynasty — Cap Gains Elimination (at sale)',
-      value: d.dynasty.funding * p.combinedCGRate,
-      desc: `${fmt$M(d.dynasty.funding)} of economic value pre-sale-transferred to Dynasty → removes the same amount from the grantor's capital gain. Federal + state + NIIT tax eliminated: ${fmt$(d.dynasty.funding * p.combinedCGRate)} at ${fmtPct(p.combinedCGRate*100)} combined CG rate.`
-    });
+
+    // Transaction-time CG treatment — accurate per trust type + situs
+    if (isGrantor) {
+      items.push({
+        label: '① Dynasty — CG Tax at Sale (paid by grantor)',
+        value: 0,
+        desc: `Dynasty Trust is a <strong>grantor trust</strong>. Per §671, the grantor is treated as owner for income tax — the grantor pays the full federal + state + NIIT capital gains on the ${fmt$M(d.dynasty.funding)} Dynasty portion, same as if they held it directly. <strong>No CG tax savings at transaction.</strong> The benefit shows up in (② + ③ + ④) below.`
+      });
+    } else if (d.dynasty.favorableSitus && d.tax.state > 0) {
+      items.push({
+        label: '① Dynasty — State CG Tax Arbitrage',
+        value: p.dynastyStateArbitrage,
+        desc: `Non-grantor Dynasty sited in a no-state-tax jurisdiction (DE/NV/SD/WY/AK) pays only federal + NIIT on ${fmt$M(d.dynasty.funding)} — <strong>saves the full ${fmtPct(d.tax.state*100)} state CG tax</strong> the grantor would otherwise owe. Federal tax (${fmtPct(d.tax.fed*100)}) + NIIT (${fmtPct(d.tax.medicare*100)}) still paid by trust at same rates as individual.`
+      });
+    } else {
+      items.push({
+        label: '① Dynasty — CG Tax at Sale (paid by trust)',
+        value: 0,
+        desc: `Non-grantor Dynasty in a taxing state. Trust pays CG tax at same federal + state + NIIT rates as an individual. No meaningful CG savings at transaction unless situs is moved to a no-state-tax jurisdiction.`
+      });
+    }
+
     items.push({
       label: '② Dynasty — Estate Tax Savings (at death)',
       value: p.dynastyEstateSave,
       desc: `${fmt$M(d.dynasty.funding)} + all future appreciation lives permanently outside the taxable estate. Estate-tax saving on the base contribution: ${fmt$(p.dynastyEstateSave)} at ${fmtPct(d.tax.estate*100)}. Actual saving compounds much larger via growth (see Multi-Year Estate Growth card).`
     });
+
     if (p.dynastyDiscountSave > 0) {
       items.push({
         label: '③ Dynasty — Valuation Discount Leverage',
         value: p.dynastyDiscountSave,
         desc: `Funded with non-voting shares${discountLabel}: ${fmt$M(d.dynasty.funding)} of economic value was reported as a ${fmt$M(p.dynastyGiftValue)} gift → ${fmt$M(p.dynastyDiscountAmt)} of extra economic value transferred without consuming lifetime exemption. That "free" transfer escapes estate tax at ${fmtPct(d.tax.estate*100)} → additional ${fmt$(p.dynastyDiscountSave)} saved. Preserves exemption for other gifts.`
+      });
+    }
+
+    if (isGrantor && p.dynastyIncomeTaxGiftEstateSave > 0) {
+      items.push({
+        label: '④ Dynasty — Grantor Tax Payment Leverage',
+        value: p.dynastyIncomeTaxGiftEstateSave,
+        desc: `<strong>Rev. Rul. 2004-64:</strong> grantor's annual payment of the Dynasty's income tax is not a taxable gift — it's an additional <em>tax-free wealth transfer</em> to the trust. Over ${p.dynastyLeverageYears} years (${(d.client.primaryAge || 0) > 0 ? 'joint life expectancy' : 'projection period'}), assuming ${fmtPct(d.dynasty.incomeYield*100)} trust income yield on ${fmt$M(d.dynasty.funding)} at ${fmtPct(d.tax.marginal*100)} marginal rate: cumulative tax payments ≈ ${fmt$(p.dynastyIncomeTaxGift)}. That's ${fmt$(p.dynastyIncomeTaxGift)} of "free" wealth moved to the trust on top of the base contribution — representing ${fmt$(p.dynastyIncomeTaxGiftEstateSave)} of additional estate-tax savings at ${fmtPct(d.tax.estate*100)}.`
       });
     }
   }
@@ -5747,7 +5846,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
       'client-pnw','client-other','biz-income',
-      'dt-funding','dt-exemption','dt-years','dt-discount',
+      'dt-funding','dt-exemption','dt-years','dt-discount','dt-trust-type','dt-situs-favorable','dt-income-yield',
       'crat-amount','crat-rate','crat-ded',
       'daf-amount',
       'qoz-defer','qoz-return','qoz-years',

@@ -86,7 +86,10 @@
       "dt-discount": "35",
       "slat-discount": "30",
       "idgt-discount": "30",
-      "grat-discount": "25"
+      "grat-discount": "25",
+      "dt-trust-type": "grantor",
+      "dt-situs-favorable": "no",
+      "dt-income-yield": "3"
     },
     "checkboxes": {
       "use-dynasty": true,
