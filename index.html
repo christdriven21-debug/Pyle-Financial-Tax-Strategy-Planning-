@@ -1634,10 +1634,40 @@
     </div>
   </section>
 
-  <!-- SECTION 6: INSURANCE -->
+  <!-- SECTION 6: ANNUAL BUDGET & REQUIRED DISTRIBUTION -->
   <section class="form-section">
     <div class="section-header">
       <div class="section-number">6</div>
+      <div>
+        <div class="section-title">Annual Budget &amp; Required Distribution</div>
+        <div class="section-help">Client's annual spending translated into a required portfolio distribution rate. Compared against the safe-withdrawal target to flag sustainability risk.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-4">
+      <div class="field">
+        <label>Annual Fixed Expenses <span class="hint">(housing, insurance, recurring)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="budget-fixed" value="300000"></div>
+      </div>
+      <div class="field">
+        <label>Annual Variable Expenses <span class="hint">(food, travel, discretionary)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="budget-variable" value="240000"></div>
+      </div>
+      <div class="field">
+        <label>Annual Tax Expenses <span class="hint">(estimated federal + state)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="budget-taxes" value="200000"></div>
+      </div>
+      <div class="field">
+        <label>Target Safe Withdrawal Rate <span class="hint">(4% rule standard)</span></label>
+        <div class="suffix-pct"><input type="number" id="budget-safe-rate" value="4" step="0.1"></div>
+      </div>
+    </div>
+    <div id="budget-live" style="margin-top: 16px; padding: 14px 18px; background: var(--cream-light); border-left: 3px solid var(--gold); border-radius: 4px; font-size: 13px;"></div>
+  </section>
+
+  <!-- SECTION 7: INSURANCE -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="section-number">7</div>
       <div>
         <div class="section-title">Insurance</div>
         <div class="section-help">Current and recommended life insurance coverage.</div>
@@ -1659,10 +1689,10 @@
     </div>
   </section>
 
-  <!-- SECTION 7: FIRM BRAND -->
+  <!-- SECTION 8: FIRM BRAND -->
   <section class="form-section">
     <div class="section-header">
-      <div class="section-number">7</div>
+      <div class="section-number">8</div>
       <div>
         <div class="section-title">Firm Branding</div>
         <div class="section-help">Upload a logo to replace the default on the plan cover. Default: Pyle Financial Services, Inc.</div>
@@ -2093,6 +2123,93 @@ const STATE_TAX_TABLE = {
   }
 })();
 
+/* ============================================================
+   LIVE BUDGET / DISTRIBUTION CALCULATOR
+   Runs as the advisor types in Section 6 — updates the summary
+   box immediately without waiting for Generate Plan.
+   ============================================================ */
+(function () {
+  const live = document.getElementById('budget-live');
+  if (!live) return;
+
+  const parseNum = id => {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    return parseFloat(String(el.value).replace(/,/g, '')) || 0;
+  };
+
+  function update() {
+    const fixed    = parseNum('budget-fixed');
+    const variable = parseNum('budget-variable');
+    const taxes    = parseNum('budget-taxes');
+    const total    = fixed + variable + taxes;
+    const safeRate = (parseNum('budget-safe-rate') || 4) / 100;
+
+    // Use post-sale net proceeds estimate: sale − full-tax + other assets.
+    // This is rough — the full computePlan calculation will refine when
+    // the advisor clicks Generate. This live panel is just for setup feel.
+    const salePrice   = parseNum('biz-sale');
+    const basis       = parseNum('biz-basis');
+    const fedRate     = (parseNum('tax-fed') || 0) / 100;
+    const stateRate   = (parseNum('tax-state') || 0) / 100;
+    const medRate     = (parseNum('tax-medicare') || 0) / 100;
+    const preSaleNW   = parseNum('client-pnw');
+    const otherAssets = parseNum('client-other');
+    const grossGain   = Math.max(0, salePrice - basis);
+    const cgTax       = grossGain * (fedRate + stateRate + medRate);
+    const rough       = Math.max(salePrice - cgTax, 0) + otherAssets; // no strategies modeled here
+
+    const required = rough > 0 ? total / rough : 0;
+    const safeBudget = rough * safeRate;
+    const sustainable = required <= safeRate;
+    const headroom = safeBudget - total;
+
+    const pill = sustainable
+      ? `<span style="display:inline-block; padding: 2px 8px; background: var(--success); color: var(--cream); font-size: 10px; font-weight: 700; letter-spacing: 1px; border-radius: 10px; text-transform: uppercase;">Sustainable</span>`
+      : `<span style="display:inline-block; padding: 2px 8px; background: var(--crimson); color: var(--cream); font-size: 10px; font-weight: 700; letter-spacing: 1px; border-radius: 10px; text-transform: uppercase;">At Risk</span>`;
+
+    const fmt = n => '$' + Math.round(n).toLocaleString();
+
+    live.innerHTML = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+        <div>
+          <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-family: 'Helvetica Neue', sans-serif; font-weight: 700;">Total Annual Budget</div>
+          <div style="font-size: 20px; font-weight: 700; color: var(--ink); margin-top: 4px;">${fmt(total)}</div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 2px; font-style: italic;">Monthly: ${fmt(total / 12)}</div>
+        </div>
+        <div>
+          <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-family: 'Helvetica Neue', sans-serif; font-weight: 700;">Required Distribution %</div>
+          <div style="font-size: 20px; font-weight: 700; color: ${sustainable ? 'var(--success)' : 'var(--crimson)'}; margin-top: 4px;">${(required * 100).toFixed(2)}%</div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 2px; font-style: italic;">of ${fmt(rough)} estimated post-sale investable assets</div>
+        </div>
+        <div>
+          <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-family: 'Helvetica Neue', sans-serif; font-weight: 700;">Safe Withdrawal Budget</div>
+          <div style="font-size: 20px; font-weight: 700; color: var(--gold-dark); margin-top: 4px;">${fmt(safeBudget)}</div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 2px; font-style: italic;">${(safeRate * 100).toFixed(1)}% of investable assets</div>
+        </div>
+        <div>
+          <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-family: 'Helvetica Neue', sans-serif; font-weight: 700;">Headroom vs. Safe Rate</div>
+          <div style="font-size: 20px; font-weight: 700; color: ${sustainable ? 'var(--success)' : 'var(--crimson)'}; margin-top: 4px;">${headroom >= 0 ? '+' : ''}${fmt(headroom)}</div>
+          <div style="margin-top: 4px;">${pill}</div>
+        </div>
+      </div>
+      ${!sustainable ? `<div style="margin-top: 12px; padding: 10px; background: #FDE8E8; color: var(--crimson); border-radius: 3px; font-size: 12px;"><strong>⚠️ Required withdrawal rate exceeds safe rate.</strong> Options: reduce spending by ${fmt(total - safeBudget)}/yr, raise safe-rate tolerance (riskier), increase portfolio via further tax reduction or delayed retirement, or layer in guaranteed income (annuity, pension, Social Security) to reduce the portfolio's share of the budget.</div>` : ''}
+      <div style="margin-top: 8px; font-size: 11px; color: var(--muted); font-style: italic;">Live preview uses a rough post-sale estimate without strategies. Full number in the generated plan's Financial Overview tab reflects the full strategy stack.</div>
+    `;
+  }
+
+  // Re-run on any relevant input change
+  const watchedIds = ['budget-fixed','budget-variable','budget-taxes','budget-safe-rate',
+                      'biz-sale','biz-basis','tax-fed','tax-state','tax-medicare',
+                      'client-pnw','client-other'];
+  watchedIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', update);
+  });
+  window.__UPDATE_BUDGET__ = update;
+  update();
+})();
+
 /* ---- Sync hidden checkbox state with its parameter block's visibility ---- */
 const strategyMap = Object.fromEntries(STRATEGIES.map(s => [s.useId, s.blockId]));
 Object.entries(strategyMap).forEach(([chk, block]) => {
@@ -2189,6 +2306,12 @@ function readForm() {
       years: n('proj-years'), inflation: n('proj-inflation') / 100,
     },
     ins: { current: n('ins-current'), recMin: n('ins-rec-min'), recMax: n('ins-rec-max') },
+    budget: {
+      fixed:    n('budget-fixed'),
+      variable: n('budget-variable'),
+      taxes:    n('budget-taxes'),
+      safeRate: n('budget-safe-rate') / 100,
+    },
   };
 }
 
@@ -2408,6 +2531,23 @@ function computePlan(d) {
   const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave + qsbsTotalSaving
                        + exch1031TaxDeferred + qbiSavings + slatEstateSave + idgtEstateSave;
 
+  // ──────────────────────────────────────────────────────────────────────
+  // Annual Budget & Required Distribution Rate
+  //   Total Budget = Fixed + Variable + Tax expenses
+  //   Required Dist % = Total Budget / Investable Assets (post-sale)
+  //   Compared to the advisor-set Safe Withdrawal Rate to flag risk.
+  //   Investable base excludes the Dynasty Trust and non-liquid assets
+  //   (personal property is in otherAssets but we use it conservatively;
+  //   advisor can refine manually).
+  // ──────────────────────────────────────────────────────────────────────
+  const annualBudget = d.budget.fixed + d.budget.variable + d.budget.taxes;
+  const investableBase = withPlanningTotal; // client's post-sale net proceeds + other assets
+  const requiredDistPct = investableBase > 0 ? annualBudget / investableBase : 0;
+  const budgetSafeRate = d.budget.safeRate || 0.04;
+  const budgetHeadroom = investableBase * budgetSafeRate - annualBudget;
+  const budgetSustainable = requiredDistPct <= budgetSafeRate;
+  const budgetShortfall = Math.max(0, annualBudget - investableBase * budgetSafeRate);
+
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
   const otherAssets = d.client.otherAssets;
@@ -2507,6 +2647,7 @@ function computePlan(d) {
     slatEstateSave, slatFutureValue, slatGrowth,
     idgtTransferred, idgtEstateSave,
     amti, amtAdjustedExemption, amtTaxable, amtTentative, amtRegularTax, amtLiability, amtTriggered,
+    annualBudget, investableBase, requiredDistPct, budgetSafeRate, budgetHeadroom, budgetSustainable, budgetShortfall,
     dynasty20yr, dynastyGrowth,
     cgTaxSavings, totalImmediate,
     nwWithout_netProceeds, nwWithout_total,
@@ -2724,6 +2865,28 @@ function renderFinancial(p) {
         <div class="kpi success"><div class="label">Total Family Proceeds</div><div class="value">${fmt$(p.familyTotalProceeds)}</div></div>
         <div class="kpi gold"><div class="label">Annual Income</div><div class="value">${fmt$(p.annualIncome)}</div></div>
         <div class="kpi success"><div class="label">Immediate Tax Savings</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid ${p.budgetSustainable ? 'var(--success)' : 'var(--crimson)'};">
+      <div class="card-title">${p.budgetSustainable ? '✓ Annual Budget — Sustainable' : '⚠️ Annual Budget — Exceeds Safe Withdrawal Rate'}</div>
+      <div class="card-sub">
+        ${p.budgetSustainable
+          ? `At current spending, the client's portfolio can fund the annual budget within the ${fmtPct(p.budgetSafeRate*100)} safe-withdrawal target. Headroom of ${fmt$(p.budgetHeadroom)} provides a buffer for tax increases, market drawdowns, or discretionary spending spikes.`
+          : `The required annual distribution of ${fmtPct(p.requiredDistPct*100)} exceeds the ${fmtPct(p.budgetSafeRate*100)} safe-withdrawal target. Shortfall vs. safe rate: ${fmt$(p.budgetShortfall)}/year. Actions to consider: reduce discretionary spending, delay retirement, layer in guaranteed income (Social Security, pension, annuity), or apply additional tax strategies to increase investable assets.`
+        }
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Annual Fixed Expenses</div><div class="value">${fmt$(d.budget.fixed)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Housing, insurance, recurring</div></div>
+        <div class="kpi"><div class="label">Annual Variable Expenses</div><div class="value">${fmt$(d.budget.variable)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Food, travel, discretionary</div></div>
+        <div class="kpi"><div class="label">Annual Tax Expenses</div><div class="value">${fmt$(d.budget.taxes)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Federal + state income tax</div></div>
+        <div class="kpi gold"><div class="label">Total Annual Budget</div><div class="value">${fmt$(p.annualBudget)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Monthly: ${fmt$(p.annualBudget / 12)}</div></div>
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 12px;">
+        <div class="kpi"><div class="label">Investable Assets (Post-Sale)</div><div class="value">${fmt$(p.investableBase)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Client's net proceeds + other assets (excludes Dynasty/SLAT)</div></div>
+        <div class="kpi ${p.budgetSustainable ? 'success' : 'warning'}"><div class="label">Required Distribution Rate</div><div class="value">${fmtPct(p.requiredDistPct*100)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Budget ÷ investable assets</div></div>
+        <div class="kpi"><div class="label">Safe Withdrawal Target</div><div class="value">${fmtPct(p.budgetSafeRate*100)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Advisor-set; 4% is the standard</div></div>
+        <div class="kpi ${p.budgetSustainable ? 'success' : 'warning'}"><div class="label">Headroom (Safe Budget − Actual)</div><div class="value">${p.budgetHeadroom >= 0 ? '+' : ''}${fmt$(p.budgetHeadroom)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${p.budgetHeadroom >= 0 ? 'Buffer available' : 'Overspend vs safe rate'}</div></div>
       </div>
     </div>
 
@@ -3623,6 +3786,7 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
       'tax-amt-preferences','tax-amt-exemption',
       'proj-equity','proj-re','proj-years','proj-inflation',
       'ins-current','ins-rec-min','ins-rec-max',
+      'budget-fixed','budget-variable','budget-taxes','budget-safe-rate',
       'firm-name','firm-tag'
     ];
     const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt'];
