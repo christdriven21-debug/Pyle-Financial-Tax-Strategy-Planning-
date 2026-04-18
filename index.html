@@ -1624,6 +1624,56 @@
       </div>
     </div>
 
+    <div class="strategy-block hidden" id="block-crut">
+      <h4>CRUT (Charitable Remainder Unitrust) Parameters</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Like a CRAT, but payouts are a <strong>fixed percentage of the trust's current value</strong> (re-valued annually) instead of a fixed dollar amount. Payouts grow with trust value — built-in inflation hedge. Minimum 5% unitrust rate, 10% minimum present-value deduction required.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Contribution Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="crut-amount" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Unitrust Payout Rate <span class="hint">(5–50% allowed; typical 5–7%)</span></label>
+          <div class="suffix-pct"><input type="number" id="crut-rate" value="5" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Deduction Factor <span class="hint">(PV of remainder interest, as % of contribution)</span></label>
+          <div class="suffix-pct"><input type="number" id="crut-ded" value="35"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-clt">
+      <h4>CLT (Charitable Lead Trust) Parameters</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Inverse of CRT — charity receives income stream for a <strong>fixed term</strong>, then remainder passes to heirs. Best when expected growth materially exceeds §7520 rate. Zero-out structures (remainder valued near $0 for gift tax, then outperforming assets transfer tax-free).
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Trust Funding Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="clt-amount" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Annual Payout to Charity</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="clt-payout" value="600000"></div>
+        </div>
+        <div class="field">
+          <label>Trust Term (Years)</label>
+          <input type="number" id="clt-term" value="15">
+        </div>
+        <div class="field">
+          <label>§7520 Hurdle Rate</label>
+          <div class="suffix-pct"><input type="number" id="clt-7520" value="5.4" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Expected Asset Growth</label>
+          <div class="suffix-pct"><input type="number" id="clt-growth" value="8" step="0.1"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Hidden checkboxes preserve existing JS wiring (strategyMap in mode-switch code) -->
     <div style="display:none" aria-hidden="true">
       <input type="checkbox" id="use-dynasty" checked>
@@ -1639,6 +1689,8 @@
       <input type="checkbox" id="use-slat">
       <input type="checkbox" id="use-idgt">
       <input type="checkbox" id="use-qprt">
+      <input type="checkbox" id="use-crut">
+      <input type="checkbox" id="use-clt">
     </div>
   </section>
 
@@ -2104,6 +2156,20 @@ const STRATEGIES = [
     desc: 'Transfer a primary or secondary residence into an irrevocable trust at a discounted gift value; grantor retains the right to live there for a set term, then the residence passes to heirs estate-tax-free',
     useId: 'use-qprt', blockId: 'block-qprt',
   },
+  {
+    id: 'crut', name: 'CRUT (Charitable Remainder Unitrust)',
+    category: 'giving',
+    tags: ['reduces_capgains_tax', 'reduces_estate_tax', 'charitable', 'generates_income', 'requires_irrevocable'],
+    desc: 'Variable-payout charitable trust — annual distribution is a fixed percentage of trust value (re-valued annually), providing inflation protection vs. CRAT\'s fixed annuity',
+    useId: 'use-crut', blockId: 'block-crut',
+  },
+  {
+    id: 'clt', name: 'CLT (Charitable Lead Trust)',
+    category: 'giving',
+    tags: ['reduces_estate_tax', 'charitable', 'requires_irrevocable'],
+    desc: 'Inverse of CRT — charity receives income for a term, then remainder passes to heirs gift-tax-free. Huge estate-tax leverage when §7520 rate is low',
+    useId: 'use-clt', blockId: 'block-clt',
+  },
 ];
 
 const CATEGORY_LABELS = { income: 'Income', capgains: 'Cap Gains', giving: 'Giving', estate: 'Estate' };
@@ -2446,7 +2512,7 @@ function readForm() {
       dynasty: c('use-dynasty'), crat: c('use-crat'), daf: c('use-daf'), qoz: c('use-qoz'),
       ilit: c('use-ilit'), roth: c('use-roth'), grat: c('use-grat'), qsbs: c('use-qsbs'),
       exch1031: c('use-1031'), qbi: c('use-qbi'), slat: c('use-slat'), idgt: c('use-idgt'),
-      qprt: c('use-qprt'),
+      qprt: c('use-qprt'), crut: c('use-crut'), clt: c('use-clt'),
     },
     dynasty: { funding: n('dt-funding'), exemption: n('dt-exemption'), years: n('dt-years') },
     crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
@@ -2478,6 +2544,9 @@ function readForm() {
       growth:    n('qprt-growth') / 100,
       type:      t('qprt-type'),
     },
+    crut: { amount: n('crut-amount'), rate: n('crut-rate') / 100, dedPct: n('crut-ded') / 100 },
+    clt:  { amount: n('clt-amount'), payout: n('clt-payout'), term: n('clt-term'),
+            hurdle: n('clt-7520') / 100, growth: n('clt-growth') / 100 },
     clientState: t('client-state'),
     tax: {
       fed: n('tax-fed') / 100, state: n('tax-state') / 100,
@@ -2703,6 +2772,50 @@ function computePlan(d) {
   }
 
   // ──────────────────────────────────────────────────────────────────────
+  // CRUT (Charitable Remainder Unitrust)
+  //   Variable-payout variant of CRAT. Payouts = trust_value × rate,
+  //   re-valued each year. Estate exclusion same as CRAT (contribution
+  //   out of estate). Charitable deduction = PV of remainder interest,
+  //   which is a ~35% factor for 5% unitrust payout over long terms.
+  // ──────────────────────────────────────────────────────────────────────
+  let crutDeduction = 0, crutEstateSave = 0, crutIncome = 0;
+  if (d.use.crut) {
+    crutDeduction  = d.crut.amount * d.crut.dedPct;
+    crutEstateSave = d.crut.amount * d.tax.estate;
+    crutIncome     = d.crut.amount * d.crut.rate; // first-year; grows with trust value
+  }
+  const crutIncomeTaxSavings = crutDeduction * d.tax.marginal;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // CLT (Charitable Lead Trust)
+  //   Grantor funds trust; charity receives annual payout for term;
+  //   remainder to heirs. Gift-tax value of remainder ≈ funding minus
+  //   PV of annuity to charity at §7520 rate.
+  //   Estate savings = trust appreciation above §7520 hurdle over term,
+  //   passed to heirs free of gift/estate tax.
+  // ──────────────────────────────────────────────────────────────────────
+  let cltTaxableGift = 0, cltFutureValue = 0, cltCharityTotal = 0, cltRemainderValue = 0, cltEstateSave = 0;
+  if (d.use.clt) {
+    // PV of annual payouts to charity (simple annuity at §7520)
+    const cltPVPayouts = d.clt.hurdle > 0
+      ? d.clt.payout * (1 - Math.pow(1 + d.clt.hurdle, -d.clt.term)) / d.clt.hurdle
+      : d.clt.payout * d.clt.term;
+    cltTaxableGift = Math.max(0, d.clt.amount - cltPVPayouts);
+
+    // Simulate trust with growth + annual payout
+    let bal = d.clt.amount;
+    for (let y = 0; y < d.clt.term; y++) {
+      bal = bal * (1 + d.clt.growth) - d.clt.payout;
+    }
+    cltFutureValue    = Math.max(0, bal);
+    cltCharityTotal   = d.clt.payout * d.clt.term;
+    cltRemainderValue = cltFutureValue;
+    // Effective estate savings = remainder to heirs × estate rate
+    // (if heirs would otherwise inherit that value and pay estate tax)
+    cltEstateSave     = cltRemainderValue * d.tax.estate;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
   // QPRT (Qualified Personal Residence Trust)
   //   Taxable gift to heirs ≈ residence × PV-of-remainder × survival_prob
   //     where PV factor = 1/(1+§7520)^term
@@ -2755,7 +2868,7 @@ function computePlan(d) {
   // Total immediate tax savings
   const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave + qsbsTotalSaving
                        + exch1031TaxDeferred + qbiSavings + slatEstateSave + idgtEstateSave
-                       + qprtEstateSave;
+                       + qprtEstateSave + crutEstateSave + crutIncomeTaxSavings + cltEstateSave;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -2999,6 +3112,8 @@ function computePlan(d) {
     slatEstateSave, slatFutureValue, slatGrowth,
     idgtTransferred, idgtEstateSave,
     qprtRemainderFactor, qprtMortalityProb, qprtTaxableGift, qprtResidenceFutureValue, qprtEstateRemoved, qprtEstateSave,
+    crutDeduction, crutEstateSave, crutIncome, crutIncomeTaxSavings,
+    cltTaxableGift, cltFutureValue, cltCharityTotal, cltRemainderValue, cltEstateSave,
     amti, amtAdjustedExemption, amtTaxable, amtTentative, amtRegularTax, amtLiability, amtTriggered,
     annualBudget, investableBase, requiredDistPct, budgetSafeRate, budgetHeadroom, budgetSustainable, budgetShortfall,
     estateGrowthRows, estateGrowthStart, estateGrowthEnd, estateGrowthMultiple, estateGrowthCAGR,
@@ -3537,6 +3652,30 @@ function renderTax(p) {
       desc: `Transfer ${fmt$M(d.qprt.residence)} ${residenceType} into QPRT for ${d.qprt.term} years at ${fmtPct(d.qprt.hurdle*100)} §7520 rate (grantor age ${d.qprt.age}, ${fmtPct(d.qprt.growth*100)} expected appreciation). Discounted taxable gift today: ${fmt$(p.qprtTaxableGift)}. Residence future value after term: ${fmt$(p.qprtResidenceFutureValue)} — estate amount removed: ${fmt$(p.qprtEstateRemoved)}. Savings weighted by ~${survivalPct}% survival probability over the term (actuarial approximation).`
     });
   }
+  if (d.use.crut) {
+    items.push({
+      label: 'CRUT Cap Gains Elimination',
+      value: d.crut.amount * p.combinedCGRate,
+      desc: `${fmt$M(d.crut.amount)} CRUT contribution eliminates capital gains tax on ${fmt$M(d.crut.amount)} of appreciated assets. Variable ${fmtPct(d.crut.rate*100)} unitrust payout (first-year income: ${fmt$(p.crutIncome)} — grows with trust value, inflation-hedged).`
+    });
+    items.push({
+      label: 'CRUT Charitable Deduction',
+      value: p.crutIncomeTaxSavings,
+      desc: `Charitable deduction of ${fmt$(p.crutDeduction)} (${fmtPct(d.crut.dedPct*100)} PV of remainder interest). Tax savings at ${fmtPct(d.tax.marginal*100)} marginal: ${fmt$(p.crutIncomeTaxSavings)}.`
+    });
+    items.push({
+      label: 'Estate Tax Savings (CRUT)',
+      value: p.crutEstateSave,
+      desc: `${fmt$M(d.crut.amount)} removed from taxable estate. Savings at ${fmtPct(d.tax.estate*100)} = ${fmt$(p.crutEstateSave)}.`
+    });
+  }
+  if (d.use.clt) {
+    items.push({
+      label: `CLT Estate Tax Savings (${d.clt.term}-yr term)`,
+      value: p.cltEstateSave,
+      desc: `${fmt$M(d.clt.amount)} funds CLT; ${fmt$(d.clt.payout)}/yr to charity for ${d.clt.term} years (total ${fmt$(p.cltCharityTotal)}). Taxable gift at funding (after PV of annuity): ${fmt$(p.cltTaxableGift)}. At ${fmtPct(d.clt.growth*100)} growth vs. ${fmtPct(d.clt.hurdle*100)} §7520 hurdle, remainder passing to heirs: ${fmt$(p.cltRemainderValue)}. Estate savings: ${fmt$(p.cltEstateSave)}.`
+    });
+  }
   items.push({ label: 'Capital Gains Tax Reduction', value: p.cgTaxSavings, desc: `Reduce taxable gain from ${fmt$M(p.scenarios.scenNone.taxableGain)} to ${fmt$M(p.scenarios.scenAll.taxableGain)} through combined structures.` });
   if (d.use.crat) items.push({ label: 'Estate Tax Savings (CRAT)', value: p.cratEstateSave, desc: `Remove ${fmt$M(d.crat.amount)} from taxable estate through CRAT. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
   if (d.use.daf) items.push({ label: 'Estate Tax Savings (DAF)', value: p.dafEstateSave, desc: `Remove ${fmt$M(d.daf.amount)} from taxable estate through DAF. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
@@ -3574,6 +3713,8 @@ function renderTax(p) {
         ${d.use.slat ? `• SLAT Estate Tax Savings: ${fmt$(p.slatEstateSave)} (+${fmt$(p.slatGrowth)} tax-free growth)<br>` : ''}
         ${d.use.idgt ? `• IDGT Estate Freeze: ${fmt$(p.idgtEstateSave)} (${fmt$(p.idgtTransferred)} transferred)<br>` : ''}
         ${d.use.qprt ? `• QPRT (${d.qprt.term}-yr term): ${fmt$(p.qprtEstateSave)} estate savings · taxable gift today: ${fmt$(p.qprtTaxableGift)}<br>` : ''}
+        ${d.use.crut ? `• CRUT Total Benefits: ${fmt$(d.crut.amount * p.combinedCGRate + p.crutIncomeTaxSavings + p.crutEstateSave)} (CG elim + charitable ded + estate)<br>` : ''}
+        ${d.use.clt ? `• CLT Estate Savings (${d.clt.term}-yr): ${fmt$(p.cltEstateSave)} (${fmt$(p.cltRemainderValue)} remainder to heirs)<br>` : ''}
         ${d.use.qoz ? `• QOZ Deferral: ${fmt$(p.scenarios.scenAll.qozDeferred)} (plus tax-free appreciation)<br>` : ''}
       </div>
     </div>
@@ -4450,6 +4591,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'slat-funding','slat-growth','slat-years',
       'idgt-amount','idgt-afr','idgt-growth','idgt-term',
       'qprt-residence','qprt-term','qprt-7520','qprt-age','qprt-growth','qprt-type',
+      'crut-amount','crut-rate','crut-ded',
+      'clt-amount','clt-payout','clt-term','clt-7520','clt-growth',
       'client-state',
       'tax-fed','tax-state','tax-medicare','tax-marginal','tax-estate','tax-estate-exempt',
       'tax-amt-preferences','tax-amt-exemption','tax-portability',
@@ -4458,7 +4601,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'budget-fixed','budget-variable','budget-taxes','budget-safe-rate',
       'firm-name','firm-tag'
     ];
-    const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt'];
+    const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt'];
     const values = {};
     const checkboxes = {};
     ids.forEach(id => { const el = document.getElementById(id); if (el) values[id] = el.value; });
