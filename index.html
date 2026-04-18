@@ -347,6 +347,83 @@
     margin-bottom: 12px;
     font-weight: 600;
   }
+  .strategy-block.hidden { display: none !important; }
+
+  /* ===== STRATEGY LIBRARY (filter-chip catalog) ===== */
+  .strategy-library { margin-bottom: 16px; }
+  .strategy-library .lib-row {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    align-items: center; margin-bottom: 10px;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+  .strategy-library .lib-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted); margin-right: 6px;
+  }
+  .strategy-library .cat-tab {
+    padding: 6px 14px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border); background: transparent;
+    border-radius: 16px; cursor: pointer; color: var(--ink-soft);
+    letter-spacing: 0.5px; transition: all 0.15s;
+  }
+  .strategy-library .cat-tab:hover { border-color: var(--gold); }
+  .strategy-library .cat-tab.active {
+    background: var(--crimson); color: var(--cream);
+    border-color: var(--crimson);
+  }
+  .strategy-library .chip {
+    padding: 6px 12px 6px 14px; font-size: 11px; font-weight: 600;
+    border: 1px solid var(--border-soft); background: var(--cream-light);
+    border-radius: 14px; cursor: pointer; color: var(--ink-soft);
+    letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px;
+    transition: all 0.15s;
+  }
+  .strategy-library .chip:hover { border-color: var(--gold); }
+  .strategy-library .chip.active {
+    background: var(--gold); color: var(--ink); border-color: var(--gold-dark);
+  }
+  .strategy-library .chip.active::before { content: '× '; font-weight: 700; }
+  .strategy-library .match-count {
+    font-size: 11px; color: var(--muted); font-style: italic;
+    margin: 10px 0 6px;
+  }
+  .strategy-library .strategy-card {
+    border: 1px solid var(--border-soft); border-radius: 5px;
+    background: var(--cream-panel); margin-bottom: 10px;
+    overflow: hidden; transition: border-color 0.15s;
+  }
+  .strategy-library .strategy-card:hover { border-color: var(--border); }
+  .strategy-library .strategy-card.enabled { border-color: var(--gold); background: #FDFBF4; }
+  .strategy-library .strategy-card .card-head {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 16px; cursor: pointer;
+  }
+  .strategy-library .strategy-card input[type="checkbox"] {
+    width: 18px; height: 18px; accent-color: var(--crimson);
+    margin-top: 2px; flex-shrink: 0;
+  }
+  .strategy-library .strategy-card .card-body { flex: 1; min-width: 0; }
+  .strategy-library .strategy-card .name {
+    font-weight: 700; color: var(--ink); font-size: 14px;
+    display: block; margin-bottom: 2px;
+  }
+  .strategy-library .strategy-card .desc {
+    font-size: 12px; color: var(--muted); font-style: italic;
+    display: block; margin-bottom: 6px;
+  }
+  .strategy-library .strategy-card .badges {
+    display: inline-flex; flex-wrap: wrap; gap: 4px;
+  }
+  .strategy-library .badge {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 2px 8px; border-radius: 10px; text-transform: uppercase;
+  }
+  .strategy-library .badge.cat-estate   { background: #EFE9D9; color: var(--gold-dark); }
+  .strategy-library .badge.cat-income   { background: #E8F0E8; color: var(--success); }
+  .strategy-library .badge.cat-capgains { background: #FDE8E8; color: var(--crimson); }
+  .strategy-library .badge.cat-giving   { background: #F5E9D3; color: #8B5A00; }
+  .strategy-library .badge.tag          { background: #EEEEEE; color: var(--ink-soft); font-weight: 500; }
 
   .action-row {
     display: flex;
@@ -1087,24 +1164,41 @@
     </div>
   </section>
 
-  <!-- SECTION 3: STRATEGIES -->
+  <!-- SECTION 3: STRATEGY LIBRARY -->
   <section class="form-section">
     <div class="section-header">
       <div class="section-number">3</div>
       <div>
-        <div class="section-title">Tax &amp; Estate Strategies</div>
-        <div class="section-help">Toggle each strategy on or off. Configured strategies will appear in the generated plan.</div>
+        <div class="section-title">Strategy Library</div>
+        <div class="section-help">Browse by category or filter by goal. Check a strategy to include it in the plan and configure its parameters.</div>
       </div>
     </div>
 
-    <label class="strategy-toggle">
-      <input type="checkbox" id="use-dynasty" checked>
-      <div>
-        <span class="name">Dynasty Trust</span> &nbsp;
-        <span class="desc">Multi-generational wealth transfer using GST exemption</span>
+    <div class="strategy-library">
+      <div class="lib-row" id="lib-categories">
+        <span class="lib-label">Browse:</span>
+        <button class="cat-tab active" data-cat="all">All</button>
+        <button class="cat-tab" data-cat="income">Income</button>
+        <button class="cat-tab" data-cat="capgains">Cap Gains</button>
+        <button class="cat-tab" data-cat="giving">Giving</button>
+        <button class="cat-tab" data-cat="estate">Estate</button>
       </div>
-    </label>
-    <div class="strategy-block" id="block-dynasty">
+      <div class="lib-row" id="lib-chips">
+        <span class="lib-label">Filter by goal:</span>
+        <button class="chip" data-tag="reduces_estate_tax">Reduces estate tax</button>
+        <button class="chip" data-tag="reduces_income_tax">Reduces income tax</button>
+        <button class="chip" data-tag="reduces_capgains_tax">Reduces cap gains</button>
+        <button class="chip" data-tag="generates_income">Generates income</button>
+        <button class="chip" data-tag="charitable">Charitable</button>
+        <button class="chip" data-tag="requires_liquidity_event">Requires liquidity event</button>
+        <button class="chip" data-tag="requires_irrevocable">Irrevocable commitment</button>
+      </div>
+      <div class="match-count" id="lib-match-count"></div>
+      <div id="lib-cards"></div>
+    </div>
+
+    <!-- PARAMETER BLOCKS (hidden by default; shown when a strategy is checked in the library) -->
+    <div class="strategy-block hidden" id="block-dynasty">
       <h4>Dynasty Trust Parameters</h4>
       <div class="form-grid cols-3">
         <div class="field">
@@ -1122,14 +1216,7 @@
       </div>
     </div>
 
-    <label class="strategy-toggle">
-      <input type="checkbox" id="use-crat" checked>
-      <div>
-        <span class="name">CRAT (Charitable Remainder Annuity Trust)</span> &nbsp;
-        <span class="desc">Pre-sale contribution with lifetime income stream</span>
-      </div>
-    </label>
-    <div class="strategy-block" id="block-crat">
+    <div class="strategy-block hidden" id="block-crat">
       <h4>CRAT Parameters</h4>
       <div class="form-grid cols-3">
         <div class="field">
@@ -1147,14 +1234,7 @@
       </div>
     </div>
 
-    <label class="strategy-toggle">
-      <input type="checkbox" id="use-daf" checked>
-      <div>
-        <span class="name">DAF (Donor Advised Fund)</span> &nbsp;
-        <span class="desc">Immediate charitable deduction with flexible timing</span>
-      </div>
-    </label>
-    <div class="strategy-block" id="block-daf">
+    <div class="strategy-block hidden" id="block-daf">
       <h4>DAF Parameters</h4>
       <div class="form-grid cols-2">
         <div class="field">
@@ -1164,14 +1244,7 @@
       </div>
     </div>
 
-    <label class="strategy-toggle">
-      <input type="checkbox" id="use-qoz" checked>
-      <div>
-        <span class="name">QOZ (Qualified Opportunity Zone)</span> &nbsp;
-        <span class="desc">Defer remaining capital gains tax with potential tax-free appreciation</span>
-      </div>
-    </label>
-    <div class="strategy-block" id="block-qoz">
+    <div class="strategy-block hidden" id="block-qoz">
       <h4>QOZ Parameters</h4>
       <div class="form-grid cols-3">
         <div class="field">
@@ -1187,6 +1260,75 @@
           <input type="number" id="qoz-years" value="10">
         </div>
       </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-ilit">
+      <h4>ILIT (Irrevocable Life Insurance Trust) Parameters</h4>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Death Benefit Coverage</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-coverage" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Annual Premium</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-premium" value="150000"></div>
+        </div>
+        <div class="field">
+          <label>Policy Term (Years)</label>
+          <input type="number" id="ilit-years" value="20">
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-roth">
+      <h4>Roth Conversion Parameters</h4>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Conversion Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="roth-amount" value="1000000"></div>
+        </div>
+        <div class="field">
+          <label>Marginal Income Tax Rate <span class="hint">(conversion triggers income tax)</span></label>
+          <div class="suffix-pct"><input type="number" id="roth-marginal" value="37" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Years to Retirement</label>
+          <input type="number" id="roth-years" value="15">
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-grat">
+      <h4>GRAT (Grantor Retained Annuity Trust) Parameters</h4>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Assets Transferred to GRAT</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="grat-transfer" value="5000000"></div>
+        </div>
+        <div class="field">
+          <label>GRAT Term (Years)</label>
+          <input type="number" id="grat-term" value="5">
+        </div>
+        <div class="field">
+          <label>§7520 Hurdle Rate <span class="hint">(IRS published monthly)</span></label>
+          <div class="suffix-pct"><input type="number" id="grat-7520" value="5.4" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Expected Asset Growth Rate</label>
+          <div class="suffix-pct"><input type="number" id="grat-growth" value="8" step="0.1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden checkboxes preserve existing JS wiring (strategyMap in mode-switch code) -->
+    <div style="display:none" aria-hidden="true">
+      <input type="checkbox" id="use-dynasty" checked>
+      <input type="checkbox" id="use-crat" checked>
+      <input type="checkbox" id="use-daf" checked>
+      <input type="checkbox" id="use-qoz" checked>
+      <input type="checkbox" id="use-ilit">
+      <input type="checkbox" id="use-roth">
+      <input type="checkbox" id="use-grat">
     </div>
   </section>
 
@@ -1425,12 +1567,158 @@ document.querySelectorAll('.plan-tab').forEach(tab => {
   });
 });
 
-/* ---- Strategy toggle enable/disable ---- */
-const strategyMap = { 'use-dynasty': 'block-dynasty', 'use-crat': 'block-crat', 'use-daf': 'block-daf', 'use-qoz': 'block-qoz' };
+/* ============================================================
+   STRATEGY REGISTRY
+   Single source of truth for the strategy catalog. Each entry
+   declares its category, tags, UI copy, and which form elements
+   it governs. The library UI, filter chips, and save/load
+   snapshot all derive from this array.
+   ============================================================ */
+const STRATEGIES = [
+  {
+    id: 'dynasty-trust', name: 'Dynasty Trust',
+    category: 'estate',
+    tags: ['reduces_estate_tax', 'requires_irrevocable'],
+    desc: 'Multi-generational wealth transfer using GST exemption',
+    useId: 'use-dynasty', blockId: 'block-dynasty',
+  },
+  {
+    id: 'crat', name: 'CRAT (Charitable Remainder Annuity Trust)',
+    category: 'giving',
+    tags: ['reduces_capgains_tax', 'reduces_estate_tax', 'charitable', 'generates_income', 'requires_irrevocable', 'requires_liquidity_event'],
+    desc: 'Pre-sale contribution with lifetime income stream to donors and remainder to charity',
+    useId: 'use-crat', blockId: 'block-crat',
+  },
+  {
+    id: 'daf', name: 'DAF (Donor Advised Fund)',
+    category: 'giving',
+    tags: ['reduces_income_tax', 'charitable'],
+    desc: 'Immediate charitable deduction with flexible timing of grants',
+    useId: 'use-daf', blockId: 'block-daf',
+  },
+  {
+    id: 'qoz', name: 'QOZ (Qualified Opportunity Zone)',
+    category: 'capgains',
+    tags: ['reduces_capgains_tax', 'requires_liquidity_event'],
+    desc: 'Defer remaining capital gains tax with potential tax-free appreciation after 10 years',
+    useId: 'use-qoz', blockId: 'block-qoz',
+  },
+  {
+    id: 'ilit', name: 'ILIT (Irrevocable Life Insurance Trust)',
+    category: 'estate',
+    tags: ['reduces_estate_tax', 'requires_irrevocable'],
+    desc: 'Removes life insurance death benefit from the taxable estate',
+    useId: 'use-ilit', blockId: 'block-ilit',
+  },
+  {
+    id: 'roth-conversion', name: 'Roth Conversion',
+    category: 'income',
+    tags: ['reduces_estate_tax', 'reduces_income_tax'],
+    desc: 'Convert pre-tax retirement assets to Roth — pay tax now, tax-free growth forever',
+    useId: 'use-roth', blockId: 'block-roth',
+  },
+  {
+    id: 'grat', name: 'GRAT (Grantor Retained Annuity Trust)',
+    category: 'estate',
+    tags: ['reduces_estate_tax'],
+    desc: 'Transfer asset appreciation above the §7520 rate to heirs gift-tax-free',
+    useId: 'use-grat', blockId: 'block-grat',
+  },
+];
+
+const CATEGORY_LABELS = { income: 'Income', capgains: 'Cap Gains', giving: 'Giving', estate: 'Estate' };
+const TAG_LABELS = {
+  reduces_estate_tax: 'est-tax',
+  reduces_income_tax: 'inc-tax',
+  reduces_capgains_tax: 'cg-tax',
+  generates_income: 'income',
+  charitable: 'charitable',
+  requires_liquidity_event: 'liq-event',
+  requires_irrevocable: 'irrevocable',
+};
+
+/* ---- Strategy library UI: render + filter + card clicks ---- */
+(function () {
+  const libCards = document.getElementById('lib-cards');
+  const libCount = document.getElementById('lib-match-count');
+  let activeCat = 'all';
+  const activeTags = new Set();
+
+  function matchesFilters(s) {
+    if (activeCat !== 'all' && s.category !== activeCat) return false;
+    for (const tag of activeTags) if (!s.tags.includes(tag)) return false;
+    return true;
+  }
+
+  function render() {
+    const matches = STRATEGIES.filter(matchesFilters);
+    libCount.textContent = matches.length
+      ? `${matches.length} strateg${matches.length === 1 ? 'y' : 'ies'} match`
+      : 'No strategies match the current filters';
+    libCards.innerHTML = matches.map(s => {
+      const useEl = document.getElementById(s.useId);
+      const checked = useEl && useEl.checked;
+      const badges = [
+        `<span class="badge cat-${s.category}">${CATEGORY_LABELS[s.category]}</span>`,
+        ...s.tags.map(t => `<span class="badge tag">${TAG_LABELS[t] || t}</span>`),
+      ].join('');
+      return `
+        <div class="strategy-card ${checked ? 'enabled' : ''}" data-id="${s.id}">
+          <label class="card-head">
+            <input type="checkbox" data-use-id="${s.useId}" ${checked ? 'checked' : ''}>
+            <div class="card-body">
+              <span class="name">${s.name}</span>
+              <span class="desc">${s.desc}</span>
+              <div class="badges">${badges}</div>
+            </div>
+          </label>
+        </div>`;
+    }).join('');
+
+    // Wire checkboxes in the newly-rendered cards
+    libCards.querySelectorAll('input[type="checkbox"]').forEach(box => {
+      box.addEventListener('change', e => {
+        const useId = e.target.dataset.useId;
+        const hiddenBox = document.getElementById(useId);
+        if (hiddenBox) {
+          hiddenBox.checked = e.target.checked;
+          hiddenBox.dispatchEvent(new Event('change'));
+        }
+      });
+    });
+  }
+
+  document.getElementById('lib-categories').addEventListener('click', e => {
+    const btn = e.target.closest('.cat-tab'); if (!btn) return;
+    document.querySelectorAll('#lib-categories .cat-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    activeCat = btn.dataset.cat;
+    render();
+  });
+  document.getElementById('lib-chips').addEventListener('click', e => {
+    const btn = e.target.closest('.chip'); if (!btn) return;
+    const tag = btn.dataset.tag;
+    if (activeTags.has(tag)) { activeTags.delete(tag); btn.classList.remove('active'); }
+    else                     { activeTags.add(tag);    btn.classList.add('active'); }
+    render();
+  });
+
+  render();
+  // Expose so other code can refresh the library when state changes externally
+  window.__RENDER_LIBRARY__ = render;
+})();
+
+/* ---- Sync hidden checkbox state with its parameter block's visibility ---- */
+const strategyMap = Object.fromEntries(STRATEGIES.map(s => [s.useId, s.blockId]));
 Object.entries(strategyMap).forEach(([chk, block]) => {
   const c = document.getElementById(chk);
   const b = document.getElementById(block);
-  const sync = () => b.classList.toggle('disabled', !c.checked);
+  if (!c || !b) return;
+  const sync = () => {
+    b.classList.toggle('hidden', !c.checked);
+    // Re-render the library so card "enabled" styling stays in sync
+    if (window.__RENDER_LIBRARY__) window.__RENDER_LIBRARY__();
+  };
   c.addEventListener('change', sync);
   sync();
 });
@@ -1472,11 +1760,17 @@ function readForm() {
       sale: n('biz-sale'), basis: n('biz-basis'),
       date: t('biz-date'), income: n('biz-income'),
     },
-    use: { dynasty: c('use-dynasty'), crat: c('use-crat'), daf: c('use-daf'), qoz: c('use-qoz') },
+    use: {
+      dynasty: c('use-dynasty'), crat: c('use-crat'), daf: c('use-daf'), qoz: c('use-qoz'),
+      ilit: c('use-ilit'), roth: c('use-roth'), grat: c('use-grat'),
+    },
     dynasty: { funding: n('dt-funding'), exemption: n('dt-exemption'), years: n('dt-years') },
     crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
     daf: { amount: n('daf-amount') },
     qoz: { defer: n('qoz-defer'), ret: n('qoz-return') / 100, years: n('qoz-years') },
+    ilit: { coverage: n('ilit-coverage'), premium: n('ilit-premium'), years: n('ilit-years') },
+    roth: { amount: n('roth-amount'), marginal: n('roth-marginal') / 100, years: n('roth-years') },
+    grat: { transfer: n('grat-transfer'), term: n('grat-term'), hurdle: n('grat-7520') / 100, growth: n('grat-growth') / 100 },
     tax: {
       fed: n('tax-fed') / 100, state: n('tax-state') / 100,
       medicare: n('tax-medicare') / 100, marginal: n('tax-marginal') / 100,
@@ -1566,7 +1860,36 @@ function computePlan(d) {
   const dynastyEstateSave = d.use.dynasty ? dyAmt * d.tax.estate : 0;
   const cratEstateSave = d.use.crat ? crAmt * d.tax.estate : 0;
   const dafEstateSave = d.use.daf ? dafAmt * d.tax.estate : 0;
-  const totalEstateSave = dynastyEstateSave + cratEstateSave + dafEstateSave;
+
+  // ILIT: moves full death benefit out of the taxable estate
+  //   Savings = coverage × estate tax rate
+  const ilitEstateSave = d.use.ilit ? d.ilit.coverage * d.tax.estate : 0;
+
+  // Roth Conversion: pay income tax now to remove both the converted amount
+  //   AND future growth from the taxable estate.
+  //   Net estate savings = (conversion amount × estate tax rate)
+  //                        − (income tax paid on conversion)
+  //   Future-growth benefit grows this further — represented separately
+  //   as rothGrowthBenefit rather than baked into totalImmediate.
+  const rothIncomeTax   = d.use.roth ? d.roth.amount * d.roth.marginal : 0;
+  const rothEstateSave  = d.use.roth ? d.roth.amount * d.tax.estate : 0;
+  const rothNetEstateSave = Math.max(0, rothEstateSave - rothIncomeTax);
+  const rothFutureValue = d.use.roth
+    ? d.roth.amount * Math.pow(1 + d.proj.equity, Math.max(0, d.roth.years))
+    : 0;
+  const rothGrowthBenefit = Math.max(0, rothFutureValue - d.roth.amount);
+
+  // GRAT: transfers asset appreciation above the §7520 hurdle rate, gift-tax-free.
+  //   Rough approx: remainder to heirs = transfer × ((1+growth)^term − (1+hurdle)^term)
+  //   Estate savings = remainder × estate tax rate
+  const gratRemainder = d.use.grat
+    ? d.grat.transfer * Math.max(0,
+        Math.pow(1 + d.grat.growth, d.grat.term) - Math.pow(1 + d.grat.hurdle, d.grat.term))
+    : 0;
+  const gratEstateSave = gratRemainder * d.tax.estate;
+
+  const totalEstateSave = dynastyEstateSave + cratEstateSave + dafEstateSave
+                        + ilitEstateSave + rothNetEstateSave + gratEstateSave;
 
   // Dynasty trust projection
   const dynasty20yr = d.use.dynasty ? dyAmt * Math.pow(1 + d.proj.equity, d.dynasty.years) : 0;
@@ -1667,6 +1990,9 @@ function computePlan(d) {
     scenarios: comparison,
     cratDeduction, dafDeduction, totalCharitableDed, incomeTaxSavings,
     dynastyEstateSave, cratEstateSave, dafEstateSave, totalEstateSave,
+    ilitEstateSave,
+    rothIncomeTax, rothEstateSave, rothNetEstateSave, rothFutureValue, rothGrowthBenefit,
+    gratRemainder, gratEstateSave,
     dynasty20yr, dynastyGrowth,
     cgTaxSavings, totalImmediate,
     nwWithout_netProceeds, nwWithout_total,
@@ -1991,6 +2317,15 @@ function renderTax(p) {
   if (d.use.qoz) {
     items.push({ label: `QOZ Tax Deferral (${d.qoz.defer} Years)`, value: p.scenarios.scenAll.qozDeferred, desc: `Remaining capital gains tax invested into QOZ fund. Defers for ${d.qoz.defer} years. Tax-free if held ${d.qoz.years}+ years.` });
   }
+  if (d.use.ilit) {
+    items.push({ label: 'ILIT Estate Tax Savings', value: p.ilitEstateSave, desc: `${fmt$M(d.ilit.coverage)} life insurance death benefit moved outside taxable estate. Saves ${fmt$(p.ilitEstateSave)} at ${fmtPct(d.tax.estate*100)} estate tax rate.` });
+  }
+  if (d.use.roth) {
+    items.push({ label: 'Roth Conversion — Net Estate Savings', value: p.rothNetEstateSave, desc: `Convert ${fmt$M(d.roth.amount)} to Roth: pay ${fmt$(p.rothIncomeTax)} income tax now, remove ${fmt$(p.rothEstateSave)} from taxable estate. Net savings: ${fmt$(p.rothNetEstateSave)}. Plus ${fmt$(p.rothGrowthBenefit)} in tax-free growth over ${d.roth.years} years.` });
+  }
+  if (d.use.grat) {
+    items.push({ label: `GRAT Estate Tax Savings (${d.grat.term}-yr)`, value: p.gratEstateSave, desc: `${fmt$M(d.grat.transfer)} into GRAT at ${fmtPct(d.grat.hurdle*100)} §7520 hurdle; ${fmtPct(d.grat.growth*100)} expected growth transfers ${fmt$(p.gratRemainder)} to heirs gift-tax-free. Estate savings at ${fmtPct(d.tax.estate*100)}.` });
+  }
   items.push({ label: 'Capital Gains Tax Reduction', value: p.cgTaxSavings, desc: `Reduce taxable gain from ${fmt$M(p.scenarios.scenNone.taxableGain)} to ${fmt$M(p.scenarios.scenAll.taxableGain)} through combined structures.` });
   if (d.use.crat) items.push({ label: 'Estate Tax Savings (CRAT)', value: p.cratEstateSave, desc: `Remove ${fmt$M(d.crat.amount)} from taxable estate through CRAT. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
   if (d.use.daf) items.push({ label: 'Estate Tax Savings (DAF)', value: p.dafEstateSave, desc: `Remove ${fmt$M(d.daf.amount)} from taxable estate through DAF. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
@@ -2019,6 +2354,9 @@ function renderTax(p) {
         • Capital Gains Tax Reduction: ${fmt$(p.cgTaxSavings)}<br>
         ${d.use.crat ? `• CRAT Total Benefits: ${fmt$(d.crat.amount * p.combinedCGRate + p.cratDeduction * d.tax.marginal + p.cratEstateSave)}<br>` : ''}
         ${d.use.daf ? `• DAF Total Benefits: ${fmt$(d.daf.amount * d.tax.marginal + p.dafEstateSave)}<br>` : ''}
+        ${d.use.ilit ? `• ILIT Estate Tax Savings: ${fmt$(p.ilitEstateSave)}<br>` : ''}
+        ${d.use.roth ? `• Roth Conversion Net Benefits: ${fmt$(p.rothNetEstateSave)} (estate) + ${fmt$(p.rothGrowthBenefit)} (tax-free growth)<br>` : ''}
+        ${d.use.grat ? `• GRAT Estate Tax Savings: ${fmt$(p.gratEstateSave)}<br>` : ''}
         ${d.use.qoz ? `• QOZ Deferral: ${fmt$(p.scenarios.scenAll.qozDeferred)} (plus tax-free appreciation)<br>` : ''}
       </div>
     </div>
@@ -2488,12 +2826,15 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
       'crat-amount','crat-rate','crat-ded',
       'daf-amount',
       'qoz-defer','qoz-return','qoz-years',
+      'ilit-coverage','ilit-premium','ilit-years',
+      'roth-amount','roth-marginal','roth-years',
+      'grat-transfer','grat-term','grat-7520','grat-growth',
       'tax-fed','tax-state','tax-medicare','tax-marginal','tax-estate','tax-estate-exempt',
       'proj-equity','proj-re','proj-years','proj-inflation',
       'ins-current','ins-rec-min','ins-rec-max',
       'firm-name','firm-tag'
     ];
-    const checks = ['use-dynasty','use-crat','use-daf','use-qoz'];
+    const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat'];
     const values = {};
     const checkboxes = {};
     ids.forEach(id => { const el = document.getElementById(id); if (el) values[id] = el.value; });
