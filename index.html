@@ -3075,7 +3075,22 @@ function computePlan(d) {
   for (let y = 0; y <= horizon; y++) {
     const clientLiq     = withPlanningProceeds * Math.pow(1 + d.proj.equity, y);
     const otherGrowth   = otherAssets * Math.pow(1 + d.proj.re, y);
-    const qozValue      = d.use.qoz ? scenAll.qozInvestment * Math.pow(1 + d.qoz.ret, Math.min(y, d.qoz.years)) : 0;
+    // QOZ lifecycle:
+    //   Years 0..qoz.years (typically 10): position grows at qoz.ret rate INSIDE
+    //     the QOZ fund; deferred gain triggers at year 5 (not modeled as a cash
+    //     drag here — advisor inputs equity return that's already after-tax).
+    //   Year qoz.years: basis steps up to FMV → position sells tax-free.
+    //   Year qoz.years+: proceeds re-deployed into the client's general
+    //     investable portfolio, compounding at proj.equity from that point on.
+    //   We track it as its own bucket so the QOZ lineage stays visible in
+    //     the chart and table, but the growth rate switches at year 10.
+    const qozYearsInside = Math.min(y, d.qoz.years);
+    const qozYearsAfter  = Math.max(0, y - d.qoz.years);
+    const qozValue = d.use.qoz
+      ? scenAll.qozInvestment
+        * Math.pow(1 + d.qoz.ret,    qozYearsInside)
+        * Math.pow(1 + d.proj.equity, qozYearsAfter)
+      : 0;
     const dynastyValue  = d.use.dynasty ? dyAmt * Math.pow(1 + d.proj.equity, y) : 0;
     const slatValue     = d.use.slat ? d.slat.funding * Math.pow(1 + d.slat.growth, Math.min(y, d.slat.years)) : 0;
     const idgtValue     = d.use.idgt ? d.idgt.amount * Math.pow(1 + d.idgt.growth, y) : 0;
@@ -3668,24 +3683,63 @@ function renderFinancial(p) {
       </table>
     </div>` : ''}
 
-    ${d.use.qoz ? `
-    <div class="card">
-      <div class="card-title">QOZ Investment — ${d.qoz.years}-Year Projection</div>
-      <div class="card-sub">${d.qoz.defer}-year tax deferral with 100% tax-free appreciation if held ${d.qoz.years}+ years.</div>
-      <table class="plan-table">
-        <thead><tr><th>Year</th><th class="num">QOZ Value</th><th class="num">Growth</th><th>Tax Status</th></tr></thead>
-        <tbody>
-          ${p.qozRows.map((r,i) => `
-            <tr${r.status === 'TAX-FREE' ? ' class="highlight"' : ''}>
-              <td>${r.year} (Yr ${r.yearOffset})</td>
-              <td class="num">${fmt$(r.value)}</td>
-              <td class="num pos">${i === 0 ? '—' : fmt$(r.growth)}</td>
-              <td>${r.status}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>` : ''}
+    ${d.use.qoz ? (() => {
+      // Project the post-QOZ position into the client's general portfolio
+      // for the remainder of the estate horizon (up to joint LE if set).
+      const finalQozValue = p.qozRows[p.qozRows.length - 1]?.value || 0;
+      const postHorizon = Math.max(0, (p.dynastyYears || d.proj.years) - d.qoz.years);
+      const postRows = [];
+      for (let m = 0; m <= Math.min(postHorizon, 40); m++) {
+        const val = finalQozValue * Math.pow(1 + d.proj.equity, m);
+        postRows.push({ yearOffset: d.qoz.years + m, year: d.client.year + d.qoz.years + m, value: val, growth: val - finalQozValue });
+      }
+      const postMilestones = Array.from(new Set([0, 1, 5, 10, 15, 20, postHorizon].filter(n => n <= postHorizon && n >= 0))).sort((a, b) => a - b);
+      return `
+      <div class="card">
+        <div class="card-title">QOZ Investment — ${d.qoz.years}-Year Projection (Inside the Fund)</div>
+        <div class="card-sub">${d.qoz.defer}-year tax deferral with 100% tax-free appreciation if held ${d.qoz.years}+ years.</div>
+        <table class="plan-table">
+          <thead><tr><th>Year</th><th class="num">QOZ Value</th><th class="num">Growth</th><th>Tax Status</th></tr></thead>
+          <tbody>
+            ${p.qozRows.map((r,i) => `
+              <tr${r.status === 'TAX-FREE' ? ' class="highlight"' : ''}>
+                <td>${r.year} (Yr ${r.yearOffset})</td>
+                <td class="num">${fmt$(r.value)}</td>
+                <td class="num pos">${i === 0 ? '—' : fmt$(r.growth)}</td>
+                <td>${r.status}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="callout" style="margin-top: 20px;">
+          <span class="title">🔄 Post-Year-${d.qoz.years}: Fund Exit &amp; Reinvestment</span>
+          At the end of year ${d.qoz.years}, the QOZ basis steps up to fair-market value — the position is liquidated <strong>tax-free</strong> (${fmt$(finalQozValue)} of gain escapes federal, state (if conforming), and NIIT tax).
+          The proceeds are then <strong>rolled into the client's general investable portfolio</strong> and continue to compound at the ${fmtPct(d.proj.equity*100)} equity return assumption (no longer in the QOZ wrapper, no special tax treatment). Post-exit, this money is part of the taxable estate unless further strategies (Dynasty Trust top-up, SLAT, gifting, etc.) are applied.
+        </div>
+
+        ${postHorizon > 0 ? `
+        <h4 style="margin: 24px 0 12px; color: var(--ink-soft); font-size: 14px; font-family: 'Helvetica Neue', sans-serif; letter-spacing: 1px; text-transform: uppercase;">Post-QOZ Reinvestment (General Portfolio @ ${fmtPct(d.proj.equity*100)})</h4>
+        <table class="plan-table">
+          <thead><tr><th>Year</th><th class="num">Portfolio Value</th><th class="num">Growth Since Exit</th><th>Location</th></tr></thead>
+          <tbody>
+            ${postMilestones.map(m => {
+              const r = postRows[m];
+              if (!r) return '';
+              return `<tr${m === postHorizon ? ' class="highlight"' : ''}>
+                <td>${r.year} <span style="color: var(--muted); font-size: 11px;">(Yr ${r.yearOffset}${m === 0 ? ' — exit' : ''})</span></td>
+                <td class="num">${fmt$(r.value)}</td>
+                <td class="num pos">${m === 0 ? '—' : fmt$(r.growth)}</td>
+                <td>Client's investable portfolio</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top: 10px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+          Consider redirecting the post-QOZ proceeds into a <strong>second-round QOZ</strong> if new eligible gains arise, or into a Dynasty Trust / SLAT / DAF top-up to move the value out of the taxable estate before further appreciation.
+        </div>` : ''}
+      </div>`;
+    })() : ''}
   `;
 }
 
@@ -4405,7 +4459,15 @@ function computeEstateGrowthAt(p, horizon) {
   for (let y = 0; y <= horizon; y++) {
     const clientLiq    = (seed.clientLiq    || 0) * Math.pow(1 + d.proj.equity, y);
     const otherGrowth  = (seed.otherGrowth  || 0) * Math.pow(1 + d.proj.re, y);
-    const qozValue     = d.use.qoz  ? (seed.qozValue  || 0) * Math.pow(1 + d.qoz.ret,   Math.min(y, d.qoz.years)) : 0;
+    // QOZ: inside-QOZ growth through year qoz.years, then roll to general
+    // equity return (reinvested in the client's portfolio, no longer in QOZ)
+    const qozYearsInside = Math.min(y, d.qoz.years);
+    const qozYearsAfter  = Math.max(0, y - d.qoz.years);
+    const qozValue = d.use.qoz
+      ? (seed.qozValue || 0)
+        * Math.pow(1 + d.qoz.ret,    qozYearsInside)
+        * Math.pow(1 + d.proj.equity, qozYearsAfter)
+      : 0;
     const dynastyValue = d.use.dynasty ? (seed.dynastyValue || 0) * Math.pow(1 + d.proj.equity, y) : 0;
     const slatValue    = d.use.slat ? (seed.slatValue || 0) * Math.pow(1 + d.slat.growth, Math.min(y, d.slat.years)) : 0;
     const idgtValue    = d.use.idgt ? (seed.idgtValue || 0) * Math.pow(1 + d.idgt.growth, y) : 0;
