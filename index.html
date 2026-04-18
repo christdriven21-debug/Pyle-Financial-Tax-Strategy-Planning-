@@ -1162,7 +1162,9 @@
     <span class="auth-label">Signed in as</span>
     <span class="auth-user" id="auth-user"></span>
     <span class="auth-role" id="auth-role"></span>
+    <button class="btn btn-secondary btn-sm team-only" id="btn-auth-mfa" title="Enroll a Time-based One-Time Password (TOTP) authenticator for 2FA">Set up 2FA</button>
     <button class="btn btn-secondary btn-sm" id="btn-auth-signout">Sign Out</button>
+    <span class="auth-msg" id="auth-session-ttl"></span>
   </div>
   <div class="auth-msg" id="auth-msg"></div>
 </div>
@@ -5337,10 +5339,143 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     refreshAuthState();
     if (event === 'SIGNED_IN') {
       setAuthMsg('');
-      // On fresh sign-in (e.g., magic link landing), reboot the flow
       if (!currentId) boot();
+      armIdleTimer();
+    }
+    if (event === 'SIGNED_OUT') {
+      clearIdleTimer();
     }
   });
+
+  // ==========================================================
+  // SESSION IDLE TIMEOUT
+  // Signs the user out after 30 minutes of no activity.
+  // Activity = click, keypress, scroll, mousemove anywhere.
+  // Shows a countdown ticker in the auth bar during the final minute.
+  // ==========================================================
+  const IDLE_LIMIT_MS = 30 * 60 * 1000;   // 30 minutes
+  const IDLE_WARN_MS  =  1 * 60 * 1000;   // warn in last 60s
+  let idleTimer = null, idleWarnTimer = null, idleCountdownTimer = null;
+  const ttlEl = document.getElementById('auth-session-ttl');
+
+  function clearIdleTimer() {
+    [idleTimer, idleWarnTimer, idleCountdownTimer].forEach(t => { if (t) clearTimeout(t); });
+    idleTimer = idleWarnTimer = idleCountdownTimer = null;
+    if (ttlEl) ttlEl.textContent = '';
+  }
+
+  function armIdleTimer() {
+    clearIdleTimer();
+    if (!currentUser) return;
+    idleWarnTimer = setTimeout(() => {
+      let remaining = Math.floor(IDLE_WARN_MS / 1000);
+      const tick = () => {
+        if (!currentUser) return;
+        if (remaining <= 0) { ttlEl.textContent = ''; return; }
+        ttlEl.textContent = `⏳ Signing out in ${remaining}s…`;
+        ttlEl.className = 'auth-msg err';
+        remaining--;
+        idleCountdownTimer = setTimeout(tick, 1000);
+      };
+      tick();
+    }, IDLE_LIMIT_MS - IDLE_WARN_MS);
+    idleTimer = setTimeout(async () => {
+      setStatus('Session expired after 30 minutes idle — signing out', 'err');
+      await sb.auth.signOut();
+    }, IDLE_LIMIT_MS);
+  }
+
+  // Reset the idle timer on any user activity
+  ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach(evt => {
+    let throttle = 0;
+    document.addEventListener(evt, () => {
+      const now = Date.now();
+      if (now - throttle < 5000) return; // throttle: at most once per 5s
+      throttle = now;
+      if (currentUser) armIdleTimer();
+    }, { passive: true });
+  });
+
+  // ==========================================================
+  // MFA / 2FA enrollment via Supabase Auth TOTP
+  // Team-only button "Set up 2FA" opens a modal with QR code + secret,
+  // user scans with Google Authenticator / Authy / 1Password, enters
+  // the 6-digit code, we verify and mark the factor enrolled.
+  // ==========================================================
+  const btnMFA = document.getElementById('btn-auth-mfa');
+  if (btnMFA) btnMFA.addEventListener('click', startMFAEnrollment);
+
+  async function startMFAEnrollment() {
+    if (!currentUser) { alert('Sign in first'); return; }
+    // Check if a factor already exists
+    const { data: factors } = await sb.auth.mfa.listFactors();
+    const existing = factors?.totp?.[0];
+    if (existing && existing.status === 'verified') {
+      if (!confirm('A 2FA authenticator is already enrolled for this account. Remove it?')) return;
+      await sb.auth.mfa.unenroll({ factorId: existing.id });
+      alert('2FA removed. Click "Set up 2FA" again to enroll a new device.');
+      return;
+    }
+
+    // Enroll new TOTP factor
+    const enrollResp = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Pyle Plan Builder' });
+    if (enrollResp.error) { alert('Enrollment failed: ' + enrollResp.error.message); return; }
+    const factor = enrollResp.data;
+
+    // Build a modal with the QR code + secret + verification input
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:var(--cream-panel);padding:28px 32px;border-radius:8px;max-width:420px;font-family:'Helvetica Neue',sans-serif;">
+        <h3 style="color:var(--crimson);margin-bottom:12px;font-family:Georgia,serif;">Enable Two-Factor Authentication</h3>
+        <p style="font-size:13px;margin-bottom:14px;">
+          1. Open Google Authenticator, Authy, or 1Password<br>
+          2. Scan the QR code below<br>
+          3. Enter the 6-digit code from your authenticator
+        </p>
+        <div style="text-align:center;margin-bottom:14px;">
+          <img src="${factor.totp.qr_code}" alt="TOTP QR" style="max-width:200px;border:1px solid var(--border);padding:8px;background:#fff;">
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">Can't scan? Enter manually: <code style="background:var(--cream-light);padding:2px 6px;border-radius:3px;">${factor.totp.secret}</code></p>
+        <input type="text" id="mfa-code-input" placeholder="000000" maxlength="6" style="width:100%;padding:10px;font-size:20px;letter-spacing:6px;text-align:center;border:1px solid var(--border);border-radius:4px;margin-bottom:12px;">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-secondary btn-sm" id="mfa-cancel">Cancel</button>
+          <button class="btn btn-primary btn-sm" id="mfa-verify">Verify &amp; Enable</button>
+        </div>
+        <div id="mfa-error" style="color:var(--crimson);font-size:12px;margin-top:10px;"></div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const cleanup = async (unenroll = false) => {
+      if (unenroll) try { await sb.auth.mfa.unenroll({ factorId: factor.id }); } catch(e){}
+      modal.remove();
+    };
+
+    modal.querySelector('#mfa-cancel').onclick = () => cleanup(true);
+    modal.querySelector('#mfa-verify').onclick = async () => {
+      const code = modal.querySelector('#mfa-code-input').value.trim();
+      if (!/^\d{6}$/.test(code)) {
+        modal.querySelector('#mfa-error').textContent = 'Enter a 6-digit code';
+        return;
+      }
+      const challengeResp = await sb.auth.mfa.challenge({ factorId: factor.id });
+      if (challengeResp.error) {
+        modal.querySelector('#mfa-error').textContent = challengeResp.error.message;
+        return;
+      }
+      const verifyResp = await sb.auth.mfa.verify({
+        factorId: factor.id,
+        challengeId: challengeResp.data.id,
+        code,
+      });
+      if (verifyResp.error) {
+        modal.querySelector('#mfa-error').textContent = verifyResp.error.message;
+        return;
+      }
+      cleanup(false);
+      alert('✓ 2FA enabled. Future sign-ins on this account will require your authenticator code.');
+    };
+  }
 
   document.getElementById('btn-auth-signin').addEventListener('click', () => signIn(authEmailEl.value.trim()));
   authEmailEl.addEventListener('keydown', e => { if (e.key === 'Enter') signIn(authEmailEl.value.trim()); });
