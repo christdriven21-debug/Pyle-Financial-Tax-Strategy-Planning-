@@ -1383,7 +1383,7 @@
           <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dt-exemption" value="15000000"></div>
         </div>
         <div class="field">
-          <label>Projection Period (Years)</label>
+          <label>Projection Period (Years) <span class="hint">(auto-overridden to joint life expectancy when primary/spouse ages are set)</span></label>
           <input type="number" id="dt-years" value="20">
         </div>
       </div>
@@ -2777,7 +2777,16 @@ function computePlan(d) {
                         + ilitEstateSave + rothNetEstateSave + gratEstateSave;
 
   // Dynasty trust projection
-  const dynasty20yr = d.use.dynasty ? dyAmt * Math.pow(1 + d.proj.equity, d.dynasty.years) : 0;
+  //   Horizon defaults to joint life expectancy (primary + spouse ages)
+  //   since the grantors fund the trust today and the interesting window
+  //   is how much the trust has grown by the time the second spouse
+  //   passes. If ages aren't set, falls back to the advisor's dt-years input.
+  const dynastyJointLE = (d.client.primaryAge || 0) > 0
+    ? jointLastSurvivorExpectancy(d.client.primaryAge, d.client.spouseAge || 0)
+    : 0;
+  const dynastyYears = dynastyJointLE > 0 ? dynastyJointLE : d.dynasty.years;
+  const dynastyUsesJointLE = dynastyJointLE > 0;
+  const dynasty20yr = d.use.dynasty ? dyAmt * Math.pow(1 + d.proj.equity, dynastyYears) : 0;
   const dynastyGrowth = dynasty20yr - dyAmt;
 
   // Capital gains tax savings (vs no planning)
@@ -3019,11 +3028,16 @@ function computePlan(d) {
     dyVal *= (1 + d.proj.equity);
   }
 
-  // Dynasty 20-year table
+  // Dynasty Trust milestone table — scales milestones to the effective
+  // horizon (joint LE or dt-years). Picks year 0, 1, and quarter/mid/
+  // three-quarter/final-year checkpoints so the table stays readable
+  // whether the horizon is 20 or 40+ years.
   const dynastyRows = [];
   if (d.use.dynasty) {
+    const H = Math.max(1, Math.round(dynastyYears));
+    const rawMilestones = [0, 1, Math.round(H * 0.25), Math.round(H * 0.5), Math.round(H * 0.75), H];
+    const milestones = Array.from(new Set(rawMilestones)).sort((a, b) => a - b);
     let v = dyAmt;
-    const milestones = [0, 1, 4, 9, 14, 20];
     milestones.forEach(m => {
       const val = dyAmt * Math.pow(1 + d.proj.equity, m);
       dynastyRows.push({
@@ -3209,7 +3223,7 @@ function computePlan(d) {
     rmdRows, totalRMDs, balAtRmdStart,
     ssPrimaryMonthly, ssSpouseMonthly, ssAnnualHousehold, ssComparison,
     saleIsAsset, recaptureAmount, recaptureOrdinaryTax, recaptureCGTaxIfStock, assetVsStockPenalty,
-    dynasty20yr, dynastyGrowth,
+    dynasty20yr, dynastyGrowth, dynastyYears, dynastyUsesJointLE,
     cgTaxSavings, totalImmediate,
     nwWithout_netProceeds, nwWithout_total,
     withPlanningProceeds, withPlanningTotal,
@@ -3237,7 +3251,7 @@ function renderSummary(p) {
   if (d.use.qoz) strategies.push({ name: 'QOZ Investment', desc: `Remaining capital gains tax reinvested into Qualified Opportunity Zone fund for ${d.qoz.defer}-year tax deferral.` });
   strategies.push({ name: 'Capital Gains Mitigation', desc: `Layered structure reduces taxable gain by ${fmt$M(p.scenarios.scenNone.taxableGain - p.scenarios.scenAll.taxableGain)}, saving ${fmt$M(p.cgTaxSavings)} in federal taxes.` });
   strategies.push({ name: 'Post-Sale Liquidity', desc: `${fmt$M(p.withPlanningProceeds)} proceeds provide exceptional liquidity for wealth management and estate planning.` });
-  if (d.use.dynasty) strategies.push({ name: 'Multi-Generational Wealth', desc: `Dynasty Trust projected to grow to ${fmt$M(p.dynasty20yr)} over ${d.dynasty.years} years, tax-free to heirs.` });
+  if (d.use.dynasty) strategies.push({ name: 'Multi-Generational Wealth', desc: `Dynasty Trust projected to grow to ${fmt$M(p.dynasty20yr)} over ${p.dynastyYears} years${p.dynastyUsesJointLE ? ' (joint life expectancy)' : ''}, tax-free to heirs.` });
 
   return `
     <div class="card">
@@ -3288,7 +3302,7 @@ function renderSummary(p) {
         <div class="kpi"><div class="label">Dynasty Trust Funding</div><div class="value">${fmt$(d.dynasty.funding)}</div></div>
         <div class="kpi gold"><div class="label">Exemption Used</div><div class="value">${fmt$(d.dynasty.exemption)}</div></div>
         <div class="kpi success"><div class="label">Estate Tax Savings</div><div class="value">${fmt$(p.dynastyEstateSave)}</div></div>
-        <div class="kpi success"><div class="label">${d.dynasty.years}-Yr Projected Growth</div><div class="value">${fmt$(p.dynasty20yr)}</div></div>
+        <div class="kpi success"><div class="label">${p.dynastyYears}-Yr Projected Growth${p.dynastyUsesJointLE ? ' (Joint LE)' : ''}</div><div class="value">${fmt$(p.dynasty20yr)}</div></div>
       </div>
 
       <div class="callout">
@@ -3384,7 +3398,7 @@ function renderTransaction(p) {
           <div class="line-item positive"><span class="label">Cap Gains Tax Savings</span><span class="value">${fmt$(p.cgTaxSavings)}</span></div>
           <div class="line-item positive"><span class="label">Estate Tax Savings (Immediate)</span><span class="value">${fmt$(p.totalEstateSave)}</span></div>
           ${d.use.qoz ? `<div class="line-item positive"><span class="label">QOZ Tax Deferral</span><span class="value">${fmt$(p.scenarios.scenAll.qozDeferred)}</span></div>` : ''}
-          ${d.use.dynasty ? `<div class="line-item positive"><span class="label">Dynasty ${d.dynasty.years}-Yr Growth</span><span class="value">${fmt$(p.dynastyGrowth)}</span></div>` : ''}
+          ${d.use.dynasty ? `<div class="line-item positive"><span class="label">Dynasty ${p.dynastyYears}-Yr Growth${p.dynastyUsesJointLE ? ' (Joint LE)' : ''}</span><span class="value">${fmt$(p.dynastyGrowth)}</span></div>` : ''}
           <div class="line-item total"><span class="label">Total Wealth Advantage</span><span class="value" style="color: var(--success);">${fmt$(p.totalProgramBenefit)}</span></div>
         </div>
       </div>
@@ -3637,7 +3651,7 @@ function renderFinancial(p) {
 
     ${d.use.dynasty ? `
     <div class="card">
-      <div class="card-title">Dynasty Trust — ${d.dynasty.years}-Year Wealth Projection</div>
+      <div class="card-title">Dynasty Trust — ${p.dynastyYears}-Year Wealth Projection${p.dynastyUsesJointLE ? ` <span style="font-size: 12px; color: var(--muted); font-weight: 400;">(joint life expectancy — ages ${d.client.primaryAge}${d.client.spouseAge > 0 ? '/' + d.client.spouseAge : ''})</span>` : ''}</div>
       <div class="card-sub">${fmtPct(d.proj.equity*100)} annual growth, tax-free to heirs.</div>
       <table class="plan-table">
         <thead><tr><th>Year</th><th class="num">Trust Value</th><th class="num">Tax-Free Growth</th><th>Status</th></tr></thead>
@@ -4108,7 +4122,7 @@ function renderEstate(p) {
 
       <div class="callout">
         <span class="title">✓ Multi-Generational Wealth Transfer</span>
-        Through ${d.use.dynasty ? 'Dynasty Trust, ' : ''}${d.use.crat ? 'CRAT, ' : ''}${d.use.daf ? 'DAF, ' : ''}${d.use.qoz ? 'and QOZ ' : ''}structures, the client removes ${fmt$M((d.use.dynasty?d.dynasty.funding:0) + (d.use.crat?d.crat.amount:0) + (d.use.daf?d.daf.amount:0))} from the taxable estate, reducing estate tax exposure by ${fmt$M(p.estateTaxSavings)} and creating ${fmt$M(p.dynastyGrowth)} in tax-free wealth for heirs over ${d.dynasty.years} years.
+        Through ${d.use.dynasty ? 'Dynasty Trust, ' : ''}${d.use.crat ? 'CRAT, ' : ''}${d.use.daf ? 'DAF, ' : ''}${d.use.qoz ? 'and QOZ ' : ''}structures, the client removes ${fmt$M((d.use.dynasty?d.dynasty.funding:0) + (d.use.crat?d.crat.amount:0) + (d.use.daf?d.daf.amount:0))} from the taxable estate, reducing estate tax exposure by ${fmt$M(p.estateTaxSavings)} and creating ${fmt$M(p.dynastyGrowth)} in tax-free wealth for heirs over ${p.dynastyYears} years${p.dynastyUsesJointLE ? ' (joint life expectancy)' : ''}.
       </div>
 
       <div class="two-col">
@@ -4119,7 +4133,7 @@ function renderEstate(p) {
           <div class="row"><span class="k">Exemption Used:</span><span class="v">${fmt$(d.dynasty.exemption)}</span></div>
           <div class="row"><span class="k">GST Exemption:</span><span class="v">${fmt$(d.dynasty.exemption)}</span></div>
           <div class="row"><span class="k">Estate Tax Impact:</span><span class="v" style="color: var(--success)">Removes ${fmt$M(d.dynasty.funding)}</span></div>
-          <div class="row"><span class="k">${d.dynasty.years}-Yr Projected:</span><span class="v">${fmt$(p.dynasty20yr)}</span></div>
+          <div class="row"><span class="k">${p.dynastyYears}-Yr Projected${p.dynastyUsesJointLE ? ' (Joint LE)' : ''}:</span><span class="v">${fmt$(p.dynasty20yr)}</span></div>
           <div class="row"><span class="k">Tax-Free to Heirs:</span><span class="v" style="color: var(--success)">${fmt$(p.dynastyGrowth)}</span></div>
         </div>` : ''}
 
