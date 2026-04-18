@@ -2130,6 +2130,7 @@
     <button class="plan-tab active" data-tab="summary">Executive Summary</button>
     <button class="plan-tab" data-tab="transaction">Transaction Strategy</button>
     <button class="plan-tab" data-tab="financial">Financial Overview</button>
+    <button class="plan-tab" data-tab="retirement">Retirement Plan</button>
     <button class="plan-tab" data-tab="tax">Tax Optimization</button>
     <button class="plan-tab" data-tab="compare">Scenario Comparison</button>
     <button class="plan-tab" data-tab="estate">Estate Planning</button>
@@ -2139,6 +2140,7 @@
     <div class="tab-panel active" id="panel-summary"></div>
     <div class="tab-panel" id="panel-transaction"></div>
     <div class="tab-panel" id="panel-financial"></div>
+    <div class="tab-panel" id="panel-retirement"></div>
     <div class="tab-panel" id="panel-tax"></div>
     <div class="tab-panel" id="panel-compare"></div>
     <div class="tab-panel" id="panel-estate"></div>
@@ -3685,7 +3687,7 @@ function renderFinancial(p) {
       </div>
     </div>
 
-    <div class="card" style="border-left: 4px solid ${p.budgetSustainable ? 'var(--success)' : 'var(--crimson)'};">
+    <div class="card move-to-retirement" style="border-left: 4px solid ${p.budgetSustainable ? 'var(--success)' : 'var(--crimson)'};">
       <div class="card-title">${p.budgetSustainable ? '✓ Annual Budget — Sustainable' : '⚠️ Annual Budget — Exceeds Safe Withdrawal Rate'}</div>
       <div class="card-sub">
         ${p.budgetSustainable
@@ -3802,7 +3804,7 @@ function renderFinancial(p) {
       </table>
     </div>
 
-    <div class="card">
+    <div class="card move-to-retirement">
       <div class="card-title">Required Minimum Distributions (RMDs) — SECURE 2.0</div>
       <div class="card-sub">
         Balance at RMD start (age ${d.retirement.rmdStartAge}): <strong>${fmt$(p.balAtRmdStart)}</strong> · Traditional IRA + 401(k) grown at ${fmtPct(d.proj.equity*100)} from age ${d.client.primaryAge} to ${d.retirement.rmdStartAge}.
@@ -3831,7 +3833,7 @@ function renderFinancial(p) {
       </div>
     </div>
 
-    <div class="card">
+    <div class="card move-to-retirement">
       <div class="card-title">Social Security Claiming Strategy</div>
       <div class="card-sub">Selected claim age: <strong>${d.ss.claimAge}</strong>. Adjustment factor ${(p.ssComparison.find(s => s.age === d.ss.claimAge)?.factor*100).toFixed(1)}% vs. Full Retirement Age (67). Estimates assume both spouses claim at the same age — optimal real-world strategies often stagger.</div>
       <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 14px;">
@@ -4905,6 +4907,22 @@ function generatePlan() {
   document.getElementById('panel-tax').innerHTML = renderTax(p);
   document.getElementById('panel-compare').innerHTML = renderCompare(p);
   document.getElementById('panel-estate').innerHTML = renderEstate(p);
+
+  // Split: move Budget / RMD / SS cards from Financial Overview into the
+  // Retirement Plan tab so each tab has one coherent story.
+  const retirementPanel = document.getElementById('panel-retirement');
+  if (retirementPanel) {
+    const primary = p.input.client.primary || 'client';
+    retirementPanel.innerHTML = `
+      <div class="card" style="border-left: 4px solid var(--gold);">
+        <div class="card-title">Retirement Income Plan</div>
+        <div class="card-sub">Everything about ${primary}'s post-sale cash flow: the budget the portfolio must support, Social Security claiming, and Required Minimum Distributions once age 73 arrives.</div>
+      </div>
+    `;
+    document.querySelectorAll('#panel-financial .move-to-retirement').forEach(card => {
+      retirementPanel.appendChild(card);
+    });
+  }
 
   // Switch to plan view
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'plan'));
