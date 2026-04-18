@@ -5339,26 +5339,26 @@ function renderEstate(p) {
   // of each strategy moves the Legacy numbers (to heirs / to charity / to tax).
   //
   // Sliders are built dynamically from ENABLED estate strategies (d.use.xxx).
-  // If a strategy isn't selected in the plan, no slider appears for it —
-  // the explorer reflects the actual selected plan instead of showing
-  // hard-coded placeholders. Max defaults to 2× current funding with a
-  // floor of 20× step (prevents $0-funded strategies from having unusable
-  // max=$0 sliders).
+  // If a strategy isn't selected in the plan, no slider appears — the
+  // explorer reflects the actual plan instead of showing hard-coded
+  // placeholders. Each slider's max = max(value × 2, per-strategy floor)
+  // so a modestly-funded strategy still has enough upper headroom to let
+  // the advisor explore what would happen with more aggressive funding.
   const sliderCatalog = [
-    d.use.dynasty && { id: 'dynasty', path: 'dynasty.funding', label: 'Dynasty Trust Funding',  value: d.dynasty.funding || 0, step: 1_000_000 },
-    d.use.slat    && { id: 'slat',    path: 'slat.funding',    label: 'SLAT Funding',           value: d.slat.funding    || 0, step: 500_000 },
-    d.use.idgt    && { id: 'idgt',    path: 'idgt.amount',     label: 'IDGT Sale Amount',       value: d.idgt.amount     || 0, step: 500_000 },
-    d.use.grat    && { id: 'grat',    path: 'grat.transfer',   label: `GRAT Transfer (${d.grat.term}-yr)`, value: d.grat.transfer || 0, step: 500_000 },
-    d.use.qprt    && { id: 'qprt',    path: 'qprt.residence',  label: `QPRT Residence (${d.qprt.term}-yr)`, value: d.qprt.residence || 0, step: 250_000 },
-    d.use.ilit    && { id: 'ilit',    path: 'ilit.coverage',   label: 'ILIT Death Benefit',     value: d.ilit.coverage   || 0, step: 500_000 },
-    d.use.crut    && { id: 'crut',    path: 'crut.amount',     label: 'CRUT Contribution',      value: d.crut.amount     || 0, step: 500_000 },
-    d.use.crat    && { id: 'crat',    path: 'crat.amount',     label: 'CRAT Contribution',      value: d.crat.amount     || 0, step: 500_000 },
-    d.use.daf     && { id: 'daf',     path: 'daf.amount',      label: 'DAF Contribution',       value: d.daf.amount      || 0, step: 100_000 },
-    d.use.clt     && { id: 'clt',     path: 'clt.amount',      label: `CLT Contribution (${d.clt.term}-yr)`, value: d.clt.amount || 0, step: 500_000 },
-    d.use.roth    && { id: 'roth',    path: 'roth.amount',     label: 'Roth Conversion Amount', value: d.roth.amount     || 0, step: 100_000 },
+    d.use.dynasty && { id: 'dynasty', path: 'dynasty.funding', label: 'Dynasty Trust Funding',  value: d.dynasty.funding || 0, step: 1_000_000, floor: 50_000_000 },
+    d.use.slat    && { id: 'slat',    path: 'slat.funding',    label: 'SLAT Funding',           value: d.slat.funding    || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.idgt    && { id: 'idgt',    path: 'idgt.amount',     label: 'IDGT Sale Amount',       value: d.idgt.amount     || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.grat    && { id: 'grat',    path: 'grat.transfer',   label: `GRAT Transfer (${d.grat.term || 0}-yr)`, value: d.grat.transfer || 0, step: 500_000, floor: 30_000_000 },
+    d.use.qprt    && { id: 'qprt',    path: 'qprt.residence',  label: `QPRT Residence (${d.qprt.term || 0}-yr)`, value: d.qprt.residence || 0, step: 250_000, floor: 15_000_000 },
+    d.use.ilit    && { id: 'ilit',    path: 'ilit.coverage',   label: 'ILIT Death Benefit',     value: d.ilit.coverage   || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.crut    && { id: 'crut',    path: 'crut.amount',     label: 'CRUT Contribution',      value: d.crut.amount     || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.crat    && { id: 'crat',    path: 'crat.amount',     label: 'CRAT Contribution',      value: d.crat.amount     || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.daf     && { id: 'daf',     path: 'daf.amount',      label: 'DAF Contribution',       value: d.daf.amount      || 0, step: 100_000,   floor: 10_000_000 },
+    d.use.clt     && { id: 'clt',     path: 'clt.amount',      label: `CLT Contribution (${d.clt.term || 0}-yr)`, value: d.clt.amount || 0, step: 500_000, floor: 30_000_000 },
+    d.use.roth    && { id: 'roth',    path: 'roth.amount',     label: 'Roth Conversion Amount', value: d.roth.amount     || 0, step: 100_000,   floor: 10_000_000 },
   ].filter(Boolean).map(s => ({
     ...s,
-    max: Math.max(s.value * 2, s.step * 20),
+    max: Math.max(s.value * 2, s.floor),
   }));
 
   const estateSliders = sliderCatalog;
