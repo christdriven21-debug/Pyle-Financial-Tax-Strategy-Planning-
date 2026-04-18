@@ -4751,6 +4751,11 @@ function renderTax(p) {
     timing: 'One-time funding',
     detail: `${fmt$M(d.clt.amount)} into CLT paying ${fmt$(d.clt.payout)}/yr to charity for ${d.clt.term} years. At ${fmtPct(d.clt.growth*100)} expected growth vs. ${fmtPct(d.clt.hurdle*100)} §7520 hurdle, <strong>${fmt$(p.cltRemainderValue)}</strong> passes to heirs gift-tax-free at term end.`,
   });
+  if (d.use.exch1031) annualPlaybookItems.push({
+    icon: '🏢', title: '§1031 Like-Kind Exchange',
+    timing: '45 days to identify · 180 days to close',
+    detail: `Exchange ${fmt$(d.exch1031.sale)} of investment real estate (basis ${fmt$(d.exch1031.basis)}) into ${fmt$(d.exch1031.replacement)} of replacement property. Defers <strong>${fmt$(p.exch1031Deferred)}</strong> of gain, saving ${fmt$(p.exch1031TaxDeferred)} at ${fmtPct(p.combinedCGRate*100)} combined rate. Basis carries over — deferral, not elimination.`,
+  });
   annualPlaybookItems.push({
     icon: '🎯', title: 'Annual Review Cadence',
     timing: 'Every 12 months',
