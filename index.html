@@ -1582,10 +1582,17 @@
     <!-- PARAMETER BLOCKS (hidden by default; shown when a strategy is checked in the library) -->
     <div class="strategy-block hidden" id="block-dynasty">
       <h4>Dynasty Trust Parameters</h4>
-      <div class="form-grid cols-3">
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Typically funded with <strong>discounted non-voting shares</strong> (LLC/C-Corp/family entity) so the economic value transferred exceeds the reported gift value. Grantor typically retains no income rights; beneficiaries (children/grandchildren) receive the trust. If structured as a <strong>grantor trust</strong>, the grantor pays the trust's income tax each year — an additional tax-free wealth transfer to beneficiaries (Rev. Rul. 2004-64).
+      </p>
+      <div class="form-grid cols-4">
         <div class="field">
-          <label>Trust Funding Amount</label>
+          <label>Trust Funding Amount <span class="hint">(economic value)</span></label>
           <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dt-funding" value="25000000"></div>
+        </div>
+        <div class="field">
+          <label>Valuation Discount <span class="hint">(non-voting + LoM + LoC; 30–40% typical)</span></label>
+          <div class="suffix-pct"><input type="number" id="dt-discount" value="35" step="1"></div>
         </div>
         <div class="field">
           <label>Combined Family Exemption</label>
@@ -1720,8 +1727,12 @@
       <h4>GRAT (Grantor Retained Annuity Trust) Parameters</h4>
       <div class="form-grid cols-3">
         <div class="field">
-          <label>Assets Transferred to GRAT</label>
+          <label>Assets Transferred to GRAT <span class="hint">(economic value)</span></label>
           <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="grat-transfer" value="5000000"></div>
+        </div>
+        <div class="field">
+          <label>Valuation Discount</label>
+          <div class="suffix-pct"><input type="number" id="grat-discount" value="25" step="1"></div>
         </div>
         <div class="field">
           <label>GRAT Term (Years)</label>
@@ -1822,10 +1833,14 @@
         Spouse can request distributions, giving the grantor <em>indirect</em> access while the assets and future growth escape the estate.
         <strong>Reciprocal Trust Doctrine:</strong> if both spouses create SLATs for each other, terms must differ materially or IRS may collapse both back into the estate.
       </p>
-      <div class="form-grid cols-3">
+      <div class="form-grid cols-4">
         <div class="field">
-          <label>SLAT Funding Amount</label>
+          <label>SLAT Funding Amount <span class="hint">(economic value)</span></label>
           <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="slat-funding" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Valuation Discount <span class="hint">(if funded with non-voting shares)</span></label>
+          <div class="suffix-pct"><input type="number" id="slat-discount" value="30" step="1"></div>
         </div>
         <div class="field">
           <label>Expected Annual Growth</label>
@@ -1845,10 +1860,14 @@
         The trust is a grantor trust for income tax (grantor pays tax on trust income, further reducing the estate) but <em>not</em> for estate tax (trust assets outside the estate).
         Appreciation above the AFR transfers to beneficiaries gift-tax-free.
       </p>
-      <div class="form-grid cols-3">
+      <div class="form-grid cols-4">
         <div class="field">
-          <label>Assets Sold to IDGT</label>
+          <label>Assets Sold to IDGT <span class="hint">(economic value)</span></label>
           <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="idgt-amount" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Valuation Discount <span class="hint">(reduces the note face value)</span></label>
+          <div class="suffix-pct"><input type="number" id="idgt-discount" value="30" step="1"></div>
         </div>
         <div class="field">
           <label>AFR on Note</label>
@@ -2799,7 +2818,7 @@ function readForm() {
       exch1031: c('use-1031'), qbi: c('use-qbi'), slat: c('use-slat'), idgt: c('use-idgt'),
       qprt: c('use-qprt'), crut: c('use-crut'), clt: c('use-clt'),
     },
-    dynasty: { funding: n('dt-funding'), exemption: n('dt-exemption'), years: n('dt-years') },
+    dynasty: { funding: n('dt-funding'), exemption: n('dt-exemption'), years: n('dt-years'), discount: n('dt-discount') / 100 },
     crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
     daf: { amount: n('daf-amount') },
     qoz: { defer: n('qoz-defer'), ret: n('qoz-return') / 100, years: n('qoz-years') },
@@ -2810,7 +2829,7 @@ function readForm() {
       payYears: t('ilit-pay-years'),   // string: '1'..'30' or 'life'
     },
     roth: { amount: n('roth-amount'), marginal: n('roth-marginal') / 100, years: n('roth-years') },
-    grat: { transfer: n('grat-transfer'), term: n('grat-term'), hurdle: n('grat-7520') / 100, growth: n('grat-growth') / 100 },
+    grat: { transfer: n('grat-transfer'), term: n('grat-term'), hurdle: n('grat-7520') / 100, growth: n('grat-growth') / 100, discount: n('grat-discount') / 100 },
     qsbs: {
       basis: n('qsbs-basis'),
       yearsHeld: n('qsbs-years'),
@@ -2819,8 +2838,8 @@ function readForm() {
     },
     exch1031: { sale: n('exch-sale'), basis: n('exch-basis'), replacement: n('exch-replacement') },
     qbi: { income: n('qbi-income'), pct: n('qbi-pct') / 100, sstb: t('qbi-sstb') === 'yes' },
-    slat: { funding: n('slat-funding'), growth: n('slat-growth') / 100, years: n('slat-years') },
-    idgt: { amount: n('idgt-amount'), afr: n('idgt-afr') / 100, growth: n('idgt-growth') / 100, term: n('idgt-term') },
+    slat: { funding: n('slat-funding'), growth: n('slat-growth') / 100, years: n('slat-years'), discount: n('slat-discount') / 100 },
+    idgt: { amount: n('idgt-amount'), afr: n('idgt-afr') / 100, growth: n('idgt-growth') / 100, term: n('idgt-term'), discount: n('idgt-discount') / 100 },
     qprt: {
       residence: n('qprt-residence'),
       term:      n('qprt-term'),
@@ -2943,6 +2962,40 @@ function computePlan(d) {
   const dynastyEstateSave = d.use.dynasty ? dyAmt * d.tax.estate : 0;
   const cratEstateSave = d.use.crat ? crAmt * d.tax.estate : 0;
   const dafEstateSave = d.use.daf ? dafAmt * d.tax.estate : 0;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // VALUATION DISCOUNT LEVERAGE
+  //   When a trust is funded with discounted non-voting / minority shares,
+  //   the reported GIFT value is less than the economic value. The "extra"
+  //   economic value transferred (discount × funding) escapes the gift-tax
+  //   exemption — and therefore escapes estate tax at death. This is a
+  //   separate savings stream on top of the basic Dynasty / SLAT / GRAT
+  //   / IDGT estate exclusion already credited elsewhere.
+  //
+  //   Each strategy's discountBenefit = fundedAmount × discount × estateRate
+  //   Also surfaces the exemption-preserved amount so the advisor can see
+  //   how much lifetime exemption is saved for other uses.
+  // ──────────────────────────────────────────────────────────────────────
+  const dynastyDiscountPct = d.use.dynasty ? (d.dynasty.discount || 0) : 0;
+  const dynastyGiftValue   = d.use.dynasty ? dyAmt * (1 - dynastyDiscountPct) : 0; // reported gift amount
+  const dynastyDiscountAmt = d.use.dynasty ? dyAmt * dynastyDiscountPct : 0;        // economic value that "escaped" the gift ledger
+  const dynastyDiscountSave = dynastyDiscountAmt * d.tax.estate;                     // additional estate-tax saving vs. non-discounted transfer
+
+  const slatDiscountPct = d.use.slat ? (d.slat.discount || 0) : 0;
+  const slatGiftValue   = d.use.slat ? d.slat.funding * (1 - slatDiscountPct) : 0;
+  const slatDiscountAmt = d.use.slat ? d.slat.funding * slatDiscountPct : 0;
+  const slatDiscountSave = slatDiscountAmt * d.tax.estate;
+
+  const idgtDiscountPct = d.use.idgt ? (d.idgt.discount || 0) : 0;
+  const idgtGiftValue   = d.use.idgt ? d.idgt.amount * (1 - idgtDiscountPct) : 0;
+  const idgtDiscountAmt = d.use.idgt ? d.idgt.amount * idgtDiscountPct : 0;
+  const idgtDiscountSave = idgtDiscountAmt * d.tax.estate;
+
+  const gratDiscountPct = d.use.grat ? (d.grat.discount || 0) : 0;
+  const gratDiscountAmt = d.use.grat ? d.grat.transfer * gratDiscountPct : 0;
+  const gratDiscountSave = gratDiscountAmt * d.tax.estate;
+
+  const totalDiscountSavings = dynastyDiscountSave + slatDiscountSave + idgtDiscountSave + gratDiscountSave;
 
   // ILIT: moves full death benefit out of the taxable estate
   //   Estate savings = coverage × estate tax rate (unchanged — savings
@@ -3174,7 +3227,8 @@ function computePlan(d) {
   // Total immediate tax savings
   const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave + qsbsTotalSaving
                        + exch1031TaxDeferred + qbiSavings + slatEstateSave + idgtEstateSave
-                       + qprtEstateSave + crutEstateSave + crutIncomeTaxSavings + cltEstateSave;
+                       + qprtEstateSave + crutEstateSave + crutIncomeTaxSavings + cltEstateSave
+                       + totalDiscountSavings;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -3436,6 +3490,11 @@ function computePlan(d) {
     scenarios: comparison,
     cratDeduction, dafDeduction, totalCharitableDed, incomeTaxSavings,
     dynastyEstateSave, cratEstateSave, dafEstateSave, totalEstateSave,
+    dynastyGiftValue, dynastyDiscountAmt, dynastyDiscountSave,
+    slatGiftValue, slatDiscountAmt, slatDiscountSave,
+    idgtGiftValue, idgtDiscountAmt, idgtDiscountSave,
+    gratDiscountAmt, gratDiscountSave,
+    totalDiscountSavings,
     ilitEstateSave, ilitPayYears, ilitTotalPremiums, ilitNetBenefit,
     rothIncomeTax, rothEstateSave, rothNetEstateSave, rothFutureValue, rothGrowthBenefit,
     gratRemainder, gratEstateSave,
@@ -4108,8 +4167,24 @@ function renderTax(p) {
   const d = p.input;
   const items = [];
   if (d.use.dynasty) {
-    items.push({ label: 'Dynasty Trust Estate Tax Savings', value: p.dynastyEstateSave, desc: `${fmt$M(d.dynasty.funding)} Dynasty Trust transfer removes ${fmt$M(d.dynasty.funding)} from taxable estate. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
-    items.push({ label: 'Dynasty Trust Cap Gains Elimination', value: d.dynasty.funding * p.combinedCGRate, desc: `${fmt$M(d.dynasty.funding)} Dynasty Trust share eliminates ${fmt$M(d.dynasty.funding)} capital gain. Saves federal, state, and Medicare taxes.` });
+    const discountLabel = d.dynasty.discount > 0 ? ` @ ${fmtPct(d.dynasty.discount*100)} discount` : '';
+    items.push({
+      label: '① Dynasty — Cap Gains Elimination (at sale)',
+      value: d.dynasty.funding * p.combinedCGRate,
+      desc: `${fmt$M(d.dynasty.funding)} of economic value pre-sale-transferred to Dynasty → removes the same amount from the grantor's capital gain. Federal + state + NIIT tax eliminated: ${fmt$(d.dynasty.funding * p.combinedCGRate)} at ${fmtPct(p.combinedCGRate*100)} combined CG rate.`
+    });
+    items.push({
+      label: '② Dynasty — Estate Tax Savings (at death)',
+      value: p.dynastyEstateSave,
+      desc: `${fmt$M(d.dynasty.funding)} + all future appreciation lives permanently outside the taxable estate. Estate-tax saving on the base contribution: ${fmt$(p.dynastyEstateSave)} at ${fmtPct(d.tax.estate*100)}. Actual saving compounds much larger via growth (see Multi-Year Estate Growth card).`
+    });
+    if (p.dynastyDiscountSave > 0) {
+      items.push({
+        label: '③ Dynasty — Valuation Discount Leverage',
+        value: p.dynastyDiscountSave,
+        desc: `Funded with non-voting shares${discountLabel}: ${fmt$M(d.dynasty.funding)} of economic value was reported as a ${fmt$M(p.dynastyGiftValue)} gift → ${fmt$M(p.dynastyDiscountAmt)} of extra economic value transferred without consuming lifetime exemption. That "free" transfer escapes estate tax at ${fmtPct(d.tax.estate*100)} → additional ${fmt$(p.dynastyDiscountSave)} saved. Preserves exemption for other gifts.`
+      });
+    }
   }
   if (d.use.crat) {
     items.push({ label: 'CRAT Cap Gains Elimination', value: d.crat.amount * p.combinedCGRate, desc: `${fmt$M(d.crat.amount)} CRAT contribution eliminates capital gains tax on ${fmt$M(d.crat.amount)} of appreciated business assets.` });
@@ -4175,6 +4250,13 @@ function renderTax(p) {
       value: p.slatEstateSave,
       desc: `${fmt$M(d.slat.funding)} into SLAT removes ${fmt$M(d.slat.funding)} + ${fmt$(p.slatGrowth)} future growth from taxable estate. ${fmtPct(d.slat.growth*100)} compounded over ${d.slat.years} years → ${fmt$(p.slatFutureValue)} to heirs free of estate tax. Spouse retains indirect access.`
     });
+    if (p.slatDiscountSave > 0) {
+      items.push({
+        label: `SLAT — Valuation Discount Leverage`,
+        value: p.slatDiscountSave,
+        desc: `Non-voting-share funding @ ${fmtPct(d.slat.discount*100)} discount: ${fmt$M(d.slat.funding)} of economic value transferred, only ${fmt$M(p.slatGiftValue)} reported as gift. Additional ${fmt$(p.slatDiscountSave)} of estate-tax saving from the "free" ${fmt$M(p.slatDiscountAmt)} transfer.`
+      });
+    }
   }
   if (d.use.idgt) {
     items.push({
@@ -4182,6 +4264,13 @@ function renderTax(p) {
       value: p.idgtEstateSave,
       desc: `Sell ${fmt$M(d.idgt.amount)} to IDGT for AFR-rate note (${fmtPct(d.idgt.afr*100)}). Over ${d.idgt.term} years at ${fmtPct(d.idgt.growth*100)} growth, ${fmt$(p.idgtTransferred)} transfers to beneficiaries gift-tax-free. Estate savings at ${fmtPct(d.tax.estate*100)}.`
     });
+    if (p.idgtDiscountSave > 0) {
+      items.push({
+        label: `IDGT — Valuation Discount Leverage`,
+        value: p.idgtDiscountSave,
+        desc: `Sale at ${fmtPct(d.idgt.discount*100)} discount: ${fmt$M(d.idgt.amount)} of economic value transferred for a ${fmt$M(p.idgtGiftValue)} installment note. Additional ${fmt$(p.idgtDiscountSave)} of estate-tax saving from the ${fmt$M(p.idgtDiscountAmt)} "discount bonus" wealth transfer.`
+      });
+    }
   }
   if (d.use.qprt) {
     const survivalPct = (p.qprtMortalityProb * 100).toFixed(1);
@@ -4253,6 +4342,7 @@ function renderTax(p) {
         ${d.use.slat ? `• SLAT Estate Tax Savings: ${fmt$(p.slatEstateSave)} (+${fmt$(p.slatGrowth)} tax-free growth)<br>` : ''}
         ${d.use.idgt ? `• IDGT Estate Freeze: ${fmt$(p.idgtEstateSave)} (${fmt$(p.idgtTransferred)} transferred)<br>` : ''}
         ${d.use.qprt ? `• QPRT (${d.qprt.term}-yr term): ${fmt$(p.qprtEstateSave)} estate savings · taxable gift today: ${fmt$(p.qprtTaxableGift)}<br>` : ''}
+        ${p.totalDiscountSavings > 0 ? `• <strong>Valuation Discount Leverage:</strong> ${fmt$(p.totalDiscountSavings)} (Dynasty ${p.dynastyDiscountSave > 0 ? fmt$(p.dynastyDiscountSave) : '—'} · SLAT ${p.slatDiscountSave > 0 ? fmt$(p.slatDiscountSave) : '—'} · IDGT ${p.idgtDiscountSave > 0 ? fmt$(p.idgtDiscountSave) : '—'} · GRAT ${p.gratDiscountSave > 0 ? fmt$(p.gratDiscountSave) : '—'})<br>` : ''}
         ${d.use.crut ? `• CRUT Total Benefits: ${fmt$(d.crut.amount * p.combinedCGRate + p.crutIncomeTaxSavings + p.crutEstateSave)} (CG elim + charitable ded + estate)<br>` : ''}
         ${d.use.clt ? `• CLT Estate Savings (${d.clt.term}-yr): ${fmt$(p.cltEstateSave)} (${fmt$(p.cltRemainderValue)} remainder to heirs)<br>` : ''}
         ${d.use.qoz ? `• QOZ Deferral: ${fmt$(p.scenarios.scenAll.qozDeferred)} (plus tax-free appreciation)<br>` : ''}
@@ -5657,18 +5747,18 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
       'client-pnw','client-other','biz-income',
-      'dt-funding','dt-exemption','dt-years',
+      'dt-funding','dt-exemption','dt-years','dt-discount',
       'crat-amount','crat-rate','crat-ded',
       'daf-amount',
       'qoz-defer','qoz-return','qoz-years',
       'ilit-coverage','ilit-premium','ilit-years','ilit-pay-years',
       'roth-amount','roth-marginal','roth-years',
-      'grat-transfer','grat-term','grat-7520','grat-growth',
+      'grat-transfer','grat-term','grat-7520','grat-growth','grat-discount',
       'qsbs-basis','qsbs-years','qsbs-excl','qsbs-state-conforms',
       'exch-sale','exch-basis','exch-replacement',
       'qbi-income','qbi-pct','qbi-sstb',
-      'slat-funding','slat-growth','slat-years',
-      'idgt-amount','idgt-afr','idgt-growth','idgt-term',
+      'slat-funding','slat-growth','slat-years','slat-discount',
+      'idgt-amount','idgt-afr','idgt-growth','idgt-term','idgt-discount',
       'qprt-residence','qprt-term','qprt-7520','qprt-age','qprt-growth','qprt-type',
       'crut-amount','crut-rate','crut-ded',
       'clt-amount','clt-payout','clt-term','clt-7520','clt-growth',

@@ -82,7 +82,11 @@
       "budget-safe-rate": "4",
       "firm-name": "Pyle Financial Services, Inc",
       "firm-tag": "Aligning Wealth with Purpose",
-      "ilit-pay-years": "10"
+      "ilit-pay-years": "10",
+      "dt-discount": "35",
+      "slat-discount": "30",
+      "idgt-discount": "30",
+      "grat-discount": "25"
     },
     "checkboxes": {
       "use-dynasty": false,
