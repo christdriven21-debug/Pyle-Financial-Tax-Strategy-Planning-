@@ -1220,6 +1220,12 @@
         <option value="samples/03-okonkwo-service-sstb.json">Okonkwo — Dual-Professional (SSTB)</option>
       </select>
     </div>
+    <div class="cb-group team-only">
+      <span class="cb-label">Schwab:</span>
+      <button class="btn btn-secondary btn-sm" id="btn-schwab-connect" title="Connect your Schwab API credentials (Vercel env vars required)">Connect Schwab</button>
+      <button class="btn btn-gold btn-sm" id="btn-schwab-pull" title="Pull account balances from Schwab and populate the plan">Pull Balances</button>
+      <button class="btn btn-secondary btn-sm" id="btn-schwab-disconnect" title="Clear Schwab token cookie">Disconnect</button>
+    </div>
     <div class="cb-status" id="cloud-status">Connecting…</div>
   </div>
 
@@ -5230,6 +5236,48 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       loadSampleFromURL(e.target.value);
       e.target.value = ''; // reset so the same sample can be re-picked later
     });
+  }
+
+  /* ---- Schwab custodian integration ----
+     Connect: redirects to Schwab OAuth via our /api/schwab/authorize
+     Pull Balances: fetches /api/schwab/accounts and populates client-pnw + client-other
+     Disconnect: clears the server-side cookie
+  */
+  const btnSchwabConnect = document.getElementById('btn-schwab-connect');
+  const btnSchwabPull    = document.getElementById('btn-schwab-pull');
+  const btnSchwabDisc    = document.getElementById('btn-schwab-disconnect');
+  if (btnSchwabConnect) btnSchwabConnect.addEventListener('click', () => {
+    const returnTo = location.pathname + (location.search || '');
+    location.href = '/api/schwab/authorize?return_to=' + encodeURIComponent(returnTo);
+  });
+  if (btnSchwabDisc) btnSchwabDisc.addEventListener('click', async () => {
+    await fetch('/api/schwab/disconnect', { method: 'POST' });
+    setStatus('Schwab disconnected', 'ok');
+  });
+  if (btnSchwabPull) btnSchwabPull.addEventListener('click', async () => {
+    setStatus('Pulling Schwab balances…');
+    const resp = await fetch('/api/schwab/accounts');
+    if (resp.status === 401) {
+      setStatus('Not connected to Schwab — click Connect first', 'err');
+      return;
+    }
+    if (!resp.ok) {
+      setStatus('Schwab pull failed (HTTP ' + resp.status + ')', 'err');
+      return;
+    }
+    const body = await resp.json();
+    const total = body.totalLiquidationValue || 0;
+    // Populate "Pre-Sale Net Worth" with the aggregate liquidation value.
+    // Advisor can refine breakdown manually; this gives a starting point.
+    const pnwEl = document.getElementById('client-pnw');
+    if (pnwEl) { pnwEl.value = String(Math.round(total)); pnwEl.dispatchEvent(new Event('input')); }
+    if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
+    setStatus(`Schwab: pulled ${body.accounts?.length || 0} account(s) · total ${'$' + Math.round(total).toLocaleString()}`, 'ok');
+  });
+
+  // On page load, if we just came back from Schwab auth, show confirmation
+  if (new URLSearchParams(location.search).get('schwab') === 'connected') {
+    setTimeout(() => setStatus('Schwab connected ✓ — click "Pull Balances" to populate the plan', 'ok'), 500);
   }
   const pfpInput = document.getElementById('precisefp-input');
   document.getElementById('btn-precisefp-import').addEventListener('click', () => pfpInput.click());
