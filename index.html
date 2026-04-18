@@ -829,12 +829,105 @@
     table.plan-table { page-break-inside: avoid; }
   }
 
+  /* Make all data tables horizontally scrollable on narrow screens */
+  .plan-table,
+  .tax-table,
+  table.plan-table,
+  table.wealth-table,
+  table.tax-table,
+  .table-wrap { max-width: 100%; }
+  .plan-content table,
+  .tab-panel table { min-width: 100%; }
+
+  /* ===== TABLET: < 900px ===== */
   @media (max-width: 900px) {
-    .two-col, .three-col, .form-grid.cols-2, .form-grid.cols-3, .form-grid.cols-4 { grid-template-columns: 1fr; }
+    html { -webkit-text-size-adjust: 100%; }
+    body { overflow-x: hidden; }
+    .two-col, .three-col,
+    .form-grid.cols-2, .form-grid.cols-3, .form-grid.cols-4 { grid-template-columns: 1fr; }
     .params-bar .grid { grid-template-columns: 1fr 1fr; }
     .page { padding: 20px; }
     .plan-content { padding: 20px; }
     .brand-bar, .plan-header { padding: 16px 20px; flex-direction: column; text-align: center; gap: 12px; }
+    .brand-right { text-align: center; }
+    .brand-logo img { height: 56px; }
+    .plan-header .logo-box { width: 220px; min-height: 90px; }
+    .plan-header .title-block h1 { font-size: 22px; }
+    .plan-header .title-block .subtitle { font-size: 13px; }
+    .form-section { padding: 20px 18px; }
+    .section-title { font-size: 17px; }
+    .mode-nav { padding: 0 12px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+    .mode-btn { padding: 12px 18px; font-size: 12px; letter-spacing: 1px; flex-shrink: 0; }
+    .plan-tabs { overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+    .plan-tab { flex-shrink: 0; }
+    .plan-actions { flex-wrap: wrap; gap: 8px; padding: 12px; }
+    .action-row { flex-wrap: wrap; }
+    .cloud-bar { padding: 12px 14px; gap: 10px; }
+    .cloud-bar input[type="text"] { min-width: 160px; flex: 1; }
+    .cloud-bar .cb-status { margin-left: 0; width: 100%; }
+    .cloud-bar .cb-group { flex-wrap: wrap; }
+    .auth-bar { padding: 10px 16px; flex-wrap: wrap; row-gap: 6px; }
+    .auth-bar input[type="email"] { min-width: 160px; flex: 1; }
+    .auth-bar .auth-msg { margin-left: 0; width: 100%; text-align: left; }
+    /* Any data table becomes horizontally scrollable on narrow viewports
+       (block display + overflow is the standard responsive-table pattern). */
+    table.plan-table {
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    table.plan-table tbody,
+    table.plan-table thead,
+    table.plan-table tr { white-space: nowrap; }
+  }
+
+  /* ===== PHONE: < 600px ===== */
+  @media (max-width: 600px) {
+    .page { padding: 14px 12px; }
+    .plan-content { padding: 14px 12px; }
+    .brand-bar { padding: 12px 14px; }
+    .brand-logo img { height: 48px; }
+    .brand-right { font-size: 10px; letter-spacing: 2px; }
+    .brand-right .motto { font-size: 8px; }
+    .plan-header { padding: 14px; }
+    .plan-header .logo-box { width: 100%; max-width: 280px; }
+    .plan-header .title-block h1 { font-size: 18px; }
+    .plan-header .title-block .subtitle { font-size: 12px; }
+    .builder-intro h1 { font-size: 24px; }
+    .builder-intro p { font-size: 13px; }
+    .form-section { padding: 16px 14px; margin-bottom: 14px; }
+    .section-number { width: 28px; height: 28px; font-size: 12px; }
+    .section-title { font-size: 15px; }
+    .section-help { font-size: 11px; }
+    .field label { font-size: 10px; }
+    .field input, .field select { font-size: 16px; padding: 10px 12px; }
+    .field .prefix-input input { padding-left: 26px; }
+    .strategy-toggle { padding: 12px 14px; }
+    .strategy-toggle .name { font-size: 13px; }
+    .strategy-toggle .desc { font-size: 11px; display: block; margin-top: 2px; }
+    .strategy-block { padding: 14px; }
+    .btn { padding: 12px 20px; font-size: 12px; letter-spacing: 1px; }
+    .btn-sm { padding: 10px 14px; font-size: 10px; }
+    .action-row { padding: 16px; gap: 10px; }
+    .action-row .btn { flex: 1 1 100%; }
+    .plan-actions .btn { flex: 1 1 calc(50% - 4px); }
+    .mode-btn { padding: 11px 14px; font-size: 11px; letter-spacing: 0.8px; }
+    .plan-tab { padding: 10px 14px; font-size: 11px; }
+    /* Stat card densification: 2-up on phones */
+    .stat-grid,
+    .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+    .stat-card { padding: 12px !important; }
+    .stat-card .value { font-size: 18px !important; }
+    .stat-card .label { font-size: 9px !important; }
+    /* Compact tables */
+    .plan-content table,
+    .tab-panel table { font-size: 11px; }
+    .plan-content th, .plan-content td,
+    .tab-panel th, .tab-panel td { padding: 6px 8px !important; }
+    /* Chart containers */
+    .chart-container { height: 280px !important; }
   }
 </style>
 </head>
