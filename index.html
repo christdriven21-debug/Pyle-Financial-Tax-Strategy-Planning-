@@ -140,18 +140,42 @@
   .timeline {
     position: relative;
     margin: 40px 20px 20px;
-    height: 160px;
+    height: 180px;
   }
+  .timeline-phase-bg {
+    position: absolute;
+    top: 72px; bottom: 72px;
+    opacity: 0.12;
+    border-radius: 3px;
+    pointer-events: none;
+  }
+  .timeline-phase-bg.pre-tx       { background: var(--gold-dark); }
+  .timeline-phase-bg.tx-day       { background: var(--crimson); }
+  .timeline-phase-bg.post-tx      { background: var(--success); }
+  .timeline-phase-label {
+    position: absolute;
+    top: 0;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    pointer-events: none;
+    text-align: center;
+  }
+  .timeline-phase-label.pre-tx  { color: var(--gold-dark); }
+  .timeline-phase-label.tx-day  { color: var(--crimson); }
+  .timeline-phase-label.post-tx { color: var(--success); }
   .timeline-axis {
     position: absolute;
-    left: 0; right: 0; top: 80px;
+    left: 0; right: 0; top: 100px;
     height: 3px;
     background: linear-gradient(to right, var(--gold-dark), var(--gold), var(--gold-dark));
     border-radius: 2px;
   }
   .timeline-dot {
     position: absolute;
-    top: 72px;
+    top: 92px;
     width: 18px; height: 18px;
     border-radius: 50%;
     background: var(--crimson);
@@ -184,8 +208,8 @@
     color: var(--ink);
     font-weight: 500;
   }
-  .timeline-label.above { top: 0; }
-  .timeline-label.below { bottom: 0; }
+  .timeline-label.above { top: 18px; }
+  .timeline-label.below { bottom: 18px; }
   @media (max-width: 900px) {
     .timeline { overflow-x: auto; min-width: 100%; }
     .timeline-inner { min-width: 900px; position: relative; height: 160px; }
@@ -3769,19 +3793,35 @@ function renderTransaction(p) {
   // Deduplicate + sort by yr
   events.sort((a, b) => a.yr - b.yr);
 
-  // Render: position dots proportionally along the horizon
+  // Render: position dots proportionally along the horizon.
+  // Phase zones: Pre-Transaction = the 6-12 months of prep BEFORE year 0,
+  // represented as a 5% left sliver. Transaction Day = narrow ~3% at the
+  // boundary. Post-Transaction = the bulk of the horizon.
   const timelineHTML = horizon > 0 ? `
     <div class="card" style="border-left: 4px solid var(--gold);">
       <div class="card-title">Life Timeline — ${horizon}-Year Plan Horizon</div>
-      <div class="card-sub">Major events across the plan's lifespan, from sale day through ${spouseAge > 0 ? 'the joint life expectancy endpoint' : 'your planning horizon'}.</div>
+      <div class="card-sub">Three phases: <strong style="color: var(--gold-dark);">Pre-Transaction</strong> prep (6–12 months before sale day) → <strong style="color: var(--crimson);">Transaction Day</strong> (the sale closes) → <strong style="color: var(--success);">Post-Transaction</strong> deployment and lifelong tax planning through ${spouseAge > 0 ? 'joint life expectancy' : 'plan horizon'}.</div>
       <div class="timeline">
+        <!-- Phase background zones -->
+        <div class="timeline-phase-bg pre-tx"  style="left: 0; width: 5%;"></div>
+        <div class="timeline-phase-bg tx-day"  style="left: 5%; width: 3%;"></div>
+        <div class="timeline-phase-bg post-tx" style="left: 8%; right: 0;"></div>
+
+        <!-- Phase labels above -->
+        <div class="timeline-phase-label pre-tx"  style="left: 0; width: 5%;">Pre-Tx</div>
+        <div class="timeline-phase-label tx-day"  style="left: 5%; width: 3%; white-space: nowrap;">Sale</div>
+        <div class="timeline-phase-label post-tx" style="left: 8%; right: 0;">Post-Transaction Planning</div>
+
         <div class="timeline-axis"></div>
         ${events.map((e, i) => {
-          const pct = Math.max(2, Math.min(98, (e.yr / horizon) * 100));
+          // Events at year 0 live in the "Sale" zone visually (6.5% position)
+          // Events after year 0 distribute across the 8–100% post-tx range
+          const pct = e.yr === 0 ? 6.5 : 8 + ((e.yr / horizon) * 92);
+          const clampedPct = Math.max(2, Math.min(98, pct));
           const above = i % 2 === 0;
           return `
-            <div class="timeline-dot ${e.type}" style="left: ${pct}%;" title="${e.year}: ${e.label}"></div>
-            <div class="timeline-label ${above ? 'above' : 'below'}" style="left: ${pct}%;">
+            <div class="timeline-dot ${e.type}" style="left: ${clampedPct}%;" title="${e.year}: ${e.label}"></div>
+            <div class="timeline-label ${above ? 'above' : 'below'}" style="left: ${clampedPct}%;">
               <span class="yr">${e.year}${e.yr > 0 ? ` · Y${e.yr}` : ''}</span>
               <span class="ev">${e.label}</span>
             </div>
@@ -3790,6 +3830,7 @@ function renderTransaction(p) {
       </div>
       <div style="margin-top: 16px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
         <strong>Reading the timeline:</strong> <span style="color: var(--crimson);">●</span> crimson = tax or decision event · <span style="color: var(--gold-dark);">●</span> gold = funding or income milestone · <span style="color: var(--success);">●</span> green = tax-free wealth-transfer checkpoint.
+        See the <strong>Pre-Transaction Playbook</strong> below for the prep work in the left sliver, and the <strong>Post-Transaction Playbook</strong> for the full list of post-sale action items.
       </div>
     </div>
   ` : '';
