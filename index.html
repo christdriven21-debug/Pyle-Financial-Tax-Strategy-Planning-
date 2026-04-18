@@ -3114,9 +3114,17 @@ function computePlan(d) {
   // ──────────────────────────────────────────────────────────────────────
   // Federal estate tax — with portability (DSUE) optionally doubling the
   // exemption for a surviving spouse who properly elected.
+  //
+  // Without-planning baseline includes the full death benefit since
+  // absent an ILIT the policy is owned by the insured (or paid to the
+  // estate) and fully includible under §2042. With-planning the ILIT's
+  // death benefit lives in trust — outside the estate — so it's NOT added.
+  // This is what makes ILIT changes flow through to this card.
   // ──────────────────────────────────────────────────────────────────────
   const fedEstateExemption = d.tax.estateExempt * (d.tax.portability ? 2 : 1);
-  const taxableEstateNoPlan = Math.max(0, preSaleNW + salePrice - scenNone.totalCGTax - fedEstateExemption);
+  // Future death benefit that would be in the estate if no ILIT
+  const ilitDeathBenefitIfNoPlan = d.use.ilit ? d.ilit.coverage : 0;
+  const taxableEstateNoPlan = Math.max(0, preSaleNW + salePrice - scenNone.totalCGTax + ilitDeathBenefitIfNoPlan - fedEstateExemption);
   const estateTaxNoPlan = taxableEstateNoPlan * d.tax.estate;
   const taxableEstateWithPlan = Math.max(0, withPlanningTotal - fedEstateExemption);
   const estateTaxWithPlan = taxableEstateWithPlan * d.tax.estate;
@@ -3136,7 +3144,7 @@ function computePlan(d) {
   let stateEstateTaxNoPlan    = 0;
   let stateEstateTaxWithPlan  = 0;
   if (stateEstateTaxed) {
-    const noPlanEstate   = preSaleNW + salePrice - scenNone.totalCGTax;
+    const noPlanEstate   = preSaleNW + salePrice - scenNone.totalCGTax + ilitDeathBenefitIfNoPlan;
     const withPlanEstate = withPlanningTotal;
     // NY cliff: if estate exceeds 105% of exemption, entire estate is taxable
     const applyTax = (estate) => {
