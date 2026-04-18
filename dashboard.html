@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pyle Financial — Firm Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./config.js"></script>
+<style>
+  :root {
+    --cream: #F5F1E8; --cream-light: #FBF8F0; --cream-panel: #FFFFFF;
+    --gold: #C9A961; --gold-dark: #8B7640;
+    --crimson: #8B1A1A; --crimson-light: #A42E2E;
+    --ink: #1A1A1A; --ink-soft: #3A3A3A; --muted: #6B6B6B;
+    --border: #D4C9A8; --border-soft: #E8DFC8;
+    --success: #2D6A4F;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Georgia', serif; background: var(--cream); color: var(--ink); line-height: 1.5; }
+
+  .brand-bar {
+    background: var(--cream-panel); border-bottom: 2px solid var(--gold);
+    padding: 20px 40px; display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(139, 118, 64, 0.08);
+  }
+  .brand-logo img { height: 72px; }
+  .brand-right { color: var(--gold-dark); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; text-align: right; font-style: italic; }
+  .brand-right a { display: block; color: var(--crimson); text-decoration: none; margin-top: 6px; font-size: 12px; letter-spacing: 1px; font-style: normal; }
+  .brand-right a:hover { text-decoration: underline; }
+
+  .auth-bar {
+    background: #FBF8F0; border-bottom: 1px solid var(--border-soft);
+    padding: 10px 40px; display: flex; align-items: center; gap: 12px;
+    font-family: 'Helvetica Neue', sans-serif; font-size: 12px;
+  }
+  .auth-bar input[type="email"] { padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; min-width: 220px; }
+  .auth-bar .msg { margin-left: auto; color: var(--muted); font-style: italic; }
+  .auth-bar .msg.ok { color: var(--success); font-style: normal; }
+  .auth-bar .msg.err { color: var(--crimson); font-style: normal; }
+  .auth-bar .role { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-left: 4px; }
+  .auth-bar .role.team { background: var(--gold); color: var(--ink); }
+
+  .btn { padding: 8px 16px; font-family: 'Helvetica Neue', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; border: none; border-radius: 4px; cursor: pointer; }
+  .btn-gold { background: var(--gold); color: var(--ink); border: 1px solid var(--gold-dark); }
+  .btn-secondary { background: transparent; color: var(--crimson); border: 2px solid var(--crimson); }
+
+  main { max-width: 1400px; margin: 0 auto; padding: 32px 40px; }
+  h1 { font-size: 32px; letter-spacing: 1px; margin-bottom: 6px; }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 28px; font-style: italic; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .kpi-card {
+    background: var(--cream-panel); border: 1px solid var(--border); border-left: 4px solid var(--gold);
+    border-radius: 6px; padding: 18px 20px;
+  }
+  .kpi-card.crimson { border-left-color: var(--crimson); }
+  .kpi-card.success { border-left-color: var(--success); }
+  .kpi-card .label { font-family: 'Helvetica Neue', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .kpi-card .value { font-size: 28px; color: var(--ink); font-weight: 700; }
+  .kpi-card .sub { font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic; }
+
+  .card {
+    background: var(--cream-panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 24px 28px; margin-bottom: 24px;
+  }
+  .card-title { font-size: 20px; color: var(--crimson); font-weight: 700; margin-bottom: 6px; }
+  .card-sub { font-size: 13px; color: var(--muted); font-style: italic; margin-bottom: 18px; }
+
+  table { width: 100%; border-collapse: collapse; font-family: 'Helvetica Neue', sans-serif; font-size: 13px; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-soft); }
+  th { background: var(--cream-light); color: var(--gold-dark); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700; cursor: pointer; user-select: none; }
+  th:hover { color: var(--crimson); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:hover { background: var(--cream-light); }
+  tr a { color: var(--crimson); text-decoration: none; font-weight: 600; }
+  tr a:hover { text-decoration: underline; }
+  .strategy-pill { display: inline-block; padding: 1px 6px; background: var(--cream-light); border: 1px solid var(--border-soft); border-radius: 8px; font-size: 10px; color: var(--ink-soft); margin: 1px 2px; }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state h3 { color: var(--ink); margin-bottom: 10px; }
+
+  .filter-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-bar input, .filter-bar select {
+    padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-family: inherit; font-size: 13px; background: var(--cream-light);
+  }
+  .filter-bar input[type="search"] { min-width: 240px; }
+</style>
+</head>
+<body>
+
+<header class="brand-bar">
+  <div class="brand-logo"><img src="./assets/pyle-logo.png" alt="Pyle Financial Services, Inc"></div>
+  <div class="brand-right">
+    Firm Dashboard
+    <a href="./">← Back to Plan Builder</a>
+  </div>
+</header>
+
+<div class="auth-bar">
+  <div id="auth-signed-out">
+    <span>Sign in with your @pfs4u.com email:</span>
+    <input type="email" id="auth-email" placeholder="your@pfs4u.com">
+    <button class="btn btn-gold" id="btn-signin">Send Magic Link</button>
+  </div>
+  <div id="auth-signed-in" style="display:none;">
+    <span>Signed in:</span>
+    <strong id="user-email"></strong>
+    <span class="role team">TEAM</span>
+    <button class="btn btn-secondary" id="btn-signout">Sign Out</button>
+  </div>
+  <div class="msg" id="auth-msg"></div>
+</div>
+
+<main id="dashboard-body" style="display:none;">
+  <h1>Firm Dashboard</h1>
+  <div class="subtitle">Aggregate view across all client plans visible to the team.</div>
+
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <div class="card">
+    <div class="card-title">All Plans</div>
+    <div class="card-sub">Click a plan name to open it in the builder.</div>
+    <div class="filter-bar">
+      <input type="search" id="filter-search" placeholder="Search client name or email…">
+      <select id="filter-year"><option value="">All years</option></select>
+      <select id="filter-strategy">
+        <option value="">All strategies</option>
+        <option value="dynasty">Dynasty Trust</option>
+        <option value="crat">CRAT</option>
+        <option value="daf">DAF</option>
+        <option value="qoz">QOZ</option>
+        <option value="qsbs">QSBS</option>
+        <option value="ilit">ILIT</option>
+        <option value="roth">Roth Conversion</option>
+        <option value="grat">GRAT</option>
+        <option value="1031">§1031</option>
+        <option value="qbi">QBI</option>
+        <option value="slat">SLAT</option>
+        <option value="idgt">IDGT</option>
+        <option value="qprt">QPRT</option>
+        <option value="crut">CRUT</option>
+        <option value="clt">CLT</option>
+      </select>
+    </div>
+    <div id="plans-table-wrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Strategy Adoption</div>
+    <div class="card-sub">How often each strategy appears across the firm's active plans.</div>
+    <div id="adoption-table-wrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Recent Activity</div>
+    <div class="card-sub">Last 20 plan saves, edits, and review posts.</div>
+    <div id="activity-wrap"></div>
+  </div>
+</main>
+
+<div id="not-team-msg" style="display:none; text-align:center; padding:60px 20px; color: var(--muted);">
+  <h3 style="color: var(--crimson); margin-bottom: 10px;">Team-Only Area</h3>
+  <p>The Firm Dashboard is restricted to team accounts (@pfs4u.com).<br>
+  Clients should use the main <a href="./" style="color: var(--crimson);">Plan Builder</a> to view their plan.</p>
+</div>
+
+<script>
+const cfg = window.__PYLE_CONFIG__ || {};
+const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+  auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
+});
+const TEAM_DOMAIN = (cfg.TEAM_DOMAIN || 'pfs4u.com').toLowerCase();
+
+const $ = id => document.getElementById(id);
+const fmt$ = n => '$' + Math.round(n || 0).toLocaleString();
+
+function setAuthMsg(m, kind) {
+  const el = $('auth-msg');
+  el.className = 'msg' + (kind ? ' ' + kind : '');
+  el.textContent = m || '';
+}
+
+function emailIsTeam(email) {
+  return email && email.split('@')[1]?.toLowerCase() === TEAM_DOMAIN;
+}
+
+async function signIn() {
+  const email = $('auth-email').value.trim();
+  if (!email) return;
+  setAuthMsg('Sending magic link…');
+  const { error } = await sb.auth.signInWithOtp({
+    email, options: { emailRedirectTo: location.origin + '/dashboard.html' },
+  });
+  if (error) setAuthMsg('Sign-in failed: ' + error.message, 'err');
+  else setAuthMsg('Check your email for the sign-in link', 'ok');
+}
+
+async function signOut() { await sb.auth.signOut(); location.reload(); }
+
+$('btn-signin').addEventListener('click', signIn);
+$('auth-email').addEventListener('keydown', e => { if (e.key === 'Enter') signIn(); });
+$('btn-signout').addEventListener('click', signOut);
+
+sb.auth.onAuthStateChange(() => init());
+
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  const email = session?.user?.email;
+  if (!email) {
+    $('auth-signed-out').style.display = '';
+    $('auth-signed-in').style.display = 'none';
+    $('dashboard-body').style.display = 'none';
+    $('not-team-msg').style.display = 'none';
+    return;
+  }
+  $('auth-signed-out').style.display = 'none';
+  $('auth-signed-in').style.display = '';
+  $('user-email').textContent = email;
+
+  if (!emailIsTeam(email)) {
+    $('dashboard-body').style.display = 'none';
+    $('not-team-msg').style.display = '';
+    return;
+  }
+
+  $('not-team-msg').style.display = 'none';
+  $('dashboard-body').style.display = '';
+  await loadDashboard();
+}
+
+async function loadDashboard() {
+  // Fetch all plans visible to this team account (RLS handles filtering)
+  const { data: plans, error } = await sb.from('plans')
+    .select('id,name,client_email,data,owner_id,created_at,updated_at')
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    $('plans-table-wrap').innerHTML = `<p style="color:var(--crimson)">Failed to load plans: ${error.message}</p>`;
+    return;
+  }
+  const rows = plans || [];
+
+  // Compute aggregates
+  let totalSalePrice = 0, totalNetWorth = 0, totalBudget = 0, byYear = {}, byStrategy = {};
+  rows.forEach(p => {
+    const v = p.data?.values || {};
+    const c = p.data?.checkboxes || {};
+    totalSalePrice += parseMoney(v['biz-sale']);
+    totalNetWorth  += parseMoney(v['client-pnw']) + parseMoney(v['client-other']);
+    totalBudget    += parseMoney(v['budget-fixed']) + parseMoney(v['budget-variable']) + parseMoney(v['budget-taxes']);
+    const yr = v['client-year'] || '—';
+    byYear[yr] = (byYear[yr] || 0) + 1;
+    Object.entries(c).forEach(([k, on]) => {
+      if (on && k.startsWith('use-')) {
+        const key = k.slice(4);
+        byStrategy[key] = (byStrategy[key] || 0) + 1;
+      }
+    });
+  });
+
+  // KPIs
+  $('kpi-row').innerHTML = `
+    <div class="kpi-card"><div class="label">Total Plans</div><div class="value">${rows.length}</div><div class="sub">${Object.keys(byYear).length} year(s) represented</div></div>
+    <div class="kpi-card crimson"><div class="label">Aggregate Business Sale Value</div><div class="value">${fmt$(totalSalePrice)}</div><div class="sub">Sum across all plans' biz-sale inputs</div></div>
+    <div class="kpi-card success"><div class="label">Aggregate Client Net Worth</div><div class="value">${fmt$(totalNetWorth)}</div><div class="sub">Pre-sale NW + other assets</div></div>
+    <div class="kpi-card"><div class="label">Aggregate Annual Budget</div><div class="value">${fmt$(totalBudget)}</div><div class="sub">Fixed + variable + taxes</div></div>
+  `;
+
+  // Year filter options
+  const yrSel = $('filter-year');
+  yrSel.innerHTML = '<option value="">All years</option>' +
+    Object.keys(byYear).sort().map(y => `<option value="${y}">${y} (${byYear[y]})</option>`).join('');
+
+  // Plans table
+  window.__ALL_PLANS__ = rows;
+  renderPlansTable();
+
+  // Filter wiring
+  ['filter-search', 'filter-year', 'filter-strategy'].forEach(id => {
+    $(id).addEventListener('input', renderPlansTable);
+    $(id).addEventListener('change', renderPlansTable);
+  });
+
+  // Strategy adoption table
+  renderAdoptionTable(byStrategy, rows.length);
+
+  // Recent activity
+  renderActivity(rows.slice(0, 20));
+}
+
+function parseMoney(s) { return parseFloat(String(s || '0').replace(/[^0-9.-]/g, '')) || 0; }
+
+function renderPlansTable() {
+  const q = $('filter-search').value.trim().toLowerCase();
+  const year = $('filter-year').value;
+  const strat = $('filter-strategy').value;
+  const rows = window.__ALL_PLANS__ || [];
+
+  const filtered = rows.filter(p => {
+    const v = p.data?.values || {};
+    const c = p.data?.checkboxes || {};
+    const name = (p.name || '').toLowerCase();
+    const primary = (v['client-primary'] || '').toLowerCase();
+    const email = (p.client_email || '').toLowerCase();
+    if (q && !(name.includes(q) || primary.includes(q) || email.includes(q))) return false;
+    if (year && v['client-year'] !== year) return false;
+    if (strat && !c['use-' + strat]) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    $('plans-table-wrap').innerHTML = '<div class="empty-state"><h3>No plans match</h3><p>Try clearing the filters above.</p></div>';
+    return;
+  }
+
+  $('plans-table-wrap').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Plan Name</th><th>Primary Client</th><th>Client Email</th><th>Year</th>
+        <th class="num">Sale Price</th><th class="num">Net Worth</th>
+        <th>Strategies</th><th>Updated</th>
+      </tr></thead>
+      <tbody>
+        ${filtered.map(p => {
+          const v = p.data?.values || {};
+          const c = p.data?.checkboxes || {};
+          const strategies = Object.entries(c).filter(([k, on]) => on && k.startsWith('use-')).map(([k]) => k.slice(4));
+          return `<tr>
+            <td><a href="./?id=${encodeURIComponent(p.id)}">${(p.name || '(untitled)').replace(/</g,'&lt;')}</a></td>
+            <td>${(v['client-primary'] || '—').replace(/</g,'&lt;')}</td>
+            <td style="font-size:11px;color:var(--muted);">${(p.client_email || '').replace(/</g,'&lt;') || '<em>unassigned</em>'}</td>
+            <td>${v['client-year'] || '—'}</td>
+            <td class="num">${fmt$(parseMoney(v['biz-sale']))}</td>
+            <td class="num">${fmt$(parseMoney(v['client-pnw']) + parseMoney(v['client-other']))}</td>
+            <td>${strategies.slice(0, 4).map(s => `<span class="strategy-pill">${s.toUpperCase()}</span>`).join('')}${strategies.length > 4 ? ` <span class="strategy-pill">+${strategies.length - 4}</span>` : ''}</td>
+            <td style="font-size:11px;color:var(--muted);">${new Date(p.updated_at).toLocaleDateString()}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderAdoptionTable(byStrategy, totalPlans) {
+  const entries = Object.entries(byStrategy).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) {
+    $('adoption-table-wrap').innerHTML = '<div class="empty-state"><p>No strategy data yet.</p></div>';
+    return;
+  }
+  $('adoption-table-wrap').innerHTML = `
+    <table>
+      <thead><tr><th>Strategy</th><th class="num">Plans Using</th><th class="num">% of Total</th><th>Adoption</th></tr></thead>
+      <tbody>
+        ${entries.map(([k, n]) => {
+          const pct = totalPlans > 0 ? (n / totalPlans * 100) : 0;
+          return `<tr>
+            <td><strong>${k.toUpperCase()}</strong></td>
+            <td class="num">${n}</td>
+            <td class="num">${pct.toFixed(1)}%</td>
+            <td><div style="background:var(--cream-light);border-radius:8px;height:12px;width:180px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--gold);"></div></div></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function renderActivity(plans) {
+  // Combine plan updates + reviews
+  const { data: reviews } = await sb.from('plan_reviews')
+    .select('id,plan_id,reviewer_email,status,created_at')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  const planMap = Object.fromEntries(plans.map(p => [p.id, p]));
+  const events = [];
+  plans.forEach(p => {
+    events.push({ when: p.updated_at, type: 'plan_update', plan: p, label: `Plan "${p.name || 'untitled'}" updated` });
+  });
+  (reviews || []).forEach(r => {
+    events.push({
+      when: r.created_at, type: 'review', reviewer: r.reviewer_email, status: r.status,
+      plan: planMap[r.plan_id],
+      label: `${r.reviewer_email} posted ${r.status.replace(/_/g, ' ')} on ${planMap[r.plan_id]?.name || 'a plan'}`,
+    });
+  });
+  events.sort((a, b) => new Date(b.when) - new Date(a.when));
+  const top = events.slice(0, 20);
+  if (!top.length) {
+    $('activity-wrap').innerHTML = '<div class="empty-state"><p>No activity yet.</p></div>';
+    return;
+  }
+  $('activity-wrap').innerHTML = `
+    <table>
+      <thead><tr><th>When</th><th>Type</th><th>Event</th></tr></thead>
+      <tbody>
+        ${top.map(e => `<tr>
+          <td>${new Date(e.when).toLocaleString()}</td>
+          <td>${e.type === 'plan_update' ? '📝 Update' : '💬 ' + (e.status || 'Comment')}</td>
+          <td>${e.plan ? `<a href="./?id=${encodeURIComponent(e.plan.id)}">${e.label}</a>` : e.label}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+init();
+</script>
+
+</body>
+</html>
