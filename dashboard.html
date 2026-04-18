@@ -189,7 +189,7 @@ async function signIn() {
   if (!email) return;
   setAuthMsg('Sending magic link…');
   const { error } = await sb.auth.signInWithOtp({
-    email, options: { emailRedirectTo: location.origin + '/dashboard.html' },
+    email, options: { emailRedirectTo: location.origin + '/dashboard' },
   });
   if (error) setAuthMsg('Sign-in failed: ' + error.message, 'err');
   else setAuthMsg('Check your email for the sign-in link', 'ok');
