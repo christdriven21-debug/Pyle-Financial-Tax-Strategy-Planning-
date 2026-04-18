@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="./config.js"></script>
 <style>
   :root {
@@ -834,6 +835,24 @@
   table.plan-table td.pos { color: var(--success); }
   table.plan-table tr.highlight td { background: #FDF9E8 !important; font-weight: 700; color: var(--ink); }
   table.plan-table tr.total td { background: #000 !important; color: var(--gold); font-weight: 700; }
+
+  .chart-png-btn {
+    position: absolute;
+    top: 6px; right: 6px;
+    padding: 4px 10px;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--crimson);
+    cursor: pointer;
+    z-index: 5;
+  }
+  .chart-png-btn:hover { background: var(--gold); color: var(--ink); }
 
   .chart-container {
     position: relative;
@@ -1972,6 +1991,7 @@
     <button class="btn btn-secondary" id="btn-edit">← Edit Data</button>
     <button class="btn btn-gold" id="btn-print">Print</button>
     <button class="btn btn-gold" id="btn-pdf">Download PDF</button>
+    <button class="btn btn-gold" id="btn-pptx">Download PPTX</button>
     <button class="btn btn-primary" id="btn-download">Download HTML</button>
     <button class="btn btn-gold" id="btn-plan-share">Copy Share Link</button>
   </div>
@@ -4474,12 +4494,40 @@ function renderEstateGrowthChart(p) {
 window.__RENDER_CHARTS__ = target => {
   if (!window.__PLAN_DATA__) return;
   if (target === 'financial') {
-    setTimeout(() => renderCharts(window.__PLAN_DATA__), 50);
+    setTimeout(() => { renderCharts(window.__PLAN_DATA__); decorateChartsWithPNGButton(); }, 50);
   }
   if (target === 'estate') {
-    setTimeout(() => renderEstateGrowthChart(window.__PLAN_DATA__), 50);
+    setTimeout(() => { renderEstateGrowthChart(window.__PLAN_DATA__); decorateChartsWithPNGButton(); }, 50);
   }
 };
+
+/* ---- Inject "PNG" download button on every rendered Chart.js canvas ---- */
+function decorateChartsWithPNGButton() {
+  document.querySelectorAll('.chart-container').forEach(container => {
+    if (container.querySelector('.chart-png-btn')) return; // already decorated
+    const canvas = container.querySelector('canvas');
+    if (!canvas) return;
+    const btn = document.createElement('button');
+    btn.className = 'chart-png-btn';
+    btn.textContent = '↓ PNG';
+    btn.title = 'Download chart as PNG';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation(); e.preventDefault();
+      try {
+        const d = window.__PLAN_DATA__?.input || {};
+        const primary = (d.client?.primary || 'Plan').replace(/[/\\:*?"<>|]/g, '-');
+        const fileName = `Pyle-Plan-${primary}-${canvas.id || 'chart'}.png`;
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = fileName;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      } catch (err) {
+        alert('PNG export failed: ' + err.message);
+      }
+    });
+    container.appendChild(btn);
+  });
+}
 
 /* ============================================================
    LOGO RENDERING (reusable crest)
@@ -4544,6 +4592,101 @@ document.getElementById('btn-print').addEventListener('click', () => {
   // Expose all tabs for print
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('active'));
   setTimeout(() => window.print(), 100);
+});
+
+/* ============================================================
+   DOWNLOAD PPTX — packages the plan's KPIs + chart images into a
+   client-branded PowerPoint using pptxgenjs. Cleaner than PDF for
+   slides you want to drop into a pitch deck.
+   ============================================================ */
+document.getElementById('btn-pptx').addEventListener('click', async () => {
+  if (!window.__PLAN_DATA__) { alert('Please generate a plan first.'); return; }
+  if (!window.PptxGenJS) { alert('PowerPoint library not loaded yet — wait a second and try again.'); return; }
+
+  const p = window.__PLAN_DATA__;
+  const d = p.input;
+  const pptx = new PptxGenJS();
+  pptx.title = `Pyle Plan — ${d.client.primary || 'Plan'}`;
+  pptx.subject = 'Comprehensive Financial Plan';
+  pptx.company = d.firm.name || 'Pyle Financial Services, Inc';
+
+  // Brand colors
+  const CREAM = 'F5F1E8', GOLD = 'C9A961', CRIMSON = '8B1A1A', INK = '1A1A1A';
+  pptx.defineSlideMaster({
+    title: 'PYLE_MASTER',
+    background: { color: CREAM },
+    objects: [
+      { rect: { x: 0, y: 0, w: '100%', h: 0.08, fill: { color: GOLD } } },
+      { text: { text: 'PYLE FINANCIAL SERVICES, INC',
+                options: { x: 0.4, y: 0.15, w: 6, h: 0.3, fontFace: 'Georgia', fontSize: 10, color: GOLD, bold: true, charSpacing: 3 } } },
+    ],
+  });
+
+  // Slide 1 — Cover
+  let slide = pptx.addSlide({ masterName: 'PYLE_MASTER' });
+  const primary = d.client.primary || 'Client';
+  const spouse = d.client.spouse ? ' & ' + d.client.spouse : '';
+  slide.addText(primary + spouse, { x: 0.5, y: 2.5, w: 9, h: 0.8, fontSize: 32, fontFace: 'Georgia', color: INK, bold: true });
+  slide.addText('Comprehensive Financial Plan', { x: 0.5, y: 3.4, w: 9, h: 0.5, fontSize: 24, fontFace: 'Georgia', color: GOLD, italic: true });
+  slide.addText(`${d.client.location || ''} · ${d.client.year} · ${d.client.subtitle || ''}`,
+    { x: 0.5, y: 4.0, w: 9, h: 0.4, fontSize: 12, fontFace: 'Helvetica', color: INK });
+
+  // Slide 2 — Executive KPIs
+  slide = pptx.addSlide({ masterName: 'PYLE_MASTER' });
+  slide.addText('Executive Summary', { x: 0.4, y: 0.6, w: 9, h: 0.5, fontSize: 24, fontFace: 'Georgia', color: CRIMSON, bold: true });
+  const kpis = [
+    { label: 'Post-Sale Family Net Worth', value: '$' + Math.round(p.familyTotalNW).toLocaleString() },
+    { label: 'Total Immediate Tax Savings', value: '$' + Math.round(p.totalImmediate).toLocaleString() },
+    { label: 'Annual Income (post-sale)', value: '$' + Math.round(p.annualIncome).toLocaleString() },
+    { label: 'Required Distribution %', value: (p.requiredDistPct * 100).toFixed(2) + '%' },
+  ];
+  kpis.forEach((k, i) => {
+    const x = 0.5 + (i % 2) * 4.7;
+    const y = 1.4 + Math.floor(i / 2) * 1.6;
+    slide.addText(k.label, { x, y, w: 4.3, h: 0.3, fontSize: 11, fontFace: 'Helvetica', color: INK, bold: true });
+    slide.addText(k.value, { x, y: y + 0.35, w: 4.3, h: 0.7, fontSize: 28, fontFace: 'Georgia', color: GOLD, bold: true });
+  });
+
+  // Slide 3 — Enabled Strategies
+  slide = pptx.addSlide({ masterName: 'PYLE_MASTER' });
+  slide.addText('Strategy Stack', { x: 0.4, y: 0.6, w: 9, h: 0.5, fontSize: 24, fontFace: 'Georgia', color: CRIMSON, bold: true });
+  const active = Object.entries(d.use).filter(([,on]) => on).map(([k]) => k);
+  if (active.length) {
+    slide.addText(
+      active.map(k => ({ text: '✓ ' + k.toUpperCase(), options: { bullet: false, fontSize: 14 } })),
+      { x: 0.6, y: 1.3, w: 8.5, h: 4, fontFace: 'Helvetica', color: INK, paraSpaceAfter: 10 });
+  } else {
+    slide.addText('No strategies selected.', { x: 0.6, y: 1.3, w: 8, h: 0.5, fontSize: 14, color: INK });
+  }
+
+  // Slides 4+ — Embed each chart as image (best-effort — canvas.toDataURL
+  // captures the rendered Chart.js)
+  const chartIds = [
+    { id: 'chart-allocation',    title: 'Post-Sale Asset Allocation' },
+    { id: 'chart-income',        title: 'Post-Sale Income Sources' },
+    { id: 'chart-projection',    title: 'Wealth Projection (Deterministic)' },
+    { id: 'chart-estate-growth', title: 'Multi-Year Family Estate Growth' },
+  ];
+  for (const c of chartIds) {
+    const canvas = document.getElementById(c.id);
+    if (!canvas) continue;
+    try {
+      const data = canvas.toDataURL('image/png');
+      slide = pptx.addSlide({ masterName: 'PYLE_MASTER' });
+      slide.addText(c.title, { x: 0.4, y: 0.6, w: 9, h: 0.5, fontSize: 22, fontFace: 'Georgia', color: CRIMSON, bold: true });
+      slide.addImage({ data, x: 0.5, y: 1.3, w: 9, h: 5 });
+    } catch (e) { /* skip unavailable charts */ }
+  }
+
+  // Final slide — Disclaimer
+  slide = pptx.addSlide({ masterName: 'PYLE_MASTER' });
+  slide.addText('Important Disclosures', { x: 0.4, y: 0.6, w: 9, h: 0.5, fontSize: 22, fontFace: 'Georgia', color: CRIMSON, bold: true });
+  slide.addText(
+    'This plan is produced for illustrative and planning purposes only. It does not constitute tax, legal, or investment advice. Consult qualified professionals before implementing any strategy. Projections are based on stated assumptions and do not guarantee future results. Tax rates and exemption amounts are subject to change.',
+    { x: 0.5, y: 1.4, w: 9, h: 4, fontSize: 12, fontFace: 'Helvetica', color: INK, valign: 'top' });
+
+  const fileName = `Pyle Plan — ${primary} — ${d.client.year}.pptx`.replace(/[/\\:*?"<>|]/g, '-');
+  await pptx.writeFile({ fileName });
 });
 
 /* ============================================================
