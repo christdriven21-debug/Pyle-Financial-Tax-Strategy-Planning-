@@ -3855,8 +3855,165 @@ function renderTransaction(p) {
     </div>
   `;
 
+  // ============================================================
+  // PRE-TRANSACTION PLAYBOOK — everything that happens BEFORE sale day
+  // Synthesizes the strategies that must be funded or configured in
+  // advance of the closing, with dollar amounts and timing guidance.
+  // ============================================================
+  const preTxItems = [];
+  if (d.use.dynasty) preTxItems.push({
+    title: '🏛️ Dynasty Trust Established &amp; Funded',
+    timing: '6–12 months pre-sale',
+    detail: `Fund the Dynasty Trust with <strong>${fmt$M(d.dynasty.funding)}</strong> of non-voting shares ${d.dynasty.discount > 0 ? `@ <strong>${fmtPct(d.dynasty.discount*100)} valuation discount</strong> (reported gift value: ${fmt$M(p.dynastyGiftValue)})` : ''}. ${d.dynasty.trustType === 'grantor' ? 'Grantor trust structure (Rev. Rul. 2004-64) — grantor pays income taxes as additional tax-free gifts.' : 'Non-grantor trust.'} ${d.dynasty.favorableSitus ? 'Sited in a no-state-tax jurisdiction (DE/NV/SD/WY/AK) for state-tax arbitrage.' : 'Home-state situs — consider favorable-situs alternatives.'}`,
+  });
+  if (d.use.crat) preTxItems.push({
+    title: '🎗 CRAT (Charitable Remainder Annuity Trust) Funded',
+    timing: '3–6 months pre-sale',
+    detail: `Transfer <strong>${fmt$M(d.crat.amount)}</strong> of appreciated shares to the CRAT. At sale, the CRAT (tax-exempt) sells without gain recognition — <strong>full elimination of the grantor's capital gain on the CRAT portion</strong>. ${fmtPct(d.crat.rate*100)} annuity paid annually to the grantor/family for life; remainder to designated charity(ies).`,
+  });
+  if (d.use.crut) preTxItems.push({
+    title: '🎗 CRUT (Charitable Remainder Unitrust) Funded',
+    timing: '3–6 months pre-sale',
+    detail: `Transfer <strong>${fmt$M(d.crut.amount)}</strong> of appreciated shares to the CRUT. Variable payout of <strong>${fmtPct(d.crut.rate*100)}</strong> of trust value annually (inflation-hedged). CRUT sells tax-free. Net charitable deduction: ${fmt$(p.crutDeduction)}.`,
+  });
+  if (d.use.daf) preTxItems.push({
+    title: '💝 DAF (Donor Advised Fund) Contribution',
+    timing: '0–3 months pre-sale',
+    detail: `Contribute <strong>${fmt$M(d.daf.amount)}</strong> of appreciated shares to a Donor Advised Fund. <strong>Full fair-market-value deduction</strong> (${fmt$(p.dafDeduction)}) without recognizing the gain. Grantor retains advisory power over grants in future years.`,
+  });
+  if (d.use.slat) preTxItems.push({
+    title: '👥 SLAT (Spousal Lifetime Access Trust) Funded',
+    timing: '6–12 months pre-sale',
+    detail: `Grantor funds SLAT with <strong>${fmt$M(d.slat.funding)}</strong> for spouse's benefit. Uses lifetime exemption. Spouse can request distributions (indirect access). <strong>Reciprocal trust doctrine caution</strong>: if both spouses fund SLATs, terms must materially differ.`,
+  });
+  if (d.use.idgt) preTxItems.push({
+    title: '🔒 IDGT Installment Sale Executed',
+    timing: '12+ months pre-sale',
+    detail: `Grantor sells <strong>${fmt$M(d.idgt.amount)}</strong> of appreciated shares to a pre-funded IDGT (~10% seed gift), receiving a ${d.idgt.term}-year installment note at the ${fmtPct(d.idgt.afr*100)} AFR. Future appreciation above the AFR passes to heirs gift-tax-free — projected <strong>${fmt$M(p.idgtTransferred)}</strong> wealth transfer.`,
+  });
+  if (d.use.grat) preTxItems.push({
+    title: '📈 GRAT (Grantor Retained Annuity Trust) Funded',
+    timing: '3–6 months pre-sale',
+    detail: `Fund ${d.grat.term}-year GRAT with <strong>${fmt$M(d.grat.transfer)}</strong> at ${fmtPct(d.grat.hurdle*100)} §7520 hurdle. Zeroed-out structure — minimal taxable gift today; any appreciation above the hurdle passes to heirs. Projected remainder: ${fmt$(p.gratRemainder)}.`,
+  });
+  if (d.use.qprt) preTxItems.push({
+    title: '🏠 QPRT (Qualified Personal Residence Trust) Funded',
+    timing: 'Anytime pre-sale',
+    detail: `Transfer ${d.qprt.type === 'secondary' ? 'secondary home' : 'primary residence'} (FMV ${fmt$M(d.qprt.residence)}) into ${d.qprt.term}-year QPRT. Discounted gift today: ${fmt$(p.qprtTaxableGift)}. Residence passes to heirs at term end — future value: ${fmt$(p.qprtResidenceFutureValue)}.`,
+  });
+  if (d.use.ilit) preTxItems.push({
+    title: '🛡 ILIT (Irrevocable Life Insurance Trust) Established',
+    timing: '12+ months pre-sale',
+    detail: `Fund ILIT to own <strong>${fmt$M(d.ilit.coverage)}</strong> of life insurance on the grantor. ${p.ilitPayYears}-pay schedule ($${d.ilit.premium.toLocaleString()}/yr × ${p.ilitPayYears} yrs = ${fmt$(p.ilitTotalPremiums)} total premiums). Death benefit permanently outside the taxable estate.`,
+  });
+  if (d.use.qsbs) preTxItems.push({
+    title: '✅ §1202 QSBS Eligibility Confirmed',
+    timing: 'Ongoing (5+ yr hold required)',
+    detail: `Legal opinion verifying: (1) C-Corp status throughout the holding period, (2) ≤$50M in gross assets at original stock issuance, (3) stock originally issued to the seller, (4) 5+ year hold achieved. Exclusion: up to max($10M, 10× basis) of gain excluded from federal + NIIT tax = <strong>${fmt$(p.qsbsTotalSaving)}</strong> federal savings at sale.`,
+  });
+  preTxItems.push({
+    title: '⚖️ Legal &amp; Tax Advisors Engaged',
+    timing: '12+ months pre-sale',
+    detail: `Estate attorney, transaction attorney, tax CPA, and valuation expert engaged. Entity restructured to create voting/non-voting share classes (typically 1% voting / 99% non-voting) so the grantor retains control while transferring non-voting shares at discounted values.`,
+  });
+
+  const preTransactionCard = `
+    <div class="card" style="border-left: 4px solid var(--gold-dark);">
+      <div class="card-title">📋 Pre-Transaction Playbook</div>
+      <div class="card-sub">Everything that must be in place <strong>before</strong> sale day. The timing matters: trusts funded too close to the sale can be challenged by the IRS. Start 6–12 months before a known closing.</div>
+      <div style="margin-top: 16px;">
+        ${preTxItems.map(item => `
+          <div style="margin-bottom: 16px; padding: 14px 16px; background: var(--cream-light); border-left: 3px solid var(--gold); border-radius: 3px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+              <strong style="color: var(--ink); font-size: 14px;">${item.title}</strong>
+              <span style="font-size: 11px; font-family: 'Helvetica Neue', sans-serif; letter-spacing: 1px; text-transform: uppercase; color: var(--crimson); font-weight: 700;">${item.timing}</span>
+            </div>
+            <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.5;">${item.detail}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  // ============================================================
+  // POST-TRANSACTION PLAYBOOK — everything AFTER the sale closes
+  // ============================================================
+  const postTxItems = [];
+  if (d.use.qoz) postTxItems.push({
+    title: '🌆 QOZ Fund Deployment',
+    timing: 'Within 180 days of sale',
+    detail: `Invest <strong>${fmt$(p.scenarios.scenAll.qozInvestment)}</strong> (the residual taxable gain) into a Qualified Opportunity Zone fund. Deferred gain triggered in year ${d.qoz.defer}; basis step-up after ${d.qoz.years} years — <strong>all post-investment appreciation tax-free</strong>. File Form 8997 annually.`,
+  });
+  if (d.use.exch1031) postTxItems.push({
+    title: '🔄 §1031 Exchange — Identify + Close',
+    timing: '45 days to identify / 180 days to close',
+    detail: `Identify replacement property (up to 3 properties under the 3-property rule, or more under 200%/95% rules) within 45 days of the relinquished sale. Close on replacement within 180 days. Fully defers <strong>${fmt$(p.exch1031Deferred)}</strong> of gain.`,
+  });
+  postTxItems.push({
+    title: '📝 Tax Elections &amp; Disclosures Filed',
+    timing: 'Year 1 tax return',
+    detail: `With the CPA: Form 8949 (sale reporting), Form 8997 (QOZ), Form 8824 (§1031), ${d.use.qsbs ? 'Form 8993 attachment (QSBS exclusion), ' : ''}Form 8283 (non-cash charitable contributions > $500), Schedule K-1 distribution to CRAT/CRUT. File all elections and disclosures on the Year 1 return.`,
+  });
+  postTxItems.push({
+    title: '💰 Estimated Tax Paid on Residual Gain',
+    timing: 'Next quarterly deadline',
+    detail: `After pre-sale strategies and QSBS: residual taxable gain = <strong>${fmt$(p.scenarios.scenAll.taxableGain)}</strong>, CG tax ≈ <strong>${fmt$(p.scenarios.scenAll.totalCGTax)}</strong>. Pay with quarterly estimates (or safe-harbor) to avoid underpayment penalties.`,
+  });
+  if (d.use.crat || d.use.crut) postTxItems.push({
+    title: '💸 First CRT Annuity/Unitrust Distribution',
+    timing: 'Year 1',
+    detail: `${d.use.crat ? `CRAT: ${fmt$(d.crat.amount * d.crat.rate)}/yr (${fmtPct(d.crat.rate*100)} fixed annuity)` : ''}${d.use.crat && d.use.crut ? ' · ' : ''}${d.use.crut ? `CRUT: ${fmt$(p.crutIncome)} Year-1 (${fmtPct(d.crut.rate*100)} of trust value; re-valued annually)` : ''}. Reported to beneficiaries on K-1 — tiered ordinary/capital/corpus per IRC §664.`,
+  });
+  if (d.use.idgt) postTxItems.push({
+    title: '📜 IDGT Note — First Interest Payment',
+    timing: 'Year 1, per note terms',
+    detail: `IDGT pays interest to grantor at the ${fmtPct(d.idgt.afr*100)} AFR on the ${fmt$M(d.idgt.amount)} note. Interest income is not taxable to the grantor (grantor trust — income is self-reported to the grantor anyway). Principal payments begin per schedule.`,
+  });
+  if (d.use.ilit) postTxItems.push({
+    title: '📮 ILIT Crummey Notices Sent',
+    timing: 'Year 1 and annually',
+    detail: `For each annual premium gift to the ILIT, send a <strong>Crummey notice</strong> to each beneficiary giving them a 30-day window to withdraw — this converts the gift to present interest, qualifying for the $18k/$19k annual exclusion per beneficiary.`,
+  });
+  postTxItems.push({
+    title: '📊 Investment Proceeds Deployed',
+    timing: 'Day 1–90',
+    detail: `Net proceeds of <strong>${fmt$(p.withPlanningProceeds)}</strong> (after CG tax) deployed per the target asset allocation. Coordinate with the QOZ deployment, CRAT payout schedule, and required liquidity for annual budget (${fmt$(p.annualBudget)}/yr).`,
+  });
+  if (d.use.roth) postTxItems.push({
+    title: '🔄 Roth Conversion Window',
+    timing: 'Years 1 to age 73',
+    detail: `Convert ${fmt$M(d.roth.amount)} of traditional IRA/401(k) to Roth at today's ${fmtPct(d.roth.marginal*100)} marginal rate. Pay income tax now (${fmt$(p.rothIncomeTax)}) but remove <strong>all future growth + RMDs</strong> from the taxable estate. Optimize conversion years to stay under bracket thresholds.`,
+  });
+  postTxItems.push({
+    title: '🎯 Annual Review Cadence Established',
+    timing: 'Ongoing',
+    detail: `Schedule annual plan refresh with the advisor team: trust administration, beneficiary updates, tax-law changes, rebalancing, charitable giving (DAF grants), insurance review, estate-document review. Clone this plan forward each year (see "Clone → Next Year" in the Cloud Plans bar).`,
+  });
+
+  const postTransactionCard = `
+    <div class="card" style="border-left: 4px solid var(--success);">
+      <div class="card-title">📋 Post-Transaction Playbook</div>
+      <div class="card-sub">Everything that happens <strong>after</strong> sale day. Several items are time-sensitive — miss the 180-day QOZ window or the 45-day §1031 identification deadline and the strategy dies.</div>
+      <div style="margin-top: 16px;">
+        ${postTxItems.map(item => `
+          <div style="margin-bottom: 16px; padding: 14px 16px; background: var(--cream-light); border-left: 3px solid var(--success); border-radius: 3px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+              <strong style="color: var(--ink); font-size: 14px;">${item.title}</strong>
+              <span style="font-size: 11px; font-family: 'Helvetica Neue', sans-serif; letter-spacing: 1px; text-transform: uppercase; color: var(--success); font-weight: 700;">${item.timing}</span>
+            </div>
+            <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.5;">${item.detail}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
   return `
     ${timelineHTML}
+
+    ${preTransactionCard}
+
+    ${postTransactionCard}
 
     ${taxExplorerHTML}
 
