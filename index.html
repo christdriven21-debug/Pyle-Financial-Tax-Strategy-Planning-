@@ -3439,69 +3439,13 @@ function renderEstate(p) {
   const d = p.input;
   const insGap = Math.max(0, d.ins.recMin - d.ins.current);
 
-  // Build the Multi-Year Family Estate Growth card. Picks milestone rows so
-  // the table stays readable even for long horizons (5 / 10 / 15 / 20 / 30 / 40 / 50).
-  const horizon = d.proj.years;
-  const milestoneOffsets = [0, 1, 3, 5, 10, 15, 20, 25, 30, 40, 50].filter(n => n <= horizon);
-  if (!milestoneOffsets.includes(horizon)) milestoneOffsets.push(horizon);
-  const milestoneRows = milestoneOffsets.map(offset => p.estateGrowthRows[offset]).filter(Boolean);
-
-  const bucketDef = [
-    ['clientLiq',    'Client Liquid Assets',       'var(--gold)'],
-    ['otherGrowth',  'Other Assets / Real Estate', 'var(--gold-dark)'],
-    ['qozValue',     'QOZ Investment',             '#6B8E23'],
-    ['dynastyValue', 'Dynasty Trust',              'var(--crimson)'],
-    ['slatValue',    'SLAT',                       '#4A6FA5'],
-    ['idgtValue',    'IDGT Assets',                '#8B5A00'],
-    ['qprtValue',    'QPRT Residence',             '#7A3E3E'],
-  ];
-  const activeBuckets = bucketDef.filter(([key]) =>
-    p.estateGrowthRows.some(r => r[key] > 0));
-
+  // Multi-Year Family Estate Growth card — starts at proj.years horizon but
+  // the dropdown lets the user re-project at 5/10/15/20/25/30/40/50-year
+  // horizons without leaving the plan view. __RERENDER_ESTATE_GROWTH__ is
+  // wired globally so the inline onchange can call it.
   const estateGrowthCard = `
-    <div class="card" style="border-left: 4px solid var(--gold);">
-      <div class="card-title">Multi-Year Family Estate Growth — ${horizon}-Year Horizon</div>
-      <div class="card-sub">
-        Every estate component projected forward year-by-year using its respective growth rate
-        (client liquid @ ${fmtPct(d.proj.equity*100)}, real estate @ ${fmtPct(d.proj.re*100)},
-        QOZ @ ${fmtPct(d.qoz.ret*100)}, Dynasty @ ${fmtPct(d.proj.equity*100)},
-        SLAT @ ${fmtPct(d.slat.growth*100)}, IDGT @ ${fmtPct(d.idgt.growth*100)},
-        QPRT @ ${fmtPct(d.qprt.growth*100)}). Change the horizon in Section 5 of the builder.
-      </div>
-
-      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 14px;">
-        <div class="kpi"><div class="label">Starting Estate (Year 0)</div><div class="value">${fmt$(p.estateGrowthStart)}</div></div>
-        <div class="kpi gold"><div class="label">Ending Estate (Year ${horizon})</div><div class="value">${fmt$(p.estateGrowthEnd)}</div></div>
-        <div class="kpi success"><div class="label">Growth Multiple</div><div class="value">${p.estateGrowthMultiple.toFixed(2)}×</div></div>
-        <div class="kpi"><div class="label">Blended CAGR</div><div class="value">${fmtPct(p.estateGrowthCAGR*100)}</div></div>
-      </div>
-
-      <div class="chart-container" style="height: 360px; margin-top: 20px;"><canvas id="chart-estate-growth"></canvas></div>
-
-      <div style="overflow-x: auto; margin-top: 20px;">
-        <table class="plan-table">
-          <thead>
-            <tr>
-              <th>Year</th>
-              ${activeBuckets.map(([, label]) => `<th class="num">${label}</th>`).join('')}
-              <th class="num">Total Family Estate</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${milestoneRows.map(r => `
-              <tr${r.yearOffset === horizon ? ' class="highlight"' : ''}>
-                <td>${r.year} <span style="color: var(--muted); font-size: 11px;">(+${r.yearOffset}yr)</span></td>
-                ${activeBuckets.map(([key]) => `<td class="num">${fmt$(r[key])}</td>`).join('')}
-                <td class="num"><strong>${fmt$(r.total)}</strong></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-
-      <div style="margin-top: 16px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
-        <strong>Note:</strong> Values reflect gross asset growth with no liquidation or distribution assumed. Actual client experience depends on withdrawal rate (see Annual Budget card in Financial Overview), market returns, and tax-law changes over the horizon. Use the Monte Carlo card for volatility-adjusted ranges.
-      </div>
+    <div class="card" style="border-left: 4px solid var(--gold);" id="estate-growth-container">
+      ${renderEstateGrowthInner(p, d.proj.years)}
     </div>
   `;
 
@@ -3747,16 +3691,133 @@ function renderCharts(p) {
   }
 }
 
+/* ============================================================
+   MULTI-YEAR FAMILY ESTATE GROWTH — re-projectable at any horizon
+   Re-computes rows + re-renders the card when the in-card
+   dropdown changes, without requiring a full Generate Plan.
+   ============================================================ */
+function computeEstateGrowthAt(p, horizon) {
+  const d = p.input;
+  const seed = p.estateGrowthRows[0] || {};
+  const rows = [];
+  for (let y = 0; y <= horizon; y++) {
+    const clientLiq    = (seed.clientLiq    || 0) * Math.pow(1 + d.proj.equity, y);
+    const otherGrowth  = (seed.otherGrowth  || 0) * Math.pow(1 + d.proj.re, y);
+    const qozValue     = d.use.qoz  ? (seed.qozValue  || 0) * Math.pow(1 + d.qoz.ret,   Math.min(y, d.qoz.years)) : 0;
+    const dynastyValue = d.use.dynasty ? (seed.dynastyValue || 0) * Math.pow(1 + d.proj.equity, y) : 0;
+    const slatValue    = d.use.slat ? (seed.slatValue || 0) * Math.pow(1 + d.slat.growth, Math.min(y, d.slat.years)) : 0;
+    const idgtValue    = d.use.idgt ? (seed.idgtValue || 0) * Math.pow(1 + d.idgt.growth, y) : 0;
+    const qprtValue    = d.use.qprt ? (seed.qprtValue || 0) * Math.pow(1 + d.qprt.growth, y) : 0;
+    const total = clientLiq + otherGrowth + qozValue + dynastyValue + slatValue + idgtValue + qprtValue;
+    rows.push({ yearOffset: y, year: d.client.year + y, clientLiq, otherGrowth, qozValue, dynastyValue, slatValue, idgtValue, qprtValue, total });
+  }
+  return rows;
+}
+
+function renderEstateGrowthInner(p, horizon) {
+  const d = p.input;
+  const rows = computeEstateGrowthAt(p, horizon);
+  const start = rows[0]?.total || 0;
+  const end   = rows[rows.length - 1]?.total || 0;
+  const mult  = start > 0 ? end / start : 0;
+  const cagr  = (horizon > 0 && start > 0) ? Math.pow(end / start, 1 / horizon) - 1 : 0;
+
+  const milestoneOffsets = [0, 1, 3, 5, 10, 15, 20, 25, 30, 40, 50].filter(n => n <= horizon);
+  if (!milestoneOffsets.includes(horizon)) milestoneOffsets.push(horizon);
+  const milestoneRows = milestoneOffsets.map(o => rows[o]).filter(Boolean);
+
+  const bucketDef = [
+    ['clientLiq',    'Client Liquid Assets'],
+    ['otherGrowth',  'Other Assets / Real Estate'],
+    ['qozValue',     'QOZ Investment'],
+    ['dynastyValue', 'Dynasty Trust'],
+    ['slatValue',    'SLAT'],
+    ['idgtValue',    'IDGT Assets'],
+    ['qprtValue',    'QPRT Residence'],
+  ].filter(([key]) => rows.some(r => r[key] > 0));
+
+  // Stash the current rows on the plan data so the chart render picks them up
+  p.__currentEstateRows__ = rows;
+
+  const horizonOptions = [5, 10, 15, 20, 25, 30, 40, 50];
+
+  return `
+    <div style="display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 260px;">
+        <div class="card-title">Multi-Year Family Estate Growth — ${horizon}-Year Horizon</div>
+        <div class="card-sub">
+          Every estate component projected forward year-by-year
+          (client liquid @ ${fmtPct(d.proj.equity*100)}, real estate @ ${fmtPct(d.proj.re*100)},
+          QOZ @ ${fmtPct(d.qoz.ret*100)}, Dynasty @ ${fmtPct(d.proj.equity*100)},
+          SLAT @ ${fmtPct(d.slat.growth*100)}, IDGT @ ${fmtPct(d.idgt.growth*100)},
+          QPRT @ ${fmtPct(d.qprt.growth*100)}).
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+        <label style="font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--crimson); font-family: 'Helvetica Neue', sans-serif;">Horizon:</label>
+        <select id="estate-horizon-select" onchange="window.__RERENDER_ESTATE_GROWTH__(parseInt(this.value,10))"
+                style="padding: 8px 12px; border: 1px solid var(--gold); border-radius: 4px; font-family: inherit; font-size: 14px; background: var(--cream-light); font-weight: 600; color: var(--ink);">
+          ${horizonOptions.map(h => `<option value="${h}"${h === horizon ? ' selected' : ''}>${h} years</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 14px;">
+      <div class="kpi"><div class="label">Starting Estate (Year 0)</div><div class="value">${fmt$(start)}</div></div>
+      <div class="kpi gold"><div class="label">Ending Estate (Year ${horizon})</div><div class="value">${fmt$(end)}</div></div>
+      <div class="kpi success"><div class="label">Growth Multiple</div><div class="value">${mult.toFixed(2)}×</div></div>
+      <div class="kpi"><div class="label">Blended CAGR</div><div class="value">${fmtPct(cagr*100)}</div></div>
+    </div>
+
+    <div class="chart-container" style="height: 360px; margin-top: 20px;"><canvas id="chart-estate-growth"></canvas></div>
+
+    <div style="overflow-x: auto; margin-top: 20px;">
+      <table class="plan-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            ${bucketDef.map(([, label]) => `<th class="num">${label}</th>`).join('')}
+            <th class="num">Total Family Estate</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${milestoneRows.map(r => `
+            <tr${r.yearOffset === horizon ? ' class="highlight"' : ''}>
+              <td>${r.year} <span style="color: var(--muted); font-size: 11px;">(+${r.yearOffset}yr)</span></td>
+              ${bucketDef.map(([key]) => `<td class="num">${fmt$(r[key])}</td>`).join('')}
+              <td class="num"><strong>${fmt$(r.total)}</strong></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 16px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+      <strong>Note:</strong> Values reflect gross asset growth with no liquidation or distribution assumed. Actual client experience depends on withdrawal rate (see Annual Budget card in Financial Overview), market returns, and tax-law changes over the horizon. Use the Monte Carlo card for volatility-adjusted ranges.
+    </div>
+  `;
+}
+
+window.__RERENDER_ESTATE_GROWTH__ = function (horizon) {
+  const p = window.__PLAN_DATA__;
+  if (!p) return;
+  const container = document.getElementById('estate-growth-container');
+  if (!container) return;
+  container.innerHTML = renderEstateGrowthInner(p, horizon);
+  renderEstateGrowthChart(p);
+};
+
 /* ---- Multi-Year Family Estate Growth chart (Estate Planning tab) ---- */
 function renderEstateGrowthChart(p) {
   const canvas = document.getElementById('chart-estate-growth');
-  if (!canvas || !p.estateGrowthRows) return;
+  // Prefer the currently-selected horizon's rows (set by renderEstateGrowthInner).
+  const rows = p.__currentEstateRows__ || p.estateGrowthRows;
+  if (!canvas || !rows) return;
   if (window.__CHART_REGISTRY__.estateGrowth) {
     try { window.__CHART_REGISTRY__.estateGrowth.destroy(); } catch(e){}
   }
 
-  const d = p.input;
-  const labels = p.estateGrowthRows.map(r => r.year);
+  const labels = rows.map(r => r.year);
   const bucketMap = [
     { key: 'clientLiq',    label: 'Client Liquid',          color: '#C9A961', bg: 'rgba(201,169,97,0.3)' },
     { key: 'otherGrowth',  label: 'Other Assets / RE',      color: '#8B7640', bg: 'rgba(139,118,64,0.3)' },
@@ -3765,11 +3826,11 @@ function renderEstateGrowthChart(p) {
     { key: 'slatValue',    label: 'SLAT',                   color: '#4A6FA5', bg: 'rgba(74,111,165,0.3)' },
     { key: 'idgtValue',    label: 'IDGT Assets',            color: '#8B5A00', bg: 'rgba(139,90,0,0.3)' },
     { key: 'qprtValue',    label: 'QPRT Residence',         color: '#7A3E3E', bg: 'rgba(122,62,62,0.3)' },
-  ].filter(b => p.estateGrowthRows.some(r => r[b.key] > 0));
+  ].filter(b => rows.some(r => r[b.key] > 0));
 
   const datasets = bucketMap.map(b => ({
     label: b.label,
-    data: p.estateGrowthRows.map(r => r[b.key]),
+    data: rows.map(r => r[b.key]),
     borderColor: b.color,
     backgroundColor: b.bg,
     borderWidth: 2,
