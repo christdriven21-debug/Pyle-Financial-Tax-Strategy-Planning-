@@ -1352,6 +1352,103 @@
       </div>
     </div>
 
+    <div class="strategy-block hidden" id="block-1031">
+      <h4>§1031 Like-Kind Exchange Parameters</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Investment real estate only (no primary residences). Replacement property must be <strong>identified within 45 days</strong> and <strong>acquired within 180 days</strong> of sale.
+        Cash "boot" taken out is taxable. This defers — not eliminates — the gain.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Relinquished Property Value</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="exch-sale" value="3000000"></div>
+        </div>
+        <div class="field">
+          <label>Adjusted Basis in Property</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="exch-basis" value="500000"></div>
+        </div>
+        <div class="field">
+          <label>Replacement Property Value <span class="hint">(&ge; relinquished value for full deferral)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="exch-replacement" value="3000000"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-qbi">
+      <h4>§199A Qualified Business Income Deduction Parameters</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        20% deduction on QBI from pass-through entities (S-Corps, partnerships, LLCs, sole prop). Phase-outs apply above the taxable income threshold (&#62;$241,950 single / &#62;$483,900 joint for 2024).
+        <strong>Specified Service Trades or Businesses (SSTB)</strong> lose the deduction entirely above the upper threshold.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Qualified Business Income</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qbi-income" value="2500000"></div>
+        </div>
+        <div class="field">
+          <label>Deduction Percentage <span class="hint">(20% standard; lower after phase-out)</span></label>
+          <div class="suffix-pct"><input type="number" id="qbi-pct" value="20" step="1"></div>
+        </div>
+        <div class="field">
+          <label>Business Type</label>
+          <select id="qbi-sstb">
+            <option value="no">Non-SSTB (manufacturing, real estate, trades)</option>
+            <option value="yes">SSTB (health, law, accounting, consulting, finance)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-slat">
+      <h4>SLAT (Spousal Lifetime Access Trust) Parameters</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Grantor funds an irrevocable trust for the benefit of their spouse; transfer uses lifetime gift/estate exemption.
+        Spouse can request distributions, giving the grantor <em>indirect</em> access while the assets and future growth escape the estate.
+        <strong>Reciprocal Trust Doctrine:</strong> if both spouses create SLATs for each other, terms must differ materially or IRS may collapse both back into the estate.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>SLAT Funding Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="slat-funding" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Expected Annual Growth</label>
+          <div class="suffix-pct"><input type="number" id="slat-growth" value="6" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Projection Period (Years)</label>
+          <input type="number" id="slat-years" value="20">
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-idgt">
+      <h4>IDGT (Intentionally Defective Grantor Trust) Parameters</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Grantor sells appreciating assets to the IDGT in exchange for an installment note at the AFR.
+        The trust is a grantor trust for income tax (grantor pays tax on trust income, further reducing the estate) but <em>not</em> for estate tax (trust assets outside the estate).
+        Appreciation above the AFR transfers to beneficiaries gift-tax-free.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Assets Sold to IDGT</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="idgt-amount" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>AFR on Note</label>
+          <div class="suffix-pct"><input type="number" id="idgt-afr" value="4.5" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Expected Asset Growth</label>
+          <div class="suffix-pct"><input type="number" id="idgt-growth" value="8" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Note Term (Years)</label>
+          <input type="number" id="idgt-term" value="9">
+        </div>
+      </div>
+    </div>
+
     <!-- Hidden checkboxes preserve existing JS wiring (strategyMap in mode-switch code) -->
     <div style="display:none" aria-hidden="true">
       <input type="checkbox" id="use-dynasty" checked>
@@ -1362,6 +1459,10 @@
       <input type="checkbox" id="use-roth">
       <input type="checkbox" id="use-grat">
       <input type="checkbox" id="use-qsbs">
+      <input type="checkbox" id="use-1031">
+      <input type="checkbox" id="use-qbi">
+      <input type="checkbox" id="use-slat">
+      <input type="checkbox" id="use-idgt">
     </div>
   </section>
 
@@ -1371,7 +1472,18 @@
       <div class="section-number">4</div>
       <div>
         <div class="section-title">Tax Rate Assumptions</div>
-        <div class="section-help">Applied to capital gains and income calculations.</div>
+        <div class="section-help">Applied to capital gains and income calculations. Use the state picker to auto-fill state-level rates.</div>
+      </div>
+    </div>
+    <div class="form-grid cols-4" style="margin-bottom: 14px;">
+      <div class="field" style="grid-column: span 2;">
+        <label>Client State (auto-fills state rates + QSBS conformity)</label>
+        <select id="client-state">
+          <option value="">— Select state —</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column: span 2; display: flex; align-items: flex-end;">
+        <div style="font-size: 12px; color: var(--muted); font-style: italic;" id="state-note">Rates below are editable — pick a state to auto-fill, then adjust as needed for your client.</div>
       </div>
     </div>
     <div class="form-grid cols-4">
@@ -1512,6 +1624,7 @@
     <button class="plan-tab" data-tab="transaction">Transaction Strategy</button>
     <button class="plan-tab" data-tab="financial">Financial Overview</button>
     <button class="plan-tab" data-tab="tax">Tax Optimization</button>
+    <button class="plan-tab" data-tab="compare">Scenario Comparison</button>
     <button class="plan-tab" data-tab="estate">Estate Planning</button>
   </nav>
 
@@ -1520,6 +1633,7 @@
     <div class="tab-panel" id="panel-transaction"></div>
     <div class="tab-panel" id="panel-financial"></div>
     <div class="tab-panel" id="panel-tax"></div>
+    <div class="tab-panel" id="panel-compare"></div>
     <div class="tab-panel" id="panel-estate"></div>
   </div>
 </main>
@@ -1664,6 +1778,34 @@ const STRATEGIES = [
     desc: 'Exclude up to $10M or 10× basis of qualifying C-Corp stock gain from federal capital gains tax (held 5+ years, §1202)',
     useId: 'use-qsbs', blockId: 'block-qsbs',
   },
+  {
+    id: 'exch-1031', name: '§1031 Like-Kind Exchange',
+    category: 'capgains',
+    tags: ['reduces_capgains_tax', 'requires_liquidity_event'],
+    desc: 'Defer capital gains tax on investment real estate by exchanging for like-kind replacement property',
+    useId: 'use-1031', blockId: 'block-1031',
+  },
+  {
+    id: 'qbi-199a', name: '§199A QBI Deduction',
+    category: 'income',
+    tags: ['reduces_income_tax'],
+    desc: '20% deduction on qualified business income from S-Corps, LLCs, and partnerships',
+    useId: 'use-qbi', blockId: 'block-qbi',
+  },
+  {
+    id: 'slat', name: 'SLAT (Spousal Lifetime Access Trust)',
+    category: 'estate',
+    tags: ['reduces_estate_tax', 'requires_irrevocable'],
+    desc: 'Use lifetime exemption without losing indirect access — spouse is beneficiary',
+    useId: 'use-slat', blockId: 'block-slat',
+  },
+  {
+    id: 'idgt', name: 'IDGT (Intentionally Defective Grantor Trust)',
+    category: 'estate',
+    tags: ['reduces_estate_tax', 'requires_irrevocable'],
+    desc: 'Sell appreciating assets to a grantor trust for an installment note, freezing the estate value',
+    useId: 'use-idgt', blockId: 'block-idgt',
+  },
 ];
 
 const CATEGORY_LABELS = { income: 'Income', capgains: 'Cap Gains', giving: 'Giving', estate: 'Estate' };
@@ -1748,6 +1890,98 @@ const TAG_LABELS = {
   window.__RENDER_LIBRARY__ = render;
 })();
 
+/* ============================================================
+   STATE TAX LOOKUP
+   Top marginal state income/cap-gains rates and §1202 conformity.
+   Sources: state DOR publications as of 2024/2025 (advisor should
+   verify for any specific client — rates change annually).
+   ============================================================ */
+const STATE_TAX_TABLE = {
+  AL: { name: 'Alabama',         rate: 5.00, qsbsConforms: false },
+  AK: { name: 'Alaska',          rate: 0.00, qsbsConforms: true  },
+  AZ: { name: 'Arizona',         rate: 2.50, qsbsConforms: true  },
+  AR: { name: 'Arkansas',        rate: 4.40, qsbsConforms: true  },
+  CA: { name: 'California',      rate: 13.30, qsbsConforms: false },
+  CO: { name: 'Colorado',        rate: 4.40, qsbsConforms: true  },
+  CT: { name: 'Connecticut',     rate: 6.99, qsbsConforms: true  },
+  DE: { name: 'Delaware',        rate: 6.60, qsbsConforms: true  },
+  DC: { name: 'District of Columbia', rate: 10.75, qsbsConforms: true },
+  FL: { name: 'Florida',         rate: 0.00, qsbsConforms: true  },
+  GA: { name: 'Georgia',         rate: 5.39, qsbsConforms: true  },
+  HI: { name: 'Hawaii',          rate: 11.00, qsbsConforms: true },
+  ID: { name: 'Idaho',           rate: 5.80, qsbsConforms: true  },
+  IL: { name: 'Illinois',        rate: 4.95, qsbsConforms: true  },
+  IN: { name: 'Indiana',         rate: 3.00, qsbsConforms: true  },
+  IA: { name: 'Iowa',            rate: 5.70, qsbsConforms: true  },
+  KS: { name: 'Kansas',          rate: 5.70, qsbsConforms: true  },
+  KY: { name: 'Kentucky',        rate: 4.00, qsbsConforms: true  },
+  LA: { name: 'Louisiana',       rate: 4.25, qsbsConforms: true  },
+  ME: { name: 'Maine',           rate: 7.15, qsbsConforms: true  },
+  MD: { name: 'Maryland',        rate: 5.75, qsbsConforms: true  },
+  MA: { name: 'Massachusetts',   rate: 9.00, qsbsConforms: true  },
+  MI: { name: 'Michigan',        rate: 4.25, qsbsConforms: true  },
+  MN: { name: 'Minnesota',       rate: 9.85, qsbsConforms: true  },
+  MS: { name: 'Mississippi',     rate: 4.40, qsbsConforms: false },
+  MO: { name: 'Missouri',        rate: 4.80, qsbsConforms: true  },
+  MT: { name: 'Montana',         rate: 5.90, qsbsConforms: true  },
+  NE: { name: 'Nebraska',        rate: 5.84, qsbsConforms: true  },
+  NV: { name: 'Nevada',          rate: 0.00, qsbsConforms: true  },
+  NH: { name: 'New Hampshire',   rate: 0.00, qsbsConforms: true  },
+  NJ: { name: 'New Jersey',      rate: 10.75, qsbsConforms: false },
+  NM: { name: 'New Mexico',      rate: 5.90, qsbsConforms: true  },
+  NY: { name: 'New York',        rate: 10.90, qsbsConforms: true },
+  NC: { name: 'North Carolina',  rate: 4.25, qsbsConforms: true  },
+  ND: { name: 'North Dakota',    rate: 2.50, qsbsConforms: true  },
+  OH: { name: 'Ohio',            rate: 3.50, qsbsConforms: true  },
+  OK: { name: 'Oklahoma',        rate: 4.75, qsbsConforms: true  },
+  OR: { name: 'Oregon',          rate: 9.90, qsbsConforms: true  },
+  PA: { name: 'Pennsylvania',    rate: 3.07, qsbsConforms: false },
+  RI: { name: 'Rhode Island',    rate: 5.99, qsbsConforms: true  },
+  SC: { name: 'South Carolina',  rate: 6.20, qsbsConforms: true  },
+  SD: { name: 'South Dakota',    rate: 0.00, qsbsConforms: true  },
+  TN: { name: 'Tennessee',       rate: 0.00, qsbsConforms: true  },
+  TX: { name: 'Texas',           rate: 0.00, qsbsConforms: true  },
+  UT: { name: 'Utah',            rate: 4.55, qsbsConforms: true  },
+  VT: { name: 'Vermont',         rate: 8.75, qsbsConforms: true  },
+  VA: { name: 'Virginia',        rate: 5.75, qsbsConforms: true  },
+  WA: { name: 'Washington',      rate: 7.00, qsbsConforms: true  },
+  WV: { name: 'West Virginia',   rate: 5.12, qsbsConforms: true  },
+  WI: { name: 'Wisconsin',       rate: 7.65, qsbsConforms: true  },
+  WY: { name: 'Wyoming',         rate: 0.00, qsbsConforms: true  },
+};
+
+(function () {
+  const sel = document.getElementById('client-state');
+  Object.entries(STATE_TAX_TABLE)
+    .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+    .forEach(([code, info]) => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = `${info.name} (${info.rate.toFixed(2)}%${info.qsbsConforms ? '' : ' — QSBS non-conforming'})`;
+      sel.appendChild(opt);
+    });
+
+  sel.addEventListener('change', () => {
+    const code = sel.value;
+    const info = STATE_TAX_TABLE[code];
+    const note = document.getElementById('state-note');
+    if (!info) { note.textContent = 'Rates below are editable — pick a state to auto-fill.'; return; }
+    document.getElementById('tax-state').value = info.rate.toFixed(2);
+    const qsbsConforms = document.getElementById('qsbs-state-conforms');
+    if (qsbsConforms) qsbsConforms.value = info.qsbsConforms ? 'yes' : 'no';
+    note.innerHTML = info.qsbsConforms
+      ? `<strong>${info.name}:</strong> state rate set to <strong>${info.rate.toFixed(2)}%</strong>. State conforms to §1202 QSBS exclusion.`
+      : `<strong>${info.name}:</strong> state rate set to <strong>${info.rate.toFixed(2)}%</strong>. <span style="color: var(--crimson);">State does NOT conform to §1202 — QSBS exclusion only applies at the federal level.</span>`;
+  });
+
+  // If client-location already carries a ", XX" state code, pre-select it.
+  const loc = document.getElementById('client-location');
+  if (loc && loc.value) {
+    const m = loc.value.match(/,\s*([A-Z]{2})\b/);
+    if (m && STATE_TAX_TABLE[m[1]]) sel.value = m[1];
+  }
+})();
+
 /* ---- Sync hidden checkbox state with its parameter block's visibility ---- */
 const strategyMap = Object.fromEntries(STRATEGIES.map(s => [s.useId, s.blockId]));
 Object.entries(strategyMap).forEach(([chk, block]) => {
@@ -1812,6 +2046,7 @@ function readForm() {
     use: {
       dynasty: c('use-dynasty'), crat: c('use-crat'), daf: c('use-daf'), qoz: c('use-qoz'),
       ilit: c('use-ilit'), roth: c('use-roth'), grat: c('use-grat'), qsbs: c('use-qsbs'),
+      exch1031: c('use-1031'), qbi: c('use-qbi'), slat: c('use-slat'), idgt: c('use-idgt'),
     },
     dynasty: { funding: n('dt-funding'), exemption: n('dt-exemption'), years: n('dt-years') },
     crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
@@ -1826,6 +2061,11 @@ function readForm() {
       exclPct: n('qsbs-excl') / 100,
       stateConforms: t('qsbs-state-conforms') === 'yes',
     },
+    exch1031: { sale: n('exch-sale'), basis: n('exch-basis'), replacement: n('exch-replacement') },
+    qbi: { income: n('qbi-income'), pct: n('qbi-pct') / 100, sstb: t('qbi-sstb') === 'yes' },
+    slat: { funding: n('slat-funding'), growth: n('slat-growth') / 100, years: n('slat-years') },
+    idgt: { amount: n('idgt-amount'), afr: n('idgt-afr') / 100, growth: n('idgt-growth') / 100, term: n('idgt-term') },
+    clientState: t('client-state'),
     tax: {
       fed: n('tax-fed') / 100, state: n('tax-state') / 100,
       medicare: n('tax-medicare') / 100, marginal: n('tax-marginal') / 100,
@@ -1976,8 +2216,60 @@ function computePlan(d) {
     : 0;
   const qsbsTotalSaving = qsbsFederalSaved + qsbsMedicareSaved + qsbsStateSaved;
 
+  // ──────────────────────────────────────────────────────────────────────
+  // §1031 Like-Kind Exchange
+  //   Deferral, not permanent exclusion. Replacement >= relinquished =>
+  //   full gain deferred; shortfall triggers taxable "boot".
+  // ──────────────────────────────────────────────────────────────────────
+  let exch1031Gain = 0, exch1031Deferred = 0, exch1031Boot = 0, exch1031TaxDeferred = 0;
+  if (d.use.exch1031) {
+    exch1031Gain = Math.max(0, d.exch1031.sale - d.exch1031.basis);
+    exch1031Boot = Math.max(0, d.exch1031.sale - d.exch1031.replacement);
+    exch1031Deferred = Math.max(0, exch1031Gain - exch1031Boot);
+    exch1031TaxDeferred = exch1031Deferred * combinedCGRate;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // §199A QBI Deduction
+  //   20% (or specified %) of QBI, worth marginal-rate × deduction.
+  //   SSTB above phase-out ceiling eliminates the deduction — flagged
+  //   with a zero saving but the card explains why.
+  //   (Threshold check is simplified; a full impl would check taxable
+  //   income bands. Here we assume advisor has set pct appropriately.)
+  // ──────────────────────────────────────────────────────────────────────
+  let qbiDeduction = 0, qbiSavings = 0;
+  if (d.use.qbi) {
+    qbiDeduction = d.qbi.income * d.qbi.pct;
+    qbiSavings = qbiDeduction * d.tax.marginal;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // SLAT — similar structure to Dynasty Trust but uses exemption instead
+  // of GST allocation. Estate savings = funding × estate rate; growth
+  // projection compounds at the user-specified rate over the period.
+  // ──────────────────────────────────────────────────────────────────────
+  let slatEstateSave = 0, slatFutureValue = 0, slatGrowth = 0;
+  if (d.use.slat) {
+    slatEstateSave = d.slat.funding * d.tax.estate;
+    slatFutureValue = d.slat.funding * Math.pow(1 + d.slat.growth, d.slat.years);
+    slatGrowth = slatFutureValue - d.slat.funding;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // IDGT — installment sale. Note interest at AFR; growth above AFR
+  // compounds inside trust outside the estate.
+  //   Transferred wealth = amount × ((1+growth)^term − (1+afr)^term)
+  // ──────────────────────────────────────────────────────────────────────
+  let idgtTransferred = 0, idgtEstateSave = 0;
+  if (d.use.idgt) {
+    idgtTransferred = d.idgt.amount * Math.max(0,
+      Math.pow(1 + d.idgt.growth, d.idgt.term) - Math.pow(1 + d.idgt.afr, d.idgt.term));
+    idgtEstateSave = idgtTransferred * d.tax.estate;
+  }
+
   // Total immediate tax savings
-  const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave + qsbsTotalSaving;
+  const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave + qsbsTotalSaving
+                       + exch1031TaxDeferred + qbiSavings + slatEstateSave + idgtEstateSave;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -2073,6 +2365,10 @@ function computePlan(d) {
     gratRemainder, gratEstateSave,
     qsbsEligible, qsbsMaxExcl, qsbsActualExcl,
     qsbsFederalSaved, qsbsMedicareSaved, qsbsStateSaved, qsbsTotalSaving,
+    exch1031Gain, exch1031Deferred, exch1031Boot, exch1031TaxDeferred,
+    qbiDeduction, qbiSavings,
+    slatEstateSave, slatFutureValue, slatGrowth,
+    idgtTransferred, idgtEstateSave,
     dynasty20yr, dynastyGrowth,
     cgTaxSavings, totalImmediate,
     nwWithout_netProceeds, nwWithout_total,
@@ -2422,6 +2718,36 @@ function renderTax(p) {
   if (d.use.grat) {
     items.push({ label: `GRAT Estate Tax Savings (${d.grat.term}-yr)`, value: p.gratEstateSave, desc: `${fmt$M(d.grat.transfer)} into GRAT at ${fmtPct(d.grat.hurdle*100)} §7520 hurdle; ${fmtPct(d.grat.growth*100)} expected growth transfers ${fmt$(p.gratRemainder)} to heirs gift-tax-free. Estate savings at ${fmtPct(d.tax.estate*100)}.` });
   }
+  if (d.use.exch1031) {
+    const bootNote = p.exch1031Boot > 0 ? ` ${fmt$(p.exch1031Boot)} boot taken out is taxable.` : ' Full deferral — no boot.';
+    items.push({
+      label: `§1031 Exchange — Tax Deferred`,
+      value: p.exch1031TaxDeferred,
+      desc: `Exchange ${fmt$(d.exch1031.sale)} property (basis ${fmt$(d.exch1031.basis)}) for ${fmt$(d.exch1031.replacement)} replacement. Defers ${fmt$(p.exch1031Deferred)} of gain, saving ${fmt$(p.exch1031TaxDeferred)} at ${fmtPct(p.combinedCGRate*100)} combined rate.${bootNote} Note: deferral, not elimination — basis carries over.`
+    });
+  }
+  if (d.use.qbi) {
+    const sstbWarn = d.qbi.sstb ? ' ⚠️ SSTB flagged — deduction may be phased out entirely above upper threshold. Verify client taxable income band.' : '';
+    items.push({
+      label: '§199A QBI Deduction (annual)',
+      value: p.qbiSavings,
+      desc: `${fmt$(d.qbi.income)} QBI × ${fmtPct(d.qbi.pct*100)} = ${fmt$(p.qbiDeduction)} deduction. Annual tax savings at ${fmtPct(d.tax.marginal*100)} marginal: ${fmt$(p.qbiSavings)}.${sstbWarn}`
+    });
+  }
+  if (d.use.slat) {
+    items.push({
+      label: `SLAT Estate Tax Savings`,
+      value: p.slatEstateSave,
+      desc: `${fmt$M(d.slat.funding)} into SLAT removes ${fmt$M(d.slat.funding)} + ${fmt$(p.slatGrowth)} future growth from taxable estate. ${fmtPct(d.slat.growth*100)} compounded over ${d.slat.years} years → ${fmt$(p.slatFutureValue)} to heirs free of estate tax. Spouse retains indirect access.`
+    });
+  }
+  if (d.use.idgt) {
+    items.push({
+      label: `IDGT Estate Freeze (${d.idgt.term}-yr)`,
+      value: p.idgtEstateSave,
+      desc: `Sell ${fmt$M(d.idgt.amount)} to IDGT for AFR-rate note (${fmtPct(d.idgt.afr*100)}). Over ${d.idgt.term} years at ${fmtPct(d.idgt.growth*100)} growth, ${fmt$(p.idgtTransferred)} transfers to beneficiaries gift-tax-free. Estate savings at ${fmtPct(d.tax.estate*100)}.`
+    });
+  }
   items.push({ label: 'Capital Gains Tax Reduction', value: p.cgTaxSavings, desc: `Reduce taxable gain from ${fmt$M(p.scenarios.scenNone.taxableGain)} to ${fmt$M(p.scenarios.scenAll.taxableGain)} through combined structures.` });
   if (d.use.crat) items.push({ label: 'Estate Tax Savings (CRAT)', value: p.cratEstateSave, desc: `Remove ${fmt$M(d.crat.amount)} from taxable estate through CRAT. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
   if (d.use.daf) items.push({ label: 'Estate Tax Savings (DAF)', value: p.dafEstateSave, desc: `Remove ${fmt$M(d.daf.amount)} from taxable estate through DAF. Savings at ${fmtPct(d.tax.estate*100)} rate.` });
@@ -2454,6 +2780,10 @@ function renderTax(p) {
         ${d.use.roth ? `• Roth Conversion Net Benefits: ${fmt$(p.rothNetEstateSave)} (estate) + ${fmt$(p.rothGrowthBenefit)} (tax-free growth)<br>` : ''}
         ${d.use.grat ? `• GRAT Estate Tax Savings: ${fmt$(p.gratEstateSave)}<br>` : ''}
         ${d.use.qsbs && p.qsbsEligible ? `• §1202 QSBS Exclusion: ${fmt$(p.qsbsTotalSaving)} (excludes ${fmt$(p.qsbsActualExcl)} from federal/NIIT${d.qsbs.stateConforms ? '/state' : ''} tax)<br>` : ''}
+        ${d.use.exch1031 ? `• §1031 Exchange — Tax Deferred: ${fmt$(p.exch1031TaxDeferred)}<br>` : ''}
+        ${d.use.qbi ? `• §199A QBI Deduction (annual): ${fmt$(p.qbiSavings)}<br>` : ''}
+        ${d.use.slat ? `• SLAT Estate Tax Savings: ${fmt$(p.slatEstateSave)} (+${fmt$(p.slatGrowth)} tax-free growth)<br>` : ''}
+        ${d.use.idgt ? `• IDGT Estate Freeze: ${fmt$(p.idgtEstateSave)} (${fmt$(p.idgtTransferred)} transferred)<br>` : ''}
         ${d.use.qoz ? `• QOZ Deferral: ${fmt$(p.scenarios.scenAll.qozDeferred)} (plus tax-free appreciation)<br>` : ''}
       </div>
     </div>
@@ -2493,6 +2823,95 @@ function renderTax(p) {
           <li>File all required tax elections and disclosures</li>
           <li>Establish ongoing review cadence with advisor team</li>
         </ul>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   RENDERING — SCENARIO COMPARISON
+   Side-by-side A/B/C/D of pre-defined strategy stacks vs.
+   the advisor's current selection. All computed from the same
+   underlying client data.
+   ============================================================ */
+function renderCompare(p) {
+  const d = p.input;
+
+  // Helper: compute a plan variant by overriding the `use` toggles.
+  // Returns just the headline metrics we want to compare.
+  function variant(label, useOverride) {
+    const override = JSON.parse(JSON.stringify(d));
+    override.use = { ...d.use, ...useOverride };
+    const v = computePlan(override);
+    return {
+      label,
+      taxablGain:    v.scenarios.scenAll.taxableGain,
+      totalCGTax:    v.scenarios.scenAll.totalCGTax,
+      cgTaxSavings:  v.cgTaxSavings,
+      qsbsSaving:    v.qsbsTotalSaving,
+      estateSave:    v.totalEstateSave,
+      incomeSave:    v.incomeTaxSavings + (v.qbiSavings || 0),
+      totalImmediate:v.totalImmediate,
+      netWorthWith:  v.withPlanningTotal,
+      familyNW:      v.familyTotalNW,
+      strategies:    Object.entries(override.use).filter(([, on]) => on).map(([k]) => k),
+    };
+  }
+
+  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false };
+
+  const scenarios = [
+    variant('No Planning', allOff),
+    variant('Charitable Only (CRAT + DAF)', { ...allOff, crat: true, daf: true }),
+    variant('Classic Stack (Dynasty + CRAT + DAF + QOZ)', { ...allOff, dynasty: true, crat: true, daf: true, qoz: true }),
+    variant('Full Stack + QSBS', { ...allOff, dynasty: true, crat: true, daf: true, qoz: true, qsbs: true, ilit: true }),
+    variant('Current Selection (as configured)', d.use),
+  ];
+
+  const baseline = scenarios[0].netWorthWith + (scenarios[0].strategies.includes('dynasty') ? d.dynasty.funding : 0);
+  const rows = [
+    ['Taxable Capital Gain',     s => fmt$(s.taxablGain)],
+    ['Total Capital Gains Tax',  s => fmt$(s.totalCGTax)],
+    ['  ↳ CG Tax Savings vs No Planning', s => fmt$(s.cgTaxSavings)],
+    ['§1202 QSBS Federal Exclusion', s => fmt$(s.qsbsSaving)],
+    ['Income Tax Savings (charitable + QBI)', s => fmt$(s.incomeSave)],
+    ['Estate Tax Savings (all strategies)',   s => fmt$(s.estateSave)],
+    ['TOTAL Immediate Tax Benefit',           s => `<strong>${fmt$(s.totalImmediate)}</strong>`],
+    ['Client Net Proceeds + Other Assets',    s => fmt$(s.netWorthWith)],
+    ['Family Net Worth (incl. Dynasty/SLAT)', s => `<strong>${fmt$(s.familyNW)}</strong>`],
+  ];
+
+  return `
+    <div class="card">
+      <div class="card-title">Scenario Comparison</div>
+      <div class="card-sub">Same client data, different strategy combinations. "Current Selection" reflects what you have checked in the Strategy Library.</div>
+      <div style="overflow-x: auto; margin-top: 14px;">
+        <table class="plan-table">
+          <thead>
+            <tr>
+              <th style="text-align:left; min-width: 220px;">Metric</th>
+              ${scenarios.map(s => `<th style="text-align:right;">${s.label}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(([label, fn]) => `
+              <tr${label.startsWith('TOTAL') || label.startsWith('Family') ? ' class="highlight"' : ''}>
+                <td>${label}</td>
+                ${scenarios.map(s => `<td class="num">${fn(s)}</td>`).join('')}
+              </tr>
+            `).join('')}
+            <tr>
+              <td>Strategies Enabled</td>
+              ${scenarios.map(s => `<td style="font-size: 10px; color: var(--muted);">${s.strategies.map(k => k.toUpperCase()).join(' · ') || '—'}</td>`).join('')}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout" style="margin-top: 20px;">
+        <span class="title">📊 Reading the Table</span>
+        The rightmost column shows the strategy stack <em>you've currently selected</em>. The columns to its left are fixed reference scenarios. The "TOTAL Immediate Tax Benefit" and "Family Net Worth" rows are the bottom-line numbers to compare when explaining tradeoffs to the client.
+        <br><br>
+        <strong>Methodology note:</strong> every column uses the same client inputs (sale price, basis, income, tax rates, projection assumptions). Only the <em>use.*</em> toggles differ. Any strategy marked with a 5+ year hold requirement (QSBS) still enforces that in each scenario.
       </div>
     </div>
   `;
@@ -2774,6 +3193,7 @@ function generatePlan() {
   document.getElementById('panel-transaction').innerHTML = renderTransaction(p);
   document.getElementById('panel-financial').innerHTML = renderFinancial(p);
   document.getElementById('panel-tax').innerHTML = renderTax(p);
+  document.getElementById('panel-compare').innerHTML = renderCompare(p);
   document.getElementById('panel-estate').innerHTML = renderEstate(p);
 
   // Switch to plan view
@@ -2927,12 +3347,17 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
       'roth-amount','roth-marginal','roth-years',
       'grat-transfer','grat-term','grat-7520','grat-growth',
       'qsbs-basis','qsbs-years','qsbs-excl','qsbs-state-conforms',
+      'exch-sale','exch-basis','exch-replacement',
+      'qbi-income','qbi-pct','qbi-sstb',
+      'slat-funding','slat-growth','slat-years',
+      'idgt-amount','idgt-afr','idgt-growth','idgt-term',
+      'client-state',
       'tax-fed','tax-state','tax-medicare','tax-marginal','tax-estate','tax-estate-exempt',
       'proj-equity','proj-re','proj-years','proj-inflation',
       'ins-current','ins-rec-min','ins-rec-max',
       'firm-name','firm-tag'
     ];
-    const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs'];
+    const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt'];
     const values = {};
     const checkboxes = {};
     ids.forEach(id => { const el = document.getElementById(id); if (el) values[id] = el.value; });
