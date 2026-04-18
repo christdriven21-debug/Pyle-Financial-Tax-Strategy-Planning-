@@ -133,6 +133,64 @@
   .client-hidden { display: initial; }
   .is-client .client-hidden { display: none !important; }
 
+  /* ===== LIFE TIMELINE (Transaction Strategy tab) =====
+     Horizontal plan-events visualization. Each milestone is a dot
+     anchored at its fractional position along the plan horizon; the
+     label floats above/below alternately to avoid overlap. */
+  .timeline {
+    position: relative;
+    margin: 40px 20px 20px;
+    height: 160px;
+  }
+  .timeline-axis {
+    position: absolute;
+    left: 0; right: 0; top: 80px;
+    height: 3px;
+    background: linear-gradient(to right, var(--gold-dark), var(--gold), var(--gold-dark));
+    border-radius: 2px;
+  }
+  .timeline-dot {
+    position: absolute;
+    top: 72px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--crimson);
+    border: 3px solid var(--cream-panel);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transform: translateX(-50%);
+    z-index: 2;
+  }
+  .timeline-dot.success { background: var(--success); }
+  .timeline-dot.gold    { background: var(--gold-dark); }
+  .timeline-label {
+    position: absolute;
+    width: 120px;
+    transform: translateX(-50%);
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .timeline-label .yr {
+    display: block;
+    font-weight: 700;
+    color: var(--crimson);
+    letter-spacing: 1px;
+    font-size: 10px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .timeline-label .ev {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .timeline-label.above { top: 0; }
+  .timeline-label.below { bottom: 0; }
+  @media (max-width: 900px) {
+    .timeline { overflow-x: auto; min-width: 100%; }
+    .timeline-inner { min-width: 900px; position: relative; height: 160px; }
+  }
+
   /* ===== ADVISOR-ONLY ELEMENTS =====
      Any element tagged .advisor-only is hidden when the body has
      .client-view. That class is auto-added for signed-in clients and
@@ -3416,6 +3474,76 @@ function renderSummary(p) {
 function renderTransaction(p) {
   const d = p.input;
 
+  // Build the life-timeline events dynamically based on which strategies
+  // are active + client ages.
+  const primaryAge = d.client.primaryAge || 0;
+  const spouseAge  = d.client.spouseAge  || 0;
+  const jointLE    = primaryAge > 0 ? jointLastSurvivorExpectancy(primaryAge, spouseAge) : 0;
+  const horizon    = jointLE > 0 ? jointLE : d.proj.years;
+  const startYear  = d.client.year;
+  const events = [];
+  events.push({ yr: 0, year: startYear, label: 'Sale closes', type: 'crimson' });
+  if (d.use.dynasty || d.use.crat || d.use.daf || d.use.qsbs) {
+    events.push({ yr: 0, year: startYear, label: 'Pre-sale trusts funded + QSBS locked', type: 'gold' });
+  }
+  if (d.use.qoz) {
+    events.push({ yr: d.qoz.defer, year: startYear + d.qoz.defer, label: `QOZ deferred gain triggered (Year ${d.qoz.defer})`, type: 'crimson' });
+    events.push({ yr: d.qoz.years, year: startYear + d.qoz.years, label: `QOZ exits tax-free → reinvest`, type: 'success' });
+  }
+  if (d.use.qprt) {
+    events.push({ yr: d.qprt.term, year: startYear + d.qprt.term, label: `QPRT term ends — residence to heirs`, type: 'success' });
+  }
+  if (d.use.grat) {
+    events.push({ yr: d.grat.term, year: startYear + d.grat.term, label: `GRAT term ends`, type: 'success' });
+  }
+  if (d.use.idgt) {
+    events.push({ yr: d.idgt.term, year: startYear + d.idgt.term, label: `IDGT note paid off`, type: 'success' });
+  }
+  if (d.use.clt) {
+    events.push({ yr: d.clt.term, year: startYear + d.clt.term, label: `CLT term ends — remainder to heirs`, type: 'success' });
+  }
+  // Social Security claiming (primary spouse)
+  if (primaryAge > 0 && d.ss.primaryBenefit > 0) {
+    const ssYr = Math.max(0, (d.ss.claimAge || 67) - primaryAge);
+    if (ssYr <= horizon) events.push({ yr: ssYr, year: startYear + ssYr, label: `Claim Social Security (age ${d.ss.claimAge || 67})`, type: 'gold' });
+  }
+  // RMDs start
+  if (primaryAge > 0 && (d.retirement?.tradIRA || 0) + (d.retirement?.k401 || 0) > 0) {
+    const rmdYr = Math.max(0, (d.retirement?.rmdStartAge || 73) - primaryAge);
+    if (rmdYr <= horizon) events.push({ yr: rmdYr, year: startYear + rmdYr, label: `RMDs begin (age ${d.retirement?.rmdStartAge || 73})`, type: 'crimson' });
+  }
+  // Joint life expectancy endpoint
+  if (jointLE > 0) {
+    events.push({ yr: jointLE, year: startYear + jointLE, label: `${spouseAge > 0 ? 'Joint' : ''} Life Expectancy — estate passes`, type: 'crimson' });
+  }
+  // Deduplicate + sort by yr
+  events.sort((a, b) => a.yr - b.yr);
+
+  // Render: position dots proportionally along the horizon
+  const timelineHTML = horizon > 0 ? `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">Life Timeline — ${horizon}-Year Plan Horizon</div>
+      <div class="card-sub">Major events across the plan's lifespan, from sale day through ${spouseAge > 0 ? 'the joint life expectancy endpoint' : 'your planning horizon'}.</div>
+      <div class="timeline">
+        <div class="timeline-axis"></div>
+        ${events.map((e, i) => {
+          const pct = Math.max(2, Math.min(98, (e.yr / horizon) * 100));
+          const above = i % 2 === 0;
+          return `
+            <div class="timeline-dot ${e.type}" style="left: ${pct}%;" title="${e.year}: ${e.label}"></div>
+            <div class="timeline-label ${above ? 'above' : 'below'}" style="left: ${pct}%;">
+              <span class="yr">${e.year}${e.yr > 0 ? ` · Y${e.yr}` : ''}</span>
+              <span class="ev">${e.label}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div style="margin-top: 16px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Reading the timeline:</strong> <span style="color: var(--crimson);">●</span> crimson = tax or decision event · <span style="color: var(--gold-dark);">●</span> gold = funding or income milestone · <span style="color: var(--success);">●</span> green = tax-free wealth-transfer checkpoint.
+      </div>
+    </div>
+  ` : '';
+
   const saleStructureCard = `
     <div class="card advisor-only" style="border-left: 4px solid ${p.saleIsAsset ? 'var(--crimson)' : 'var(--success)'};">
       <div class="card-title">Sale Structure: ${p.saleIsAsset ? '⚠️ Asset Sale' : '✓ Stock Sale'}</div>
@@ -3441,6 +3569,8 @@ function renderTransaction(p) {
   `;
 
   return `
+    ${timelineHTML}
+
     ${saleStructureCard}
 
     <div class="card">
