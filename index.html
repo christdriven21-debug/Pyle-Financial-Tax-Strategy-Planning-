@@ -3300,6 +3300,32 @@ function computePlan(d) {
    ============================================================ */
 function renderSummary(p) {
   const d = p.input;
+
+  // "Today" card — anchors the narrative before any KPI or strategy talk.
+  const primaryAge = d.client.primaryAge || 0;
+  const spouseAge  = d.client.spouseAge  || 0;
+  const jointLE    = primaryAge > 0 ? jointLastSurvivorExpectancy(primaryAge, spouseAge) : 0;
+  const horizonEnd = d.client.year + (jointLE || d.proj.years);
+  const todayEstate = d.client.preSaleNW + d.client.otherAssets + (d.biz.sale || 0);
+  const retirementTotal = (d.retirement?.tradIRA || 0) + (d.retirement?.k401 || 0) + (d.retirement?.rothIRA || 0) + (d.retirement?.hsa || 0);
+
+  const todayCard = `
+    <div class="card" style="border-left: 4px solid var(--gold); background: linear-gradient(135deg, var(--cream-panel) 0%, #FDF9EC 100%);">
+      <div class="card-title" style="color: var(--ink);">Today — Where You Are &amp; Where We're Headed</div>
+      <div class="card-sub">
+        ${primaryAge > 0
+          ? `This plan follows ${d.client.primary || 'you'}${spouseAge > 0 && d.client.spouse ? ` and ${d.client.spouse}` : ''} through ${jointLE > 0 ? `your ${spouseAge > 0 ? 'joint life expectancy' : 'life expectancy'}` : `a ${d.proj.years}-year horizon`} — age ${primaryAge}${spouseAge > 0 ? `/${spouseAge}` : ''} today${jointLE > 0 ? `, planning to age ${primaryAge + jointLE}${spouseAge > 0 ? `/${spouseAge + jointLE}` : ''}` : ''}.`
+          : `Enter the client's age in the builder to anchor the plan horizon to life expectancy.`}
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">${d.client.spouse ? 'Primary / Spouse Ages' : 'Primary Age'}</div><div class="value">${primaryAge || '—'}${spouseAge > 0 ? ` / ${spouseAge}` : ''}</div></div>
+        ${jointLE > 0 ? `<div class="kpi gold"><div class="label">${spouseAge > 0 ? 'Joint Life Expectancy' : 'Life Expectancy'}</div><div class="value">${jointLE} yrs</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Plan horizon: ${d.client.year} → ${horizonEnd}</div></div>` : ''}
+        <div class="kpi"><div class="label">Today's Estate (Pre-Sale)</div><div class="value">${fmt$(todayEstate)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">NW + business + other assets</div></div>
+        ${retirementTotal > 0 ? `<div class="kpi"><div class="label">Retirement Accounts</div><div class="value">${fmt$(retirementTotal)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Pre-tax + Roth + HSA</div></div>` : ''}
+      </div>
+    </div>
+  `;
+
   const strategies = [];
   if (d.use.dynasty) strategies.push({ name: 'Dynasty Trust', desc: `Transfer ${fmt$M(d.dynasty.funding)} in non-voting shares pre-sale using combined family exemption.` });
   if (d.use.crat) strategies.push({ name: 'Pre-Transaction CRAT', desc: `${fmt$M(d.crat.amount)} Charitable Remainder Annuity Trust with ${fmtPct(d.crat.rate*100)} annual income to beneficiaries.` });
@@ -3311,8 +3337,10 @@ function renderSummary(p) {
   if (d.use.dynasty) strategies.push({ name: 'Multi-Generational Wealth', desc: `Dynasty Trust projected to grow to ${fmt$M(p.dynasty20yr)} over ${p.dynastyYears} years${p.dynastyUsesJointLE ? ' (joint life expectancy)' : ''}, tax-free to heirs.` });
 
   return `
+    ${todayCard}
+
     <div class="card">
-      <div class="card-title">Executive Summary — Business Sale &amp; Wealth Transition</div>
+      <div class="card-title">Plan Overview — Business Sale &amp; Wealth Transition</div>
       <div class="card-sub">Strategic overview of pre-sale planning and post-sale wealth positioning.</div>
 
       <div class="kpi-grid">
