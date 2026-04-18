@@ -4041,13 +4041,18 @@ function renderEstate(p) {
   const d = p.input;
   const insGap = Math.max(0, d.ins.recMin - d.ins.current);
 
-  // Multi-Year Family Estate Growth card — starts at proj.years horizon but
-  // the dropdown lets the user re-project at 5/10/15/20/25/30/40/50-year
-  // horizons without leaving the plan view. __RERENDER_ESTATE_GROWTH__ is
-  // wired globally so the inline onchange can call it.
+  // Multi-Year Family Estate Growth card — defaults to joint life expectancy
+  // (or primary LE if single) so the chart naturally runs through the
+  // end of the clients' expected lifetimes. The dropdown lets the user
+  // re-project at 5/10/15/20/25/30/40/50-year horizons without a full regen.
+  const initialLE = (d.client.primaryAge || 0) > 0
+    ? jointLastSurvivorExpectancy(d.client.primaryAge, d.client.spouseAge || 0)
+    : d.proj.years;
+  const initialHorizon = Math.max(5, Math.min(60, initialLE || d.proj.years));
+
   const estateGrowthCard = `
     <div class="card" style="border-left: 4px solid var(--gold);" id="estate-growth-container">
-      ${renderEstateGrowthInner(p, d.proj.years)}
+      ${renderEstateGrowthInner(p, initialHorizon)}
     </div>
   `;
 
@@ -4337,6 +4342,44 @@ function renderCharts(p) {
 }
 
 /* ============================================================
+   LIFE-EXPECTANCY HELPERS
+   Simplified unisex Table 2010CM-style lookup with linear
+   interpolation; joint-and-last-survivor approximated by
+   max(single_LE) + ~15% of shorter life (directionally
+   within a few years of IRS Table III for typical couples).
+   Used to default the Estate Growth horizon to "joint life
+   expectancy" so long-range projections align with when the
+   second spouse's estate is expected to pass to heirs.
+   ============================================================ */
+const SINGLE_LIFE_EXPECTANCY = {
+  30: 53, 35: 48, 40: 43, 45: 38, 50: 33.5,
+  55: 29, 60: 24.5, 65: 20.5, 70: 17, 75: 13.5,
+  80: 10.5, 85: 7.5, 90: 5.5, 95: 4, 100: 2.5,
+};
+function singleLifeExpectancy(age) {
+  if (!age || age <= 0) return 0;
+  const ages = Object.keys(SINGLE_LIFE_EXPECTANCY).map(Number).sort((a, b) => a - b);
+  if (age <= ages[0])                 return SINGLE_LIFE_EXPECTANCY[ages[0]];
+  if (age >= ages[ages.length - 1])   return SINGLE_LIFE_EXPECTANCY[ages[ages.length - 1]];
+  for (let i = 0; i < ages.length - 1; i++) {
+    if (age >= ages[i] && age <= ages[i + 1]) {
+      const frac = (age - ages[i]) / (ages[i + 1] - ages[i]);
+      return SINGLE_LIFE_EXPECTANCY[ages[i]] + frac * (SINGLE_LIFE_EXPECTANCY[ages[i + 1]] - SINGLE_LIFE_EXPECTANCY[ages[i]]);
+    }
+  }
+  return 20;
+}
+function jointLastSurvivorExpectancy(ageA, ageB) {
+  const leA = singleLifeExpectancy(ageA);
+  const leB = ageB > 0 ? singleLifeExpectancy(ageB) : 0;
+  if (leB <= 0) return Math.round(leA);
+  const maxLE = Math.max(leA, leB);
+  const minLE = Math.min(leA, leB);
+  const bonus = minLE * 0.15; // rough "two-lives" survival bonus
+  return Math.round(maxLE + bonus);
+}
+
+/* ============================================================
    MULTI-YEAR FAMILY ESTATE GROWTH — re-projectable at any horizon
    Re-computes rows + re-renders the card when the in-card
    dropdown changes, without requiring a full Generate Plan.
@@ -4384,24 +4427,38 @@ function renderEstateGrowthInner(p, horizon) {
   // Stash the current rows on the plan data so the chart render picks them up
   p.__currentEstateRows__ = rows;
 
+  // Compute joint life expectancy from client + spouse ages (if set)
+  const primaryAge = d.client.primaryAge || 0;
+  const spouseAge  = d.client.spouseAge  || 0;
+  const jointLE   = primaryAge > 0 ? jointLastSurvivorExpectancy(primaryAge, spouseAge) : 0;
+  const primaryLE = primaryAge > 0 ? Math.round(singleLifeExpectancy(primaryAge)) : 0;
+  const spouseLE  = spouseAge  > 0 ? Math.round(singleLifeExpectancy(spouseAge))  : 0;
+
   const horizonOptions = [5, 10, 15, 20, 25, 30, 40, 50];
+  const jointLabel = spouseAge > 0
+    ? `Joint Life Expectancy — ${jointLE} yrs (ages ${primaryAge}/${spouseAge})`
+    : `Life Expectancy — ${primaryLE} yrs (age ${primaryAge})`;
 
   return `
     <div style="display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 260px;">
-        <div class="card-title">Multi-Year Family Estate Growth — ${horizon}-Year Horizon</div>
+        <div class="card-title">Multi-Year Family Estate Growth — ${horizon}-Year Horizon${horizon === jointLE && jointLE > 0 ? ' (Joint LE)' : ''}</div>
         <div class="card-sub">
           Every estate component projected forward year-by-year
           (client liquid @ ${fmtPct(d.proj.equity*100)}, real estate @ ${fmtPct(d.proj.re*100)},
           QOZ @ ${fmtPct(d.qoz.ret*100)}, Dynasty @ ${fmtPct(d.proj.equity*100)},
           SLAT @ ${fmtPct(d.slat.growth*100)}, IDGT @ ${fmtPct(d.idgt.growth*100)},
           QPRT @ ${fmtPct(d.qprt.growth*100)}).
+          ${primaryAge > 0 ? `Default horizon is the ${spouseAge > 0 ? 'joint last-survivor life expectancy' : 'primary client\'s life expectancy'} — the window where estate value must be preserved and transferred efficiently.` : 'Enter primary/spouse ages in Section 1 to default the horizon to joint life expectancy.'}
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
         <label style="font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--crimson); font-family: 'Helvetica Neue', sans-serif;">Horizon:</label>
         <select id="estate-horizon-select" onchange="window.__RERENDER_ESTATE_GROWTH__(parseInt(this.value,10))"
                 style="padding: 8px 12px; border: 1px solid var(--gold); border-radius: 4px; font-family: inherit; font-size: 14px; background: var(--cream-light); font-weight: 600; color: var(--ink);">
+          ${jointLE > 0 ? `<option value="${jointLE}"${horizon === jointLE ? ' selected' : ''}>${jointLabel}</option>` : ''}
+          ${primaryLE > 0 && primaryLE !== jointLE ? `<option value="${primaryLE}"${horizon === primaryLE ? ' selected' : ''}>Primary LE — ${primaryLE} yrs (age ${primaryAge})</option>` : ''}
+          ${spouseLE > 0 && spouseLE !== jointLE && spouseLE !== primaryLE ? `<option value="${spouseLE}"${horizon === spouseLE ? ' selected' : ''}>Spouse LE — ${spouseLE} yrs (age ${spouseAge})</option>` : ''}
           ${horizonOptions.map(h => `<option value="${h}"${h === horizon ? ' selected' : ''}>${h} years</option>`).join('')}
         </select>
       </div>
