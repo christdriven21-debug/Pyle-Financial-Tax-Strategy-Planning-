@@ -1158,6 +1158,15 @@
       <input type="file" id="mgp-input" accept="application/json,.json" style="display:none">
       <button class="btn btn-secondary btn-sm" id="btn-mgp-import" title="Import a client fact-finder JSON from MoneyGuidePro">Import MGP</button>
     </div>
+    <div class="cb-group">
+      <span class="cb-label">Sample:</span>
+      <select id="sample-picker">
+        <option value="">— Load a sample plan —</option>
+        <option value="samples/01-harrison-grand-tour.json">Harrison — Grand Tour (all 13 strategies)</option>
+        <option value="samples/02-chen-real-estate.json">Chen — Real Estate Repositioning</option>
+        <option value="samples/03-okonkwo-service-sstb.json">Okonkwo — Dual-Professional (SSTB)</option>
+      </select>
+    </div>
     <div class="cb-status" id="cloud-status">Connecting…</div>
   </div>
 
@@ -4203,12 +4212,39 @@ obs.observe(document.getElementById('panel-financial'), { attributes: true, attr
     }
   }
 
+  /* ---- Sample-plan picker: fetch a bundled sample JSON and hydrate form ---- */
+  async function loadSampleFromURL(url) {
+    if (!url) return;
+    setStatus('Fetching sample…');
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const parsed = await resp.json();
+      const snap = parsed.plan || parsed;
+      if (!snap.values && !snap.checkboxes) throw new Error('Not a valid plan JSON');
+      hydrateForm(snap);
+      currentId = null;
+      history.replaceState(null, '', location.pathname);
+      const who = snap.values['client-primary'] || 'sample';
+      setStatus(`Sample loaded: ${who} — review and click Generate Plan`, 'ok');
+    } catch (err) {
+      setStatus('Sample load failed: ' + err.message, 'err');
+    }
+  }
+
   /* ---- Wire local (offline-safe) buttons first, so they work even if
          Supabase is unreachable or not configured ---- */
   document.getElementById('btn-cloud-download').addEventListener('click', downloadJSON);
   const uploadInput = document.getElementById('cloud-upload-input');
   document.getElementById('btn-cloud-upload').addEventListener('click', () => uploadInput.click());
   uploadInput.addEventListener('change', e => uploadJSON(e.target.files[0]));
+  const samplePicker = document.getElementById('sample-picker');
+  if (samplePicker) {
+    samplePicker.addEventListener('change', e => {
+      loadSampleFromURL(e.target.value);
+      e.target.value = ''; // reset so the same sample can be re-picked later
+    });
+  }
   const pfpInput = document.getElementById('precisefp-input');
   document.getElementById('btn-precisefp-import').addEventListener('click', () => pfpInput.click());
   pfpInput.addEventListener('change', e => importPreciseFPCSV(e.target.files[0]));
