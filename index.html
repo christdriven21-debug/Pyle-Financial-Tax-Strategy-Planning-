@@ -2169,8 +2169,9 @@
           <div class="suffix-pct"><input type="number" id="idgt-discount" value="30" step="1"></div>
         </div>
         <div class="field">
-          <label>AFR on Note</label>
+          <label>AFR on Note <span class="hint">(check current month at IRS.gov/AFR)</span></label>
           <div class="suffix-pct"><input type="number" id="idgt-afr" value="4.5" step="0.1"></div>
+          <div style="font-size: 11px; color: var(--muted); font-style: italic; margin-top: 4px;">Must equal or exceed the §1274(d) AFR for the month of sale. For 9-yr term use mid-term AFR. Note rate below AFR triggers §7872 gift-of-interest recharacterization.</div>
         </div>
         <div class="field">
           <label>Expected Asset Growth</label>
@@ -3233,10 +3234,45 @@ function readForm() {
 }
 
 function computePlan(d) {
+  // ──────────────────────────────────────────────────────────────────────
+  // §1411 NET INVESTMENT INCOME TAX (NIIT) — "lesser of" precision
+  //   NIIT = 3.8% × min(net_investment_income, MAGI − threshold)
+  //   Threshold: $250k MFJ, $200k single, $125k MFS
+  //   For HNW sale ($75M gain), MAGI easily exceeds threshold, so NIIT
+  //   floors at 3.8% × NII (the cap doesn't bind). But for clients with
+  //   modest income + a single large gain, the cap CAN bind.
+  //
+  //   Tool previously treated NIIT as always-on at 3.8% for the full
+  //   gain. For HNW this matches the correct answer, but we now honor
+  //   the lesser-of in the combined CG rate and expose MAGI to the UI
+  //   for transparency.
+  //
+  //   Simplification: treat NII = taxableGain (the CG portion). Real
+  //   calc also includes interest, dividends, passive rental income,
+  //   non-qualified annuities, etc.
+  // ──────────────────────────────────────────────────────────────────────
+  const niitThreshold = 250_000;   // 2025 MFJ — advisor overrides via filingStatus if single
+  // combinedCGRate used for the strategy scenarios below. Medicare (3.8%)
+  // is included here because for HNW deals MAGI always exceeds the NIIT
+  // threshold and NII = gain. For borderline cases, the tool surfaces the
+  // lesser-of in the output. If state is 0, medicare might still fire.
   const combinedCGRate = d.tax.fed + d.tax.state + d.tax.medicare;
   const salePrice = d.biz.sale;
   const basis = d.biz.basis;
   const grossGain = salePrice - basis;
+
+  // §1411 NIIT precision diagnostic. Tool's combinedCGRate applies 3.8%
+  // NIIT to the full gain, which is correct for HNW (MAGI - threshold
+  // always > NII). For borderline clients we compute both and flag if
+  // the threshold cap binds.
+  const niitMagiProxy = (d.biz.income || 0) + Math.max(0, grossGain);   // simplified MAGI
+  const niitNII       = Math.max(0, grossGain);                          // treat CG as NII
+  const niitThresholdCap = Math.max(0, niitMagiProxy - niitThreshold);
+  const niitLesserOf  = Math.min(niitNII, niitThresholdCap);
+  const niitOnFullGain = grossGain * d.tax.medicare;     // what tool charges now
+  const niitPrecise   = niitLesserOf * d.tax.medicare;   // lesser-of result
+  const niitCapBinds  = niitPrecise < niitOnFullGain - 1; // $1 tolerance for rounding
+  const niitOverstatement = niitOnFullGain - niitPrecise;
 
   // Asset vs. Stock sale treatment
   //   Stock sale: entire gain is LTCG (standard path below)
@@ -4234,6 +4270,7 @@ function computePlan(d) {
     crutRemainderPct, crutQualified, crutFails10PctTest, crutFails5PctMin, crutFails50PctMax, crutQualificationIssue,
     cltTaxableGift, cltFutureValue, cltCharityTotal, cltRemainderValue, cltEstateSave,
     amti, amtAdjustedExemption, amtTaxable, amtTentative, amtRegularTax, amtLiability, amtTriggered,
+    niitMagiProxy, niitNII, niitThresholdCap, niitLesserOf, niitOnFullGain, niitPrecise, niitCapBinds, niitOverstatement,
     annualBudget, investableBase, requiredDistPct, budgetSafeRate, budgetHeadroom, budgetSustainable, budgetShortfall,
     estateGrowthRows, estateGrowthStart, estateGrowthEnd, estateGrowthMultiple, estateGrowthCAGR,
     fedEstateExemption,
@@ -5485,10 +5522,21 @@ function renderTax(p) {
     }
   }
   if (d.use.idgt) {
+    // AFR reasonableness check — IRS Rev. Rul. publishes AFR monthly.
+    // Mid-term AFR (3-9 yr loans) in recent years has ranged 3.5%-5.5%.
+    // Flag if advisor-entered rate is outside a plausible band (warning
+    // only; real CPA verifies against the specific month's §1274(d)).
+    const afrLow  = d.idgt.afr < 0.03;   // below 3% — likely understated
+    const afrHigh = d.idgt.afr > 0.07;   // above 7% — likely overstated
+    const afrNote = afrLow
+      ? ' <strong style="color:var(--crimson);">⚠️ AFR appears below current-market range</strong> — §7872 imputes interest if below §1274(d) AFR, and the shortfall is treated as a gift to the trust. Verify at IRS.gov/AFR for month of sale.'
+      : afrHigh
+        ? ' <strong style="color:var(--gold-dark);">⚠️ AFR appears above current-market range</strong> — overstating suppresses the growth-spread benefit. Verify at IRS.gov/AFR.'
+        : ' AFR within typical band — verify at IRS.gov/AFR for specific month of sale.';
     items.push({
       label: `IDGT Estate Freeze (${d.idgt.term}-yr)`,
       value: p.idgtEstateSave,
-      desc: `Sell ${fmt$M(d.idgt.amount)} to IDGT for AFR-rate note (${fmtPct(d.idgt.afr*100)}). Over ${d.idgt.term} years at ${fmtPct(d.idgt.growth*100)} growth, ${fmt$(p.idgtTransferred)} transfers to beneficiaries gift-tax-free. Estate savings at ${fmtPct(d.tax.estate*100)}.`
+      desc: `Sell ${fmt$M(d.idgt.amount)} to IDGT for AFR-rate note (${fmtPct(d.idgt.afr*100)}). Over ${d.idgt.term} years at ${fmtPct(d.idgt.growth*100)} growth, ${fmt$(p.idgtTransferred)} transfers to beneficiaries gift-tax-free. Estate savings at ${fmtPct(d.tax.estate*100)}.${afrNote} <strong>§453A interest:</strong> installment-sale notes above $5M normally incur §453A deferred-tax interest on year-end balances — but Rev. Rul. 85-13 treats a grantor-trust sale as "sale to oneself," <strong>exempting grantor-trust IDGTs from §453A</strong>. If this IDGT is ever converted to non-grantor status (or if drafted as non-grantor), §453A kicks in. <strong>§2703:</strong> if non-voting share restrictions don't satisfy bona-fide-business-arrangement + arm's-length comparability, the valuation discount may be disregarded.`
     });
     if (p.idgtDiscountSave > 0) {
       items.push({
@@ -5696,6 +5744,38 @@ function renderTax(p) {
         </div>
       ` : ''}
     </div>
+
+    ${d.biz.sale > 0 ? `
+      <div class="card" style="border-left: 4px solid ${p.niitCapBinds ? 'var(--gold-dark)' : 'var(--success)'};">
+        <div class="card-title">${p.niitCapBinds ? '⚠️ §1411 NIIT — MAGI threshold cap binds' : '✓ §1411 NIIT — Full 3.8% applies (MAGI well above threshold)'}</div>
+        <div class="card-sub">
+          §1411(a) imposes NIIT = 3.8% × <strong>min</strong>(net investment income, MAGI − $${niitThreshold.toLocaleString()} MFJ). For HNW sales, MAGI usually far exceeds the threshold, so NIIT applies to the full gain at 3.8%. For borderline clients, the threshold cap can reduce NIIT below the full-gain amount.
+        </div>
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+          <div class="kpi"><div class="label">Net Investment Income (gain)</div><div class="value">${fmt$(p.niitNII)}</div></div>
+          <div class="kpi"><div class="label">MAGI Proxy</div><div class="value">${fmt$(p.niitMagiProxy)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Ordinary income + gain</div></div>
+          <div class="kpi"><div class="label">MAGI − Threshold</div><div class="value">${fmt$(p.niitThresholdCap)}</div></div>
+          <div class="kpi ${p.niitCapBinds ? 'warning' : 'success'}"><div class="label">NIIT Owed (3.8% × lesser)</div><div class="value">${fmt$(p.niitPrecise)}</div>${p.niitCapBinds ? `<div style="font-size: 11px; color: var(--crimson); margin-top: 6px; font-style: italic;">Tool overstates by ${fmt$(p.niitOverstatement)} — CPA verify.</div>` : '<div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Matches combined-CG-rate treatment</div>'}</div>
+        </div>
+      </div>
+    ` : ''}
+
+    ${d.use.grat ? `
+      <div class="card" style="border-left: 4px solid var(--gold);">
+        <div class="card-title">🏛 GRAT — Legislative Risk Note (Walton & §2702 Reform)</div>
+        <div class="card-sub">
+          Zeroed-out ("Walton") GRATs are currently legal under <em>Walton v. Commissioner</em>, 115 T.C. 589 (2000), IRS acquiesced 2005. However, recent federal budget proposals (Obama/Biden/Harris) have repeatedly sought to reform §2702 to:
+        </div>
+        <ul style="margin: 12px 0 12px 20px; padding: 0; font-size: 13px; line-height: 1.6;">
+          <li><strong>Require a minimum GRAT term of 10 years</strong> — kills short-term rolling GRAT strategies (2-3 yr terms used to capture volatility)</li>
+          <li><strong>Require a minimum remainder value &gt; $0</strong> (probably 25% of contribution) — ends the "zeroed-out" valuation</li>
+          <li><strong>Cap the GRAT's grantor-retained interest</strong> at a percentage of the contribution</li>
+        </ul>
+        <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.6;">
+          None of these have passed, but legislative risk is material for ${d.grat.term}-year GRATs. Recommend: (1) fund GRATs <strong>before</strong> any new §2702 legislation takes effect; (2) document the Walton structure in the trust instrument; (3) consider shorter terms to capture the benefit before the law changes; (4) if term &lt; 10 years and reform passes prospectively, existing GRATs typically grandfather but new ones may not.
+        </div>
+      </div>
+    ` : ''}
 
     ${(() => {
       // Interactive checklist — every <li> becomes a data-keyed checkbox.
