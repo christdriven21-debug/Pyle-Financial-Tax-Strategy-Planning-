@@ -2630,6 +2630,32 @@
         <label>ISO Bargain Element <span class="hint">(spread × unexercised ISO shares — AMT preference)</span></label>
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="iso-bargain" value="0"></div>
       </div>
+      <div class="field">
+        <label>Considering a Move? <span class="hint">(domicile change analysis)</span></label>
+        <select id="considering-move">
+          <option value="no">No / Not applicable</option>
+          <option value="yes">Yes — analyze impact</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Potential New State <span class="hint">(2-letter code if considering)</span></label>
+        <select id="target-state">
+          <option value="FL">Florida (no state income tax)</option>
+          <option value="TX">Texas (no state income tax)</option>
+          <option value="NV">Nevada (no state income tax)</option>
+          <option value="WA">Washington (no state income tax; 7% LTCG on > $270k)</option>
+          <option value="WY">Wyoming (no state income tax)</option>
+          <option value="SD">South Dakota (no state income tax)</option>
+          <option value="AK">Alaska (no state income tax)</option>
+          <option value="TN">Tennessee (no state income tax)</option>
+          <option value="NH">New Hampshire (no tax on earned income)</option>
+          <option value="AZ">Arizona (2.5% flat rate)</option>
+          <option value="CO">Colorado (4.4% flat rate)</option>
+          <option value="ID">Idaho (5.8% flat rate)</option>
+          <option value="UT">Utah (4.65% flat rate)</option>
+          <option value="NC">North Carolina (4.5% flat rate)</option>
+        </select>
+      </div>
 
       <div class="field" style="grid-column: 1 / -1;">
         <label>Financial Goals <span class="hint">(one per line: "Name | $Amount | TargetYear | Priority | Category". Priority = must / important / aspirational. Category = retirement / education / legacy / lifestyle / philanthropy / major_purchase)</span></label>
@@ -3467,6 +3493,34 @@
     </div>
   </div>
 
+  <!-- DOCUMENT VAULT (populated by JS when a plan is loaded) -->
+  <div class="review-panel hidden" id="documents-panel">
+    <h3>📁 Plan Documents</h3>
+    <div style="font-size: 12px; color: var(--muted); margin-bottom: 14px; font-style: italic;">
+      Upload trust instruments, tax returns, insurance policies, engagement letters, and other plan-supporting documents. Files stored securely in Supabase with RLS — team members see all; clients see only their own plan's documents that are marked client-visible.
+    </div>
+    <div class="review-form" id="documents-form">
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <input type="file" id="doc-file-input" style="font-size: 13px; flex: 1; min-width: 200px;">
+        <select id="doc-category" style="padding: 8px 10px; border-radius: 3px; border: 1px solid rgba(201,169,97,0.4); font-size: 12px;">
+          <option value="plan">📋 Plan Document</option>
+          <option value="tax_return">🧾 Tax Return</option>
+          <option value="trust">🏛 Trust Instrument</option>
+          <option value="insurance">🛡 Insurance Policy</option>
+          <option value="statement">📊 Account Statement</option>
+          <option value="engagement">📝 Engagement Letter</option>
+          <option value="other" selected>📎 Other</option>
+        </select>
+        <label class="team-only" style="font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px;">
+          <input type="checkbox" id="doc-advisor-only"> Advisor-only
+        </label>
+        <button class="btn btn-primary btn-sm" id="btn-doc-upload">Upload</button>
+        <span style="font-size: 11px; color: var(--muted);" id="doc-status"></span>
+      </div>
+    </div>
+    <div class="review-list" id="documents-list" style="margin-top: 16px;"></div>
+  </div>
+
   <!-- REVIEW / COMMENTS PANEL (populated by JS when a plan is loaded) -->
   <div class="review-panel hidden" id="review-panel">
     <h3>Reviews &amp; Comments</h3>
@@ -4104,6 +4158,8 @@ function readForm() {
       concentratedInsider: t('concentrated-insider') === 'yes',
       optionsValue: n('options-value'),
       isoBargain: n('iso-bargain'),
+      consideringMove: t('considering-move') === 'yes',
+      targetState: t('target-state') || 'FL',
     },
     goals: parseGoals(t('financial-goals')),
     retirement: {
@@ -8009,6 +8065,8 @@ function renderTax(p) {
 
     ${renderMultiYearTax(p)}
 
+    ${renderStateDomicileAnalyzer(p)}
+
     ${d.use.grat ? `
       <div class="card" style="border-left: 4px solid var(--gold);">
         <div class="card-title">🏛 GRAT — Legislative Risk Note (Walton & §2702 Reform)</div>
@@ -9033,6 +9091,125 @@ function runMultiYearTax(p, d) {
     ((totalRoth10yr * 0.5 * d.tax.marginal) || 1));  // rough
 
   return { rows, totalTax10yr, totalRoth10yr, rothBreakevenAge };
+}
+
+/* ============================================================
+   STATE DOMICILE CHANGE ANALYZER
+   Quantifies lifetime tax impact of relocating from current state
+   to a target low-tax state. Covers:
+     • Year-of-sale CG tax delta (if pre-sale move)
+     • Annual ordinary-income tax delta through life expectancy
+     • State estate tax delta (many low-tax states also have no estate tax)
+   Includes a realistic compliance callout on establishing domicile
+   (the 183-day rule is just the start — intent to establish requires
+   real economic roots).
+   ============================================================ */
+function renderStateDomicileAnalyzer(p) {
+  const d = p.input;
+  if (!d.client.consideringMove) return '';
+
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmtPct = (n) => (n || 0).toFixed(2) + '%';
+
+  // Target-state tax rates (2025 published — simplified, top marginal)
+  const STATE_TAX = {
+    FL: { ordinary: 0, cg: 0, estate: 0, estateExempt: 99999999, name: 'Florida' },
+    TX: { ordinary: 0, cg: 0, estate: 0, estateExempt: 99999999, name: 'Texas' },
+    NV: { ordinary: 0, cg: 0, estate: 0, estateExempt: 99999999, name: 'Nevada' },
+    WA: { ordinary: 0, cg: 0.07, estate: 0.20, estateExempt: 2193000, name: 'Washington' },  // 7% LTCG + state estate tax
+    WY: { ordinary: 0, cg: 0, estate: 0, estateExempt: 99999999, name: 'Wyoming' },
+    SD: { ordinary: 0, cg: 0, estate: 0, estateExempt: 99999999, name: 'South Dakota' },
+    AK: { ordinary: 0, cg: 0, estate: 0, estateExempt: 99999999, name: 'Alaska' },
+    TN: { ordinary: 0, cg: 0, estate: 0, estateExempt: 99999999, name: 'Tennessee' },
+    NH: { ordinary: 0, cg: 0, estate: 0, estateExempt: 99999999, name: 'New Hampshire' },
+    AZ: { ordinary: 0.025, cg: 0.025, estate: 0, estateExempt: 99999999, name: 'Arizona' },
+    CO: { ordinary: 0.044, cg: 0.044, estate: 0, estateExempt: 99999999, name: 'Colorado' },
+    ID: { ordinary: 0.058, cg: 0.058, estate: 0, estateExempt: 99999999, name: 'Idaho' },
+    UT: { ordinary: 0.0465, cg: 0.0465, estate: 0, estateExempt: 99999999, name: 'Utah' },
+    NC: { ordinary: 0.045, cg: 0.045, estate: 0, estateExempt: 99999999, name: 'North Carolina' },
+  };
+  const target = STATE_TAX[d.client.targetState] || STATE_TAX.FL;
+
+  const currentState = (d.clientState || '').toUpperCase() || 'CA';
+  const currentStateRate = d.tax.state || 0;       // CG rate (ordinary rate not separately tracked)
+  const currentStateOrdRate = d.tax.state || 0;    // proxy — most states use same rate for ord + CG
+
+  // 1. Year-of-sale CG tax delta (if pre-sale move feasible)
+  const gain = p.scenarios?.scenAll?.taxableGain || 0;
+  const currentStateCGTax = gain * currentStateRate;
+  const targetStateCGTax  = gain * target.cg;
+  const cgMoveSavings = Math.max(0, currentStateCGTax - targetStateCGTax);
+
+  // 2. Annual ordinary-income tax delta through life expectancy
+  const primaryAge = d.client.primaryAge || 55;
+  const spouseAge  = d.client.spouseAge  || 0;
+  const jointLE = primaryAge > 0 ? jointLastSurvivorExpectancy(primaryAge, spouseAge) : 25;
+  const income = d.biz.income || 0;
+  const annualOrdSavings = Math.max(0, income * (currentStateOrdRate - target.ordinary));
+  // Discount to present value at inflation rate
+  const inflation = d.proj.inflation || 0.025;
+  const lifetimeOrdSavings = annualOrdSavings * ((1 - Math.pow(1 + inflation, -jointLE)) / inflation || jointLE);
+
+  // 3. State estate tax savings
+  // Most non-tax states also have no estate tax (already in STATE_TAX_TABLE)
+  const stateEstateWithPlan = p.stateEstateTaxWithPlan || 0;
+  const stateEstateMoveSavings = stateEstateWithPlan; // if target has no estate tax
+
+  const totalLifetimeSavings = cgMoveSavings + lifetimeOrdSavings + stateEstateMoveSavings;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold-dark);">
+      <div class="card-title">🗺 State Domicile Change Analysis — ${currentState} → ${target.name}</div>
+      <div class="card-sub">
+        Quantified lifetime tax impact of relocating from ${currentState} to ${target.name}. This is a directional estimate; actual savings depend on timing (pre-sale vs. post-sale move is critical for the CG component), domicile establishment quality, and state audit risk.
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 16px;">
+        ${gain > 0 ? `<div class="kpi success"><div class="label">CG Tax Savings (year of sale)</div><div class="value">${fmt$M(cgMoveSavings)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">If domicile established BEFORE sale closes</div></div>` : ''}
+        <div class="kpi success"><div class="label">Annual Ord-Income Savings</div><div class="value">${fmt$(annualOrdSavings)}/yr</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">On ${fmt$(income)} business income</div></div>
+        <div class="kpi success"><div class="label">Lifetime Ord-Income Savings (PV)</div><div class="value">${fmt$M(lifetimeOrdSavings)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Over ${jointLE}-yr joint LE, ${fmtPct(inflation*100)} discount</div></div>
+        ${stateEstateMoveSavings > 0 ? `<div class="kpi success"><div class="label">State Estate Tax Savings</div><div class="value">${fmt$M(stateEstateMoveSavings)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">At death under current plan</div></div>` : ''}
+        <div class="kpi gold" style="grid-column: 1 / -1;"><div class="label">Total Lifetime Tax Savings (PV)</div><div class="value">${fmt$M(totalLifetimeSavings)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Headline benefit of moving</div></div>
+      </div>
+
+      <div class="callout" style="margin-top: 16px; border-color: var(--crimson); background: #FFF0F0;">
+        <span class="title" style="color: var(--crimson);">⚠ Establishing Domicile — More Than the 183-Day Rule</span>
+        A successful domicile change requires <strong>intent to abandon</strong> the old state AND establish permanent roots in the new one. High-tax states (especially NY and CA) routinely audit departing residents. Evidence-based checklist:
+        <ul style="margin: 10px 0 0 20px; padding: 0; font-size: 13px; line-height: 1.6;">
+          <li><strong>Residence</strong>: buy or lease primary residence in new state; sell or substantially lease old residence (ideally long-term)</li>
+          <li><strong>Presence test</strong>: spend &gt; 183 days in new state; &lt; 183 in old (and document — credit card records, cell tower data, flight manifests)</li>
+          <li><strong>Driver's license + vehicle registration</strong>: transfer immediately</li>
+          <li><strong>Voter registration</strong>: register in new state, deregister in old</li>
+          <li><strong>Tax returns</strong>: file as non-resident in old state, full-year resident in new</li>
+          <li><strong>Professional services</strong>: move doctor, dentist, CPA, estate attorney to new state</li>
+          <li><strong>Mail + accounts</strong>: change all financial account addresses; move banking primary relationship</li>
+          <li><strong>Memberships &amp; clubs</strong>: resign from old state's country clubs, non-profits, professional orgs</li>
+          <li><strong>Safe-deposit boxes, wills, trusts</strong>: re-site to new state</li>
+          <li><strong>Family</strong>: kids in school in new state (if applicable); spouse formally relocated</li>
+        </ul>
+      </div>
+
+      ${gain > 0 ? `
+      <div class="callout" style="margin-top: 12px; border-color: var(--gold-dark);">
+        <span class="title">⏰ Pre-Sale Move Timing is Critical</span>
+        The ${fmt$M(cgMoveSavings)} CG savings ONLY applies if bona-fide domicile in ${target.name} is established <strong>BEFORE</strong> the sale closes. California specifically uses a source-based + residence-based approach — selling stock in a CA-domiciled business while a CA resident subjects the gain to CA tax regardless of where you move after. Practical implication: plan the move <strong>12-24 months ahead of any sale LOI</strong>, not after.
+      </div>
+      ` : ''}
+
+      <div class="callout" style="margin-top: 12px;">
+        <span class="title">🏛 State-Specific Traps</span>
+        <strong>California</strong> — aggressive residency audits; uses a 19-factor "closest connections" test. Stock sale by CA resident is CA-source income. California has a "deemed domicile" concept for those with strong ongoing ties.<br>
+        <strong>New York</strong> — 11-month presence = statutory residency. The "permanent place of abode" rule can trap part-time NYC residents even if domicile is elsewhere. Trust planning: NY taxes accumulated trust income if the grantor lived in NY when the trust was created (NY Tax Law §605(b)(3)(D)), even after moving.<br>
+        <strong>Washington state</strong> has no ordinary income tax but imposes a <strong>7% long-term capital gains tax</strong> on gains above $270k (2024) per person. Not a zero-tax state for HNW.<br>
+        <strong>Oregon + Massachusetts</strong> — retain taxing rights over former residents' retirement income sourced to their state (for a limited period).
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Methodology:</strong> Ordinary savings uses business income as the proxy; real calc should include investment income (dividends, interest, muni bond income that may still be taxable in new state), pension sourcing rules, and deferred comp clawbacks. State estate tax savings assumes target state has no estate tax (verify — CT, HI, IL, MA, MD, ME, MN, NY, OR, RI, VT, WA, DC all have state estate taxes). ${d.use.dynasty || d.use.slat || d.use.idgt ? 'Trust planning complicates domicile changes — trusts sited in a favorable state (DE, NV, SD, WY, AK) may already be capturing some benefit. CPA/estate-counsel review essential before relocating.' : ''}
+      </div>
+    </div>
+  `;
 }
 
 /* ============================================================
@@ -11255,6 +11432,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'client-primary-age','client-spouse-age',
       'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college','family-composition','financial-goals',
       'concentrated-value','concentrated-basis','concentrated-ticker','concentrated-insider','options-value','iso-bargain',
+      'considering-move','target-state',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
@@ -11844,6 +12022,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (cloneBtn) cloneBtn.disabled = !(signedIn && isTeam && currentId);
     // Review panel visibility tracks sign-in + loaded plan
     if (typeof refreshReviews === 'function') refreshReviews();
+    if (typeof refreshDocuments === 'function') refreshDocuments();
     // Apply client-view body class: clients always see simplified view;
     // team members see full view unless they've toggled "Preview as Client"
     applyClientView();
@@ -12118,6 +12297,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     refreshList();
     applyRoleUI();
     refreshReviews();
+    if (typeof refreshDocuments === 'function') refreshDocuments();
     hydrateChecklist();
   }
 
@@ -12144,6 +12324,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     setStatus('Loaded: ' + (data.name || data.id), 'ok');
     applyRoleUI();
     refreshReviews();
+    if (typeof refreshDocuments === 'function') refreshDocuments();
     hydrateChecklist();
   }
 
@@ -12242,6 +12423,139 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   }
 
   document.getElementById('btn-review-submit').addEventListener('click', postReview);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     DOCUMENT VAULT — upload + list + download via Supabase Storage
+     Team uploads any doc for any plan; clients upload to own plan only.
+     Service-role writes bypass RLS only for storage bucket writes;
+     plan_documents metadata uses client-side anon key (RLS enforced).
+     ────────────────────────────────────────────────────────────────────── */
+  const docsPanel   = document.getElementById('documents-panel');
+  const docsList    = document.getElementById('documents-list');
+  const docsForm    = document.getElementById('documents-form');
+  const docStatusEl = document.getElementById('doc-status');
+  const DOC_BUCKET  = 'plan-documents';
+
+  const CATEGORY_ICONS = {
+    plan: '📋', tax_return: '🧾', trust: '🏛', insurance: '🛡',
+    statement: '📊', engagement: '📝', other: '📎',
+  };
+  const CATEGORY_LABELS = {
+    plan: 'Plan Doc', tax_return: 'Tax Return', trust: 'Trust Instrument',
+    insurance: 'Insurance Policy', statement: 'Statement',
+    engagement: 'Engagement Letter', other: 'Other',
+  };
+
+  async function refreshDocuments() {
+    if (!currentId || !currentUser) { docsPanel.classList.add('hidden'); return; }
+    docsPanel.classList.remove('hidden');
+    docsForm.style.display = '';
+
+    const { data, error } = await sb.from('plan_documents')
+      .select('id, file_path, file_name, file_size, mime_type, category, description, is_client_visible, uploader_email, created_at')
+      .eq('plan_id', currentId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (error.code === '42P01') {
+        docsList.innerHTML = `<div class="review-empty">Document vault not initialized. Run <code>supabase/add_documents.sql</code> in Supabase SQL Editor + create a <code>plan-documents</code> storage bucket.</div>`;
+      } else {
+        docsList.innerHTML = `<div class="review-empty">Could not load documents: ${error.message}</div>`;
+      }
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      docsList.innerHTML = `<div class="review-empty">No documents uploaded yet.${isTeam ? ' Use the form above to upload.' : ''}</div>`;
+      return;
+    }
+
+    docsList.innerHTML = data.map(doc => {
+      const size = doc.file_size ? (doc.file_size < 1024 * 1024 ? Math.round(doc.file_size / 1024) + ' KB' : (doc.file_size / 1024 / 1024).toFixed(1) + ' MB') : '';
+      const when = new Date(doc.created_at).toLocaleDateString();
+      const cat = CATEGORY_ICONS[doc.category] || '📎';
+      const catLabel = CATEGORY_LABELS[doc.category] || doc.category;
+      const advisorOnly = !doc.is_client_visible ? '<span class="status-pill" style="background: var(--crimson); color: #FFF; font-size: 10px;">Advisor-only</span>' : '';
+      const deleteBtn = isTeam ? `<button class="btn btn-sm" style="background: transparent; color: var(--crimson); font-size: 11px; margin-left: 8px; border: 1px solid var(--crimson);" onclick="window.__DELETE_DOC__('${doc.id}','${doc.file_path}')">Delete</button>` : '';
+      return `
+        <div class="review-item" style="display: flex; align-items: center; gap: 14px; padding: 12px 14px;">
+          <span style="font-size: 22px;">${cat}</span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; color: var(--ink); font-size: 14px;">${doc.file_name} ${advisorOnly}</div>
+            <div style="font-size: 11px; color: var(--muted);">${catLabel} · ${size} · uploaded by ${doc.uploader_email || '—'} · ${when}</div>
+          </div>
+          <button class="btn btn-sm" style="background: var(--gold); color: var(--cream); font-size: 11px; padding: 5px 10px;" onclick="window.__DOWNLOAD_DOC__('${doc.file_path}','${doc.file_name.replace(/'/g, "\\'")}')">Download</button>
+          ${deleteBtn}
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function uploadDocument() {
+    if (!currentUser) { docStatusEl.textContent = 'Sign in first'; return; }
+    if (!currentId)   { docStatusEl.textContent = 'Save plan first'; return; }
+    const fileInput = document.getElementById('doc-file-input');
+    const file = fileInput.files[0];
+    if (!file) { docStatusEl.textContent = 'Pick a file'; return; }
+    if (file.size > 50 * 1024 * 1024) { docStatusEl.textContent = 'File too large (50MB max)'; return; }
+
+    const category = document.getElementById('doc-category').value;
+    const advisorOnly = document.getElementById('doc-advisor-only')?.checked || false;
+    docStatusEl.textContent = 'Uploading…';
+
+    // Upload to storage: path = plan-id/timestamp-filename
+    const timestamp = Date.now();
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const path = `${currentId}/${timestamp}-${safeName}`;
+    const { error: upErr } = await sb.storage.from(DOC_BUCKET).upload(path, file, { contentType: file.type });
+    if (upErr) {
+      docStatusEl.textContent = 'Upload failed: ' + upErr.message;
+      return;
+    }
+
+    // Insert metadata row
+    const { error: insErr } = await sb.from('plan_documents').insert({
+      plan_id: currentId,
+      uploader_id: currentUser.id,
+      uploader_email: currentUser.email,
+      file_path: path,
+      file_name: file.name,
+      file_size: file.size,
+      mime_type: file.type || 'application/octet-stream',
+      category,
+      is_client_visible: !advisorOnly,
+    });
+    if (insErr) {
+      docStatusEl.textContent = 'Metadata insert failed: ' + insErr.message;
+      // Clean up orphaned file
+      await sb.storage.from(DOC_BUCKET).remove([path]);
+      return;
+    }
+    docStatusEl.textContent = '✓ Uploaded';
+    fileInput.value = '';
+    setTimeout(() => { docStatusEl.textContent = ''; }, 3000);
+    refreshDocuments();
+  }
+
+  window.__DOWNLOAD_DOC__ = async function(filePath, fileName) {
+    const { data, error } = await sb.storage.from(DOC_BUCKET).createSignedUrl(filePath, 60);
+    if (error) { alert('Download failed: ' + error.message); return; }
+    const a = document.createElement('a');
+    a.href = data.signedUrl;
+    a.download = fileName;
+    a.click();
+  };
+
+  window.__DELETE_DOC__ = async function(docId, filePath) {
+    if (!confirm('Permanently delete this document? This cannot be undone.')) return;
+    const { error: stErr } = await sb.storage.from(DOC_BUCKET).remove([filePath]);
+    if (stErr) console.warn('Storage delete warning:', stErr.message);
+    const { error: metaErr } = await sb.from('plan_documents').delete().eq('id', docId);
+    if (metaErr) { alert('Delete failed: ' + metaErr.message); return; }
+    refreshDocuments();
+  };
+
+  document.getElementById('btn-doc-upload')?.addEventListener('click', uploadDocument);
 
   /* ──────────────────────────────────────────────────────────────────────
      DIFF / COMPARE VIEW — pick two saved plans, compute both, render a
