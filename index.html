@@ -3543,7 +3543,11 @@ function computePlan(d) {
   //   Output: current-year allowable deduction, carryforward amount, and
   //   year-by-year schedule of when excess gets used up.
   // ──────────────────────────────────────────────────────────────────────
-  const agiYearOfSale = (d.biz.income || 0) + Math.max(0, (scenAll.taxableGain - qsbsActualExcl));
+  // AGI proxy for §170(b) cap. Uses pre-QSBS taxable gain because
+  // qsbsActualExcl is computed later in this function. Slightly
+  // overstates AGI → slightly larger 30% cap → conservative direction
+  // (client-favorable; CPA refines with the exact QSBS-excluded subtraction).
+  const agiYearOfSale = (d.biz.income || 0) + Math.max(0, scenAll.taxableGain);
   const agiOngoing    = (d.biz.income || 0);
   const agiForCap     = salePrice > 0 ? agiYearOfSale : agiOngoing;
 
@@ -5790,7 +5794,7 @@ function renderTax(p) {
         <div class="card-sub">
           Per §170(b)(1)(C), contributions of appreciated LTCG property to public charities (DAF) and CRAT/CRUT remainder interests are capped at <strong>30% of AGI</strong> per year. Excess deductions carry forward 5 years under §170(d). AGI used for this test:
           ${d.biz.sale > 0
-            ? `Year-of-sale AGI = ordinary income (${fmt$(d.biz.income)}) + post-§1202 taxable gain (${fmt$(p.scenarios.scenAll.taxableGain - p.qsbsActualExcl)}) = <strong>${fmt$(p.agiYearOfSale)}</strong>.`
+            ? `Year-of-sale AGI = ordinary income (${fmt$(d.biz.income)}) + taxable gain (${fmt$(p.scenarios.scenAll.taxableGain)}) = <strong>${fmt$(p.agiYearOfSale)}</strong>. <em>Note: QSBS-excluded gain (${fmt$(p.qsbsActualExcl)}) is technically excluded from AGI for §170 purposes — this calc is conservative (CPA refines).</em>`
             : `Ongoing AGI = ordinary income (${fmt$(d.biz.income)}) = <strong>${fmt$(p.agiOngoing)}</strong>.`}
         </div>
 
