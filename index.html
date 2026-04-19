@@ -2296,6 +2296,18 @@
         <label>Current Annual Business Income</label>
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-income" value="2500000"></div>
       </div>
+      <div class="field">
+        <label>Mortgage Balance <span class="hint">(primary + secondary residences)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="debt-mortgage" value="0"></div>
+      </div>
+      <div class="field">
+        <label>Other Debt <span class="hint">(margin loans, lines of credit, etc.)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="debt-other" value="0"></div>
+      </div>
+      <div class="field">
+        <label>Personal Property &amp; Collectibles <span class="hint">(art, jewelry, vehicles — rough estimate)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="personal-property" value="0"></div>
+      </div>
     </div>
   </section>
 
@@ -3695,6 +3707,9 @@ function readForm() {
       preSaleNW: n('client-pnw'), otherAssets: n('client-other'),
       primaryAge: n('client-primary-age'),
       spouseAge:  n('client-spouse-age'),
+      mortgage:  n('debt-mortgage'),
+      otherDebt: n('debt-other'),
+      personalProperty: n('personal-property'),
     },
     retirement: {
       tradIRA: n('ret-trad-ira'),
@@ -6119,6 +6134,206 @@ function renderTransaction(p) {
 /* ============================================================
    RENDERING — FINANCIAL OVERVIEW
    ============================================================ */
+/* ============================================================
+   PERSONAL BALANCE SHEET — category-ized snapshot of assets,
+   liabilities, and resulting net worth. A traditional CPA-style
+   statement the advisor hands the client annually. Uses existing
+   inputs (NW, retirement accounts, sale proceeds) plus new debt
+   inputs (mortgage, other debt, personal property).
+   ============================================================ */
+function renderBalanceSheet(p) {
+  const d = p.input;
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const isAnnual = d.planType === 'annual';
+
+  // Assets — categorized
+  const liquid    = (isAnnual ? 0 : (p.withPlanningProceeds || 0));
+  const existingLiquid = (d.client.preSaleNW || 0) + (d.client.otherAssets || 0) * 0.4;  // rough: 40% of "other" is liquid
+  const retirement = (d.retirement?.tradIRA || 0) + (d.retirement?.k401 || 0) + (d.retirement?.rothIRA || 0) + (d.retirement?.hsa || 0);
+  const realEstate = (d.use.qprt ? d.qprt.residence : 0) + (d.use.exch1031 ? d.exch1031.replacement : 0) + (d.client.otherAssets || 0) * 0.4;  // 40% of "other" is RE estimate
+  const business = (isAnnual || d.biz.sale === 0) ? 0 : 0;  // post-sale: 0; annual: biz ownership if retained (not modeled)
+  const trusts   = (d.use.dynasty ? d.dynasty.funding : 0) + (d.use.slat ? d.slat.funding : 0) + (d.use.idgt ? d.idgt.amount : 0);
+  const insurance = d.use.ilit ? d.ilit.coverage * 0.3 : 0;  // rough cash value ~30% of face for permanent
+  const personalProp = d.client.personalProperty || 0;
+  const otherLiquid = (d.client.otherAssets || 0) * 0.2;  // 20% misc liquid
+
+  const totalAssets = liquid + existingLiquid + retirement + realEstate + business + trusts + insurance + personalProp + otherLiquid;
+
+  // Liabilities
+  const mortgage = d.client.mortgage || 0;
+  const otherDebt = d.client.otherDebt || 0;
+  const totalLiabilities = mortgage + otherDebt;
+
+  const netWorth = totalAssets - totalLiabilities;
+
+  // Cash vs. illiquid breakdown for risk check
+  const liquidAssets = liquid + existingLiquid + otherLiquid;
+  const liquidityRatio = totalAssets > 0 ? liquidAssets / totalAssets : 0;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📊 Personal Balance Sheet — ${d.client.year || new Date().getFullYear()} Snapshot</div>
+      <div class="card-sub">
+        Category-ized net worth statement as of plan date. Assets classified by liquidity + purpose; liabilities include mortgage and other debt. <strong>Net worth: ${fmt$M(netWorth)}</strong>.
+      </div>
+
+      <div style="margin-top: 20px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 13px;">
+          <thead>
+            <tr>
+              <th style="width: 45%;">Category</th>
+              <th class="num">Amount</th>
+              <th class="num" style="width: 20%;">% of Assets</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; font-size: 11px;">ASSETS</td></tr>
+            ${!isAnnual && liquid > 0 ? `<tr><td>&nbsp;&nbsp;Post-Sale Liquid Proceeds</td><td class="num">${fmt$M(liquid)}</td><td class="num">${totalAssets > 0 ? (liquid/totalAssets*100).toFixed(1) : 0}%</td></tr>` : ''}
+            ${existingLiquid > 0 ? `<tr><td>&nbsp;&nbsp;Other Liquid (cash, securities)</td><td class="num">${fmt$M(existingLiquid)}</td><td class="num">${totalAssets > 0 ? (existingLiquid/totalAssets*100).toFixed(1) : 0}%</td></tr>` : ''}
+            ${retirement > 0 ? `<tr><td>&nbsp;&nbsp;Retirement Accounts (IRA + 401k + Roth + HSA)</td><td class="num">${fmt$M(retirement)}</td><td class="num">${totalAssets > 0 ? (retirement/totalAssets*100).toFixed(1) : 0}%</td></tr>` : ''}
+            ${realEstate > 0 ? `<tr><td>&nbsp;&nbsp;Real Estate (residences + investment property)</td><td class="num">${fmt$M(realEstate)}</td><td class="num">${totalAssets > 0 ? (realEstate/totalAssets*100).toFixed(1) : 0}%</td></tr>` : ''}
+            ${trusts > 0 ? `<tr><td>&nbsp;&nbsp;Trust Assets (Dynasty + SLAT + IDGT) <span style="color:var(--muted); font-size: 11px;">— beneficial interest, not owned</span></td><td class="num">${fmt$M(trusts)}</td><td class="num">${totalAssets > 0 ? (trusts/totalAssets*100).toFixed(1) : 0}%</td></tr>` : ''}
+            ${insurance > 0 ? `<tr><td>&nbsp;&nbsp;Insurance Cash Value (ILIT) <span style="color:var(--muted); font-size: 11px;">— estimated</span></td><td class="num">${fmt$M(insurance)}</td><td class="num">${totalAssets > 0 ? (insurance/totalAssets*100).toFixed(1) : 0}%</td></tr>` : ''}
+            ${personalProp > 0 ? `<tr><td>&nbsp;&nbsp;Personal Property &amp; Collectibles</td><td class="num">${fmt$M(personalProp)}</td><td class="num">${totalAssets > 0 ? (personalProp/totalAssets*100).toFixed(1) : 0}%</td></tr>` : ''}
+            ${otherLiquid > 0 ? `<tr><td>&nbsp;&nbsp;Other Assets</td><td class="num">${fmt$M(otherLiquid)}</td><td class="num">${totalAssets > 0 ? (otherLiquid/totalAssets*100).toFixed(1) : 0}%</td></tr>` : ''}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td style="font-weight: 700;"><strong>Total Assets</strong></td>
+              <td class="num" style="font-weight: 700;"><strong>${fmt$M(totalAssets)}</strong></td>
+              <td class="num" style="font-weight: 700;"><strong>100%</strong></td>
+            </tr>
+
+            <tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: var(--crimson); letter-spacing: 1px; text-transform: uppercase; font-size: 11px;">LIABILITIES</td></tr>
+            ${mortgage > 0 ? `<tr><td>&nbsp;&nbsp;Mortgage (primary + secondary)</td><td class="num">(${fmt$M(mortgage)})</td><td class="num">—</td></tr>` : ''}
+            ${otherDebt > 0 ? `<tr><td>&nbsp;&nbsp;Other Debt (margin, LOC, loans)</td><td class="num">(${fmt$M(otherDebt)})</td><td class="num">—</td></tr>` : ''}
+            ${totalLiabilities === 0 ? `<tr><td colspan="3" style="color: var(--muted); font-style: italic;">No liabilities entered. Add mortgage / debt balances in Section 2 of the Builder for complete balance sheet.</td></tr>` : ''}
+            ${totalLiabilities > 0 ? `<tr style="border-top: 2px solid var(--crimson); background: #FFF0F0;">
+              <td style="font-weight: 700;"><strong>Total Liabilities</strong></td>
+              <td class="num" style="font-weight: 700;"><strong>(${fmt$M(totalLiabilities)})</strong></td>
+              <td class="num">—</td>
+            </tr>` : ''}
+
+            <tr style="border-top: 3px double var(--gold-dark); background: linear-gradient(to right, var(--cream-panel), #FDF9EC);">
+              <td style="font-weight: 700; font-size: 15px; font-family: 'Playfair Display', serif;">Net Worth</td>
+              <td class="num" style="font-weight: 700; font-size: 15px; font-family: 'Playfair Display', serif;">${fmt$M(netWorth)}</td>
+              <td class="num">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 18px;">
+        <div class="kpi"><div class="label">Liquidity Ratio</div><div class="value">${(liquidityRatio*100).toFixed(0)}%</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Liquid / Total Assets</div></div>
+        <div class="kpi"><div class="label">Debt-to-Asset Ratio</div><div class="value">${totalAssets > 0 ? (totalLiabilities/totalAssets*100).toFixed(1) : 0}%</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Leverage indicator</div></div>
+        <div class="kpi gold"><div class="label">Net Worth</div><div class="value">${fmt$M(netWorth)}</div></div>
+        ${trusts > 0 ? `<div class="kpi success"><div class="label">Assets Outside Estate</div><div class="value">${fmt$M(trusts)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Dynasty + SLAT + IDGT</div></div>` : ''}
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Methodology note:</strong> Real-estate values split from "Existing Non-Business Assets" at 40% RE / 40% liquid / 20% other — refine in Section 2 if actual breakdown known. Insurance cash value estimated at 30% of face (typical for 10-pay whole life at mid-policy); refine with insurer's statement. Trust balances reflect transferred value, not grantor ownership — technically not on grantor's own balance sheet but shown here for total-family-wealth visibility.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   CASH FLOW STATEMENT — annual income sources vs. expense categories,
+   with sustainability check. Traditional financial planning deliverable.
+   ============================================================ */
+function renderCashFlow(p) {
+  const d = p.input;
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+
+  // Income sources
+  const bizIncome   = d.biz.income || 0;
+  const portfolioYield = ((p.withPlanningProceeds || 0) + (d.client.otherAssets || 0)) * 0.03;
+  const ssIncome    = p.ssAnnualHousehold || 0;
+  const rmdIncome   = p.rmdRows && p.rmdRows.length > 0 ? (p.rmdRows[0].rmd || 0) : 0;
+  const cratIncome  = d.use.crat ? p.cratIncome : 0;
+  const crutIncome  = d.use.crut ? p.crutIncome : 0;
+  const cltCharity  = d.use.clt ? d.clt.payout : 0;  // outflow
+
+  const totalIncome = bizIncome + portfolioYield + ssIncome + rmdIncome + cratIncome + crutIncome;
+
+  // Expenses
+  const fixed    = d.budget.fixed || 0;
+  const variable = d.budget.variable || 0;
+  const taxes    = d.budget.taxes || 0;
+  const mortgage = d.client.mortgage ? d.client.mortgage * 0.06 : 0;  // rough 6% combined P&I + tax + insurance
+  const charitable = cltCharity + (d.use.daf ? 0 : 0);  // DAF is one-time, not recurring
+
+  const totalExpenses = fixed + variable + taxes + mortgage + charitable;
+  const netCashFlow = totalIncome - totalExpenses;
+  const surplusPct = totalIncome > 0 ? (netCashFlow / totalIncome) * 100 : 0;
+
+  const breakdownRows = [
+    { section: 'INCOME', color: 'var(--success)' },
+    bizIncome > 0       && { label: 'Business / Ordinary Income', amount: bizIncome, pct: bizIncome/totalIncome*100 },
+    portfolioYield > 0  && { label: 'Investment Portfolio Yield (3%)', amount: portfolioYield, pct: portfolioYield/totalIncome*100 },
+    ssIncome > 0        && { label: 'Social Security', amount: ssIncome, pct: ssIncome/totalIncome*100 },
+    rmdIncome > 0       && { label: 'Required Minimum Distributions (first-yr)', amount: rmdIncome, pct: rmdIncome/totalIncome*100 },
+    cratIncome > 0      && { label: 'CRAT Annuity', amount: cratIncome, pct: cratIncome/totalIncome*100 },
+    crutIncome > 0      && { label: 'CRUT Unitrust (first-year)', amount: crutIncome, pct: crutIncome/totalIncome*100 },
+    { subtotal: 'Total Annual Income', amount: totalIncome, style: 'income-total' },
+    { section: 'EXPENSES', color: 'var(--crimson)' },
+    fixed > 0    && { label: 'Fixed Expenses (housing, utilities, insurance)', amount: fixed, pct: fixed/totalExpenses*100 },
+    variable > 0 && { label: 'Variable (food, travel, entertainment, discretionary)', amount: variable, pct: variable/totalExpenses*100 },
+    taxes > 0    && { label: 'Projected Income &amp; Property Taxes', amount: taxes, pct: taxes/totalExpenses*100 },
+    mortgage > 0 && { label: 'Mortgage P&amp;I (6% of balance)', amount: mortgage, pct: mortgage/totalExpenses*100 },
+    cltCharity > 0 && { label: 'CLT Annual Charitable Payout', amount: cltCharity, pct: cltCharity/totalExpenses*100 },
+    { subtotal: 'Total Annual Expenses', amount: totalExpenses, style: 'expense-total' },
+  ].filter(Boolean);
+
+  return `
+    <div class="card" style="border-left: 4px solid ${netCashFlow >= 0 ? 'var(--success)' : 'var(--crimson)'};">
+      <div class="card-title">💵 Annual Cash Flow Statement — ${d.client.year || new Date().getFullYear()}</div>
+      <div class="card-sub">
+        Annualized inflows and outflows. <strong>Net cash flow: ${fmt$(netCashFlow)}/yr</strong> (${surplusPct >= 0 ? '+' : ''}${surplusPct.toFixed(1)}% of income).
+        ${netCashFlow >= 0
+          ? ` Surplus can compound into portfolio, fund discretionary goals, or be redirected to additional charitable giving or Roth conversions.`
+          : ` <strong style="color: var(--crimson);">Spending exceeds income</strong> — portfolio drawdown required to fund the gap. Review budget or extend working years.`
+        }
+      </div>
+
+      <div style="margin-top: 20px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 13px;">
+          <thead>
+            <tr>
+              <th style="width: 55%;">Category</th>
+              <th class="num">Annual</th>
+              <th class="num" style="width: 18%;">% of Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${breakdownRows.map(r => {
+              if (r.section) return `<tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: ${r.color}; letter-spacing: 1px; text-transform: uppercase; font-size: 11px;">${r.section}</td></tr>`;
+              if (r.subtotal) return `<tr style="border-top: 2px solid var(--gold); background: ${r.style === 'income-total' ? '#F0F7F3' : '#FFF8F0'};"><td style="font-weight: 700;"><strong>${r.subtotal}</strong></td><td class="num" style="font-weight: 700;"><strong>${fmt$(r.amount)}</strong></td><td class="num" style="font-weight: 700;"><strong>100%</strong></td></tr>`;
+              return `<tr><td>&nbsp;&nbsp;${r.label}</td><td class="num">${fmt$(r.amount)}</td><td class="num">${r.pct.toFixed(1)}%</td></tr>`;
+            }).join('')}
+            <tr style="border-top: 3px double var(--gold-dark); background: ${netCashFlow >= 0 ? '#F0F7F3' : '#FFF0F0'};">
+              <td style="font-weight: 700; font-size: 15px; font-family: 'Playfair Display', serif;">Net Cash Flow (Surplus / Deficit)</td>
+              <td class="num" style="font-weight: 700; font-size: 15px; font-family: 'Playfair Display', serif; color: ${netCashFlow >= 0 ? 'var(--success)' : 'var(--crimson)'};">${netCashFlow >= 0 ? '+' : ''}${fmt$(netCashFlow)}</td>
+              <td class="num">${surplusPct >= 0 ? '+' : ''}${surplusPct.toFixed(1)}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 18px;">
+        <div class="kpi"><div class="label">Total Income</div><div class="value">${fmt$M(totalIncome)}</div></div>
+        <div class="kpi"><div class="label">Total Expenses</div><div class="value">${fmt$M(totalExpenses)}</div></div>
+        <div class="kpi ${netCashFlow >= 0 ? 'success' : 'warning'}"><div class="label">Net Cash Flow</div><div class="value">${netCashFlow >= 0 ? '+' : ''}${fmt$M(netCashFlow)}</div></div>
+        <div class="kpi gold"><div class="label">Savings Rate</div><div class="value">${surplusPct >= 0 ? '+' : ''}${surplusPct.toFixed(0)}%</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Of total income</div></div>
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Methodology note:</strong> Portfolio yield uses a 3% conservative proxy — actual depends on asset mix (bonds higher, tax-efficient equity lower). Mortgage expense estimated at 6% of balance (P&amp;I + property tax + homeowners insurance — refine with actual). RMD shown is first-year; rises annually. DAF is a one-time contribution (not recurring) and excluded from annual outflow. CRAT/CRUT income is before the 4-tier character tax treatment (see §664(b) in Technical Appendix). Taxes shown are the advisor-entered budget line — actual liability varies year-to-year with strategy execution.
+      </div>
+    </div>
+  `;
+}
+
 function renderFinancial(p) {
   const d = p.input;
   return `
@@ -6145,6 +6360,10 @@ function renderFinancial(p) {
         <div class="kpi success"><div class="label">Immediate Tax Savings</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
       </div>
     </div>
+
+    ${renderBalanceSheet(p)}
+
+    ${renderCashFlow(p)}
 
     <div class="card move-to-retirement" style="border-left: 4px solid ${p.budgetSustainable ? 'var(--success)' : 'var(--crimson)'};">
       <div class="card-title">${p.budgetSustainable ? '✓ Annual Budget — Sustainable' : '⚠️ Annual Budget — Exceeds Safe Withdrawal Rate'}</div>
@@ -9518,6 +9737,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'plan-type',
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
       'client-primary-age','client-spouse-age',
+      'debt-mortgage','debt-other','personal-property',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
