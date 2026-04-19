@@ -4818,6 +4818,96 @@ function computePlan(d) {
     household: ((d.ss.primaryBenefit || 0) + (d.ss.spouseBenefit || 0)) * FRA_ADJUSTMENT[age] * 12,
   }));
 
+  // ──────────────────────────────────────────────────────────────────────
+  // SOCIAL SECURITY OPTIMIZATION — Advanced claim-strategy analysis
+  //
+  // 1. SPOUSAL BENEFIT — lower earner can claim 50% of higher earner's
+  //    FRA benefit (if higher-earner has filed). Limited to FRA max.
+  //    Post-2015 (Bipartisan Budget Act) "file and suspend" eliminated
+  //    except for grandfathered DOB < 1/2/1954. "Restricted application"
+  //    eliminated for DOB < 1/2/1954.
+  //
+  // 2. SURVIVOR BENEFIT — when higher earner dies, surviving spouse
+  //    can step up to higher earner's benefit amount. Delaying higher
+  //    earner to age 70 maximizes survivor income.
+  //
+  // 3. BREAK-EVEN AGE — age at which cumulative lifetime benefit
+  //    claiming at 70 overtakes claiming at FRA/62. Typical:
+  //      62 vs 67: break-even ~78-80
+  //      67 vs 70: break-even ~82-83
+  //    Longevity past break-even favors delaying.
+  //
+  // 4. FOUR FILING STRATEGIES compared:
+  //    A. Both claim at 62 (maximize near-term income)
+  //    B. Higher earner FRA, spouse 62 (spousal bonus)
+  //    C. Higher earner 70, spouse FRA (survivor maximization)
+  //    D. Both claim at 70 (maximum lifetime)
+  // ──────────────────────────────────────────────────────────────────────
+  const ssPrimaryFRA = d.ss.primaryBenefit || 0;   // assumed FRA-age benefit
+  const ssSpouseFRA  = d.ss.spouseBenefit  || 0;
+  const higherEarnerFRA = Math.max(ssPrimaryFRA, ssSpouseFRA);
+  const lowerEarnerFRA  = Math.min(ssPrimaryFRA, ssSpouseFRA);
+
+  // Spousal benefit = 50% of higher earner's FRA (if lower's own benefit < 50% of higher's)
+  const spousalPotential = higherEarnerFRA * 0.50;
+  const spousalKicksIn = lowerEarnerFRA < spousalPotential;
+  const spousalBonus = spousalKicksIn ? (spousalPotential - lowerEarnerFRA) : 0;
+
+  // Survivor benefit = higher of (survivor's own) or (deceased's benefit at claim age)
+  // If higher earner delayed to 70: survivor steps up to 124% of higher earner FRA
+  const survivorAt70 = higherEarnerFRA * FRA_ADJUSTMENT[70];
+  const survivorAtFRA = higherEarnerFRA;
+  const survivorUplift = survivorAt70 - survivorAtFRA;
+
+  // Break-even calculation: both-at-67 vs. both-at-70
+  // At 67: monthly = FRA; age X cumulative = (X-67) × 12 × FRA
+  // At 70: monthly = 1.24 × FRA; age X cumulative = (X-70) × 12 × 1.24 × FRA
+  // Set equal: (X-67) = (X-70) × 1.24 → X = (70*1.24 - 67)/(0.24) = 82.5
+  const breakEven67vs70 = 82.5;
+  const breakEven62vs67 = 78.5;   // similar math
+
+  // Strategy comparison — compute cumulative lifetime values assuming
+  // joint life expectancy (where both live) + survivor benefit for the
+  // remaining years.
+  const primaryAge  = d.client.primaryAge || 55;
+  const spouseAge   = d.client.spouseAge  || 0;
+  const jointLE     = primaryAge > 0 ? jointLastSurvivorExpectancy(primaryAge, spouseAge) : 25;
+  // Simplified: assume primary dies at age primaryAge + single-LE, spouse
+  // continues to spouseAge + single-LE
+  const primarySingleLE = singleLifeExpectancy(primaryAge);
+  const spouseSingleLE  = spouseAge > 0 ? singleLifeExpectancy(spouseAge) : 0;
+  const primaryEndAge   = primaryAge + Math.round(primarySingleLE);
+  const spouseEndAge    = spouseAge > 0 ? spouseAge + Math.round(spouseSingleLE) : 0;
+
+  const computeStrategyLifetime = (primaryClaimAge, spouseClaimAge) => {
+    const primaryMonthlyAtClaim = ssPrimaryFRA * (FRA_ADJUSTMENT[primaryClaimAge] || 1);
+    const spouseOwnMonthly      = ssSpouseFRA  * (FRA_ADJUSTMENT[spouseClaimAge] || 1);
+    // Spousal benefit only matters if lower earner's own > 50% of higher earner; we'll
+    // use the higher of own vs. 50% of higher earner's FRA (simplified).
+    const spouseEffective = Math.max(spouseOwnMonthly, higherEarnerFRA * 0.50 * (FRA_ADJUSTMENT[spouseClaimAge] || 1) / FRA_ADJUSTMENT[67]);
+    // Years both alive
+    const bothAliveEnd = Math.min(primaryEndAge, spouseEndAge || primaryEndAge);
+    const bothYears    = Math.max(0, bothAliveEnd - Math.max(primaryClaimAge + primaryAge, spouseClaimAge + spouseAge) / 2);  // approx
+    // Much simpler: both alive from max(primaryClaim, spouseClaim) until min end
+    const claimStartYear = Math.max(primaryClaimAge, spouseClaimAge);
+    const bothAliveYrs = Math.max(0, bothAliveEnd - claimStartYear);
+    const survivorYrs  = Math.max(0, Math.max(primaryEndAge, spouseEndAge) - bothAliveEnd);
+    const bothIncome   = (primaryMonthlyAtClaim + spouseEffective) * 12 * bothAliveYrs;
+    // Survivor takes higher of the two
+    const survivorMonthly = Math.max(primaryMonthlyAtClaim, spouseEffective);
+    const survivorIncome  = survivorMonthly * 12 * survivorYrs;
+    return { total: bothIncome + survivorIncome, monthlyAtStart: primaryMonthlyAtClaim + spouseEffective, bothAliveYrs, survivorYrs };
+  };
+
+  const ssStrategies = [
+    { label: 'Both claim at 62 (early)', primary: 62, spouse: 62, description: 'Maximum near-term income. Permanent 30% benefit reduction. Worst survivor outcome.' },
+    { label: 'Higher earner FRA, spouse 62', primary: 67, spouse: 62, description: 'Spouse takes reduced own benefit; higher earner gets 100% FRA. Middle ground for couples needing some income in early 60s.' },
+    { label: 'Higher earner 70, spouse FRA', primary: 70, spouse: 67, description: 'Higher earner maximizes survivor benefit (124% of FRA). Spouse takes full benefit at FRA. Optimal for couples with one longer-lived spouse.' },
+    { label: 'Both claim at 70 (maximum delay)', primary: 70, spouse: 70, description: 'Absolute maximum lifetime benefits IF both live past 83. Lowest near-term income; best if other resources cover 62-70.' },
+  ].map(s => ({ ...s, ...computeStrategyLifetime(s.primary, s.spouse) }));
+
+  const ssBest = ssStrategies.reduce((best, s) => s.total > best.total ? s : best, ssStrategies[0]);
+
   return {
     input: d,
     combinedCGRate,
@@ -4860,6 +4950,11 @@ function computePlan(d) {
     stateEstateTaxNoPlan, stateEstateTaxWithPlan, stateEstateTaxSavings,
     rmdRows, totalRMDs, balAtRmdStart,
     ssPrimaryMonthly, ssSpouseMonthly, ssAnnualHousehold, ssComparison,
+    ssPrimaryFRA, ssSpouseFRA, higherEarnerFRA, lowerEarnerFRA,
+    spousalPotential, spousalKicksIn, spousalBonus,
+    survivorAt70, survivorAtFRA, survivorUplift,
+    breakEven62vs67, breakEven67vs70,
+    ssStrategies, ssBest,
     monteCarlo: runMonteCarlo({ withPlanningTotal, ssAnnualHousehold, nwWithout_total }, d),
     multiYearTax: runMultiYearTax({ withPlanningProceeds, nwWithout_total, ssAnnualHousehold }, d),
     saleIsAsset, recaptureAmount, recaptureOrdinaryTax, recaptureCGTaxIfStock, assetVsStockPenalty,
@@ -8785,6 +8880,98 @@ function renderMonteCarlo(p) {
 }
 
 /* ============================================================
+   SOCIAL SECURITY CLAIM OPTIMIZER
+   Displays 4 filing strategies with projected lifetime benefit,
+   spousal-benefit bonus if applicable, survivor-benefit uplift,
+   and break-even ages. For HNW clients this usually argues for
+   maximum delay (age 70) since the portfolio funds 62-70.
+   ============================================================ */
+function renderSocialSecurityOptimizer(p) {
+  const d = p.input;
+  if (!d.ss.primaryBenefit && !d.ss.spouseBenefit) return '';
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+
+  const hasSpouse = (d.ss.spouseBenefit || 0) > 0;
+  const best = p.ssBest;
+  const worst = p.ssStrategies.reduce((w, s) => s.total < w.total ? s : w, p.ssStrategies[0]);
+  const lifetimeDelta = best.total - worst.total;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold); margin-top: 20px;">
+      <div class="card-title">🟢 Social Security Optimizer — Claiming Strategy Analysis</div>
+      <div class="card-sub">
+        Projected lifetime benefits across four common claiming strategies for ${hasSpouse ? 'you and your spouse' : 'your plan'}. Decision drivers: near-term income need · longevity expectation · spouse's longevity · survivor-benefit planning. Optimal strategy depends on all four — this table frames the tradeoffs.
+      </div>
+
+      ${hasSpouse && p.spousalKicksIn ? `
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">💡 Spousal Benefit Opportunity</span>
+        ${fmt$(p.spousalPotential)} is the spousal benefit amount (50% of higher earner's FRA). The lower-earning spouse's own FRA benefit is ${fmt$(p.lowerEarnerFRA)}, which is <strong>${fmt$(p.spousalBonus)}/month less</strong>. Once the higher earner has filed, the lower-earning spouse can effectively claim the higher amount. Annual bonus: ${fmt$(p.spousalBonus * 12)}.
+      </div>
+      ` : ''}
+
+      ${hasSpouse ? `
+      <div class="callout" style="margin-top: 12px; border-color: var(--gold-dark);">
+        <span class="title">⏳ Survivor Benefit Planning</span>
+        If the higher earner (${fmt$(p.higherEarnerFRA)}/mo at FRA) delays to age 70, the monthly benefit rises to <strong>${fmt$(p.survivorAt70)}/mo (124% of FRA)</strong>. When the higher earner passes, the surviving spouse steps up to this amount — a permanent <strong>${fmt$(p.survivorUplift)}/mo uplift</strong> (${fmt$(p.survivorUplift * 12)}/yr) that continues for the survivor's lifetime. This is often the single most valuable reason to delay: it insures against the longer-lived spouse outliving the portfolio.
+      </div>
+      ` : ''}
+
+      <div style="margin-top: 20px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 12px;">
+          <thead>
+            <tr>
+              <th style="width: 28%;">Strategy</th>
+              ${hasSpouse ? '<th class="num">Primary</th><th class="num">Spouse</th>' : '<th class="num">Claim Age</th>'}
+              <th class="num">Monthly (Start)</th>
+              <th class="num">Lifetime Total</th>
+              <th class="num">vs. Best</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${p.ssStrategies.map((s, i) => {
+              const delta = s.total - best.total;
+              const isBest = s === best;
+              return `<tr${isBest ? ' style="background: #F0F7F3; font-weight: 600;"' : ''}>
+                <td><strong>${isBest ? '⭐ ' : ''}${s.label}</strong></td>
+                ${hasSpouse ? `<td class="num">Age ${s.primary}</td><td class="num">Age ${s.spouse}</td>` : `<td class="num">Age ${s.primary}</td>`}
+                <td class="num">${fmt$(Math.round(s.monthlyAtStart))}</td>
+                <td class="num">${fmt$M(s.total)}</td>
+                <td class="num" style="color: ${isBest ? 'var(--success)' : delta === 0 ? 'var(--muted)' : 'var(--crimson)'};">${isBest ? '—' : fmt$M(delta)}</td>
+                <td style="font-size: 11px; color: var(--ink-soft);">${s.description}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 18px;">
+        <div class="kpi success"><div class="label">Best Strategy</div><div class="value">${best.label.split(' ').slice(-2).join(' ')}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${best.label}</div></div>
+        <div class="kpi gold"><div class="label">Optimal Lifetime Total</div><div class="value">${fmt$M(best.total)}</div></div>
+        <div class="kpi"><div class="label">Advantage vs. Worst</div><div class="value">${fmt$M(lifetimeDelta)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Value of choosing wisely</div></div>
+        <div class="kpi"><div class="label">Break-Even Age (67 vs 70)</div><div class="value">~${p.breakEven67vs70}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Live past this → delay wins</div></div>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">HNW Recommendation Framework</span>
+        For clients with sufficient assets to cover ages 62-70 without SS income, delaying the higher earner to 70 almost always wins. Three reasons:
+        <ul style="margin: 8px 0 0 20px; padding: 0;">
+          <li><strong>Longevity insurance</strong> — SS benefit is inflation-protected and guaranteed; portfolio is not</li>
+          <li><strong>Survivor protection</strong> — 124% of FRA permanently becomes the survivor's benefit</li>
+          <li><strong>Tax efficiency</strong> — delayed SS = lower Medicare IRMAA surcharges; creates headroom for Roth conversions 62-70</li>
+        </ul>
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Simplifications:</strong> FRA assumed = age 67 for anyone born 1960+ (true for all current clients). Single-life expectancy from IRS Table 2010CM approximation. Spousal benefit math uses the post-2015 rules (no file-and-suspend); if DOB ≤ 1/1/1954, grandfathered restricted-application strategies may still apply. COLA assumed to match advisor's inflation input. Benefit cut risk (SS trust fund depletion, currently 2033 estimate): not modeled — CPA should overlay a 15-25% cut scenario post-2033. Work with SSA.gov "My Social Security" tool for actual earnings-record-driven benefit amounts.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
    MONTE CARLO RETIREMENT SIMULATION
    1,000-iteration year-by-year simulation over joint life
    expectancy (or projection horizon). Each iteration draws a
@@ -9145,6 +9332,7 @@ function generatePlan() {
         <div class="card-sub">Everything about ${primary}'s post-sale cash flow: the budget the portfolio must support, Social Security claiming, and Required Minimum Distributions once age 73 arrives.</div>
       </div>
       ${renderMonteCarlo(p)}
+      ${renderSocialSecurityOptimizer(p)}
     `;
     document.querySelectorAll('#panel-financial .move-to-retirement').forEach(card => {
       retirementPanel.appendChild(card);
