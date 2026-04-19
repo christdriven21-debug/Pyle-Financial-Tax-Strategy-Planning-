@@ -3521,6 +3521,33 @@
     <div class="review-list" id="documents-list" style="margin-top: 16px;"></div>
   </div>
 
+  <!-- AUDIT LOG PANEL — team-only, SOC 2 / fiduciary defense (populated by JS) -->
+  <div class="review-panel hidden team-only" id="audit-panel">
+    <h3>🔒 Audit Log <span style="font-size:11px; color:var(--muted); font-weight:normal;">(SOC 2 / fiduciary record — append-only)</span></h3>
+    <div style="font-size: 12px; color: var(--muted); margin-bottom: 14px; font-style: italic;">
+      Every plan create/update/delete, document upload/delete, sign-in, AI query, and PDF export is recorded here. The log is append-only at the database level — even team members cannot edit or delete entries. Use this to defend fiduciary decisions ("when did we ask the client about the SLAT?") and provide SOC 2 Type II evidence of access control.
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <select id="audit-filter-action" style="padding:6px 8px; border-radius:3px; border:1px solid rgba(201,169,97,0.4); font-size:12px;">
+        <option value="">All actions</option>
+        <option value="plan.create">Plan create</option>
+        <option value="plan.update">Plan update</option>
+        <option value="plan.delete">Plan delete</option>
+        <option value="doc.upload">Doc upload</option>
+        <option value="doc.delete">Doc delete</option>
+        <option value="signin">Sign-in</option>
+        <option value="ai.ask">AI query</option>
+        <option value="export.pdf">PDF export</option>
+        <option value="share.create">Share link</option>
+      </select>
+      <input type="text" id="audit-filter-actor" placeholder="Filter by actor email…" style="padding:6px 8px; border-radius:3px; border:1px solid rgba(201,169,97,0.4); font-size:12px; min-width:200px;">
+      <button class="btn btn-sm" id="btn-audit-refresh">Refresh</button>
+      <button class="btn btn-sm" id="btn-audit-export">Export CSV</button>
+      <span style="font-size:11px; color:var(--muted);" id="audit-status"></span>
+    </div>
+    <div class="review-list" id="audit-list"></div>
+  </div>
+
   <!-- REVIEW / COMMENTS PANEL (populated by JS when a plan is loaded) -->
   <div class="review-panel hidden" id="review-panel">
     <h3>Reviews &amp; Comments</h3>
@@ -11239,6 +11266,9 @@ async function generatePdf(kind) {
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
       pagebreak: { mode: ['css', 'legacy'] }
     }).save();
+    if (typeof window.__AUDIT__ === 'function') {
+      window.__AUDIT__('export.pdf', { entityType: 'plan', metadata: { suffix, fileName } });
+    }
   } catch (err) {
     alert(suffix + ' PDF generation failed: ' + err.message);
   } finally {
@@ -12023,6 +12053,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     // Review panel visibility tracks sign-in + loaded plan
     if (typeof refreshReviews === 'function') refreshReviews();
     if (typeof refreshDocuments === 'function') refreshDocuments();
+    if (typeof refreshAuditLog === 'function') refreshAuditLog();
     // Apply client-view body class: clients always see simplified view;
     // team members see full view unless they've toggled "Preview as Client"
     applyClientView();
@@ -12067,6 +12098,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       setAuthMsg('');
       if (!currentId) boot();
       armIdleTimer();
+      // Fire-and-forget audit log entry. currentUser is set inside
+      // refreshAuthState which may not have resolved yet, so defer.
+      setTimeout(() => { if (typeof audit === 'function') audit('signin', { entityType: 'session' }); }, 500);
     }
     if (event === 'SIGNED_OUT') {
       clearIdleTimer();
@@ -12341,6 +12375,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     } catch {
       prompt('Copy this URL:', url);
     }
+    if (typeof window.__AUDIT__ === 'function') {
+      window.__AUDIT__('share.create', { entityType: 'share_link', entityId: currentId });
+    }
   }
 
   /* ---- Plan Reviews (comments + approvals) ----
@@ -12556,6 +12593,135 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   };
 
   document.getElementById('btn-doc-upload')?.addEventListener('click', uploadDocument);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     AUDIT LOG — SOC 2 / fiduciary defense.
+     Database triggers auto-log plan + document mutations. The app calls
+     audit() for events that aren't database mutations: sign-in, AI Q&A,
+     PDF export, share-link creation. Append-only (no UPDATE/DELETE policy).
+     ────────────────────────────────────────────────────────────────────── */
+  const auditPanel  = document.getElementById('audit-panel');
+  const auditList   = document.getElementById('audit-list');
+  const auditStatus = document.getElementById('audit-status');
+
+  // Fire-and-forget logger. Failures are silent (audit is best-effort —
+  // we never want to break a user action because logging failed).
+  async function audit(action, opts = {}) {
+    try {
+      if (!sb || !currentUser) return;
+      await sb.from('audit_log').insert({
+        actor_id: currentUser.id,
+        actor_email: currentUser.email,
+        actor_role: isTeam ? 'team' : 'client',
+        action,
+        entity_type: opts.entityType || null,
+        entity_id: opts.entityId || null,
+        plan_id: opts.planId || currentId || null,
+        client_email: opts.clientEmail || null,
+        user_agent: navigator.userAgent.slice(0, 500),
+        metadata: opts.metadata || {},
+      });
+    } catch (e) { /* swallow */ }
+  }
+  // Expose globally so any code path can log without scope juggling.
+  window.__AUDIT__ = audit;
+
+  const AUDIT_ACTION_LABELS = {
+    'plan.create':  '🆕 Plan created',
+    'plan.update':  '✏️ Plan updated',
+    'plan.delete':  '🗑 Plan deleted',
+    'doc.upload':   '📁 Doc uploaded',
+    'doc.delete':   '🗑 Doc deleted',
+    'signin':       '🔑 Sign-in',
+    'ai.ask':       '🤖 AI query',
+    'export.pdf':   '📄 PDF export',
+    'share.create': '🔗 Share link',
+  };
+
+  async function refreshAuditLog() {
+    if (!auditPanel) return;
+    if (!currentUser || !isTeam) { auditPanel.classList.add('hidden'); return; }
+    auditPanel.classList.remove('hidden');
+    auditStatus.textContent = 'Loading…';
+
+    const filterAction = document.getElementById('audit-filter-action')?.value || '';
+    const filterActor  = document.getElementById('audit-filter-actor')?.value?.trim() || '';
+
+    let q = sb.from('audit_log_feed')
+      .select('id, occurred_at, actor_email, action, entity_type, plan_id, plan_name, client_email, metadata, diff')
+      .order('occurred_at', { ascending: false })
+      .limit(200);
+    if (filterAction) q = q.eq('action', filterAction);
+    if (filterActor)  q = q.ilike('actor_email', `%${filterActor}%`);
+
+    const { data, error } = await q;
+    if (error) {
+      if (error.code === '42P01') {
+        auditList.innerHTML = `<div class="review-empty">Audit log not initialized. Run <code>supabase/add_audit_log.sql</code> in Supabase SQL Editor.</div>`;
+      } else {
+        auditList.innerHTML = `<div class="review-empty">Could not load audit log: ${error.message}</div>`;
+      }
+      auditStatus.textContent = '';
+      return;
+    }
+    if (!data || data.length === 0) {
+      auditList.innerHTML = `<div class="review-empty">No audit entries match the current filter.</div>`;
+      auditStatus.textContent = '';
+      return;
+    }
+    auditList.innerHTML = data.map(row => {
+      const when = new Date(row.occurred_at).toLocaleString();
+      const label = AUDIT_ACTION_LABELS[row.action] || row.action;
+      const planLabel = row.plan_name ? ` · ${row.plan_name}` : (row.plan_id ? ` · ${row.plan_id.slice(0,8)}…` : '');
+      const meta = row.metadata && Object.keys(row.metadata).length
+        ? `<div style="font-size: 11px; color: var(--muted); margin-top: 4px; font-family: monospace;">${escapeHtml(JSON.stringify(row.metadata))}</div>` : '';
+      const diff = row.diff
+        ? `<div style="font-size: 11px; color: var(--muted); margin-top: 4px; font-family: monospace;">diff: ${escapeHtml(JSON.stringify(row.diff))}</div>` : '';
+      return `
+        <div class="review-item" style="padding: 10px 14px;">
+          <div style="display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;">
+            <span style="font-weight:600; color: var(--ink); font-size: 13px;">${label}</span>
+            <span style="font-size: 11px; color: var(--muted);">${when}</span>
+            <span style="font-size: 11px; color: var(--gold);">${escapeHtml(row.actor_email || 'unknown')}</span>
+            <span style="font-size: 11px; color: var(--muted);">${escapeHtml(planLabel)}</span>
+          </div>
+          ${meta}${diff}
+        </div>`;
+    }).join('');
+    auditStatus.textContent = `${data.length} entr${data.length === 1 ? 'y' : 'ies'}`;
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+  async function exportAuditCsv() {
+    if (!isTeam) return;
+    const { data, error } = await sb.from('audit_log_feed')
+      .select('occurred_at, actor_email, action, entity_type, plan_id, plan_name, client_email, metadata, diff')
+      .order('occurred_at', { ascending: false })
+      .limit(10000);
+    if (error) { alert('Export failed: ' + error.message); return; }
+    const rows = [['occurred_at','actor_email','action','entity_type','plan_id','plan_name','client_email','metadata','diff']];
+    (data || []).forEach(r => rows.push([
+      r.occurred_at || '', r.actor_email || '', r.action || '', r.entity_type || '',
+      r.plan_id || '', r.plan_name || '', r.client_email || '',
+      r.metadata ? JSON.stringify(r.metadata) : '', r.diff ? JSON.stringify(r.diff) : '',
+    ]));
+    const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `audit-log-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  document.getElementById('btn-audit-refresh')?.addEventListener('click', refreshAuditLog);
+  document.getElementById('btn-audit-export')?.addEventListener('click', exportAuditCsv);
+  document.getElementById('audit-filter-action')?.addEventListener('change', refreshAuditLog);
+  document.getElementById('audit-filter-actor')?.addEventListener('input', () => {
+    clearTimeout(window.__auditFilterTimer);
+    window.__auditFilterTimer = setTimeout(refreshAuditLog, 350);
+  });
 
   /* ──────────────────────────────────────────────────────────────────────
      DIFF / COMPARE VIEW — pick two saved plans, compute both, render a
@@ -13236,6 +13402,13 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       appendMessage('assistant', data.answer);
       history.push({ role: 'user', content: question.trim() });
       history.push({ role: 'assistant', content: data.answer });
+      if (typeof window.__AUDIT__ === 'function') {
+        // Log only the question length + first 80 chars (no PII bodies).
+        window.__AUDIT__('ai.ask', { entityType: 'plan', metadata: {
+          question_len: question.length,
+          question_preview: question.slice(0, 80),
+        }});
+      }
       statusEl.textContent = isAdvisor
         ? 'Advisor mode · Grounded in plan data'
         : 'Grounded in your plan data · Powered by Claude';
