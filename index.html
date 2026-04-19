@@ -11984,7 +11984,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
 
       if (!resp.ok) {
         const errTxt = data.code === 'no_api_key'
-          ? 'The AI Assistant needs an Anthropic API key. Add ANTHROPIC_API_KEY to this Vercel deployment (Project Settings → Environment Variables) and redeploy.'
+          ? 'The AI Assistant needs an Anthropic API key. Step-by-step activation: <strong><a href="./ai-setup.html" target="_blank" style="color:var(--gold-dark);">Setup Guide →</a></strong>'
           : (data.error || 'Something went wrong. Try again in a moment.');
         appendMessage('assistant', errTxt);
         statusEl.textContent = 'Error';

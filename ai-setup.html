@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activate AI Plan Assistant — Pyle Plan Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gold: #C9A961;
+      --gold-dark: #8B7640;
+      --cream: #F5F1E8;
+      --cream-panel: #FAF6ED;
+      --cream-light: #F2EDDD;
+      --ink: #1a1a1a;
+      --ink-soft: #444;
+      --muted: #6B6556;
+      --success: #2D6A4F;
+      --crimson: #8B1A1A;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Helvetica Neue', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+    .wrap { max-width: 800px; margin: 0 auto; padding: 48px 24px; }
+
+    header {
+      padding: 32px 0 40px;
+      border-bottom: 1px solid rgba(201, 169, 97, 0.25);
+      margin-bottom: 32px;
+    }
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gold-dark);
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 32px;
+      font-weight: 500;
+      margin: 0 0 10px;
+      letter-spacing: 0.3px;
+    }
+    .lead {
+      font-size: 15px;
+      color: var(--ink-soft);
+      max-width: 620px;
+    }
+
+    /* Status banner at top */
+    .status-banner {
+      padding: 16px 20px;
+      border-radius: 6px;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 14px;
+      border: 1px solid;
+    }
+    .status-banner.checking { background: var(--cream-light); border-color: var(--gold); color: var(--gold-dark); }
+    .status-banner.active { background: #F0F7F3; border-color: var(--success); color: var(--success); }
+    .status-banner.inactive { background: #FFF8F0; border-color: var(--gold-dark); color: var(--gold-dark); }
+    .status-banner.error { background: #FFF0F0; border-color: var(--crimson); color: var(--crimson); }
+    .status-banner .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-banner.checking .dot { background: var(--gold-dark); animation: pulse 1s ease-in-out infinite; }
+    .status-banner.active .dot { background: var(--success); }
+    .status-banner.inactive .dot { background: var(--gold-dark); }
+    .status-banner.error .dot { background: var(--crimson); }
+    @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    /* Steps */
+    .step {
+      background: #FFF;
+      border: 1px solid rgba(201, 169, 97, 0.25);
+      border-radius: 6px;
+      padding: 28px 32px;
+      margin-bottom: 18px;
+      position: relative;
+      transition: box-shadow 0.2s ease;
+    }
+    .step:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+    .step-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 14px;
+    }
+    .step-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--gold);
+      color: var(--cream);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step.done .step-num { background: var(--success); }
+    .step.done .step-num::after { content: '✓'; }
+    .step.done .step-num { font-size: 20px; }
+    .step.done .step-num span { display: none; }
+
+    .step-title {
+      flex: 1;
+      padding-top: 6px;
+    }
+    .step-title h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 500;
+      margin: 0 0 4px;
+    }
+    .step-title .time {
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .step-body {
+      padding-left: 60px;
+      font-size: 14px;
+      color: var(--ink-soft);
+    }
+    .step-body ol, .step-body ul { padding-left: 20px; margin: 10px 0; }
+    .step-body li { margin-bottom: 6px; }
+    .step-body strong { color: var(--ink); font-weight: 700; }
+
+    .copy-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #FAFAF5;
+      border: 1px solid rgba(201, 169, 97, 0.35);
+      padding: 10px 14px;
+      border-radius: 4px;
+      margin: 12px 0;
+      font-family: Menlo, monospace;
+      font-size: 13px;
+    }
+    .copy-block code {
+      flex: 1;
+      background: transparent;
+      color: var(--gold-dark);
+      font-weight: 600;
+      user-select: all;
+    }
+    .copy-btn {
+      background: var(--gold-dark);
+      color: var(--cream);
+      border: none;
+      padding: 6px 14px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 700;
+      font-family: 'Helvetica Neue', sans-serif;
+      transition: background 0.15s ease;
+    }
+    .copy-btn:hover { background: var(--gold); }
+    .copy-btn.copied { background: var(--success); }
+
+    .external-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--gold);
+      color: var(--cream);
+      padding: 10px 18px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin: 10px 0 4px;
+      transition: background 0.15s ease;
+    }
+    .external-link:hover { background: var(--gold-dark); }
+
+    .cost-note {
+      background: var(--cream-light);
+      border-left: 3px solid var(--gold);
+      padding: 10px 14px;
+      margin: 12px 0;
+      font-size: 13px;
+      color: var(--ink-soft);
+    }
+
+    .test-button {
+      background: var(--gold-dark);
+      color: var(--cream);
+      border: none;
+      padding: 14px 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 700;
+      font-family: 'Helvetica Neue', sans-serif;
+      transition: background 0.15s ease;
+      margin: 14px 0;
+    }
+    .test-button:hover:not(:disabled) { background: var(--gold); }
+    .test-button:disabled { background: #CCC; cursor: not-allowed; }
+
+    .test-result {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.55;
+      display: none;
+    }
+    .test-result.success {
+      display: block;
+      background: #F0F7F3;
+      border-left: 3px solid var(--success);
+      color: var(--success);
+    }
+    .test-result.fail {
+      display: block;
+      background: #FFF0F0;
+      border-left: 3px solid var(--crimson);
+      color: var(--crimson);
+    }
+
+    .nav-link {
+      display: inline-block;
+      color: var(--gold-dark);
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-top: 24px;
+    }
+    .nav-link:hover { text-decoration: underline; }
+
+    .troubleshoot {
+      background: var(--cream-light);
+      padding: 24px 28px;
+      border-radius: 6px;
+      margin-top: 32px;
+      border: 1px dashed var(--gold-dark);
+    }
+    .troubleshoot h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 17px;
+      margin: 0 0 12px;
+    }
+    .troubleshoot table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .troubleshoot th, .troubleshoot td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(201, 169, 97, 0.25);
+      vertical-align: top;
+    }
+    .troubleshoot th {
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--gold-dark);
+      background: #FFF;
+    }
+    .troubleshoot td:last-child { color: var(--ink-soft); }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <a href="./" class="nav-link">← Back to Plan Builder</a>
+
+  <header>
+    <div class="eyebrow">Setup Guide</div>
+    <h1>Activate the AI Plan Assistant</h1>
+    <p class="lead">Five-minute walkthrough to turn on natural-language Q&amp;A over your client plans. Live status checker below confirms when each step is complete.</p>
+  </header>
+
+  <!-- Status banner: checks current API key state -->
+  <div class="status-banner checking" id="live-status">
+    <span class="dot"></span>
+    <span id="live-status-text">Checking API endpoint status…</span>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="step" id="step-1">
+    <div class="step-header">
+      <div class="step-num"><span>1</span></div>
+      <div class="step-title">
+        <h2>Create an Anthropic API key</h2>
+        <div class="time">~ 2 minutes</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <ol>
+        <li>Go to <strong>console.anthropic.com</strong> and sign in (or create an account with your work email).</li>
+        <li>In the left sidebar click <strong>Settings</strong> → <strong>API Keys</strong>.</li>
+        <li>Click the <strong>Create Key</strong> button. Name it something like <code>pyle-planning-prod</code>.</li>
+        <li><strong>Copy the key immediately</strong> — it starts with <code>sk-ant-api03-…</code>. You can't view it again after closing the dialog.</li>
+        <li>Navigate to <strong>Plans &amp; Billing</strong> → <strong>Add credits</strong>. Start with <strong>$10</strong>.</li>
+      </ol>
+      <a class="external-link" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">
+        Open Anthropic Console →
+      </a>
+      <div class="cost-note">
+        💰 <strong>Cost check:</strong> each AI query runs ~3-5¢ using claude-sonnet-4-5. $10 of credits covers roughly 200-300 queries. Typical advisor use of 5-10 queries/client × 50 clients/year ≈ $10-25/yr.
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step" id="step-2">
+    <div class="step-header">
+      <div class="step-num"><span>2</span></div>
+      <div class="step-title">
+        <h2>Add the key to Vercel</h2>
+        <div class="time">~ 2 minutes</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <ol>
+        <li>Open <strong>vercel.com/dashboard</strong> and click into the <strong>Pyle Plan Builder</strong> project.</li>
+        <li>Click <strong>Settings</strong> (top nav) → <strong>Environment Variables</strong> (left sidebar).</li>
+        <li>Click <strong>Add New</strong>. Fill in:
+          <ul>
+            <li><strong>Key</strong> (exact spelling, all caps):
+              <div class="copy-block">
+                <code id="env-key">ANTHROPIC_API_KEY</code>
+                <button class="copy-btn" data-copy="ANTHROPIC_API_KEY">Copy</button>
+              </div>
+            </li>
+            <li><strong>Value</strong>: paste the <code>sk-ant-api03-…</code> key from Step 1</li>
+            <li><strong>Environments</strong>: check <strong>all three</strong> (Production, Preview, Development)</li>
+          </ul>
+        </li>
+        <li>Click <strong>Save</strong>.</li>
+      </ol>
+      <a class="external-link" href="https://vercel.com/dashboard" target="_blank" rel="noopener">
+        Open Vercel Dashboard →
+      </a>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step" id="step-3">
+    <div class="step-header">
+      <div class="step-num"><span>3</span></div>
+      <div class="step-title">
+        <h2>Redeploy to pick up the new key</h2>
+        <div class="time">~ 1 minute</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>The key only activates after a fresh deploy. In Vercel:</p>
+      <ol>
+        <li>Click the <strong>Deployments</strong> tab.</li>
+        <li>Find the top (most recent) deployment.</li>
+        <li>Click the <strong>⋯</strong> menu on that row → <strong>Redeploy</strong>.</li>
+        <li>Check <strong>"Use existing Build Cache"</strong>, then click <strong>Redeploy</strong>.</li>
+        <li>Wait ~30 seconds for the green <strong>Ready</strong> checkmark.</li>
+      </ol>
+      <div class="cost-note">
+        💡 <strong>Shortcut:</strong> if you're comfortable with git, just push any commit and Vercel auto-redeploys. Example: <code>git commit --allow-empty -m "redeploy" &amp;&amp; git push</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step" id="step-4">
+    <div class="step-header">
+      <div class="step-num"><span>4</span></div>
+      <div class="step-title">
+        <h2>Verify it works</h2>
+        <div class="time">~ 30 seconds</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Click the button below to ping <code>/api/ask-plan</code> with a test payload. A green result means the key is wired up correctly and you're ready to use the assistant.</p>
+      <button class="test-button" id="test-button">▶ Run Test Query</button>
+      <div class="test-result" id="test-result"></div>
+      <p style="margin-top: 18px;"><strong>Once the test passes:</strong></p>
+      <ol>
+        <li>Go to <a href="./" style="color: var(--gold-dark); font-weight: 700;">the main app</a> and hard-refresh (⌘⇧R on Mac, Ctrl+Shift+R on Windows)</li>
+        <li>Sign in, load a sample (Harrison recommended), click <strong>Generate Plan</strong></li>
+        <li>A gold <strong>"Ask your plan"</strong> button appears bottom-right</li>
+        <li>Click it and ask any question — response appears in 2-5 seconds</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step" id="step-5">
+    <div class="step-header">
+      <div class="step-num"><span>5</span></div>
+      <div class="step-title">
+        <h2>Set a budget alert (optional but recommended)</h2>
+        <div class="time">~ 1 minute</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Protect yourself from a runaway bill.</p>
+      <ol>
+        <li>Back in Anthropic console: <strong>Settings</strong> → <strong>Limits</strong></li>
+        <li>Set a <strong>$50/month soft limit</strong> (or whatever feels right)</li>
+        <li>You'll get an email when you reach 75% of the limit</li>
+      </ol>
+      <a class="external-link" href="https://console.anthropic.com/settings/limits" target="_blank" rel="noopener">
+        Open Anthropic Limits →
+      </a>
+    </div>
+  </div>
+
+  <!-- TROUBLESHOOT -->
+  <div class="troubleshoot">
+    <h3>Troubleshooting</h3>
+    <table>
+      <thead>
+        <tr><th style="width: 40%;">Symptom</th><th>Likely cause &amp; fix</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Test above returns <strong>"Add ANTHROPIC_API_KEY"</strong></td>
+          <td>Either the key wasn't saved in Vercel, or the deploy was created BEFORE the key was added. Re-check the env var spelling is exactly <code>ANTHROPIC_API_KEY</code>, then force a fresh redeploy (Step 3).</td>
+        </tr>
+        <tr>
+          <td>Test returns <strong>401 Unauthorized</strong></td>
+          <td>The API key string is wrong (truncated, extra spaces, or the key was regenerated/deleted in Anthropic console). Create a new key and repeat Steps 1-3.</td>
+        </tr>
+        <tr>
+          <td>Test returns <strong>429 Rate Limit</strong></td>
+          <td>Very unusual — Anthropic accounts start with generous rate limits. Wait 60 seconds and try again.</td>
+        </tr>
+        <tr>
+          <td>Test returns <strong>"Insufficient credits"</strong></td>
+          <td>Add more credits in Anthropic console → Plans &amp; Billing.</td>
+        </tr>
+        <tr>
+          <td>No chat button appears on the main app</td>
+          <td>Generate Plan hasn't been clicked yet. The button only appears when a plan is loaded (by design — nothing to ask about otherwise).</td>
+        </tr>
+        <tr>
+          <td>Button appears but clicking it does nothing</td>
+          <td>Hard-refresh the page (⌘⇧R). Browser may be serving old JS.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <a href="./" class="nav-link">← Back to Plan Builder</a>
+</div>
+
+<script>
+  // ═══════════════════════════════════════════════════════════
+  // LIVE STATUS CHECK — polls /api/ask-plan on page load
+  // ═══════════════════════════════════════════════════════════
+  async function checkStatus() {
+    const banner = document.getElementById('live-status');
+    const txt = document.getElementById('live-status-text');
+
+    try {
+      const resp = await fetch('/api/ask-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: 'ping',
+          planContext: 'SYSTEM TEST: reply with the word "OK" only.',
+          mode: 'client',
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.ok) {
+        banner.className = 'status-banner active';
+        txt.innerHTML = `✓ <strong>AI Assistant is ACTIVE.</strong> The key is configured and the endpoint is responding. You're all set — jump to Step 4 to run a test query.`;
+        markStepsDone([1, 2, 3]);
+      } else if (data.code === 'no_api_key') {
+        banner.className = 'status-banner inactive';
+        txt.innerHTML = `⚠ <strong>API key not configured yet.</strong> Complete Steps 1-3 below, then redeploy.`;
+      } else if (resp.status === 404) {
+        banner.className = 'status-banner error';
+        txt.innerHTML = `✗ <strong>Endpoint not found.</strong> The /api/ask-plan.js file may not be deployed. Push the latest code to GitHub and wait for Vercel to redeploy.`;
+      } else {
+        banner.className = 'status-banner error';
+        txt.innerHTML = `✗ <strong>${resp.status} ${resp.statusText}.</strong> ${(data.error || '').slice(0, 200)}`;
+      }
+    } catch (err) {
+      banner.className = 'status-banner error';
+      txt.innerHTML = `✗ <strong>Network error:</strong> ${err.message}. This is expected on a local dev server where /api/ routes aren't served. On pyle-planning.vercel.app this should work.`;
+    }
+  }
+
+  function markStepsDone(nums) {
+    nums.forEach(n => {
+      const step = document.getElementById('step-' + n);
+      if (step) step.classList.add('done');
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // COPY BUTTONS
+  // ═══════════════════════════════════════════════════════════
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = orig;
+          btn.classList.remove('copied');
+        }, 2000);
+      } catch (e) {
+        btn.textContent = 'Copy failed';
+      }
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // TEST QUERY BUTTON
+  // ═══════════════════════════════════════════════════════════
+  document.getElementById('test-button').addEventListener('click', async () => {
+    const btn = document.getElementById('test-button');
+    const result = document.getElementById('test-result');
+
+    btn.disabled = true;
+    btn.textContent = 'Running test…';
+    result.className = 'test-result';
+
+    try {
+      const resp = await fetch('/api/ask-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: 'Reply with "Test successful. The AI Plan Assistant is working correctly." and nothing else.',
+          planContext: 'TEST MODE: no plan data. Reply with the exact test message.',
+          mode: 'client',
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.ok && data.answer) {
+        result.className = 'test-result success';
+        result.innerHTML = `<strong>✓ Test passed!</strong><br><br>Response from Claude: <em>"${data.answer.slice(0, 200)}"</em><br><br>Usage: ${data.usage ? data.usage.input_tokens + ' input tokens, ' + data.usage.output_tokens + ' output tokens' : 'not reported'}. The AI Assistant is active and ready to use.`;
+        markStepsDone([1, 2, 3, 4]);
+      } else if (data.code === 'no_api_key') {
+        result.className = 'test-result fail';
+        result.innerHTML = `<strong>API key not configured.</strong><br><br>Go back to Step 2, confirm the environment variable name is exactly <code>ANTHROPIC_API_KEY</code> (all caps, no spaces), check it's saved for all three environments, then redeploy.`;
+      } else {
+        result.className = 'test-result fail';
+        result.innerHTML = `<strong>Test failed (${resp.status}):</strong><br>${(data.error || 'Unknown error').slice(0, 400)}<br><br>Check the troubleshoot table below.`;
+      }
+    } catch (err) {
+      result.className = 'test-result fail';
+      result.innerHTML = `<strong>Network error:</strong> ${err.message}<br><br>Are you on the Vercel production URL (pyle-planning.vercel.app)? The test can't work on a local dev server.`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '▶ Run Test Query Again';
+    }
+  });
+
+  // Run status check on page load
+  checkStatus();
+</script>
+
+</body>
+</html>
