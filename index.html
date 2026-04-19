@@ -2501,6 +2501,22 @@
         <input type="number" id="client-year" value="2026">
       </div>
       <div class="field">
+        <label>Reporting Currency <span class="hint">(display only — inputs entered in USD)</span></label>
+        <select id="reporting-currency">
+          <option value="USD" selected>$ — US Dollar</option>
+          <option value="EUR">€ — Euro</option>
+          <option value="GBP">£ — Pound Sterling</option>
+          <option value="CHF">CHF — Swiss Franc</option>
+          <option value="CAD">C$ — Canadian Dollar</option>
+          <option value="AUD">A$ — Australian Dollar</option>
+          <option value="AED">AED — UAE Dirham</option>
+          <option value="SGD">S$ — Singapore Dollar</option>
+          <option value="HKD">HK$ — Hong Kong Dollar</option>
+          <option value="JPY">¥ — Japanese Yen</option>
+          <option value="MXN">MX$ — Mexican Peso</option>
+        </select>
+      </div>
+      <div class="field">
         <label>Primary Client Age <span class="hint">(at plan year)</span></label>
         <input type="number" id="client-primary-age" value="55" min="18" max="110">
       </div>
@@ -3608,10 +3624,61 @@
 window.__PLAN_DATA__ = null;
 window.__FIRM_LOGO__ = null;
 
-// Utility formatters
-const fmt$ = n => (n < 0 ? '-' : '') + '$' + Math.abs(Math.round(n)).toLocaleString();
-const fmt$M = n => '$' + (n / 1_000_000).toFixed(1) + 'M';
+// ──────────────────────────────────────────────────────────────────────
+// MULTI-CURRENCY DISPLAY — all numeric inputs are entered in USD; the
+// reporting currency only changes the display (symbol + FX-converted
+// values). Plan math runs in USD throughout. This matches how HNW
+// platforms typically handle international clients.
+//
+// To add a currency: add an entry to FX_RATES (rate = how many UNITS
+// of that currency equal 1 USD) and an option to the #reporting-currency
+// select in the form.
+// ──────────────────────────────────────────────────────────────────────
+const FX_RATES = {
+  USD: { symbol: '$',    rate: 1.00,    name: 'US Dollar' },
+  EUR: { symbol: '€',    rate: 0.92,    name: 'Euro' },
+  GBP: { symbol: '£',    rate: 0.79,    name: 'Pound Sterling' },
+  CHF: { symbol: 'CHF ', rate: 0.91,    name: 'Swiss Franc' },
+  CAD: { symbol: 'C$',   rate: 1.36,    name: 'Canadian Dollar' },
+  AUD: { symbol: 'A$',   rate: 1.52,    name: 'Australian Dollar' },
+  AED: { symbol: 'AED ', rate: 3.67,    name: 'UAE Dirham' },
+  SGD: { symbol: 'S$',   rate: 1.34,    name: 'Singapore Dollar' },
+  HKD: { symbol: 'HK$',  rate: 7.81,    name: 'Hong Kong Dollar' },
+  JPY: { symbol: '¥',    rate: 153.0,   name: 'Japanese Yen' },
+  MXN: { symbol: 'MX$',  rate: 17.0,    name: 'Mexican Peso' },
+};
+window.__FX__ = { code: 'USD', symbol: '$', rate: 1.00 };
+
+function setReportingCurrency(code) {
+  const fx = FX_RATES[code] || FX_RATES.USD;
+  window.__FX__ = { code, symbol: fx.symbol, rate: fx.rate };
+}
+
+function formatMoney(n) {
+  const fx = window.__FX__ || { symbol: '$', rate: 1 };
+  const v = (n || 0) * fx.rate;
+  return (v < 0 ? '-' : '') + fx.symbol + Math.abs(Math.round(v)).toLocaleString();
+}
+function formatMoneyM(n) {
+  const fx = window.__FX__ || { symbol: '$', rate: 1 };
+  return fx.symbol + ((n * fx.rate) / 1_000_000).toFixed(1) + 'M';
+}
+
+// Utility formatters (currency-aware via __FX__)
+const fmt$ = formatMoney;
+const fmt$M = formatMoneyM;
 const fmtPct = n => n.toFixed(1) + '%';
+
+// Compact currency formatter ($1.5M / $750K / $250) — used by chart axis
+// labels and small KPI tiles. Honors __FX__ symbol + rate.
+function formatMoneyShort(n) {
+  const fx = window.__FX__ || { symbol: '$', rate: 1 };
+  const v = (n || 0) * fx.rate;
+  const a = Math.abs(v);
+  if (a >= 1_000_000) return fx.symbol + (v / 1_000_000).toFixed(1) + 'M';
+  if (a >= 1_000)     return fx.symbol + Math.round(v / 1_000) + 'K';
+  return fx.symbol + Math.round(v);
+}
 
 /* ---- Money input formatter: adds commas as you type ----
    Applies to every <input class="money"> (all $-prefixed fields). */
@@ -4187,6 +4254,7 @@ function readForm() {
       isoBargain: n('iso-bargain'),
       consideringMove: t('considering-move') === 'yes',
       targetState: t('target-state') || 'FL',
+      reportingCurrency: t('reporting-currency') || 'USD',
     },
     goals: parseGoals(t('financial-goals')),
     retirement: {
@@ -5463,8 +5531,8 @@ function computePlan(d) {
    ============================================================ */
 function renderClientPortrait(p) {
   const d = p.input;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
 
   const primary = d.client.primary || 'your family';
   const spouse = d.client.spouse || '';
@@ -5767,8 +5835,8 @@ function renderClientPortrait(p) {
 function renderGoals(p) {
   const d = p.input;
   const ga = p.goalAnalysis;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
   const fmtPct = (n) => Math.round((n || 0) * 100) + '%';
 
   if (!ga || !ga.goals || ga.goals.length === 0) {
@@ -5913,8 +5981,8 @@ function renderGoals(p) {
    ============================================================ */
 function renderTechnicalAppendix(p) {
   const d = p.input;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
   const fmtPct = (n) => (n || 0).toFixed(2) + '%';
 
   const primary = d.client.primary || 'Client';
@@ -6394,7 +6462,7 @@ function renderSummary(p) {
    ============================================================ */
 function renderAdvisorNotes(p) {
   const d = p.input;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$ = formatMoney;
   // Suggest next-review date: 6 months after plan year start, or
   // the client's next birthday, or 1 year from today — pick the earliest future date.
   const now = new Date();
@@ -6493,8 +6561,8 @@ function renderFamilyTree(p) {
    ============================================================ */
 function renderPeerBenchmark(p) {
   const d = p.input;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : '$' + Math.round(n / 1_000) + 'K';
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
   const fmtPct = (n) => (n || 0).toFixed(0) + '%';
 
   const nw = p.familyTotalNW || ((d.client.preSaleNW || 0) + (d.client.otherAssets || 0));
@@ -7122,8 +7190,8 @@ function renderTransaction(p) {
    ============================================================ */
 function renderBalanceSheet(p) {
   const d = p.input;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
   const isAnnual = d.planType === 'annual';
 
   // Assets — categorized
@@ -7221,8 +7289,8 @@ function renderBalanceSheet(p) {
    ============================================================ */
 function renderCashFlow(p) {
   const d = p.input;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
 
   // Income sources
   const bizIncome   = d.biz.income || 0;
@@ -9339,8 +9407,8 @@ function renderStateDomicileAnalyzer(p) {
   const d = p.input;
   if (!d.client.consideringMove) return '';
 
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
   const fmtPct = (n) => (n || 0).toFixed(2) + '%';
 
   // Target-state tax rates (2025 published — simplified, top marginal)
@@ -9450,8 +9518,8 @@ function renderMultiYearTax(p) {
   const my = p.multiYearTax;
   if (!my || !my.rows || my.rows.length === 0) return '';
   const d = p.input;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
 
   const hasRoth = my.totalRoth10yr > 0;
 
@@ -9565,8 +9633,8 @@ function renderEquityCompModule(d, p) {
   const optsVal = d.client.optionsValue || 0;
   if (concen === 0 && optsVal === 0) return '';
 
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
   const fmtPct = (n) => (n || 0).toFixed(1) + '%';
 
   const basis = d.client.concentratedBasis || 0;
@@ -9779,8 +9847,8 @@ function renderEquityCompModule(d, p) {
 
 function renderInvestmentStrategy(p) {
   const d = p.input;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
   const fmtPct = (n) => (n || 0).toFixed(1) + '%';
 
   const primaryAge = d.client.primaryAge || 55;
@@ -10113,8 +10181,8 @@ function _computeTaxDrag(p) {
    ============================================================ */
 function renderRiskManagement(p) {
   const d = p.input;
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
   const fmtPct = (n) => (n || 0).toFixed(1) + '%';
 
   const primaryAge = d.client.primaryAge || 55;
@@ -10366,8 +10434,8 @@ function renderEducationFunding(p) {
   const d = p.input;
   const nBen = d.client.eduBeneficiaries || 0;
   if (nBen <= 0) return '';
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
 
   // 2025 annual gift exclusion: $19,000 per donee per donor
   // 5-year superfunding: $19k × 5 = $95,000 per donee per donor
@@ -10548,8 +10616,8 @@ function renderMonteCarlo(p) {
   for (let y = 0; y <= years; y += xTickStep) xTicks.push({ y, year: startYear + y, x: xAt(y) });
   if (xTicks[xTicks.length - 1].y !== years) xTicks.push({ y: years, year: startYear + years, x: xAt(years) });
 
-  const fmt$ = n => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = n => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
 
   return `
     <div class="card" style="border-left: 4px solid var(--gold); margin-top: 20px;">
@@ -10624,8 +10692,8 @@ function renderMonteCarlo(p) {
 function renderSocialSecurityOptimizer(p) {
   const d = p.input;
   if (!d.ss.primaryBenefit && !d.ss.spouseBenefit) return '';
-  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
-  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
 
   const hasSpouse = (d.ss.spouseBenefit || 0) > 0;
   const best = p.ssBest;
@@ -11033,12 +11101,20 @@ function renderLogoBox(firm, logoDataURL) {
    ============================================================ */
 function generatePlan() {
   const d = readForm();
+  // Apply reporting currency to formatters BEFORE rendering. Plan math
+  // runs in USD; only the display layer converts via __FX__.
+  if (typeof setReportingCurrency === 'function') {
+    setReportingCurrency(d.client.reportingCurrency || 'USD');
+  }
   const p = computePlan(d);
   window.__PLAN_DATA__ = p;
 
   // Header
   document.getElementById('plan-title').textContent = `${d.client.primary}${d.client.spouse ? ' & ' + d.client.spouse : ''} — Comprehensive Financial Plan`;
-  document.getElementById('plan-subtitle').textContent = `${d.client.location} • ${d.client.year} • ${d.client.subtitle}`;
+  const fxNote = (window.__FX__ && window.__FX__.code !== 'USD')
+    ? ` • Reporting in ${window.__FX__.code} (1 USD ≈ ${window.__FX__.rate.toFixed(2)} ${window.__FX__.code})`
+    : '';
+  document.getElementById('plan-subtitle').textContent = `${d.client.location} • ${d.client.year} • ${d.client.subtitle}${fxNote}`;
   // Client welcome banner — only visible when body.is-client is set
   const welcomeNameEl = document.getElementById('client-welcome-name');
   if (welcomeNameEl) welcomeNameEl.textContent = (d.client.primary || 'there').split(' ')[0];
@@ -11202,6 +11278,16 @@ function wireScenarioSliders() {
 
 document.getElementById('btn-generate').addEventListener('click', generatePlan);
 
+// Live re-render when reporting currency changes — the conversion is
+// purely cosmetic (math stays in USD) so a fast reformat is fine.
+document.getElementById('reporting-currency')?.addEventListener('change', () => {
+  if (typeof setReportingCurrency === 'function') {
+    setReportingCurrency(document.getElementById('reporting-currency').value);
+  }
+  // Only regenerate if a plan has already been computed once.
+  if (window.__PLAN_DATA__) generatePlan();
+});
+
 document.getElementById('btn-edit').addEventListener('click', () => {
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'builder'));
   document.getElementById('builder-view').classList.remove('hidden');
@@ -11348,9 +11434,9 @@ document.getElementById('btn-pptx').addEventListener('click', async () => {
   slide = pptx.addSlide({ masterName: 'PYLE_MASTER' });
   slide.addText('Executive Summary', { x: 0.4, y: 0.6, w: 9, h: 0.5, fontSize: 24, fontFace: 'Georgia', color: CRIMSON, bold: true });
   const kpis = [
-    { label: 'Post-Sale Family Net Worth', value: '$' + Math.round(p.familyTotalNW).toLocaleString() },
-    { label: 'Total Immediate Tax Savings', value: '$' + Math.round(p.totalImmediate).toLocaleString() },
-    { label: 'Annual Income (post-sale)', value: '$' + Math.round(p.annualIncome).toLocaleString() },
+    { label: 'Post-Sale Family Net Worth', value: formatMoney(p.familyTotalNW) },
+    { label: 'Total Immediate Tax Savings', value: formatMoney(p.totalImmediate) },
+    { label: 'Annual Income (post-sale)', value: formatMoney(p.annualIncome) },
     { label: 'Required Distribution %', value: (p.requiredDistPct * 100).toFixed(2) + '%' },
   ];
   kpis.forEach((k, i) => {
@@ -11666,7 +11752,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'client-primary-age','client-spouse-age',
       'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college','family-composition','financial-goals',
       'concentrated-value','concentrated-basis','concentrated-ticker','concentrated-insider','options-value','iso-bargain',
-      'considering-move','target-state',
+      'considering-move','target-state','reporting-currency',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
@@ -12085,7 +12171,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const pnwEl = document.getElementById('client-pnw');
     if (pnwEl) { pnwEl.value = String(Math.round(total)); pnwEl.dispatchEvent(new Event('input')); }
     if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
-    setStatus(`Schwab: pulled ${body.accounts?.length || 0} account(s) · total ${'$' + Math.round(total).toLocaleString()}`, 'ok');
+    setStatus(`Schwab: pulled ${body.accounts?.length || 0} account(s) · total ${formatMoney(total)}`, 'ok');
   });
 
   // On page load, if we just came back from Schwab auth, show confirmation
@@ -13001,7 +13087,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const pB = computePlanFromSnapshot(rowB.data);
     if (!pA || !pB) { resultEl.innerHTML = '<div style="padding: 20px; color: var(--crimson);">Failed to compute one or both plans. Check console.</div>'; return; }
 
-    const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+    const fmt$ = formatMoney;
     const fmtPct = (n) => (n || 0).toFixed(1) + '%';
     const row = (label, valA, valB, isMoney = true, lowerIsBetter = false) => {
       const delta = (valB || 0) - (valA || 0);
@@ -13127,8 +13213,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const p = window.__PLAN_DATA__;
     if (!p) return '';
     const d = p.input;
-    const fmt$ = n => '$' + Math.round(n || 0).toLocaleString();
-    const fmt$M = n => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+    const fmt$ = formatMoney;
+    const fmt$M = formatMoneyShort;
     const fmtPct = n => (n || 0).toFixed(1) + '%';
     const L = [];
     L.push(`CLIENT: ${d.client.primary}${d.client.spouse ? ' & ' + d.client.spouse : ''}, ages ${d.client.primaryAge}${d.client.spouseAge ? '/' + d.client.spouseAge : ''}, ${d.client.location}`);
@@ -13452,8 +13538,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const p = window.__PLAN_DATA__;
     if (!p) return '';
     const d = p.input;
-    const fmt$ = n => '$' + Math.round(n || 0).toLocaleString();
-    const fmt$M = n => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+    const fmt$ = formatMoney;
+    const fmt$M = formatMoneyShort;
     const fmtPct = n => (n || 0).toFixed(1) + '%';
 
     const lines = [];
