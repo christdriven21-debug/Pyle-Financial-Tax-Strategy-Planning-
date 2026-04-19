@@ -404,9 +404,11 @@
      can be manually toggled on by team members via "Preview as Client". */
   body.client-view .advisor-only { display: none !important; }
   body.client-view .plan-tab[data-tab="tax"],
-  body.client-view .plan-tab[data-tab="compare"] { display: none !important; }
+  body.client-view .plan-tab[data-tab="compare"],
+  body.client-view .plan-tab[data-tab="appendix"] { display: none !important; }
   body.client-view .tab-panel#panel-tax,
-  body.client-view .tab-panel#panel-compare { display: none !important; }
+  body.client-view .tab-panel#panel-compare,
+  body.client-view .tab-panel#panel-appendix { display: none !important; }
 
   /* Clients (is-client body class, only true when signed-in + not team)
      get a streamlined view: cloud bar + builder nav + advanced export
@@ -1698,6 +1700,137 @@
     .portrait-timeline-event { text-align: left; max-width: 100%; }
   }
 
+  /* ===== TECHNICAL APPENDIX =====
+     Compliance-document style — dense, citation-heavy, for external
+     readers (client's CPA, attorney, family-office CFO). Designed to
+     feel like a supplemental schedule attached to a plan binder. */
+  .appendix-cover {
+    background: #FFFFFF;
+    border: 2px solid var(--gold-dark);
+    padding: 40px 48px;
+    margin-bottom: 24px;
+    border-radius: 4px;
+  }
+  .appendix-cover .document-id {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold-dark);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .appendix-cover h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 16px;
+    letter-spacing: 0.2px;
+  }
+  .appendix-cover .cover-meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 24px;
+    font-size: 13px;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(201, 169, 97, 0.25);
+  }
+  .appendix-cover .cover-meta dt {
+    font-weight: 700;
+    color: var(--gold-dark);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-size: 10px;
+    padding-top: 3px;
+  }
+  .appendix-cover .cover-meta dd { margin: 0; color: var(--ink); }
+
+  .appendix-section {
+    background: #FFFFFF;
+    border-left: 3px solid var(--gold);
+    padding: 28px 32px;
+    margin-bottom: 18px;
+    border-radius: 0 4px 4px 0;
+  }
+  .appendix-section h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    margin: 0 0 4px;
+  }
+  .appendix-section .section-citation {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold-dark);
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .appendix-section p {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+  .appendix-section .citation-block {
+    background: var(--cream-light);
+    border-left: 3px solid var(--gold-dark);
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: Georgia, 'Times New Roman', serif;
+    color: var(--ink-soft);
+  }
+  .appendix-section .citation-block strong {
+    color: var(--ink);
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+  .appendix-finding {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: #FAFAFA;
+    border: 1px solid #E8E0C8;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  .appendix-finding.pass    { border-color: #2D6A4F; background: #F0F7F3; }
+  .appendix-finding.warn    { border-color: #C9A961; background: #FFF8F0; }
+  .appendix-finding.fail    { border-color: #8B1A1A; background: #FFF0F0; }
+  .appendix-finding .finding-label {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 10px;
+    margin-right: 8px;
+  }
+  .appendix-finding.pass .finding-label { color: #2D6A4F; }
+  .appendix-finding.warn .finding-label { color: #8B7640; }
+  .appendix-finding.fail .finding-label { color: #8B1A1A; }
+
+  .appendix-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 14px;
+    font-size: 12px;
+  }
+  .appendix-table th, .appendix-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(201, 169, 97, 0.25);
+  }
+  .appendix-table th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--gold-dark);
+    background: var(--cream-light);
+    font-weight: 700;
+  }
+  .appendix-table td.num { text-align: right; font-family: Georgia, monospace; }
+
   /* ===== PRINT ===== */
   /* ===== LIFE TIMELINE — PRINT / PDF FLOW LAYOUT =====
      Screen timeline = absolute-positioned dots + floating labels anchored
@@ -2910,7 +3043,9 @@
     <button class="btn btn-secondary" id="btn-edit">← Edit Data</button>
     <button class="btn btn-gold" id="btn-print-preview" title="Preview the print/PDF layout on-screen before committing to PDF">Print Preview</button>
     <button class="btn btn-gold" id="btn-print">Print</button>
-    <button class="btn btn-gold" id="btn-pdf">Download PDF</button>
+    <button class="btn btn-gold" id="btn-pdf-client" title="Client Summary PDF — just the Client Portrait (1-2 pages)">Client PDF</button>
+    <button class="btn btn-gold" id="btn-pdf">Full PDF</button>
+    <button class="btn btn-gold team-only" id="btn-pdf-appendix" title="Technical Appendix PDF — compliance backup for CPA/attorney">Appendix PDF</button>
     <button class="btn btn-gold" id="btn-email-plan" title="Share this plan via email (uses your native share sheet or opens your mail app)">Email Plan</button>
     <button class="btn btn-secondary team-only" id="btn-diff" title="Compare two saved plan versions side-by-side">Compare Versions</button>
     <button class="btn btn-gold" id="btn-pptx">Download PPTX</button>
@@ -2992,6 +3127,7 @@
     <button class="plan-tab" data-tab="tax">Tax Optimization</button>
     <button class="plan-tab" data-tab="compare">Scenario Comparison</button>
     <button class="plan-tab" data-tab="estate">Estate Planning</button>
+    <button class="plan-tab" data-tab="appendix">Technical Appendix</button>
   </nav>
 
   <div class="plan-content">
@@ -3004,6 +3140,7 @@
     <div class="tab-panel" id="panel-tax"></div>
     <div class="tab-panel" id="panel-compare"></div>
     <div class="tab-panel" id="panel-estate"></div>
+    <div class="tab-panel" id="panel-appendix"></div>
   </div>
 </main>
 
@@ -4978,10 +5115,286 @@ function renderClientPortrait(p) {
       </div>
     </div>` : ''}
 
-    <!-- Expand to full details -->
+    <!-- Expand to full details + (team-only) polish button -->
     <div class="portrait-full-details">
       <p>Want to see every calculation, every strategy, every IRS citation?<br>The tabs above hold your complete supporting plan.</p>
       <button class="btn-expand" onclick="document.querySelector('.plan-tab[data-tab=&quot;summary&quot;]').click()">View Full Plan Details →</button>
+      <div class="team-only" style="margin-top: 18px; padding-top: 18px; border-top: 1px dashed rgba(201,169,97,0.4);">
+        <p style="font-size: 12px; color: var(--muted);">Advisor tool: refine the narrative with AI polish (requires ANTHROPIC_API_KEY environment variable on Vercel).</p>
+        <button class="btn-expand" style="background: var(--gold-dark);" onclick="window.__POLISH_NARRATIVE__ && window.__POLISH_NARRATIVE__()">✨ Polish Narrative with AI</button>
+        <div id="polish-status" style="margin-top: 10px; font-size: 11px; color: var(--muted); font-style: italic;"></div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   TECHNICAL APPENDIX — compliance backup document, for the client's
+   CPA, attorney, or family-office CFO. Consolidates the
+   qualification tests, warnings, filing obligations, and citations
+   into one printable supplemental schedule.
+
+   Audience: NOT the client. External sophisticated readers who
+   need to verify the plan's math and defensibility.
+   ============================================================ */
+function renderTechnicalAppendix(p) {
+  const d = p.input;
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmtPct = (n) => (n || 0).toFixed(2) + '%';
+
+  const primary = d.client.primary || 'Client';
+  const spouse = d.client.spouse ? ` &amp; ${d.client.spouse}` : '';
+  const today = new Date().toISOString().slice(0, 10);
+  const docId = `PPB-${(d.client.year || new Date().getFullYear())}-${(primary.substr(0,3) || 'XXX').toUpperCase()}`;
+
+  // Build strategies-in-use list
+  const strategiesInUse = [];
+  if (d.use.dynasty)  strategiesInUse.push('Dynasty Trust');
+  if (d.use.slat)     strategiesInUse.push('SLAT');
+  if (d.use.idgt)     strategiesInUse.push('IDGT');
+  if (d.use.grat)     strategiesInUse.push(`GRAT (${d.grat.term}-yr)`);
+  if (d.use.qprt)     strategiesInUse.push(`QPRT (${d.qprt.term}-yr)`);
+  if (d.use.ilit)     strategiesInUse.push('ILIT');
+  if (d.use.crat)     strategiesInUse.push('CRAT');
+  if (d.use.crut)     strategiesInUse.push('CRUT');
+  if (d.use.clt)      strategiesInUse.push(`CLT (${d.clt.term}-yr)`);
+  if (d.use.daf)      strategiesInUse.push('DAF');
+  if (d.use.roth)     strategiesInUse.push('Roth Conversion');
+  if (d.use.qsbs)     strategiesInUse.push('§1202 QSBS');
+  if (d.use.qoz)      strategiesInUse.push('§1400Z-2 QOZ');
+  if (d.use.exch1031) strategiesInUse.push('§1031 Like-Kind Exchange');
+  if (d.use.qbi)      strategiesInUse.push('§199A QBI');
+
+  return `
+    <!-- COVER PAGE -->
+    <div class="appendix-cover">
+      <div class="document-id">Supplemental Schedule · ${docId} · ${today}</div>
+      <h1>Technical Appendix &amp; Compliance Schedule</h1>
+      <div style="font-size: 14px; color: var(--ink-soft); line-height: 1.6;">
+        This appendix documents the statutory authority, qualification tests, and filing obligations associated with the wealth plan prepared for <strong>${primary}${spouse}</strong>. It is intended for use by the client's independent tax counsel, CPA, or family-office fiduciary to verify the plan's defensibility and to coordinate required filings.
+      </div>
+      <dl class="cover-meta">
+        <dt>Plan Year</dt><dd>${d.client.year || new Date().getFullYear()}</dd>
+        <dt>Plan Type</dt><dd>${d.planType === 'annual' ? 'Annual Wealth Optimization' : 'Business Sale &amp; Wealth Transition'}</dd>
+        <dt>Jurisdiction</dt><dd>${d.client.location || '—'} (Federal + ${(d.clientState || '').toUpperCase() || 'N/A'} state)</dd>
+        <dt>Strategies</dt><dd>${strategiesInUse.length ? strategiesInUse.join(' · ') : 'None enabled'}</dd>
+        <dt>Prepared by</dt><dd>${d.firm?.name || 'Pyle Financial Services'}</dd>
+      </dl>
+    </div>
+
+    <!-- SECTION 1 — CHARITABLE REMAINDER TRUST QUALIFICATION -->
+    ${d.use.crat || d.use.crut ? `
+    <div class="appendix-section">
+      <div class="section-citation">Section 1 — §664(d) Qualification Tests</div>
+      <h2>Charitable Remainder Trust Qualification</h2>
+      <p>The trusts contemplated below must satisfy IRC §664(d) or will fail to qualify as charitable remainder trusts, forfeiting the §170 charitable deduction and the §664 tax-exempt treatment on contribution of appreciated assets.</p>
+
+      <div class="citation-block">
+        <strong>§664(d)(1)(A), (D) — CRAT requirements</strong><br>
+        (A) The annuity payout is not less than 5 percent nor more than 50 percent of the initial net fair market value of all property placed in trust.<br>
+        (D) The value of the charitable remainder interest (determined under §7520) is at least 10 percent of the initial net fair market value.
+      </div>
+
+      ${d.use.crat ? `
+        <div class="appendix-finding ${p.cratQualified ? 'pass' : 'fail'}">
+          <span class="finding-label">CRAT Test Result:</span>
+          ${p.cratQualified ? 'QUALIFIED' : 'DISQUALIFIED'} —
+          Payout rate ${fmtPct(d.crat.rate*100)} (range 5%-50%: ${p.cratFails5PctMin || p.cratFails50PctMax ? 'FAIL' : 'PASS'}) ·
+          Remainder PV ${fmtPct(p.cratRemainderPct*100)} vs. 10% minimum (${p.cratFails10PctTest ? 'FAIL' : 'PASS'}).
+          ${!p.cratQualified ? ' <strong>Tool has zeroed the CRAT benefits — advisor must lower payout rate and retest before the trust is funded.</strong>' : ''}
+        </div>
+      ` : ''}
+
+      ${d.use.crut ? `
+        <div class="citation-block">
+          <strong>§664(d)(2)(A), (D) — CRUT requirements</strong><br>
+          Unitrust payout must be not less than 5% nor more than 50% of the trust's annually-revalued assets. PV of charitable remainder at inception must be at least 10% of initial fair market value.
+        </div>
+        <div class="appendix-finding ${p.crutQualified ? 'pass' : 'fail'}">
+          <span class="finding-label">CRUT Test Result:</span>
+          ${p.crutQualified ? 'QUALIFIED' : 'DISQUALIFIED'} —
+          Unitrust rate ${fmtPct(d.crut.rate*100)} (range 5%-50%: ${p.crutFails5PctMin || p.crutFails50PctMax ? 'FAIL' : 'PASS'}) ·
+          Remainder PV ${fmtPct(p.crutRemainderPct*100)} vs. 10% minimum (${p.crutFails10PctTest ? 'FAIL' : 'PASS'}).
+        </div>
+      ` : ''}
+
+      <p style="margin-top: 12px;"><strong>Additional requirement not tested here:</strong> §664(d)(1)(E) "5% probability of exhaustion" for maximum-term CRATs (Rev. Rul. 77-374). Counsel should verify before funding.</p>
+    </div>` : ''}
+
+    <!-- SECTION 2 — §1202 QSBS ELIGIBILITY -->
+    ${d.use.qsbs ? `
+    <div class="appendix-section">
+      <div class="section-citation">Section 2 — §1202 QSBS Eligibility</div>
+      <h2>Qualified Small Business Stock — Attestation &amp; Exclusion</h2>
+      <p>Regime: <strong>${p.qsbsIsPostOBBBA ? 'Post-OBBBA (stock acquired on or after 7/4/2025)' : 'Pre-OBBBA (stock acquired before 7/4/2025)'}</strong>. Hold period: ${d.qsbs.yearsHeld} years. Exclusion %: ${fmtPct(p.qsbsExclPct*100)}.</p>
+
+      <div class="citation-block">
+        <strong>§1202(c)(1), (d)(1), (e)(3) — QSBS requirements</strong><br>
+        (c)(1)(A): Stock must be acquired at original issuance.<br>
+        (c)(1)(B): Corporation must be a C-Corp at original issuance and throughout substantially all of the holding period.<br>
+        (d)(1): Corporation must have gross assets ≤ ${p.qsbsIsPostOBBBA ? '$75M' : '$50M'} at original issuance.<br>
+        (e)(3): Corporation must be engaged in a qualified trade or business (excludes banking, insurance, financing, farming, most SSTBs, hotels/motels).
+      </div>
+
+      <div class="appendix-finding ${p.qsbsAttestationsComplete ? 'pass' : 'fail'}">
+        <span class="finding-label">Attestation Status:</span>
+        ${p.qsbsAttestationsComplete ? 'COMPLETE — all four §1202 tests confirmed by advisor' : 'INCOMPLETE — ' + (p.qsbsMissingAttestations || []).length + ' test(s) missing'}
+        ${!p.qsbsAttestationsComplete && p.qsbsMissingAttestations && p.qsbsMissingAttestations.length ? `<br><strong>Missing:</strong> ${p.qsbsMissingAttestations.map(m => '<br>  • ' + m).join('')}` : ''}
+      </div>
+
+      ${p.qsbsEligible ? `
+        <p style="margin-top: 12px;">Excluded gain: <strong>${fmt$M(p.qsbsActualExcl)}</strong> (cap: ${fmt$M(p.qsbsMaxExcl)} = greater of ${p.qsbsIsPostOBBBA ? '$15M' : '$10M'} or 10 × basis, scaled by ${fmtPct(p.qsbsExclPct*100)}). Federal tax saved: ${fmt$(p.qsbsFederalSaved)} · NIIT saved (§1411(c)(1)(A)(i)): ${fmt$(p.qsbsMedicareSaved)} · State saved: ${fmt$(p.qsbsStateSaved)} (${d.qsbs.stateConforms ? 'conforming state' : 'non-conforming state — CA/PA/MS/AL/NJ'}). <strong>Total §1202 saving: ${fmt$(p.qsbsTotalSaving)}.</strong></p>
+      ` : '<p style="margin-top: 12px;"><strong>No exclusion available under current eligibility state.</strong></p>'}
+
+      <p><strong>Recommended documentation:</strong> qualified opinion letter from tax counsel confirming all four §1202 requirements; corporate records showing C-Corp status throughout; gross-asset balance sheet at issuance date; stock issuance documentation; active-business test file.</p>
+    </div>` : ''}
+
+    <!-- SECTION 3 — §170(b) AGI CAP ANALYSIS -->
+    ${d.use.daf || d.use.crat || d.use.crut ? `
+    <div class="appendix-section">
+      <div class="section-citation">Section 3 — §170(b) AGI Caps &amp; Carryforward</div>
+      <h2>Charitable Deduction Limits Under §170(b)(1)(C)</h2>
+      <p>Contributions of appreciated long-term capital gain property to public charities (including donor-advised funds and CRT remainders) are capped at <strong>30% of AGI</strong> per year. Excess deductions carry forward five years under §170(d).</p>
+
+      <div class="citation-block">
+        <strong>§170(b)(1)(C) — 30% limit</strong>: "The amount of any charitable contribution of capital gain property which is made to an organization described in subparagraph (A)... shall not exceed the excess of 30 percent of the taxpayer's contribution base... over the amount of charitable contributions of capital gain property otherwise allowable."<br>
+        <strong>§170(d)</strong>: "Charitable contributions... which are not allowable as a deduction... by reason of the [percentage limits] may be treated as charitable contributions paid in each of the 5 succeeding taxable years..."
+      </div>
+
+      <table class="appendix-table">
+        <thead><tr><th>Line Item</th><th class="num">Amount</th></tr></thead>
+        <tbody>
+          <tr><td>AGI used for test</td><td class="num">${fmt$(p.agiForCap)}</td></tr>
+          <tr><td>30%-of-AGI cap (§170(b)(1)(C))</td><td class="num">${fmt$(p.capDaf30)}</td></tr>
+          <tr><td>Total LTCG contributions (DAF + CRAT + CRUT PV)</td><td class="num">${fmt$(p.combined30BucketContrib)}</td></tr>
+          <tr style="background: var(--cream-light);"><td><strong>Year-1 allowable deduction</strong></td><td class="num"><strong>${fmt$(p.combined30BucketAllowed)}</strong></td></tr>
+          <tr><td>Carryforward to subsequent years (5-yr horizon)</td><td class="num">${fmt$(p.combined30BucketCarryover)}</td></tr>
+          ${p.carryoverUnused > 0 ? `<tr style="background: #FFF0F0;"><td style="color: var(--crimson);"><strong>⚠️ Expires unused after 5 years</strong></td><td class="num" style="color: var(--crimson);"><strong>${fmt$(p.carryoverUnused)}</strong></td></tr>` : ''}
+        </tbody>
+      </table>
+    </div>` : ''}
+
+    <!-- SECTION 4 — §1411 NIIT -->
+    ${d.biz.sale > 0 ? `
+    <div class="appendix-section">
+      <div class="section-citation">Section 4 — §1411 Net Investment Income Tax</div>
+      <h2>NIIT "Lesser of" Precision Analysis</h2>
+      <div class="citation-block">
+        <strong>§1411(a)(1)</strong>: "there is hereby imposed... a tax equal to 3.8 percent of the lesser of — (A) such individual's net investment income for such taxable year, or (B) the excess (if any) of — (i) the modified adjusted gross income for such taxable year, over (ii) the threshold amount [$250,000 for MFJ]."
+      </div>
+      <table class="appendix-table">
+        <tbody>
+          <tr><td>Net investment income (capital gain)</td><td class="num">${fmt$(p.niitNII)}</td></tr>
+          <tr><td>MAGI proxy</td><td class="num">${fmt$(p.niitMagiProxy)}</td></tr>
+          <tr><td>MAGI − $250,000 MFJ threshold</td><td class="num">${fmt$(p.niitThresholdCap)}</td></tr>
+          <tr style="background: var(--cream-light);"><td><strong>NIIT (3.8% × lesser of)</strong></td><td class="num"><strong>${fmt$(p.niitPrecise)}</strong></td></tr>
+          ${p.niitCapBinds ? `<tr style="background: #FFF8F0;"><td>Tool overstates by</td><td class="num">${fmt$(p.niitOverstatement)}</td></tr>` : ''}
+        </tbody>
+      </table>
+      <div class="appendix-finding ${p.niitCapBinds ? 'warn' : 'pass'}">
+        <span class="finding-label">${p.niitCapBinds ? 'NOTE' : 'PASS'}:</span>
+        ${p.niitCapBinds ? 'The tool\'s default combined CG rate (fed + state + 3.8%) overstates actual NIIT because MAGI minus threshold is less than NII. CPA should refine.' : 'MAGI well above threshold — tool\'s full-3.8% treatment matches §1411 "lesser of" result.'}
+      </div>
+      <p style="margin-top: 12px;"><strong>Important:</strong> under §1411(c)(1)(A)(i), gain excluded from gross income under §1202 is <em>not</em> included in net investment income. QSBS excluded gain is therefore NOT subject to NIIT — this is correctly reflected in the §1202 section above.</p>
+    </div>` : ''}
+
+    <!-- SECTION 5 — STEP-TRANSACTION / §2703 -->
+    ${d.biz.sale > 0 && ((d.use.dynasty && (d.dynasty.discount || 0) > 0) || (d.use.slat && (d.slat.discount || 0) > 0) || (d.use.idgt && (d.idgt.discount || 0) > 0)) ? `
+    <div class="appendix-section">
+      <div class="section-citation">Section 5 — Step-Transaction Doctrine &amp; §2703</div>
+      <h2>Pre-Sale Discounted Gift Audit Risk</h2>
+      <div class="citation-block">
+        <strong>Estate of Holman v. Commissioner</strong>, 130 T.C. 170 (2008); <strong>Linton v. United States</strong>, 630 F.3d 1211 (9th Cir. 2011); <strong>Rev. Rul. 76-103</strong>.<br>
+        The IRS collapses pre-sale gifts of business interests into the ultimate sale transaction when gifts are made sufficiently close in time to a pre-negotiated sale that the discount becomes economically unjustified. Valuation discounts (lack of marketability, lack of control) fail if the transferee had near-certainty of imminent liquidity.
+      </div>
+      <div class="citation-block">
+        <strong>§2703(a)</strong>: For gift and estate tax valuation purposes, "the value of any property shall be determined without regard to... any option, agreement, or other right to acquire or use the property at a price less than the fair market value... or any restriction on the right to sell or use such property."<br>
+        <strong>§2703(b) safe harbor</strong>: A restriction is respected only if (1) bona fide business arrangement, (2) not a device to transfer to family for less than full consideration, and (3) terms comparable to arm's-length transactions.
+      </div>
+      <div class="appendix-finding warn">
+        <span class="finding-label">Risk Flag:</span>
+        Plan includes pre-sale discounted gifts totaling ${fmt$M((d.use.dynasty ? d.dynasty.funding * (d.dynasty.discount || 0) : 0) + (d.use.slat ? d.slat.funding * (d.slat.discount || 0) : 0) + (d.use.idgt ? d.idgt.amount * (d.idgt.discount || 0) : 0))} of "free" wealth transfer. Defensibility requires: funding BEFORE any LOI, bona fide business purpose documentation, qualified independent appraisal at gift date, and §2703(b) safe-harbor compliance in the entity documents.
+      </div>
+    </div>` : ''}
+
+    <!-- SECTION 6 — REV. RUL. 2004-64 -->
+    ${d.use.dynasty && d.dynasty.trustType === 'grantor' ? `
+    <div class="appendix-section">
+      <div class="section-citation">Section 6 — Rev. Rul. 2004-64 Grantor-Trust Tax-Burn</div>
+      <h2>Grantor's Payment of Trust Income Tax</h2>
+      <div class="citation-block">
+        <strong>Rev. Rul. 2004-64, 2004-2 C.B. 7</strong>: The grantor's payment of income tax on a grantor trust's income is not a gift to the trust beneficiaries under §2511, because the grantor is paying the grantor's own tax liability. The tax payment is therefore an additional, tax-free transfer of wealth to the trust.
+      </div>
+      <p>Applied to this plan's ${fmt$M(d.dynasty.funding)} Dynasty Trust (grantor-trust status):</p>
+      <table class="appendix-table">
+        <tbody>
+          <tr><td>Trust funding</td><td class="num">${fmt$M(d.dynasty.funding)}</td></tr>
+          <tr><td>Trust income yield (assumed)</td><td class="num">${fmtPct((d.dynasty.incomeYield || 0.03) * 100)}</td></tr>
+          <tr><td>Grantor's marginal rate</td><td class="num">${fmtPct(d.tax.marginal*100)}</td></tr>
+          <tr><td>Leverage horizon (joint LE or dt-years)</td><td class="num">${p.dynastyLeverageYears} yrs</td></tr>
+          <tr><td>Cumulative tax paid by grantor (compound-weighted)</td><td class="num">${fmt$(p.dynastyIncomeTaxGift)}</td></tr>
+          <tr style="background: var(--cream-light);"><td><strong>Estate-tax saving on "silent gift"</strong></td><td class="num"><strong>${fmt$(p.dynastyIncomeTaxGiftEstateSave)}</strong></td></tr>
+        </tbody>
+      </table>
+    </div>` : ''}
+
+    <!-- SECTION 7 — REQUIRED FILINGS -->
+    <div class="appendix-section">
+      <div class="section-citation">Section 7 — Required IRS Filings &amp; Deadlines</div>
+      <h2>Statutory Filing Obligations</h2>
+      <p>Missing or late filings can permanently forfeit the plan's benefits or extend the statute of limitations indefinitely. The filings below are triggered by the strategies used in this plan.</p>
+
+      <table class="appendix-table">
+        <thead><tr><th>Form</th><th>Trigger</th><th>Deadline</th><th>Consequence if Missed</th></tr></thead>
+        <tbody>
+          ${(d.use.dynasty || d.use.slat || d.use.idgt || d.use.grat || d.use.qprt || d.use.crat || d.use.crut || d.use.clt) ? `
+          <tr><td><strong>Form 709</strong> (Gift Tax Return)</td><td>Any transfer &gt; $19k/donee</td><td>4/15/${(d.client.year || new Date().getFullYear()) + 1}</td><td>§6501(c)(9) — statute of limitations stays open INDEFINITELY; IRS can revalue decades later</td></tr>` : ''}
+          ${(d.use.crat || d.use.crut || d.use.daf) ? `
+          <tr><td><strong>Form 8283</strong> (Noncash Charitable Contributions)</td><td>Non-cash gift &gt; $5k</td><td>With year-1 Form 1040</td><td>§170(f)(11) — deduction disallowed entirely (Mohamed v. Commissioner, T.C. Memo 2012-152)</td></tr>` : ''}
+          ${(d.use.daf || d.use.crat || d.use.crut) ? `
+          <tr><td><strong>CWA</strong> (Contemporaneous Written Acknowledgment)</td><td>Gift ≥ $250</td><td>Before filing return</td><td>§170(f)(8) — entire deduction disallowed regardless of amount</td></tr>` : ''}
+          ${d.use.qoz ? `
+          <tr><td><strong>Form 8949 + 8997</strong> (QOZ Deferral Election)</td><td>Gain deferred into QOF</td><td>With year of recognition return; 180-day investment window</td><td>§1400Z-2(a)(1)(A) — deferral lost if window missed or election omitted</td></tr>
+          <tr><td><strong>Form 8996</strong> (QOF Annual Testing)</td><td>QOF compliance</td><td>Semi-annual</td><td>QOF status lost; 90% asset test failure triggers penalties</td></tr>` : ''}
+          ${(d.use.crat || d.use.crut) ? `
+          <tr><td><strong>Form 5227</strong> (Split-Interest Trust)</td><td>CRT operation</td><td>4/15 annually (trustee-filed)</td><td>§664 — penalty exposure; does not affect qualification</td></tr>` : ''}
+          <tr><td><strong>Form 706</strong> (Estate Tax Return)</td><td>Gross estate + adjusted taxable gifts &gt; exemption</td><td>9 months after death + 6-mo auto-extension</td><td>Tax due plus late-filing penalties</td></tr>
+          <tr><td><strong>Form 706 (DSUE election)</strong></td><td>Portability at 1st death</td><td>9 months after death</td><td>§2010(c)(5) — permanent loss of deceased spouse's ≈${fmt$M(d.tax.estateExempt)} exemption (Rev. Proc. 2022-32 allows 5-yr late election in limited cases)</td></tr>
+          ${d.use.qprt ? `
+          <tr><td><strong>QPRT Rent Agreement + FMV Appraisal</strong></td><td>After QPRT term ends</td><td>Annually post-term</td><td>§2036 inclusion — residence pulled back into estate</td></tr>` : ''}
+          ${d.use.idgt ? `
+          <tr><td><strong>AFR Documentation</strong></td><td>IDGT installment note</td><td>At sale</td><td>§7872 — below-AFR rate imputes interest &amp; creates phantom gift</td></tr>` : ''}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECTION 8 — PLAN ASSUMPTIONS -->
+    <div class="appendix-section">
+      <div class="section-citation">Section 8 — Computational Assumptions</div>
+      <h2>Input Disclosure for Independent Verification</h2>
+      <table class="appendix-table">
+        <tbody>
+          <tr><td>Federal capital gains rate</td><td class="num">${fmtPct(d.tax.fed*100)}</td></tr>
+          <tr><td>State capital gains rate (${(d.clientState || '').toUpperCase() || 'N/A'})</td><td class="num">${fmtPct(d.tax.state*100)}</td></tr>
+          <tr><td>NIIT rate (§1411)</td><td class="num">${fmtPct(d.tax.medicare*100)}</td></tr>
+          <tr><td>Ordinary-income marginal rate</td><td class="num">${fmtPct(d.tax.marginal*100)}</td></tr>
+          <tr><td>Federal estate tax rate</td><td class="num">${fmtPct(d.tax.estate*100)}</td></tr>
+          <tr><td>Federal estate exemption per person</td><td class="num">${fmt$(d.tax.estateExempt)}</td></tr>
+          <tr><td>Portability election</td><td class="num">${d.tax.portability ? 'Assumed elected' : 'Not assumed'}</td></tr>
+          <tr><td>Portfolio equity assumption</td><td class="num">${fmtPct(d.proj.equity*100)}</td></tr>
+          <tr><td>Real estate growth assumption</td><td class="num">${fmtPct(d.proj.re*100)}</td></tr>
+          <tr><td>Inflation assumption</td><td class="num">${fmtPct(d.proj.inflation*100)}</td></tr>
+          <tr><td>Projection horizon</td><td class="num">${d.proj.years} yrs</td></tr>
+          ${d.use.dynasty ? `<tr><td>Dynasty §7520 / income yield</td><td class="num">${fmtPct((d.dynasty.incomeYield || 0.03)*100)}</td></tr>` : ''}
+          ${d.use.grat ? `<tr><td>GRAT §7520</td><td class="num">${fmtPct(d.grat.hurdle*100)}</td></tr>` : ''}
+          ${d.use.qprt ? `<tr><td>QPRT §7520</td><td class="num">${fmtPct(d.qprt.hurdle*100)}</td></tr>` : ''}
+          ${d.use.clt ? `<tr><td>CLT §7520</td><td class="num">${fmtPct(d.clt.hurdle*100)}</td></tr>` : ''}
+          ${d.use.idgt ? `<tr><td>IDGT AFR</td><td class="num">${fmtPct(d.idgt.afr*100)}</td></tr>` : ''}
+        </tbody>
+      </table>
+
+      <p style="margin-top: 14px; font-style: italic; color: var(--muted); font-size: 12px;"><strong>Limitations.</strong> This appendix is a summary of the computational methodology; it is not tax, legal, or investment advice. Tax rates and §7520 / AFR rates are advisor-supplied and must be verified against IRS publications for the actual month of execution. CRT qualification tests use simplified term-certain formulas; real-world actuarial calculations should use IRS Table S or published lifetime factors. §1202 eligibility is advisor-attested; a qualified §1202 opinion letter from counsel is recommended before sale. AMT calculation is a first-cut; Form 6251 detail is not modeled. All strategies require independent review by qualified tax counsel and CPA before implementation.</p>
     </div>
   `;
 }
@@ -8160,6 +8573,7 @@ function generatePlan() {
   document.getElementById('panel-tax').innerHTML = renderTax(p);
   document.getElementById('panel-compare').innerHTML = renderCompare(p);
   document.getElementById('panel-estate').innerHTML = renderEstate(p);
+  document.getElementById('panel-appendix').innerHTML = renderTechnicalAppendix(p);
 
   // Split: move Budget / RMD / SS cards from Financial Overview into the
   // Retirement Plan tab so each tab has one coherent story.
@@ -8511,24 +8925,57 @@ document.getElementById('btn-pptx').addEventListener('click', async () => {
    a client-branded PDF. Better than the print dialog for
    one-click delivery to clients.
    ============================================================ */
-document.getElementById('btn-pdf').addEventListener('click', async () => {
+/* ============================================================
+   TIERED PDF HELPERS
+   Three outputs share one pipeline — they differ only in which
+   panels get included. generatePdf(kind):
+     'full'     — all panels (current Download PDF behavior)
+     'client'   — Client Portrait only (2-3 page deliverable)
+     'appendix' — Technical Appendix only (compliance backup)
+   Each writes a differently-named file so clients can distinguish.
+   ============================================================ */
+async function generatePdf(kind) {
   if (!window.__PLAN_DATA__) { alert('Please generate a plan first.'); return; }
   if (!window.html2pdf) { alert('PDF library not loaded yet — wait a second and try again.'); return; }
 
   const d = window.__PLAN_DATA__.input;
   const primary = (d.client.primary || 'Plan').trim();
-  const fileName = `Pyle Plan — ${primary} — ${d.client.year}.pdf`.replace(/[/\\:*?"<>|]/g, '-');
+  const suffix = kind === 'client' ? 'Client Summary'
+               : kind === 'appendix' ? 'Technical Appendix'
+               : 'Full Plan';
+  const fileName = `Pyle Plan — ${primary} — ${d.client.year} — ${suffix}.pdf`.replace(/[/\\:*?"<>|]/g, '-');
 
-  // Build a hidden print-friendly clone so we can capture all 5 tabs stacked,
-  // without disturbing the current on-screen tab selection.
   const planView = document.getElementById('plan-view');
   const captureRoot = planView.cloneNode(true);
-  // .print-layout triggers the flow-layout rules for the Life Timeline (see
-  // CSS above the @media print block) — avoids label overlap in the PDF.
   captureRoot.classList.add('print-layout');
   captureRoot.style.cssText = 'position:fixed; left:-99999px; top:0; width:900px; background:#F5F1E8;';
   captureRoot.querySelectorAll('.plan-actions, .plan-tabs').forEach(el => el.remove());
-  captureRoot.querySelectorAll('.tab-panel').forEach(p => { p.classList.add('active'); p.style.display = 'block'; p.style.pageBreakAfter = 'always'; });
+
+  // Include-set per tier. Header (brand + title) always stays.
+  const includeTabs = kind === 'client'   ? ['portrait']
+                   : kind === 'appendix'  ? ['appendix']
+                   : null;  // null = all
+
+  captureRoot.querySelectorAll('.tab-panel').forEach(panel => {
+    const id = (panel.id || '').replace('panel-', '');
+    const include = !includeTabs || includeTabs.includes(id);
+    if (include) {
+      panel.classList.add('active');
+      panel.style.display = 'block';
+      panel.style.pageBreakAfter = 'always';
+    } else {
+      panel.remove();   // drop non-selected panels entirely
+    }
+  });
+
+  // For the Client PDF, drop the "View Full Plan Details" button (it's a
+  // UI affordance, not part of the printed deliverable) and also drop
+  // any review-panel or welcome banner that's not relevant to the
+  // standalone PDF.
+  if (kind === 'client') {
+    captureRoot.querySelectorAll('.portrait-full-details, .review-panel, .client-welcome').forEach(el => el.remove());
+  }
+
   document.body.appendChild(captureRoot);
 
   try {
@@ -8541,13 +8988,73 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
       pagebreak: { mode: ['css', 'legacy'] }
     }).save();
   } catch (err) {
-    alert('PDF generation failed: ' + err.message + '\n\nFalling back to the Print dialog — use "Save as PDF" there.');
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('active'));
-    window.print();
+    alert(suffix + ' PDF generation failed: ' + err.message);
   } finally {
     captureRoot.remove();
   }
-});
+}
+
+document.getElementById('btn-pdf').addEventListener('click', () => generatePdf('full'));
+document.getElementById('btn-pdf-client').addEventListener('click', () => generatePdf('client'));
+document.getElementById('btn-pdf-appendix').addEventListener('click', () => generatePdf('appendix'));
+
+/* ============================================================
+   LLM NARRATIVE POLISH
+   Calls /api/polish-narrative (Vercel serverless function) with
+   the current plan's structured data and receives a client-voice
+   narrative rewrite. Falls back with a clear message if the
+   endpoint isn't configured (no ANTHROPIC_API_KEY env var).
+   ============================================================ */
+window.__POLISH_NARRATIVE__ = async function() {
+  const statusEl = document.getElementById('polish-status');
+  const narrEl   = document.querySelector('.portrait-hero-narrative');
+  if (!narrEl || !window.__PLAN_DATA__) { statusEl.textContent = 'Generate a plan first.'; return; }
+  if (!statusEl) return;
+
+  statusEl.textContent = 'Polishing…';
+  const d = window.__PLAN_DATA__.input;
+  const p = window.__PLAN_DATA__;
+  const payload = {
+    client: {
+      primary: d.client.primary, spouse: d.client.spouse,
+      location: d.client.location, year: d.client.year,
+    },
+    planType: d.planType,
+    bizSale:  d.biz.sale,
+    strategies: Object.entries(d.use).filter(([k, v]) => v).map(([k]) => k),
+    kpis: {
+      totalTaxSaved:    p.totalImmediate,
+      familyNetWorth:   p.familyTotalNW,
+      dynasty20yr:      p.dynasty20yr,
+      qsbsSaving:       p.qsbsTotalSaving,
+      mcSuccessRate:    p.monteCarlo?.successRate,
+    },
+    currentNarrative: narrEl.innerHTML,
+  };
+
+  try {
+    const resp = await fetch('/api/polish-narrative', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      const err = await resp.text();
+      statusEl.textContent = `Polish failed: ${resp.status} — ${err.slice(0, 200)}`;
+      return;
+    }
+    const data = await resp.json();
+    if (data.narrative) {
+      narrEl.innerHTML = data.narrative;
+      statusEl.textContent = '✓ Narrative polished. Refresh the page to restore original.';
+      statusEl.style.color = 'var(--success)';
+    } else {
+      statusEl.textContent = 'Unexpected response — check API configuration.';
+    }
+  } catch (err) {
+    statusEl.textContent = `Polish unavailable: ${err.message}. Verify /api/polish-narrative is deployed with ANTHROPIC_API_KEY.`;
+  }
+};
 
 /* ============================================================
    DOWNLOAD PLAN — saves a self-contained HTML file with the
