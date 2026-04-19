@@ -1831,6 +1831,45 @@
   }
   .appendix-table td.num { text-align: right; font-family: Georgia, monospace; }
 
+  /* ===== MEETING PREP BRIEFING ===== */
+  .mp-briefing { padding: 20px 24px; font-size: 14px; line-height: 1.65; color: var(--ink); }
+  .mp-briefing h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 24px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(201, 169, 97, 0.3);
+    letter-spacing: 0.2px;
+  }
+  .mp-briefing h3:first-child { margin-top: 0; }
+  .mp-briefing h4 { font-size: 13px; font-weight: 700; color: var(--gold-dark); margin: 12px 0 6px; }
+  .mp-briefing p { margin: 0 0 10px; }
+  .mp-briefing ul { margin: 8px 0 14px; padding-left: 22px; }
+  .mp-briefing li { margin-bottom: 6px; }
+  .mp-briefing strong { color: var(--ink); font-weight: 700; }
+  .mp-briefing em { color: var(--gold-dark); font-style: italic; }
+  .mp-meta {
+    padding: 12px 24px;
+    background: var(--cream-light);
+    font-size: 11px;
+    color: var(--muted);
+    border-bottom: 1px solid rgba(201, 169, 97, 0.25);
+    letter-spacing: 0.5px;
+  }
+
+  @media print {
+    .mp-briefing { font-size: 12px; line-height: 1.5; }
+    .mp-briefing h3 { font-size: 14px; page-break-after: avoid; }
+    .mp-briefing ul, .mp-briefing p { page-break-inside: avoid; }
+    body * { visibility: hidden; }
+    #meeting-prep-modal, #meeting-prep-modal * { visibility: visible; }
+    #meeting-prep-modal { position: absolute; left: 0; top: 0; width: 100%; }
+    .diff-modal-backdrop, .diff-modal-header { display: none !important; }
+    .diff-modal-body { max-height: none; box-shadow: none; border: none; }
+  }
+
   /* ===== AI CHAT ASSISTANT ===== */
   .ai-chat-launcher {
     position: fixed;
@@ -3312,6 +3351,7 @@
     <button class="btn btn-gold" id="btn-pdf">Full PDF</button>
     <button class="btn btn-gold team-only" id="btn-pdf-appendix" title="Technical Appendix PDF — compliance backup for CPA/attorney">Appendix PDF</button>
     <button class="btn btn-gold" id="btn-email-plan" title="Share this plan via email (uses your native share sheet or opens your mail app)">Email Plan</button>
+    <button class="btn btn-gold team-only" id="btn-meeting-prep" title="AI-generate a 1-page meeting briefing from the plan + recent reviews">📋 Meeting Prep</button>
     <button class="btn btn-secondary team-only" id="btn-diff" title="Compare two saved plan versions side-by-side">Compare Versions</button>
     <button class="btn btn-gold" id="btn-pptx">Download PPTX</button>
     <button class="btn btn-primary" id="btn-download">Download HTML</button>
@@ -3335,6 +3375,35 @@
       <div class="subtitle" id="plan-subtitle">—</div>
     </div>
   </header>
+
+  <!-- ====== MEETING PREP MODAL — AI-generated pre-meeting briefing -->
+  <div id="meeting-prep-modal" class="diff-modal hidden" role="dialog" aria-labelledby="mp-title">
+    <div class="diff-modal-backdrop" id="mp-modal-backdrop"></div>
+    <div class="diff-modal-body">
+      <div class="diff-modal-header">
+        <h3 id="mp-title">📋 Meeting Prep Briefing</h3>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <select id="mp-meeting-type" style="padding: 6px 10px; border-radius: 3px; border: 1px solid rgba(201,169,97,0.4); font-size: 12px;">
+            <option value="Annual Review">Annual Review</option>
+            <option value="Quarterly Check-in">Quarterly Check-in</option>
+            <option value="Pre-Sale Planning">Pre-Sale Planning</option>
+            <option value="Post-Sale Follow-up">Post-Sale Follow-up</option>
+            <option value="Tax Strategy Review">Tax Strategy Review</option>
+            <option value="Legacy / Estate Review">Legacy / Estate Review</option>
+            <option value="Initial Client Onboarding">Initial Client Onboarding</option>
+          </select>
+          <button class="btn btn-primary btn-sm" id="btn-mp-generate">Generate</button>
+          <button class="btn btn-secondary btn-sm" id="btn-mp-print">🖨 Print</button>
+          <button class="btn btn-secondary btn-sm" id="btn-mp-close">×</button>
+        </div>
+      </div>
+      <div class="diff-modal-result" id="mp-result">
+        <div style="padding: 32px; text-align: center; color: var(--muted); font-style: italic;">
+          Pick a meeting type and click Generate. Claude reads the plan + recent reviews and produces a 1-page briefing with snapshot, talking points, red flags, action items, and suggested scripts for hard conversations.
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ====== DIFF / COMPARE MODAL — team-only feature to run two saved
        plans side-by-side (e.g. "2025 plan" vs "2026 plan after Roth
@@ -11932,6 +12001,116 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   document.getElementById('btn-diff-close')?.addEventListener('click', closeDiffModal);
   document.getElementById('diff-modal-backdrop')?.addEventListener('click', closeDiffModal);
   document.getElementById('btn-diff-compute')?.addEventListener('click', runDiff);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     MEETING PREP — AI-generated briefing from plan + review history.
+     Calls /api/meeting-prep with plan context + last 5 reviews. Renders
+     briefing into the modal with optional print support.
+     ────────────────────────────────────────────────────────────────────── */
+  async function openMeetingPrepModal() {
+    document.getElementById('meeting-prep-modal').classList.remove('hidden');
+  }
+  function closeMeetingPrepModal() {
+    document.getElementById('meeting-prep-modal').classList.add('hidden');
+  }
+
+  async function generateMeetingPrep() {
+    if (!window.__PLAN_DATA__) {
+      document.getElementById('mp-result').innerHTML = '<div style="padding: 20px; color: var(--crimson);">Generate a plan first.</div>';
+      return;
+    }
+    const meetingType = document.getElementById('mp-meeting-type').value;
+    const resultEl = document.getElementById('mp-result');
+    resultEl.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--muted); font-style: italic;">⚡ Generating briefing… Claude is reading the plan + recent reviews. ~5 seconds.</div>';
+
+    // Gather review history from Supabase if available
+    let reviewHistory = [];
+    if (currentId && sb) {
+      try {
+        const { data } = await sb.from('plan_reviews')
+          .select('created_at, reviewer_email, comment, status')
+          .eq('plan_id', currentId)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        reviewHistory = data || [];
+      } catch (e) { /* ignore; proceed without */ }
+    }
+
+    // Build plan context (reuse the function from AI chat script if present)
+    // Since buildPlanContext is scoped to the chat IIFE, we inline a small version here.
+    const ctx = buildPlanContextForAI();
+
+    try {
+      const resp = await fetch('/api/meeting-prep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planContext: ctx,
+          meetingType,
+          lastMeetingDate: reviewHistory[0]?.created_at || null,
+          reviewHistory,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        const msg = data.code === 'no_api_key'
+          ? '<strong>Meeting Prep needs an Anthropic API key.</strong><br><br>Follow the <a href="./ai-setup.html" target="_blank" style="color: var(--gold-dark);">setup guide →</a> to activate.'
+          : (data.error || 'Unknown error');
+        resultEl.innerHTML = '<div style="padding: 40px; color: var(--crimson); text-align: center;">' + msg + '</div>';
+        return;
+      }
+
+      const meta = `<div class="mp-meta">
+        ${meetingType} · Generated ${new Date(data.generatedAt || Date.now()).toLocaleString()} · ${data.usage ? data.usage.input_tokens + ' input + ' + data.usage.output_tokens + ' output tokens' : ''}
+      </div>`;
+      resultEl.innerHTML = meta + '<div class="mp-briefing">' + data.briefing + '</div>';
+    } catch (err) {
+      resultEl.innerHTML = '<div style="padding: 40px; color: var(--crimson); text-align: center;">Network error: ' + err.message + '</div>';
+    }
+  }
+
+  // Lightweight plan-context builder mirroring the chat IIFE version
+  function buildPlanContextForAI() {
+    const p = window.__PLAN_DATA__;
+    if (!p) return '';
+    const d = p.input;
+    const fmt$ = n => '$' + Math.round(n || 0).toLocaleString();
+    const fmt$M = n => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+    const fmtPct = n => (n || 0).toFixed(1) + '%';
+    const L = [];
+    L.push(`CLIENT: ${d.client.primary}${d.client.spouse ? ' & ' + d.client.spouse : ''}, ages ${d.client.primaryAge}${d.client.spouseAge ? '/' + d.client.spouseAge : ''}, ${d.client.location}`);
+    L.push(`Plan type: ${d.planType}; biz sale: ${d.biz.sale > 0 ? fmt$M(d.biz.sale) : 'none'}`);
+    L.push(`Family NW (projected): ${fmt$M(p.familyTotalNW)}; total tax savings: ${fmt$M(p.totalImmediate)}`);
+    L.push(`Annual income: ${fmt$(p.annualIncome)}; annual budget: ${fmt$(p.annualBudget)}; budget sustainable: ${p.budgetSustainable}`);
+
+    L.push(`\nSTRATEGIES ACTIVE:`);
+    Object.entries(d.use).filter(([k,v]) => v).forEach(([k]) => L.push(`• ${k}`));
+
+    L.push(`\nMONTE CARLO: ${p.monteCarlo ? (p.monteCarlo.successRate*100).toFixed(0) + '%' : 'n/a'} probability of success`);
+
+    if (p.goalAnalysis && p.goalAnalysis.goals.length) {
+      L.push(`\nGOALS (${p.goalAnalysis.goals.length}, overall ${Math.round(p.goalAnalysis.overallScore*100)}%):`);
+      p.goalAnalysis.goals.forEach(g => L.push(`• ${g.name}: ${fmt$M(g.amount)} by ${g.year}, ${Math.round(g.probability*100)}% ${g.status}${g.shortfall > 0 ? ' (shortfall ' + fmt$M(g.shortfall) + ')' : ''}`));
+    }
+
+    L.push(`\nFLAGS:`);
+    if (p.cratQualificationIssue) L.push('⚠ CRAT disqualified (§664(d))');
+    if (p.crutQualificationIssue) L.push('⚠ CRUT disqualified (§664(d))');
+    if (d.use.qsbs && !p.qsbsAttestationsComplete) L.push('⚠ §1202 QSBS attestations incomplete');
+    if (p.agiCapTriggered) L.push(`⚠ §170(b) AGI cap: ${fmt$M(p.combined30BucketCarryover)} carries fwd`);
+    if (p.amtTriggered) L.push(`⚠ AMT exposure: ${fmt$(p.amtLiability)}`);
+    if (p.monteCarlo && p.monteCarlo.successRate < 0.80) L.push(`⚠ Monte Carlo below 80%: ${(p.monteCarlo.successRate*100).toFixed(0)}%`);
+    if (d.biz.sale > 0 && ((d.use.dynasty && d.dynasty.discount > 0) || (d.use.slat && d.slat.discount > 0) || (d.use.idgt && d.idgt.discount > 0))) L.push('⚠ Step-transaction risk on pre-sale discounted gifts');
+
+    return L.join('\n');
+  }
+
+  const btnMeetingPrep = document.getElementById('btn-meeting-prep');
+  if (btnMeetingPrep) btnMeetingPrep.addEventListener('click', openMeetingPrepModal);
+  document.getElementById('btn-mp-close')?.addEventListener('click', closeMeetingPrepModal);
+  document.getElementById('mp-modal-backdrop')?.addEventListener('click', closeMeetingPrepModal);
+  document.getElementById('btn-mp-generate')?.addEventListener('click', generateMeetingPrep);
+  document.getElementById('btn-mp-print')?.addEventListener('click', () => window.print());
 
   /* ---- Persistent Implementation Checklist ----
      Every .check-item with data-key persists its checked state to
