@@ -1831,6 +1831,242 @@
   }
   .appendix-table td.num { text-align: right; font-family: Georgia, monospace; }
 
+  /* ===== AI CHAT ASSISTANT ===== */
+  .ai-chat-launcher {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 900;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 22px 14px 18px;
+    background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold) 100%);
+    color: var(--cream);
+    border: none;
+    border-radius: 40px;
+    box-shadow: 0 8px 24px rgba(139, 118, 64, 0.35), 0 2px 4px rgba(0,0,0,0.12);
+    cursor: pointer;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ai-chat-launcher:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(139, 118, 64, 0.45), 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .ai-chat-launcher.hidden { display: none; }
+  .ai-chat-launcher svg { flex-shrink: 0; }
+  .ai-chat-launcher .label { white-space: nowrap; }
+  @media (max-width: 600px) {
+    .ai-chat-launcher .label { display: none; }
+    .ai-chat-launcher { padding: 14px; border-radius: 50%; }
+  }
+
+  .ai-chat-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+    width: 440px;
+    max-width: 100vw;
+    background: var(--cream);
+    border-left: 1px solid rgba(201,169,97,0.3);
+    box-shadow: -16px 0 40px rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  .ai-chat-panel.open { transform: translateX(0); }
+  .ai-chat-panel.hidden { display: none; }
+  @media (max-width: 600px) { .ai-chat-panel { width: 100vw; } }
+
+  .ai-chat-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(201,169,97,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, var(--cream-panel) 0%, #FDF9EC 100%);
+    flex-shrink: 0;
+  }
+  .ai-chat-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    color: var(--ink);
+    letter-spacing: 0.3px;
+  }
+  .ai-chat-title svg { color: var(--gold-dark); }
+  .ai-chat-controls { display: flex; align-items: center; gap: 14px; }
+  .ai-mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gold-dark);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .ai-mode-toggle input { accent-color: var(--gold-dark); }
+  .ai-chat-close {
+    background: transparent;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .ai-chat-close:hover { background: rgba(201,169,97,0.2); color: var(--ink); }
+
+  .ai-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    background: #FAFAF5;
+  }
+  .ai-chat-welcome {
+    padding: 14px 16px;
+    background: var(--cream-panel);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  .ai-chat-welcome strong {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    color: var(--ink);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .ai-chat-welcome p {
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+  }
+  .ai-chat-suggested {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .ai-chat-suggested .suggest {
+    background: #FFF;
+    border: 1px solid rgba(201,169,97,0.4);
+    color: var(--ink);
+    padding: 7px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: 'Helvetica Neue', sans-serif;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .ai-chat-suggested .suggest:hover {
+    background: var(--cream-panel);
+    border-color: var(--gold);
+  }
+
+  .ai-msg {
+    max-width: 85%;
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    word-wrap: break-word;
+  }
+  .ai-msg p { margin: 0 0 10px; }
+  .ai-msg p:last-child { margin: 0; }
+  .ai-msg strong { font-weight: 700; color: var(--ink); }
+  .ai-msg-user {
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    color: var(--cream);
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+  }
+  .ai-msg-user strong { color: #FFF; }
+  .ai-msg-assistant {
+    background: #FFF;
+    border: 1px solid rgba(201,169,97,0.3);
+    color: var(--ink);
+    margin-right: auto;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .ai-msg-loading { opacity: 0.6; font-style: italic; }
+
+  .ai-chat-input-wrap {
+    padding: 12px 16px;
+    border-top: 1px solid rgba(201,169,97,0.25);
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    background: #FFF;
+    flex-shrink: 0;
+  }
+  #ai-chat-input {
+    flex: 1;
+    resize: none;
+    border: 1px solid rgba(201,169,97,0.35);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    background: #FAFAF5;
+    color: var(--ink);
+    transition: border-color 0.15s ease;
+  }
+  #ai-chat-input:focus {
+    outline: none;
+    border-color: var(--gold-dark);
+    background: #FFF;
+  }
+  #ai-chat-send {
+    background: var(--gold-dark);
+    color: var(--cream);
+    border: none;
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+  }
+  #ai-chat-send:hover:not(:disabled) { background: var(--gold); }
+  #ai-chat-send:disabled { background: #CCC; cursor: not-allowed; }
+
+  .ai-chat-footer {
+    padding: 8px 16px 12px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-align: center;
+    font-style: italic;
+    background: #FFF;
+    flex-shrink: 0;
+  }
+
+  /* Hide launcher in print/PDF output */
+  @media print { .ai-chat-launcher, .ai-chat-panel { display: none !important; } }
+  .print-layout .ai-chat-launcher, .print-layout .ai-chat-panel { display: none !important; }
+
   /* ===== PRINT ===== */
   /* ===== LIFE TIMELINE — PRINT / PDF FLOW LAYOUT =====
      Screen timeline = absolute-positioned dots + floating labels anchored
@@ -11516,6 +11752,275 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   }
 
   boot();
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     AI PLAN ASSISTANT — floating chat button + slide-in panel
+     Gated on plan-view being visible (shows only when a plan is loaded).
+     ═══════════════════════════════════════════════════════════════════ -->
+<button id="ai-chat-launcher" class="ai-chat-launcher hidden" aria-label="Ask your plan">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+  </svg>
+  <span class="label">Ask your plan</span>
+</button>
+
+<div id="ai-chat-panel" class="ai-chat-panel hidden" role="dialog" aria-label="AI Plan Assistant">
+  <div class="ai-chat-header">
+    <div class="ai-chat-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.5 6L21 9l-4.5 4 1 7L12 16.5 6.5 20l1-7L3 9l7.5-1z"></path></svg>
+      AI Plan Assistant
+    </div>
+    <div class="ai-chat-controls">
+      <label class="ai-mode-toggle team-only" title="Advisor mode includes statute citations, audit-risk flags, math detail">
+        <input type="checkbox" id="ai-mode-advisor">
+        <span>Advisor mode</span>
+      </label>
+      <button class="ai-chat-close" id="ai-chat-close" aria-label="Close">×</button>
+    </div>
+  </div>
+
+  <div class="ai-chat-messages" id="ai-chat-messages">
+    <div class="ai-chat-welcome">
+      <strong>Ask anything about your plan.</strong>
+      <p>I have access to all the numbers, strategies, and projections in your plan. I don't invent — every answer is grounded in what your advisor built.</p>
+      <div class="ai-chat-suggested" id="ai-chat-suggested">
+        <button class="suggest" data-prompt="What does my plan do for me in plain English?">What does my plan do for me?</button>
+        <button class="suggest" data-prompt="What happens if I delay Social Security to 70?">What if I delay SS to 70?</button>
+        <button class="suggest" data-prompt="What's the tax cost if I convert my entire IRA to Roth next year?">Cost of Roth conversion?</button>
+        <button class="suggest" data-prompt="What's the single biggest risk in my plan?">Biggest risk in my plan?</button>
+        <button class="suggest" data-prompt="Explain what my Dynasty Trust actually does.">What does my Dynasty Trust do?</button>
+        <button class="suggest" data-prompt="How much is this plan saving me in taxes vs doing nothing?">Total tax savings vs no plan?</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ai-chat-input-wrap">
+    <textarea id="ai-chat-input" placeholder="Ask about your plan…" rows="2"></textarea>
+    <button id="ai-chat-send" aria-label="Send">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </button>
+  </div>
+
+  <div class="ai-chat-footer">
+    <span id="ai-chat-status">Grounded in your plan data · Powered by Claude</span>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   AI PLAN ASSISTANT — client-side logic
+   Builds plan context on open, calls /api/ask-plan, renders
+   message history. Falls back gracefully without API key.
+   ============================================================ */
+(function() {
+  const launcher   = document.getElementById('ai-chat-launcher');
+  const panel      = document.getElementById('ai-chat-panel');
+  const closeBtn   = document.getElementById('ai-chat-close');
+  const messagesEl = document.getElementById('ai-chat-messages');
+  const input      = document.getElementById('ai-chat-input');
+  const sendBtn    = document.getElementById('ai-chat-send');
+  const statusEl   = document.getElementById('ai-chat-status');
+  const modeCheck  = document.getElementById('ai-mode-advisor');
+  const suggestedEl= document.getElementById('ai-chat-suggested');
+
+  const history = [];   // conversation history for API context
+
+  // Show launcher whenever plan-view is visible. Observer so it appears
+  // after Generate Plan runs.
+  const planView = document.getElementById('plan-view');
+  const observer = new MutationObserver(() => {
+    const visible = planView && !planView.classList.contains('hidden');
+    launcher.classList.toggle('hidden', !visible);
+  });
+  if (planView) observer.observe(planView, { attributes: true, attributeFilter: ['class'] });
+
+  launcher.addEventListener('click', () => {
+    panel.classList.add('open');
+    panel.classList.remove('hidden');
+    setTimeout(() => input.focus(), 300);
+  });
+  closeBtn.addEventListener('click', () => {
+    panel.classList.remove('open');
+    setTimeout(() => panel.classList.add('hidden'), 300);
+  });
+
+  // Build structured plan-context string from window.__PLAN_DATA__
+  function buildPlanContext() {
+    const p = window.__PLAN_DATA__;
+    if (!p) return '';
+    const d = p.input;
+    const fmt$ = n => '$' + Math.round(n || 0).toLocaleString();
+    const fmt$M = n => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(2) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+    const fmtPct = n => (n || 0).toFixed(1) + '%';
+
+    const lines = [];
+    lines.push(`=== CLIENT ===`);
+    lines.push(`Names: ${d.client.primary || '(unspecified)'}${d.client.spouse ? ' & ' + d.client.spouse : ''}`);
+    lines.push(`Ages: ${d.client.primaryAge || '?'}${d.client.spouseAge ? '/' + d.client.spouseAge : ''}`);
+    lines.push(`Location: ${d.client.location || '—'} (${(d.clientState || '—').toUpperCase()})`);
+    lines.push(`Plan type: ${d.planType === 'annual' ? 'Annual wealth optimization (no sale)' : 'Business sale + wealth transition'}`);
+    if (d.biz.sale > 0) {
+      lines.push(`Business sale: ${fmt$M(d.biz.sale)} of ${d.biz.name || 'business'} (${d.biz.type || '?'} entity, ${d.biz.saleType || 'stock'} sale) at ${d.biz.date || 'TBD'}; basis ${fmt$M(d.biz.basis)}`);
+    }
+
+    lines.push(`\n=== FINANCIAL SNAPSHOT ===`);
+    lines.push(`Pre-sale net worth: ${fmt$M(d.client.preSaleNW)}`);
+    lines.push(`Other liquid assets: ${fmt$M(d.client.otherAssets)}`);
+    lines.push(`Retirement accounts: ${fmt$M((d.retirement?.tradIRA || 0) + (d.retirement?.k401 || 0) + (d.retirement?.rothIRA || 0) + (d.retirement?.hsa || 0))}`);
+    lines.push(`Mortgage: ${fmt$M(d.client.mortgage || 0)} · Other debt: ${fmt$M(d.client.otherDebt || 0)}`);
+    lines.push(`Post-plan family net worth (projected): ${fmt$M(p.familyTotalNW)}`);
+    lines.push(`Annual income (post-sale / ongoing): ${fmt$(p.annualIncome)}`);
+    lines.push(`Annual budget: ${fmt$(p.annualBudget)}`);
+
+    lines.push(`\n=== STRATEGIES ACTIVE ===`);
+    const strats = [];
+    if (d.use.dynasty)  strats.push(`Dynasty Trust ${fmt$M(d.dynasty.funding)} (${d.dynasty.trustType}, ${fmtPct(d.dynasty.discount*100)} discount)`);
+    if (d.use.slat)     strats.push(`SLAT ${fmt$M(d.slat.funding)}`);
+    if (d.use.idgt)     strats.push(`IDGT ${fmt$M(d.idgt.amount)} installment sale at ${fmtPct(d.idgt.afr*100)} AFR`);
+    if (d.use.grat)     strats.push(`GRAT ${fmt$M(d.grat.transfer)} over ${d.grat.term} yrs at ${fmtPct(d.grat.hurdle*100)} §7520`);
+    if (d.use.qprt)     strats.push(`QPRT ${fmt$M(d.qprt.residence)} residence over ${d.qprt.term} yrs`);
+    if (d.use.ilit)     strats.push(`ILIT ${fmt$M(d.ilit.coverage)} life insurance, ${fmt$(d.ilit.premium)}/yr premium`);
+    if (d.use.crat)     strats.push(`CRAT ${fmt$M(d.crat.amount)} at ${fmtPct(d.crat.rate*100)} payout (qualified: ${p.cratQualified ? 'YES' : 'NO — failed §664(d)'})`);
+    if (d.use.crut)     strats.push(`CRUT ${fmt$M(d.crut.amount)} at ${fmtPct(d.crut.rate*100)} unitrust payout`);
+    if (d.use.daf)      strats.push(`DAF ${fmt$M(d.daf.amount)}`);
+    if (d.use.clt)      strats.push(`CLT ${fmt$M(d.clt.amount)} over ${d.clt.term} yrs`);
+    if (d.use.qsbs)     strats.push(`§1202 QSBS (${p.qsbsIsPostOBBBA ? 'post-OBBBA' : 'pre-OBBBA'}, ${fmtPct(p.qsbsExclPct*100)} excl, saves ${fmt$M(p.qsbsTotalSaving)})`);
+    if (d.use.qoz)      strats.push(`QOZ ${fmt$M(d.qoz.amount || p.scenarios.scenAll.qozInvestment)} invested, ${d.qoz.years}-yr hold`);
+    if (d.use.exch1031) strats.push(`§1031 exchange ${fmt$M(d.exch1031.sale)} into ${fmt$M(d.exch1031.replacement)}`);
+    if (d.use.qbi)      strats.push(`§199A QBI ${fmt$(d.qbi.income)} income (SSTB: ${d.qbi.sstb ? 'yes, ' + (p.qbiFullyPhasedOut ? 'fully phased out' : fmtPct((1-p.qbiPhaseOutPct)*100) + ' allowed') : 'no'})`);
+    if (d.use.roth)     strats.push(`Roth conversion ${fmt$M(d.roth.amount)} at ${fmtPct(d.roth.marginal*100)} marginal`);
+    lines.push(strats.length ? strats.map(s => '• ' + s).join('\n') : '(none enabled)');
+
+    lines.push(`\n=== HEADLINE SAVINGS ===`);
+    lines.push(`Total immediate tax savings: ${fmt$M(p.totalImmediate)}`);
+    lines.push(`Capital gains tax savings vs. no-plan: ${fmt$M(p.cgTaxSavings)}`);
+    lines.push(`Estate tax saved (with plan vs. no plan): ${fmt$M(p.estateTaxSavings + p.stateEstateTaxSavings)}`);
+    lines.push(`Federal estate exemption in use: ${fmt$M(p.fedEstateExemption)}`);
+    if (d.use.dynasty)  lines.push(`Dynasty Trust value at ${p.dynastyYears} yrs: ${fmt$M(p.dynasty20yr)} (appreciation ${fmt$M(p.dynastyGrowth)})`);
+    if (p.dynastyIncomeTaxGiftEstateSave > 0) lines.push(`Rev. Rul. 2004-64 tax-burn leverage (grantor trust): ${fmt$M(p.dynastyIncomeTaxGiftEstateSave)} additional estate savings`);
+
+    lines.push(`\n=== RETIREMENT ===`);
+    const mc = p.monteCarlo;
+    if (mc) {
+      lines.push(`Monte Carlo: ${(mc.successRate*100).toFixed(0)}% probability of success over ${mc.years} yrs (${mc.iterations} simulations)`);
+      lines.push(`Portfolio starting balance: ${fmt$M(mc.startBalance)}; median end balance: ${fmt$M(mc.p50[mc.years])}`);
+      lines.push(`10th percentile end: ${fmt$M(mc.p10[mc.years])}; 90th: ${fmt$M(mc.p90[mc.years])}`);
+      lines.push(`Assumed equity return: ${fmtPct(mc.mean*100)} ± ${fmtPct(mc.stdDev*100)}; inflation: ${fmtPct(mc.inflation*100)}; annual spend: ${fmt$(mc.annualSpend)}`);
+    }
+    if (p.ssStrategies && p.ssStrategies.length) {
+      const best = p.ssBest;
+      lines.push(`SS optimal strategy: ${best.label} → ${fmt$M(best.total)} lifetime benefit`);
+    }
+
+    lines.push(`\n=== TAX ASSUMPTIONS ===`);
+    lines.push(`Federal CG: ${fmtPct(d.tax.fed*100)}, state: ${fmtPct(d.tax.state*100)}, NIIT: ${fmtPct(d.tax.medicare*100)}, marginal ordinary: ${fmtPct(d.tax.marginal*100)}, estate: ${fmtPct(d.tax.estate*100)}`);
+    lines.push(`Projection horizon: ${d.proj.years} yrs; equity ${fmtPct(d.proj.equity*100)}; inflation ${fmtPct(d.proj.inflation*100)}`);
+
+    lines.push(`\n=== WARNINGS / FLAGS ===`);
+    const warnings = [];
+    if (p.cratQualificationIssue) warnings.push('CRAT disqualified under §664(d) — rate too high');
+    if (p.crutQualificationIssue) warnings.push('CRUT disqualified under §664(d)');
+    if (d.use.qsbs && !p.qsbsAttestationsComplete) warnings.push('§1202 QSBS attestations incomplete — exclusion not yet activated');
+    if (p.agiCapTriggered) warnings.push(`§170(b) AGI cap: ${fmt$M(p.combined30BucketCarryover)} of charitable deduction carries forward 5 years`);
+    if (p.amtTriggered) warnings.push(`AMT exposure: ${fmt$(p.amtLiability)} additional tax`);
+    if (d.biz.sale > 0 && ((d.use.dynasty && d.dynasty.discount > 0) || (d.use.slat && d.slat.discount > 0) || (d.use.idgt && d.idgt.discount > 0))) {
+      warnings.push('Step-transaction doctrine risk — pre-sale discounted gifts require funding well before LOI');
+    }
+    if (d.use.slat && d.client.spouse) warnings.push('Reciprocal trust doctrine risk — if both spouses have SLATs, material differences required');
+    lines.push(warnings.length ? warnings.map(w => '⚠️ ' + w).join('\n') : '(none flagged)');
+
+    return lines.join('\n');
+  }
+
+  function appendMessage(role, content) {
+    const welcome = messagesEl.querySelector('.ai-chat-welcome');
+    if (welcome) welcome.remove();
+
+    const msg = document.createElement('div');
+    msg.className = 'ai-msg ai-msg-' + role;
+    const safe = (content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Allow <strong> passthrough (already sanitized, we re-insert)
+    const withBold = safe.replace(/&lt;strong&gt;(.*?)&lt;\/strong&gt;/g, '<strong>$1</strong>');
+    // Convert newlines to paragraph breaks
+    const paragraphs = withBold.split(/\n\s*\n/).map(para => '<p>' + para.replace(/\n/g, '<br>') + '</p>').join('');
+    msg.innerHTML = paragraphs;
+    messagesEl.appendChild(msg);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return msg;
+  }
+
+  async function ask(question) {
+    if (!question || !question.trim()) return;
+    if (!window.__PLAN_DATA__) {
+      appendMessage('assistant', 'Please generate a plan first — I need the plan data to answer questions about it.');
+      return;
+    }
+    appendMessage('user', question);
+    input.value = '';
+    sendBtn.disabled = true;
+    statusEl.textContent = 'Thinking…';
+
+    const thinkingMsg = appendMessage('assistant', '…');
+    thinkingMsg.classList.add('ai-msg-loading');
+
+    const isAdvisor = modeCheck && modeCheck.checked;
+    const payload = {
+      question: question.trim(),
+      planContext: buildPlanContext(),
+      mode: isAdvisor ? 'advisor' : 'client',
+      history: history.slice(-8),
+    };
+
+    try {
+      const resp = await fetch('/api/ask-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      thinkingMsg.remove();
+
+      if (!resp.ok) {
+        const errTxt = data.code === 'no_api_key'
+          ? 'The AI Assistant needs an Anthropic API key. Add ANTHROPIC_API_KEY to this Vercel deployment (Project Settings → Environment Variables) and redeploy.'
+          : (data.error || 'Something went wrong. Try again in a moment.');
+        appendMessage('assistant', errTxt);
+        statusEl.textContent = 'Error';
+        return;
+      }
+
+      appendMessage('assistant', data.answer);
+      history.push({ role: 'user', content: question.trim() });
+      history.push({ role: 'assistant', content: data.answer });
+      statusEl.textContent = isAdvisor
+        ? 'Advisor mode · Grounded in plan data'
+        : 'Grounded in your plan data · Powered by Claude';
+    } catch (err) {
+      thinkingMsg.remove();
+      appendMessage('assistant', 'Network error: ' + err.message);
+      statusEl.textContent = 'Error';
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', () => ask(input.value));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      ask(input.value);
+    }
+  });
+
+  // Suggested-prompt buttons
+  suggestedEl.addEventListener('click', (e) => {
+    if (e.target.classList.contains('suggest')) {
+      ask(e.target.dataset.prompt);
+    }
+  });
 })();
 </script>
 
