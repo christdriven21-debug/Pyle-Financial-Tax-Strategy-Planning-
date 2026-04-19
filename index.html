@@ -2666,6 +2666,7 @@
     <button class="plan-tab active" data-tab="summary">Executive Summary</button>
     <button class="plan-tab" data-tab="transaction">Transaction Strategy</button>
     <button class="plan-tab" data-tab="financial">Financial Overview</button>
+    <button class="plan-tab" data-tab="risk">Risk Management</button>
     <button class="plan-tab" data-tab="retirement">Retirement Plan</button>
     <button class="plan-tab" data-tab="tax">Tax Optimization</button>
     <button class="plan-tab" data-tab="compare">Scenario Comparison</button>
@@ -2676,6 +2677,7 @@
     <div class="tab-panel active" id="panel-summary"></div>
     <div class="tab-panel" id="panel-transaction"></div>
     <div class="tab-panel" id="panel-financial"></div>
+    <div class="tab-panel" id="panel-risk"></div>
     <div class="tab-panel" id="panel-retirement"></div>
     <div class="tab-panel" id="panel-tax"></div>
     <div class="tab-panel" id="panel-compare"></div>
@@ -4382,6 +4384,8 @@ function computePlan(d) {
     stateEstateTaxNoPlan, stateEstateTaxWithPlan, stateEstateTaxSavings,
     rmdRows, totalRMDs, balAtRmdStart,
     ssPrimaryMonthly, ssSpouseMonthly, ssAnnualHousehold, ssComparison,
+    monteCarlo: runMonteCarlo({ withPlanningTotal, ssAnnualHousehold, nwWithout_total }, d),
+    multiYearTax: runMultiYearTax({ withPlanningProceeds, nwWithout_total, ssAnnualHousehold }, d),
     saleIsAsset, recaptureAmount, recaptureOrdinaryTax, recaptureCGTaxIfStock, assetVsStockPenalty,
     dynasty20yr, dynastyGrowth, dynastyYears, dynastyUsesJointLE,
     cgTaxSavings, totalImmediate,
@@ -5892,6 +5896,8 @@ function renderTax(p) {
       </div>
     ` : ''}
 
+    ${renderMultiYearTax(p)}
+
     ${d.use.grat ? `
       <div class="card" style="border-left: 4px solid var(--gold);">
         <div class="card-title">🏛 GRAT — Legislative Risk Note (Walton & §2702 Reform)</div>
@@ -6661,6 +6667,656 @@ function jointLastSurvivorExpectancy(ageA, ageB) {
 }
 
 /* ============================================================
+   MULTI-YEAR TAX FORECAST + ROTH CONVERSION LADDER
+   Year-by-year projection of AGI, taxable income, fed + state tax,
+   RMD triggers, SS onset, and an optimized Roth conversion schedule
+   that fills lower brackets without pushing MAGI past IRMAA tiers.
+
+   The optimizer uses a greedy fill: for each pre-Medicare year,
+   convert the maximum amount that (a) keeps MAGI below the next
+   IRMAA tier 2 years out, and (b) keeps marginal rate ≤ the advisor's
+   current marginal. Post-65, no further conversions (IRMAA penalty).
+
+   Simplified brackets: uses the current marginal rate as a proxy —
+   real calc would use full progressive brackets. Flagged in disclaimer.
+   ============================================================ */
+function runMultiYearTax(p, d) {
+  const years = 10;
+  const startYear = d.client.year || new Date().getFullYear();
+  const primaryAge = d.client.primaryAge || 55;
+  const spouseAge  = d.client.spouseAge  || 0;
+  const ssClaimAge = d.ss.claimAge || 67;
+  const rmdAge     = d.retirement.rmdStartAge || 73;
+  const medicareAge = 65;
+
+  const inflation = d.proj.inflation || 0.025;
+  const equity    = d.proj.equity || 0.06;
+  const portfolio = p.withPlanningProceeds || (p.nwWithout_total || 0);
+  const traditionalIRA = (d.retirement.tradIRA || 0) + (d.retirement.k401 || 0);
+
+  // IRMAA thresholds (2025 MFJ; 2-yr lookback so we compare current-year AGI
+  // to the threshold that governs 2 years FORWARD)
+  const IRMAA_TIER_1 = 212_000;
+
+  // Uniform Lifetime Table (copied from computePlan for consistency)
+  const ULT = {
+    73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0, 79: 21.1,
+    80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8, 85: 16.0, 86: 15.2,
+    87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2, 91: 11.5, 92: 10.8, 93: 10.1,
+  };
+
+  const rows = [];
+  let portfolioBal = portfolio;
+  let iraBal       = traditionalIRA;
+
+  for (let i = 0; i < years; i++) {
+    const yr = startYear + i;
+    const ageP = primaryAge + i;
+    const ageS = spouseAge > 0 ? spouseAge + i : 0;
+    const inflMult = Math.pow(1 + inflation, i);
+
+    // Income sources
+    const bizIncome = (d.biz.income || 0) * inflMult;
+    const investmentIncome = portfolioBal * 0.03;  // 3% yield assumption (conservative)
+    const ssIncome = ageP >= ssClaimAge ? (p.ssAnnualHousehold || 0) * inflMult : 0;
+
+    // RMD if applicable
+    let rmdAmount = 0;
+    if (ageP >= rmdAge && iraBal > 0) {
+      const factor = ULT[Math.min(93, ageP)] || 6;
+      rmdAmount = iraBal / factor;
+      iraBal = Math.max(0, iraBal * (1 + equity) - rmdAmount);
+    } else if (iraBal > 0) {
+      iraBal *= (1 + equity);
+    }
+
+    // Roth conversion opportunity: pre-Medicare years only
+    let rothConversion = 0;
+    if (ageP < medicareAge && iraBal > 0) {
+      // Fill up to IRMAA tier 1 - cushion. Conservatively: convert what keeps
+      // (MAGI + conversion) below IRMAA_TIER_1 × inflMult.
+      const baseMagi = bizIncome + investmentIncome + ssIncome + rmdAmount;
+      const headroom = Math.max(0, IRMAA_TIER_1 * inflMult - baseMagi);
+      // Cap by remaining IRA balance
+      rothConversion = Math.min(headroom, iraBal * 0.5);   // convert at most 50% of remaining each year (pace)
+      if (rothConversion < 10_000) rothConversion = 0;      // not worth the admin below $10k
+      iraBal = Math.max(0, iraBal - rothConversion);
+    }
+
+    const agi = bizIncome + investmentIncome + ssIncome + rmdAmount + rothConversion;
+    const taxableIncome = Math.max(0, agi - 30_000);  // rough MFJ standard deduction proxy ($30k)
+    const fedTax = taxableIncome * d.tax.marginal;    // simplified — uses marginal as avg
+    const stateTax = taxableIncome * d.tax.state;
+    const totalTax = fedTax + stateTax;
+
+    // Grow the taxable portfolio (after withdrawal, net of tax)
+    portfolioBal *= (1 + equity);
+
+    rows.push({
+      year: yr,
+      ageP, ageS,
+      ssMilestone: ageP === ssClaimAge,
+      rmdMilestone: ageP === rmdAge,
+      medicareMilestone: ageP === medicareAge,
+      bizIncome, investmentIncome, ssIncome, rmdAmount, rothConversion,
+      agi, taxableIncome, fedTax, stateTax, totalTax,
+      iraBalEnd: iraBal,
+      portfolioBalEnd: portfolioBal,
+      aboveIrmaaTier1: agi > IRMAA_TIER_1 * inflMult,
+    });
+  }
+
+  const totalTax10yr = rows.reduce((s, r) => s + r.totalTax, 0);
+  const totalRoth10yr = rows.reduce((s, r) => s + r.rothConversion, 0);
+  const rothBreakevenAge = primaryAge + Math.ceil(totalRoth10yr * d.tax.marginal /
+    ((totalRoth10yr * 0.5 * d.tax.marginal) || 1));  // rough
+
+  return { rows, totalTax10yr, totalRoth10yr, rothBreakevenAge };
+}
+
+/* ============================================================
+   MULTI-YEAR TAX FORECAST + ROTH LADDER — RENDER
+   ============================================================ */
+function renderMultiYearTax(p) {
+  const my = p.multiYearTax;
+  if (!my || !my.rows || my.rows.length === 0) return '';
+  const d = p.input;
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+
+  const hasRoth = my.totalRoth10yr > 0;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📅 Multi-Year Tax Forecast (10-Year Projection)</div>
+      <div class="card-sub">
+        Year-by-year forecast of AGI, taxable income, and fed+state tax through ${my.rows[0].year + 9}. Incorporates Social Security onset (age ${d.ss.claimAge || 67}), RMDs (age ${d.retirement.rmdStartAge || 73}), and an <strong>optimized Roth conversion ladder</strong> that fills headroom below the first IRMAA tier ($212k MFJ 2025, inflation-adjusted). Post-65, no further conversions (IRMAA penalty).
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">10-Year Total Tax</div><div class="value">${fmt$M(my.totalTax10yr)}</div></div>
+        <div class="kpi success"><div class="label">Suggested Roth Conversions (10yr)</div><div class="value">${fmt$M(my.totalRoth10yr)}</div></div>
+        <div class="kpi gold"><div class="label">Income-Tax Prepaid on Conversions</div><div class="value">${fmt$M(my.totalRoth10yr * d.tax.marginal)}</div></div>
+        <div class="kpi"><div class="label">Avg Annual Tax</div><div class="value">${fmt$(my.totalTax10yr / 10)}</div></div>
+      </div>
+
+      <div style="margin-top: 20px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 12px;">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th class="num">Age</th>
+              <th>Milestones</th>
+              <th class="num">Biz Income</th>
+              <th class="num">Invest Inc</th>
+              <th class="num">SS</th>
+              <th class="num">RMD</th>
+              <th class="num">Roth Conv</th>
+              <th class="num">AGI</th>
+              <th class="num">Fed+State Tax</th>
+              <th class="num">IRA End Bal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${my.rows.map(r => {
+              const milestones = [];
+              if (r.ssMilestone)       milestones.push('<span style="color:var(--gold-dark);">🟡 SS starts</span>');
+              if (r.rmdMilestone)      milestones.push('<span style="color:var(--crimson);">🔴 RMD begins</span>');
+              if (r.medicareMilestone) milestones.push('<span style="color:var(--success);">🟢 Medicare</span>');
+              const rowStyle = r.aboveIrmaaTier1 ? ' style="background: #FFF8F0;"' : '';
+              return `<tr${rowStyle}>
+                <td><strong>${r.year}</strong></td>
+                <td class="num">${r.ageP}${r.ageS > 0 ? '/' + r.ageS : ''}</td>
+                <td style="font-size: 11px;">${milestones.join(' · ') || '—'}</td>
+                <td class="num">${fmt$(r.bizIncome)}</td>
+                <td class="num">${fmt$(r.investmentIncome)}</td>
+                <td class="num">${r.ssIncome > 0 ? fmt$(r.ssIncome) : '—'}</td>
+                <td class="num">${r.rmdAmount > 0 ? fmt$(r.rmdAmount) : '—'}</td>
+                <td class="num" style="color: ${r.rothConversion > 0 ? 'var(--success)' : 'var(--muted)'}; font-weight: ${r.rothConversion > 0 ? '700' : 'normal'};">${r.rothConversion > 0 ? fmt$(r.rothConversion) : '—'}</td>
+                <td class="num${r.aboveIrmaaTier1 ? ' neg' : ''}">${fmt$(r.agi)}${r.aboveIrmaaTier1 ? ' ⚠️' : ''}</td>
+                <td class="num">${fmt$(r.totalTax)}</td>
+                <td class="num">${fmt$(r.iraBalEnd)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 12px; font-size: 11px; color: var(--muted); font-style: italic;">
+        Rows highlighted in <span style="background: #FFF8F0; padding: 1px 4px;">cream</span> exceed the first IRMAA MAGI threshold — any new Medicare enrollee in that year pays a Part B+D surcharge ≈ $1,050+/yr per person, triggered by that year's AGI on a 2-year lookback.
+      </div>
+
+      ${hasRoth ? `
+        <div class="callout" style="margin-top: 16px;">
+          <span class="title">🪜 Roth Conversion Ladder Strategy</span>
+          The optimizer converts <strong>${fmt$M(my.totalRoth10yr)}</strong> over the pre-Medicare window, paying ${fmt$M(my.totalRoth10yr * d.tax.marginal)} of income tax now to preserve the full balance for tax-free growth + no RMDs + tax-free inheritance. Convert BEFORE age 65 to avoid inflating post-65 MAGI that governs IRMAA surcharges 2 years forward. <strong>5-year rule:</strong> each conversion's principal can be withdrawn tax-free after 5 years from Jan 1 of the conversion year.
+        </div>
+      ` : `
+        <div class="callout" style="margin-top: 16px;">
+          <span class="title">Roth Ladder Not Optimal This Plan</span>
+          Either no traditional IRA / 401(k) balance to convert, or client is already at/past Medicare age (65+) where conversions trigger IRMAA penalties. If traditional balances exist and client is pre-65, check that IRA values are captured in the Retirement section of the builder.
+        </div>
+      `}
+
+      <div style="margin-top: 12px; padding: 12px 16px; background: #FFF8F0; border-left: 3px solid var(--gold-dark); font-size: 12px; color: var(--ink-soft); line-height: 1.5;">
+        <strong>Simplifications in this forecast:</strong> uses marginal rate (${(d.tax.marginal*100).toFixed(0)}%) as a flat proxy — real calc uses progressive brackets. Investment income assumed at 3% yield on post-sale portfolio; no tax-loss harvesting modeled. Standard deduction approximated at $30k MFJ. State tax uses flat ${(d.tax.state*100).toFixed(1)}%. CPA should refine with full Form 1040 + state-specific calcs before acting on the conversion schedule.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   RISK MANAGEMENT TAB — life / disability / LTC / umbrella / IRMAA
+   Insurance-needs analysis by industry-standard methods:
+     - Life: DIME + Human Life Value
+     - Disability: 60% income replacement × working years remaining
+     - LTC: self-insure threshold + hybrid vs. traditional framework
+     - Umbrella: coverage ≥ net worth rule-of-thumb
+     - IRMAA: 2025 MAGI brackets with surcharge projections
+   ============================================================ */
+function renderRiskManagement(p) {
+  const d = p.input;
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmtPct = (n) => (n || 0).toFixed(1) + '%';
+
+  const primaryAge = d.client.primaryAge || 55;
+  const spouseAge  = d.client.spouseAge  || 0;
+  const retirementAge = 65;   // convention; advisor can refine
+  const workingYears = Math.max(0, retirementAge - primaryAge);
+  const income = d.biz.income || 0;
+
+  // ═══════════════════════════════════════════════════════════
+  // LIFE INSURANCE — DIME method + Human Life Value
+  // ═══════════════════════════════════════════════════════════
+  // DIME: Debt + Income × years + Mortgage + Education
+  //   Debt: non-mortgage debt; assume $0 absent input (advisor refines)
+  //   Income replacement: annual income × (working years remaining until 65)
+  //   Mortgage: separated from general debt; assume $0 absent input
+  //   Education: rough $250k per minor child — not captured in current form,
+  //     so we list it as advisor-verified
+  //
+  // Human Life Value (HLV): PV of future earnings, discounted at inflation
+  //   HLV = income × [(1 - (1 + discount)^-years) / discount]
+  //   Using discount = 0.03 (real-return proxy after inflation)
+  const lifeIncomeReplace = income * workingYears;
+  const discount = 0.03;
+  const hlv = workingYears > 0 && income > 0
+    ? income * ((1 - Math.pow(1 + discount, -workingYears)) / discount)
+    : 0;
+  const dimeNeed = lifeIncomeReplace;  // conservative DIME (no debt/mortgage/education inputs yet)
+  const recommendedLife = Math.max(dimeNeed, hlv);
+  const currentLife = d.ins.current || 0;
+  const lifeGap = Math.max(0, recommendedLife - currentLife);
+
+  // ═══════════════════════════════════════════════════════════
+  // DISABILITY INSURANCE
+  // ═══════════════════════════════════════════════════════════
+  // Need: 60% income × working years. Individual DI policies typically
+  // replace 60-70% of gross income, tax-free if paid with after-tax premiums.
+  // Group LTD through employer usually maxes at $15k/mo benefit.
+  const diAnnualReplace = income * 0.60;
+  const diLifetimeValue = diAnnualReplace * workingYears;
+  // Typical group LTD max: $180k/yr ($15k/mo)
+  const groupDiMax = 180_000;
+  const diGap = Math.max(0, diAnnualReplace - groupDiMax);
+  const diGapLifetime = diGap * workingYears;
+
+  // ═══════════════════════════════════════════════════════════
+  // LTC — self-insure threshold + hybrid analysis
+  // ═══════════════════════════════════════════════════════════
+  // Self-insure threshold: roughly $2M liquid NW is the informal floor
+  //   below which LTC insurance is recommended. Above $5M, most clients
+  //   self-insure. Between is the "hybrid" zone.
+  // Genworth 2024 national averages:
+  //   Private room: $108k/yr, Semi-private: $94k/yr, Home health: $75k/yr
+  //   Assisted living: $64k/yr
+  // 50% of people turning 65 will need some form of LTC; avg duration 2.5yr
+  const liquidNW = (d.client.preSaleNW || 0) + (d.biz.sale || 0) * 0.7;  // rough
+  const ltcSelfInsure = liquidNW > 5_000_000;
+  const ltcHybridZone = liquidNW >= 2_000_000 && liquidNW <= 5_000_000;
+  const ltcInsureNeeded = liquidNW < 2_000_000;
+  const ltcExpectedCost = 90_000 * 3;   // avg duration × avg cost
+  const ltcProbability = 0.50;           // 50% of 65+ need LTC
+  const ltcExpectedValue = ltcExpectedCost * ltcProbability;
+  const ltcRecommendation = ltcSelfInsure
+    ? 'Self-insure (liquid NW sufficient). Earmark ≈' + fmt$(ltcExpectedCost) + ' as dedicated LTC reserve.'
+    : ltcHybridZone
+      ? 'Consider hybrid life+LTC policy (no "use it or lose it"; death benefit if LTC unused). Typical premium: 2-3% of death benefit/yr for 10-pay.'
+      : 'Traditional LTC or hybrid strongly recommended. Below ' + fmt$(2_000_000) + ' liquid NW, a $300-400k uncovered LTC event can compromise retirement security.';
+
+  // ═══════════════════════════════════════════════════════════
+  // UMBRELLA LIABILITY — coverage ≥ NW rule-of-thumb
+  // ═══════════════════════════════════════════════════════════
+  const totalNW = (d.client.preSaleNW || 0) + (d.client.otherAssets || 0) + (d.biz.sale || 0);
+  const recommendedUmbrella = Math.ceil(totalNW / 1_000_000) * 1_000_000;  // round up to $1M tier
+
+  // ═══════════════════════════════════════════════════════════
+  // MEDICARE / IRMAA — 2025 MFJ brackets
+  // ═══════════════════════════════════════════════════════════
+  // 2025 Part B + Part D IRMAA surcharges by MAGI (MFJ):
+  const IRMAA_BRACKETS_MFJ = [
+    { max:  212_000, partB:   0,    partD:  0,   total:  0,    label: 'No surcharge' },
+    { max:  266_000, partB:  74.0,  partD: 13.7, total: 1052.40, label: 'Tier 1' },
+    { max:  334_000, partB: 185.0,  partD: 35.3, total: 2643.60, label: 'Tier 2' },
+    { max:  400_000, partB: 295.90, partD: 57.0, total: 4234.80, label: 'Tier 3' },
+    { max:  750_000, partB: 406.90, partD: 78.6, total: 5826.00, label: 'Tier 4' },
+    { max: Infinity, partB: 443.90, partD: 85.8, total: 6356.40, label: 'Tier 5 (max)' },
+  ];
+  // Rough MAGI projection: ordinary income + investment income
+  // (For a pre-retiree, MAGI ≈ biz.income + portfolio yield)
+  const portfolioYieldProxy = ((d.client.preSaleNW || 0) + (d.client.otherAssets || 0)) * 0.03;  // 3% yield on liquid
+  const magiEst = income + portfolioYieldProxy;
+  const currentBracket = IRMAA_BRACKETS_MFJ.find(b => magiEst < b.max) || IRMAA_BRACKETS_MFJ[IRMAA_BRACKETS_MFJ.length - 1];
+  const couplesMult = spouseAge > 0 ? 2 : 1;
+  const irmaaAnnualCost = currentBracket.total * couplesMult;
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">Risk Management &amp; Protection Planning</div>
+      <div class="card-sub">
+        Every wealth plan depends on protecting the plan itself. This tab analyzes life, disability, long-term care, umbrella liability, and Medicare/IRMAA exposure against ${d.client.primary || 'the client'}'s current coverage and net worth. Identified gaps flow into the Implementation Checklist.
+      </div>
+    </div>
+
+    <!-- ═══════════════════ LIFE INSURANCE ═══════════════════ -->
+    <div class="card" style="border-left: 4px solid ${lifeGap > 0 ? 'var(--crimson)' : 'var(--success)'};">
+      <div class="card-title">${lifeGap > 0 ? '⚠️' : '✓'} Life Insurance Needs Analysis</div>
+      <div class="card-sub">
+        Calculated under two industry-standard methods: DIME (Debt + Income-replacement + Mortgage + Education) and Human Life Value (PV of future earnings at ${fmtPct(discount*100)} real discount). Recommended coverage = max(DIME, HLV). Compare to current in-force.
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="kpi"><div class="label">Annual Income</div><div class="value">${fmt$(income)}</div></div>
+        <div class="kpi"><div class="label">Working Years Remaining</div><div class="value">${workingYears}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">To age ${retirementAge}</div></div>
+        <div class="kpi"><div class="label">DIME (Income-Replacement)</div><div class="value">${fmt$M(dimeNeed)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Income × working years</div></div>
+        <div class="kpi"><div class="label">Human Life Value (PV)</div><div class="value">${fmt$M(hlv)}</div></div>
+        <div class="kpi gold"><div class="label">Recommended Coverage</div><div class="value">${fmt$M(recommendedLife)}</div></div>
+        <div class="kpi"><div class="label">Current Coverage</div><div class="value">${fmt$M(currentLife)}</div></div>
+        <div class="kpi ${lifeGap > 0 ? 'warning' : 'success'}"><div class="label">${lifeGap > 0 ? 'Coverage Gap' : 'Surplus Coverage'}</div><div class="value">${fmt$M(Math.abs(currentLife - recommendedLife))}</div></div>
+      </div>
+      ${lifeGap > 0 ? `
+        <div class="callout" style="margin-top: 16px; border-color: var(--crimson);">
+          <span class="title" style="color: var(--crimson);">🔴 Gap of ${fmt$M(lifeGap)}</span>
+          Consider term life to cover working years (typical 20-30 yr level term) plus small permanent layer for estate-liquidity at death. If already implementing ILIT, new policy should be ILIT-owned from inception (avoid §2035 3-yr look-back on transferred policies). Build cost: ${fmt$(lifeGap * 0.008)} to ${fmt$(lifeGap * 0.015)}/yr for term at age ${primaryAge}, depending on health rating.
+        </div>
+      ` : `
+        <div class="callout" style="margin-top: 16px; border-color: var(--success);">
+          <span class="title" style="color: var(--success);">✓ Coverage Adequate</span>
+          Current coverage meets or exceeds both DIME and HLV calculations. Review beneficiary designations annually. Consider whether excess coverage can be rolled into ILIT to remove death benefit from estate.
+        </div>
+      `}
+      <div style="margin-top: 12px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Note:</strong> DIME also includes outstanding debt, mortgage, and education funding. This calc uses only income-replacement — CPA/advisor should add mortgage (${fmt$M(0)} assumed) + education (~$250k per minor child) + non-mortgage debt for refined DIME.
+      </div>
+    </div>
+
+    <!-- ═══════════════════ DISABILITY INSURANCE ═══════════════════ -->
+    <div class="card" style="border-left: 4px solid ${diGap > 0 ? 'var(--crimson)' : 'var(--success)'};">
+      <div class="card-title">${diGap > 0 ? '⚠️' : '✓'} Disability Insurance Gap</div>
+      <div class="card-sub">
+        Replace 60-70% of gross income during a working-years disability. Group long-term disability (LTD) through employer typically maxes at ~$15k/mo ($180k/yr). HNW earners usually need individual DI to bridge the gap.
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="kpi"><div class="label">60% Income Replacement</div><div class="value">${fmt$(diAnnualReplace)}/yr</div></div>
+        <div class="kpi"><div class="label">Group LTD Typical Max</div><div class="value">${fmt$(groupDiMax)}/yr</div></div>
+        <div class="kpi ${diGap > 0 ? 'warning' : 'success'}"><div class="label">Individual DI Gap</div><div class="value">${fmt$(diGap)}/yr</div></div>
+        <div class="kpi"><div class="label">Lifetime Coverage Need</div><div class="value">${fmt$M(diLifetimeValue)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${diAnnualReplace >= 1 ? fmt$(diAnnualReplace) + ' × ' + workingYears + ' yrs' : '—'}</div></div>
+      </div>
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">${diGap > 0 ? '🔴 DI Gap Identified' : '✓ Coverage Adequate'}</span>
+        ${diGap > 0
+          ? 'Individual DI policy recommended — look for "own-occupation" definition (pays if you can\'t do your specific job, not just "any job"), non-cancellable + guaranteed renewable, and a 90-day elimination period. Typical cost: 2-4% of monthly benefit. At ' + fmt$(diGap/12) + '/mo needed benefit, expect ' + fmt$(diGap/12 * 0.03 * 12) + '/yr premium.'
+          : 'Group LTD or existing individual DI covers the 60% replacement target. Confirm "own-occupation" language + that benefit is tax-free (premiums paid post-tax).'}
+      </div>
+    </div>
+
+    <!-- ═══════════════════ LONG-TERM CARE ═══════════════════ -->
+    <div class="card" style="border-left: 4px solid ${ltcInsureNeeded ? 'var(--crimson)' : ltcHybridZone ? 'var(--gold-dark)' : 'var(--success)'};">
+      <div class="card-title">🏥 Long-Term Care Decision Framework</div>
+      <div class="card-sub">
+        50% of people turning 65 will need some form of LTC; average duration 2.5 years. Genworth 2024 avg costs: $108k/yr private room nursing · $94k/yr semi-private · $75k/yr home health · $64k/yr assisted living. Self-insure threshold is roughly $2M liquid NW (floor) to $5M (comfortable).
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="kpi"><div class="label">Liquid NW (rough)</div><div class="value">${fmt$M(liquidNW)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">NW + 70% of sale proceeds</div></div>
+        <div class="kpi"><div class="label">Expected LTC Cost</div><div class="value">${fmt$(ltcExpectedCost)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">3-yr avg × $90k/yr</div></div>
+        <div class="kpi"><div class="label">Probability of Need</div><div class="value">${fmtPct(ltcProbability * 100)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Of 65+ individuals</div></div>
+        <div class="kpi gold"><div class="label">Expected Value of Risk</div><div class="value">${fmt$(ltcExpectedValue)}</div></div>
+      </div>
+      <div class="callout" style="margin-top: 16px; border-color: ${ltcInsureNeeded ? 'var(--crimson)' : ltcHybridZone ? 'var(--gold-dark)' : 'var(--success)'};">
+        <span class="title" style="color: ${ltcInsureNeeded ? 'var(--crimson)' : ltcHybridZone ? 'var(--gold-dark)' : 'var(--success)'};">${ltcInsureNeeded ? '🔴 Insurance Recommended' : ltcHybridZone ? '⚠️ Hybrid Zone' : '✓ Self-Insure Viable'}</span>
+        ${ltcRecommendation}
+      </div>
+      <div style="margin-top: 12px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--ink-soft); line-height: 1.5;">
+        <strong>HNW-specific LTC considerations:</strong> For clients above $5M liquid, LTC insurance premiums (often $5-15k/yr) represent dead money if never used. Hybrid life+LTC policies (Nationwide, Lincoln, OneAmerica) preserve the premium as a death benefit if LTC is unused. Self-insurance pairs well with a dedicated $500k-$1M earmark in a conservative taxable account. Trust-owned LTC via an Irrevocable Trust can also be used in Medicaid-planning contexts, though not relevant for HNW planning.
+      </div>
+    </div>
+
+    <!-- ═══════════════════ UMBRELLA LIABILITY ═══════════════════ -->
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">☂️ Umbrella Liability Adequacy</div>
+      <div class="card-sub">
+        Personal umbrella policy sits above auto + home liability limits. Rule of thumb: coverage ≥ total net worth (higher-risk professions: 2× NW). Cost is modest — typically $300-600/yr for $5M, scaling sub-linearly above that. HNW clients should carry at minimum their investable NW.
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="kpi"><div class="label">Total Net Worth</div><div class="value">${fmt$M(totalNW)}</div></div>
+        <div class="kpi gold"><div class="label">Recommended Umbrella</div><div class="value">${fmt$M(recommendedUmbrella)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">≥ net worth (rounded up to $1M tier)</div></div>
+        <div class="kpi"><div class="label">Est. Annual Premium</div><div class="value">${fmt$(Math.max(300, recommendedUmbrella / 1_000_000 * 120))}</div></div>
+      </div>
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">Underlying Limits Required</span>
+        Umbrella policies require the underlying auto + homeowner's liability to be at specified minimums (typically $250k/$500k auto, $500k home) before the umbrella attaches. Confirm with P&C broker. Also verify: (1) uninsured/underinsured motorist coverage matches umbrella, (2) employee-related claims (household staff) are covered, (3) non-owned boats/aircraft riders if applicable.
+      </div>
+    </div>
+
+    <!-- ═══════════════════ MEDICARE / IRMAA ═══════════════════ -->
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">🏥 Medicare &amp; IRMAA (Income-Related Monthly Adjustment Amount)</div>
+      <div class="card-sub">
+        Higher-income Medicare enrollees pay surcharges on Part B + Part D premiums. IRMAA is calculated using MAGI from TWO YEARS PRIOR (so 2026 IRMAA looks at 2024 MAGI). Planning opportunity: income-smoothing before Medicare to minimize surcharges once enrolled.
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="kpi"><div class="label">Projected MAGI (rough)</div><div class="value">${fmt$(magiEst)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Income + 3% yield proxy</div></div>
+        <div class="kpi gold"><div class="label">Current IRMAA Bracket</div><div class="value">${currentBracket.label}</div></div>
+        <div class="kpi warning"><div class="label">Annual Surcharge (per person)</div><div class="value">${fmt$(currentBracket.total)}</div></div>
+        <div class="kpi warning"><div class="label">Couple Annual Cost</div><div class="value">${fmt$(irmaaAnnualCost)}</div></div>
+      </div>
+      <div style="margin-top: 18px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">2025 IRMAA Brackets (MFJ)</div>
+        <table class="plan-table">
+          <thead><tr><th>MAGI Range</th><th class="num">Part B Monthly</th><th class="num">Part D Monthly</th><th class="num">Annual (per person)</th><th>Status</th></tr></thead>
+          <tbody>
+            ${IRMAA_BRACKETS_MFJ.map((b, i) => {
+              const prev = i > 0 ? IRMAA_BRACKETS_MFJ[i-1].max : 0;
+              const rangeLabel = b.max === Infinity ? '$' + prev.toLocaleString() + '+' : '$' + prev.toLocaleString() + ' – $' + b.max.toLocaleString();
+              const isCurrent = b === currentBracket;
+              return `<tr${isCurrent ? ' style="background: #FFF8F0; font-weight: 700;"' : ''}>
+                <td>${rangeLabel}</td>
+                <td class="num">${b.partB > 0 ? '$' + b.partB.toFixed(2) : '—'}</td>
+                <td class="num">${b.partD > 0 ? '$' + b.partD.toFixed(2) : '—'}</td>
+                <td class="num">$${b.total.toFixed(2)}</td>
+                <td>${isCurrent ? '← Current' : ''}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">IRMAA Management Strategies</span>
+        • <strong>Pre-65 Roth conversions</strong> — convert BEFORE Medicare to avoid inflating post-65 MAGI<br>
+        • <strong>QCD after 70½</strong> — Qualified Charitable Distributions up to $108k/yr (2025) from IRA directly to charity don't count in MAGI<br>
+        • <strong>Tax-loss harvesting</strong> — offsets capital gains that would otherwise push MAGI into next bracket<br>
+        • <strong>Muni bonds</strong> — tax-exempt interest excluded from MAGI (but counts for Part B income tiers — verify)<br>
+        • <strong>HSA contributions</strong> — reduce AGI if still working<br>
+        • <strong>SSA-44 appeal</strong> — life-changing events (retirement, divorce, death of spouse) can reduce IRMAA within 2 yrs
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   MONTE CARLO — RENDER card + SVG fan chart
+   Pure SVG (no chart library), responsive, 10/50/90 bands +
+   probability of success headline.
+   ============================================================ */
+function renderMonteCarlo(p) {
+  const mc = p.monteCarlo;
+  if (!mc) return '';
+  const d = p.input;
+  const pctOk = mc.successRate;
+  const pctClass = pctOk >= 0.85 ? 'success' : pctOk >= 0.70 ? 'gold' : 'warning';
+  const statusText = pctOk >= 0.90 ? 'Very high confidence'
+                   : pctOk >= 0.80 ? 'High confidence'
+                   : pctOk >= 0.70 ? 'Moderate confidence — review spending'
+                   : pctOk >= 0.50 ? 'At risk — plan adjustments recommended'
+                   : 'Unlikely to succeed as configured';
+  const startYear = d.client.year;
+  const years = mc.years;
+
+  // Build SVG fan chart
+  const W = 800, H = 260, pad = { l: 60, r: 20, t: 20, b: 40 };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+  const maxVal = Math.max(...mc.p90, 1);
+  const minVal = 0;
+  const xAt = y => pad.l + (y / years) * plotW;
+  const yAt = v => pad.t + plotH - ((v - minVal) / (maxVal - minVal)) * plotH;
+
+  // Build path for p10/p90 band (filled polygon)
+  let bandPath = `M ${xAt(0)} ${yAt(mc.p90[0])}`;
+  for (let y = 1; y <= years; y++) bandPath += ` L ${xAt(y)} ${yAt(mc.p90[y])}`;
+  for (let y = years; y >= 0; y--) bandPath += ` L ${xAt(y)} ${yAt(mc.p10[y])}`;
+  bandPath += ' Z';
+
+  // Median line
+  let medianPath = `M ${xAt(0)} ${yAt(mc.p50[0])}`;
+  for (let y = 1; y <= years; y++) medianPath += ` L ${xAt(y)} ${yAt(mc.p50[y])}`;
+
+  // Y-axis ticks — 5 marks
+  const yTicks = [];
+  for (let i = 0; i <= 4; i++) {
+    const v = (maxVal / 4) * i;
+    yTicks.push({ v, y: yAt(v) });
+  }
+
+  // X-axis ticks — every ~5 years
+  const xTickStep = Math.max(1, Math.round(years / 6));
+  const xTicks = [];
+  for (let y = 0; y <= years; y += xTickStep) xTicks.push({ y, year: startYear + y, x: xAt(y) });
+  if (xTicks[xTicks.length - 1].y !== years) xTicks.push({ y: years, year: startYear + years, x: xAt(years) });
+
+  const fmt$ = n => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = n => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold); margin-top: 20px;">
+      <div class="card-title">📊 Probability of Success — Monte Carlo Simulation</div>
+      <div class="card-sub">
+        ${mc.iterations.toLocaleString()} simulated ${years}-year retirement outcomes (through age ${(mc.primaryAge || 55) + years}${mc.spouseAge > 0 ? '/' + (mc.spouseAge + years) : ''}). Each iteration draws random portfolio returns from a normal distribution (mean ${(mc.mean*100).toFixed(1)}%, σ ${(mc.stdDev*100).toFixed(0)}%), withdraws inflation-adjusted spending (${fmt$(mc.annualSpend)}/yr base, ${(mc.inflation*100).toFixed(1)}% inflation), credits Social Security (${fmt$(mc.ssAnnual)}/yr indexed), and tracks whether the portfolio survives through joint life expectancy.
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 16px;">
+        <div class="kpi ${pctClass}"><div class="label">Probability of Success</div><div class="value">${(pctOk * 100).toFixed(0)}%</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${statusText}</div></div>
+        <div class="kpi"><div class="label">Starting Portfolio</div><div class="value">${fmt$M(mc.startBalance)}</div></div>
+        <div class="kpi success"><div class="label">Median End Balance</div><div class="value">${fmt$M(mc.p50[years])}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">50th percentile after ${years} yrs</div></div>
+        <div class="kpi gold"><div class="label">90th Percentile</div><div class="value">${fmt$M(mc.p90[years])}</div></div>
+        <div class="kpi warning"><div class="label">10th Percentile</div><div class="value">${fmt$M(mc.p10[years])}</div></div>
+      </div>
+
+      <div style="margin-top: 20px; padding: 16px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">Portfolio Balance — 10th/50th/90th Percentile Band</div>
+        <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; display: block;">
+          <defs>
+            <linearGradient id="mc-band" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#C9A961" stop-opacity="0.30"/>
+              <stop offset="100%" stop-color="#C9A961" stop-opacity="0.10"/>
+            </linearGradient>
+          </defs>
+          <!-- axis -->
+          <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t + plotH}" stroke="#8B7640" stroke-width="1"/>
+          <line x1="${pad.l}" y1="${pad.t + plotH}" x2="${pad.l + plotW}" y2="${pad.t + plotH}" stroke="#8B7640" stroke-width="1"/>
+          <!-- y-ticks -->
+          ${yTicks.map(t => `
+            <line x1="${pad.l - 4}" y1="${t.y}" x2="${pad.l}" y2="${t.y}" stroke="#8B7640" stroke-width="1"/>
+            <line x1="${pad.l}" y1="${t.y}" x2="${pad.l + plotW}" y2="${t.y}" stroke="#C9A961" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.4"/>
+            <text x="${pad.l - 8}" y="${t.y + 4}" text-anchor="end" font-family="Helvetica Neue, sans-serif" font-size="10" fill="#666">${fmt$M(t.v)}</text>
+          `).join('')}
+          <!-- x-ticks -->
+          ${xTicks.map(t => `
+            <line x1="${t.x}" y1="${pad.t + plotH}" x2="${t.x}" y2="${pad.t + plotH + 4}" stroke="#8B7640" stroke-width="1"/>
+            <text x="${t.x}" y="${pad.t + plotH + 16}" text-anchor="middle" font-family="Helvetica Neue, sans-serif" font-size="10" fill="#666">${t.year}</text>
+          `).join('')}
+          <!-- 10/90 band -->
+          <path d="${bandPath}" fill="url(#mc-band)" stroke="none"/>
+          <!-- median line -->
+          <path d="${medianPath}" fill="none" stroke="#8B1A1A" stroke-width="2"/>
+          <!-- legend -->
+          <g transform="translate(${pad.l + 20}, ${pad.t + 8})">
+            <rect x="0" y="-3" width="12" height="10" fill="url(#mc-band)" stroke="#C9A961"/>
+            <text x="18" y="5" font-family="Helvetica Neue, sans-serif" font-size="10" fill="#333">10th–90th percentile</text>
+            <line x1="160" y1="2" x2="180" y2="2" stroke="#8B1A1A" stroke-width="2"/>
+            <text x="186" y="5" font-family="Helvetica Neue, sans-serif" font-size="10" fill="#333">Median outcome</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">Reading the chart</span>
+        The shaded gold band captures the middle 80% of outcomes — most simulations land there. The crimson line is the median. If the lower edge of the band dips to $0 before ${startYear + years}, the bottom-decile scenarios ran out of money — review budget, SS claiming, or asset allocation. Mean return and volatility are sensitive assumptions: a 1% lower return typically cuts success by 10–15 percentage points.
+      </div>
+
+      <div style="margin-top: 12px; padding: 12px 16px; background: #FFF8F0; border-left: 3px solid var(--gold-dark); font-size: 12px; color: var(--ink-soft); line-height: 1.5;">
+        <strong>Assumptions:</strong> equity return ${(mc.mean*100).toFixed(1)}% mean, ${(mc.stdDev*100).toFixed(0)}% std dev (typical balanced portfolio) · inflation ${(mc.inflation*100).toFixed(1)}%/yr · spending inflation-adjusted · SS indexed · no tax drag modeled (portfolio assumed tax-efficient). CPA/CFP should stress-test with sequence-of-returns risk (first-5-yr downturn scenario) and healthcare cost shocks separately.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   MONTE CARLO RETIREMENT SIMULATION
+   1,000-iteration year-by-year simulation over joint life
+   expectancy (or projection horizon). Each iteration draws a
+   random portfolio return from a normal distribution with the
+   advisor-set mean + a typical std-dev, withdraws the annual
+   budget (inflation-adjusted), credits Social Security + RMD
+   income, and tracks whether the portfolio survives.
+
+   Returns: success rate + per-year 10/50/90 percentile bands.
+
+   Inputs are taken from the plan's computed state so the MC runs
+   against the WITH-PLAN numbers (proceeds after all strategies).
+   ============================================================ */
+function _boxMuller() {
+  // Standard normal draw — Marsaglia polar method
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function runMonteCarlo(p, d, opts = {}) {
+  const iterations = opts.iterations || 1000;
+  const startBalance = (p.withPlanningTotal || p.nwWithout_total || 0);
+  const primaryAge = d.client.primaryAge || 55;
+  const spouseAge  = d.client.spouseAge  || 0;
+  const jointLE    = jointLastSurvivorExpectancy(primaryAge, spouseAge);
+  const years      = Math.max(5, Math.min(50, opts.years || jointLE || d.proj.years));
+  const mean       = d.proj.equity || 0.06;
+  const stdDev     = opts.stdDev || 0.12;           // balanced-portfolio typical
+  const inflation  = d.proj.inflation || 0.025;
+  const annualSpend= (d.budget.fixed || 0) + (d.budget.variable || 0) + (d.budget.taxes || 0);
+  const ssAnnual   = p.ssAnnualHousehold || 0;
+
+  // For tracking percentiles we'll store year-by-year balance across iterations
+  const balancesByYear = Array.from({ length: years + 1 }, () => []);
+  let successes = 0;
+
+  for (let i = 0; i < iterations; i++) {
+    let bal = startBalance;
+    balancesByYear[0].push(bal);
+    let survived = true;
+    for (let y = 1; y <= years; y++) {
+      const r = _boxMuller() * stdDev + mean;
+      bal *= (1 + r);
+      const inflMult = Math.pow(1 + inflation, y);
+      const spend    = annualSpend * inflMult;
+      const ss       = ssAnnual * inflMult;
+      bal -= Math.max(0, spend - ss);
+      if (bal < 0) {
+        bal = 0;
+        survived = false;
+      }
+      balancesByYear[y].push(bal);
+    }
+    if (survived) successes++;
+  }
+
+  const percentile = (arr, q) => {
+    const s = [...arr].sort((a, b) => a - b);
+    const idx = Math.min(s.length - 1, Math.max(0, Math.floor(s.length * q)));
+    return s[idx];
+  };
+
+  const p10 = balancesByYear.map(a => percentile(a, 0.10));
+  const p50 = balancesByYear.map(a => percentile(a, 0.50));
+  const p90 = balancesByYear.map(a => percentile(a, 0.90));
+
+  return {
+    successRate: successes / iterations,
+    iterations,
+    years,
+    startBalance,
+    annualSpend,
+    ssAnnual,
+    inflation,
+    mean,
+    stdDev,
+    p10, p50, p90,
+    primaryAge, spouseAge, jointLE,
+  };
+}
+
+/* ============================================================
    MULTI-YEAR FAMILY ESTATE GROWTH — re-projectable at any horizon
    Re-computes rows + re-renders the card when the in-card
    dropdown changes, without requiring a full Generate Plan.
@@ -6918,6 +7574,7 @@ function generatePlan() {
   document.getElementById('panel-summary').innerHTML = renderSummary(p);
   document.getElementById('panel-transaction').innerHTML = renderTransaction(p);
   document.getElementById('panel-financial').innerHTML = renderFinancial(p);
+  document.getElementById('panel-risk').innerHTML = renderRiskManagement(p);
   document.getElementById('panel-tax').innerHTML = renderTax(p);
   document.getElementById('panel-compare').innerHTML = renderCompare(p);
   document.getElementById('panel-estate').innerHTML = renderEstate(p);
@@ -6932,6 +7589,7 @@ function generatePlan() {
         <div class="card-title">Retirement Income Plan</div>
         <div class="card-sub">Everything about ${primary}'s post-sale cash flow: the budget the portfolio must support, Social Security claiming, and Required Minimum Distributions once age 73 arrives.</div>
       </div>
+      ${renderMonteCarlo(p)}
     `;
     document.querySelectorAll('#panel-financial .move-to-retirement').forEach(card => {
       retirementPanel.appendChild(card);
