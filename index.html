@@ -2308,6 +2308,14 @@
         <label>Personal Property &amp; Collectibles <span class="hint">(art, jewelry, vehicles — rough estimate)</span></label>
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="personal-property" value="0"></div>
       </div>
+      <div class="field">
+        <label># Education Beneficiaries <span class="hint">(children + grandchildren under 18)</span></label>
+        <input type="number" id="edu-beneficiaries" value="0" min="0" max="20">
+      </div>
+      <div class="field">
+        <label>Avg Years Until Each Beneficiary Starts College <span class="hint">(0 if adult / in college)</span></label>
+        <input type="number" id="edu-years-to-college" value="10" min="0" max="22">
+      </div>
     </div>
   </section>
 
@@ -3710,6 +3718,8 @@ function readForm() {
       mortgage:  n('debt-mortgage'),
       otherDebt: n('debt-other'),
       personalProperty: n('personal-property'),
+      eduBeneficiaries: n('edu-beneficiaries'),
+      eduYearsToCollege: n('edu-years-to-college'),
     },
     retirement: {
       tradIRA: n('ret-trad-ira'),
@@ -5481,9 +5491,69 @@ function renderTechnicalAppendix(p) {
       </table>
     </div>
 
-    <!-- SECTION 8 — PLAN ASSUMPTIONS -->
+    <!-- SECTION 8 — TAX-LAW REFERENCE (CURRENT + PENDING) -->
     <div class="appendix-section">
-      <div class="section-citation">Section 8 — Computational Assumptions</div>
+      <div class="section-citation">Section 8 — Tax-Law Reference (2025-2026 Landscape)</div>
+      <h2>Current Statutory Rates &amp; Known Pending Changes</h2>
+      <p>This section lists the statutory values in effect when this plan was drafted, plus known legislative/administrative changes on the horizon that could affect the strategies used. CPA should re-verify each item against IRS publications before implementation.</p>
+
+      <table class="appendix-table">
+        <thead><tr><th>Item</th><th class="num">2025 Value</th><th>Statutory Citation / Status</th></tr></thead>
+        <tbody>
+          <tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; font-size: 10px;">INCOME TAX</td></tr>
+          <tr><td>Top federal ordinary rate</td><td class="num">37%</td><td>§1(j) — expires 12/31/2025, reverts to 39.6% absent extension</td></tr>
+          <tr><td>LTCG top rate</td><td class="num">20%</td><td>§1(h)</td></tr>
+          <tr><td>NIIT</td><td class="num">3.8%</td><td>§1411 — no sunset</td></tr>
+          <tr><td>Standard deduction (MFJ)</td><td class="num">$30,000</td><td>§63 — expires 12/31/2025 (reverts to ~$15k pre-TCJA)</td></tr>
+          <tr><td>§199A QBI deduction</td><td class="num">20%</td><td>§199A — permanent under OBBBA (7/4/2025)</td></tr>
+          <tr><td>§199A SSTB phase-out ceiling (MFJ)</td><td class="num">$494,600</td><td>threshold $394,600 + $100k phase-in</td></tr>
+
+          <tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; font-size: 10px;">ESTATE &amp; GIFT</td></tr>
+          <tr><td>Federal estate / gift exemption per person</td><td class="num">$15M</td><td>§2010(c) — OBBBA 2025 raised to $15M (was $13.61M in 2024)</td></tr>
+          <tr><td>Top estate tax rate</td><td class="num">40%</td><td>§2001(c)</td></tr>
+          <tr><td>GST exemption per person</td><td class="num">$15M</td><td>§2631 — tracks estate exemption</td></tr>
+          <tr><td>Annual gift-tax exclusion per donee</td><td class="num">$19,000</td><td>§2503(b), inflation-indexed</td></tr>
+          <tr><td>Portability (DSUE) election</td><td class="num">available</td><td>§2010(c)(5); Rev. Proc. 2022-32 — 5-yr late election grace period for estates otherwise not required to file</td></tr>
+
+          <tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; font-size: 10px;">CAPITAL GAINS STRATEGIES</td></tr>
+          <tr><td>§1202 QSBS cap (post-OBBBA)</td><td class="num">$15M or 10× basis</td><td>For stock acquired ≥ 7/4/2025; pre-OBBBA stock keeps $10M cap</td></tr>
+          <tr><td>§1202 gross-asset ceiling (post-OBBBA)</td><td class="num">$75M</td><td>At stock issuance; pre-OBBBA: $50M</td></tr>
+          <tr><td>§1202 tiered exclusion (post-OBBBA)</td><td class="num">50/75/100%</td><td>3-yr / 4-yr / 5+yr hold</td></tr>
+          <tr><td>§1400Z-2 QOZ — deferred-gain recognition</td><td class="num">12/31/2026</td><td>Hard-coded deadline in statute; deferred gain is recognized this date regardless of whether QOF was sold</td></tr>
+          <tr><td>§1031 Like-Kind Exchange</td><td class="num">real property only</td><td>TCJA 2017 eliminated personal-property §1031; only applies to investment real estate</td></tr>
+
+          <tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; font-size: 10px;">AMT (2025 MFJ)</td></tr>
+          <tr><td>AMT exemption</td><td class="num">$137,000</td><td>§55(d)</td></tr>
+          <tr><td>AMT phase-out start</td><td class="num">$1,252,700</td><td>§55(d)(3)</td></tr>
+          <tr><td>26%/28% bracket threshold</td><td class="num">$239,100</td><td>§55(b)</td></tr>
+
+          <tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; font-size: 10px;">RETIREMENT (SECURE 2.0 + OBBBA)</td></tr>
+          <tr><td>RMD age</td><td class="num">73</td><td>§401(a)(9) — rises to 75 in 2033 (SECURE 2.0)</td></tr>
+          <tr><td>QCD annual limit (age 70½+)</td><td class="num">$108,000</td><td>§408(d)(8) — doesn't count against MAGI for IRMAA</td></tr>
+          <tr><td>529-to-Roth rollover cap</td><td class="num">$35,000 lifetime</td><td>SECURE 2.0 — effective 2024, 15-yr account-age requirement</td></tr>
+          <tr><td>Catch-up 401(k) (age 50+)</td><td class="num">$7,500</td><td>§414(v); age 60-63 "super catch-up" $11,250 per SECURE 2.0</td></tr>
+
+          <tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; font-size: 10px;">IRMAA (2025 MFJ 2-yr lookback)</td></tr>
+          <tr><td>Tier 0 cap (no surcharge above)</td><td class="num">$212,000</td><td>§1395r(i)</td></tr>
+          <tr><td>Tier 5 floor (maximum surcharge)</td><td class="num">$750,000</td><td>$6,356/yr per person at highest tier</td></tr>
+
+          <tr style="background: var(--cream-light);"><td colspan="3" style="font-weight: 700; color: var(--crimson); letter-spacing: 1px; text-transform: uppercase; font-size: 10px;">⚠️ KNOWN PENDING / EXPIRING</td></tr>
+          <tr><td>TCJA individual provisions</td><td class="num">expire 12/31/2025</td><td>OBBBA (7/4/2025) made many permanent — verify each specific provision. §199A permanent; top rate 37% extended through 2029; standard deduction permanent at current levels</td></tr>
+          <tr><td>§2702 GRAT reform</td><td class="num">pending proposal</td><td>Biden/Harris budgets would impose 10-yr minimum term + $0 remainder floor; not enacted</td></tr>
+          <tr><td>SS trust fund depletion</td><td class="num">~2033</td><td>Per 2024 Trustees Report; 23% benefit cut if no action by Congress</td></tr>
+          <tr><td>§1202 QSBS — retroactive repeal risk</td><td class="num">low but nonzero</td><td>Periodic proposals to eliminate; OBBBA expansion signals political acceptance</td></tr>
+        </tbody>
+      </table>
+
+      <div class="citation-block" style="margin-top: 16px;">
+        <strong>Rev. Proc. 2024-40 (annual inflation adjustments).</strong> Section 3 of each year's Rev. Proc. publishes the indexed dollar amounts. CPAs verify against the current year's Rev. Proc. before filing.<br>
+        <strong>IRS.gov/AFR.</strong> §7520 and AFR tables are published MONTHLY. The rate used for GRAT, QPRT, CLT, CRAT, CRUT, and IDGT valuations is the rate for the month of the transaction (with a 2-month look-back allowed for CRATs/GRATs under Reg §25.2702-3 and §1.664-1).
+      </div>
+    </div>
+
+    <!-- SECTION 9 — PLAN ASSUMPTIONS -->
+    <div class="appendix-section">
+      <div class="section-citation">Section 9 — Computational Assumptions</div>
       <h2>Input Disclosure for Independent Verification</h2>
       <table class="appendix-table">
         <tbody>
@@ -8759,6 +8829,150 @@ function renderRiskManagement(p) {
         • <strong>SSA-44 appeal</strong> — life-changing events (retirement, divorce, death of spouse) can reduce IRMAA within 2 yrs
       </div>
     </div>
+
+    ${renderEducationFunding(p)}
+  `;
+}
+
+/* ============================================================
+   EDUCATION FUNDING — 529, superfunding, private K-12, ABLE
+   Surfaces 529 plan mechanics, 5-year accelerated gifting,
+   state-specific deduction, UTMA vs. 529 decision, private-school
+   treatment under SECURE 2.0, and ABLE accounts for special-needs
+   beneficiaries. Only renders if # beneficiaries > 0.
+   ============================================================ */
+function renderEducationFunding(p) {
+  const d = p.input;
+  const nBen = d.client.eduBeneficiaries || 0;
+  if (nBen <= 0) return '';
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+
+  // 2025 annual gift exclusion: $19,000 per donee per donor
+  // 5-year superfunding: $19k × 5 = $95,000 per donee per donor
+  // Both spouses gifting: $190,000 per donee per couple
+  // Total for all beneficiaries: $190k × nBen for couples
+  const annualExclusion = 19_000;
+  const superfundedPerDonee = annualExclusion * 5;
+  const hasSpouse = !!(d.client.spouseAge && d.client.spouseAge > 0);
+  const superfundedPerDoneeCouple = superfundedPerDonee * (hasSpouse ? 2 : 1);
+  const totalSuperfunded = superfundedPerDoneeCouple * nBen;
+
+  const yearsToCollege = d.client.eduYearsToCollege || 10;
+  const eduInflation = 0.055;   // 4% general inflation + 1.5% edu-specific premium
+  const growthRate = d.proj.equity || 0.06;
+
+  // 2025 average costs per year
+  const inStatePublicYear   = 30_000;
+  const outStatePublicYear  = 50_000;
+  const privateYear         = 75_000;
+  // Grow to start-year
+  const inStateAtCollege    = inStatePublicYear * Math.pow(1 + eduInflation, yearsToCollege);
+  const outStateAtCollege   = outStatePublicYear * Math.pow(1 + eduInflation, yearsToCollege);
+  const privateAtCollege    = privateYear * Math.pow(1 + eduInflation, yearsToCollege);
+  const fourYearInState     = inStateAtCollege * 4;
+  const fourYearPrivate     = privateAtCollege * 4;
+
+  // Future value of superfunding at plan equity return over yearsToCollege
+  const superfundedFV = totalSuperfunded * Math.pow(1 + growthRate, yearsToCollege);
+
+  // State-specific deduction table (2025 data)
+  const STATE_529_DEDUCTION = {
+    IL: { amount: 10_000, note: 'Max $10k/yr MFJ' },
+    NY: { amount: 10_000, note: 'Max $10k/yr MFJ' },
+    IN: { amount: 7_500,  note: '20% credit on up to $7,500 = $1,500/yr credit' },
+    UT: { amount: 4_200,  note: '~4.55% credit on $4,200/yr per donee' },
+    VA: { amount: 4_000,  note: '$4k per account, unlimited carryforward' },
+    GA: { amount: 4_000,  note: '$4k/yr MFJ' },
+    OR: { amount: 310,    note: '$310 per donor credit (NOT deduction); phased out' },
+    CO: { amount: 99999,  note: 'Unlimited (up to taxable income)' },
+    MI: { amount: 10_000, note: '$10k MFJ, income-based phase-out' },
+    MA: { amount: 2_000,  note: '$2k MFJ' },
+    NJ: { amount: 10_000, note: '$10k from 2022, income ≤ $200k' },
+    PA: { amount: 38_000, note: 'Up to annual gift exclusion × 2 per beneficiary per donor' },
+    CT: { amount: 10_000, note: '$10k MFJ, carryforward' },
+    OH: { amount: 4_000,  note: '$4k per beneficiary, carryforward' },
+    AZ: { amount: 4_000,  note: '$4k MFJ' },
+    WA: { amount: 0,      note: 'No state income tax' },
+    TX: { amount: 0,      note: 'No state income tax' },
+    FL: { amount: 0,      note: 'No state income tax' },
+    NV: { amount: 0,      note: 'No state income tax' },
+    AK: { amount: 0,      note: 'No state income tax' },
+    SD: { amount: 0,      note: 'No state income tax' },
+    WY: { amount: 0,      note: 'No state income tax' },
+    TN: { amount: 0,      note: 'No state income tax' },
+    NH: { amount: 0,      note: 'No state income tax on earned income' },
+    CA: { amount: 0,      note: '<strong>No state deduction</strong> (one of the few states offering no 529 tax benefit)' },
+  };
+  const stateCode = (d.clientState || '').toUpperCase();
+  const stateInfo = STATE_529_DEDUCTION[stateCode] || { amount: 0, note: 'Check your state — most states offer a 529 deduction; some cap below $10k, some unlimited.' };
+  const stateDedSaving = stateInfo.amount > 0 && stateInfo.amount < 99999 ? stateInfo.amount * (d.tax.state || 0.05) : 0;
+
+  return `
+    <!-- ═══════════════════ EDUCATION FUNDING ═══════════════════ -->
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">🎓 Education Funding Strategy — ${nBen} Beneficiar${nBen === 1 ? 'y' : 'ies'}</div>
+      <div class="card-sub">
+        Comprehensive 529 + superfunding analysis for ${nBen} education beneficiar${nBen === 1 ? 'y' : 'ies'}. Based on ${yearsToCollege} years until college start, assumes ${(eduInflation*100).toFixed(1)}% education-cost inflation (4% general + 1.5% premium). 529 plan features: tax-deferred growth, tax-free withdrawal for qualified expenses, 10-year stretch for beneficiaries under §529(c)(3).
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Annual Gift Exclusion</div><div class="value">${fmt$(annualExclusion)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Per donor per donee (2025)</div></div>
+        <div class="kpi gold"><div class="label">5-Yr Superfund Per Beneficiary</div><div class="value">${fmt$(superfundedPerDoneeCouple)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${hasSpouse ? 'Couple' : 'Single'} donor(s)</div></div>
+        <div class="kpi success"><div class="label">Total Superfunding</div><div class="value">${fmt$(totalSuperfunded)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">For ${nBen} beneficiar${nBen === 1 ? 'y' : 'ies'}</div></div>
+        <div class="kpi success"><div class="label">Projected at Age 18</div><div class="value">${fmt$M(superfundedFV)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">@${(growthRate*100).toFixed(1)}% growth × ${yearsToCollege} yrs</div></div>
+      </div>
+
+      <div style="margin-top: 20px; padding: 18px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 10px;">Projected 4-Year College Costs (at start year)</div>
+        <table class="plan-table" style="font-size: 12px;">
+          <thead><tr><th>School Type</th><th class="num">Per Year</th><th class="num">4-Year Total</th><th class="num">Per Beneficiary</th><th class="num">All ${nBen} Beneficiaries</th></tr></thead>
+          <tbody>
+            <tr><td>In-State Public</td><td class="num">${fmt$(inStateAtCollege)}</td><td class="num">${fmt$(fourYearInState)}</td><td class="num">${fmt$(fourYearInState)}</td><td class="num">${fmt$M(fourYearInState * nBen)}</td></tr>
+            <tr><td>Out-of-State Public</td><td class="num">${fmt$(outStateAtCollege)}</td><td class="num">${fmt$(outStateAtCollege * 4)}</td><td class="num">${fmt$(outStateAtCollege * 4)}</td><td class="num">${fmt$M(outStateAtCollege * 4 * nBen)}</td></tr>
+            <tr style="background: #FFF8F0;"><td><strong>Private / Ivy</strong></td><td class="num">${fmt$(privateAtCollege)}</td><td class="num">${fmt$(fourYearPrivate)}</td><td class="num">${fmt$(fourYearPrivate)}</td><td class="num"><strong>${fmt$M(fourYearPrivate * nBen)}</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      ${stateInfo.amount > 0 ? `
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">${stateCode} State 529 Deduction</span>
+        ${stateInfo.amount === 99999 ? 'Unlimited state deduction' : 'Up to ' + fmt$(stateInfo.amount) + '/yr MFJ'} — ${stateInfo.note}. ${stateDedSaving > 0 ? `At your ${(d.tax.state*100).toFixed(1)}% state rate, annual tax savings per contribution up to the cap: <strong>${fmt$(stateDedSaving)}/yr</strong>.` : ''}
+      </div>
+      ` : `
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">${stateCode} State 529 Treatment</span>
+        ${stateInfo.note}
+      </div>
+      `}
+
+      <div class="callout" style="margin-top: 12px;">
+        <span class="title">🚀 Recommended Strategy: 5-Year Superfunding</span>
+        Under §529(c)(2)(B), a donor may elect to treat a contribution exceeding the annual exclusion as if it were spread over 5 years. This lets you front-load <strong>${fmt$(superfundedPerDoneeCouple)} per beneficiary</strong> today without using lifetime exemption — effectively 5 years of accelerated tax-free growth. For ${nBen} beneficiar${nBen === 1 ? 'y' : 'ies'}: <strong>${fmt$(totalSuperfunded)} today → ${fmt$M(superfundedFV)} at college start</strong> (assuming ${(growthRate*100).toFixed(1)}% growth over ${yearsToCollege} years). IRS Form 709 election required in the gift year.
+      </div>
+
+      <div class="callout" style="margin-top: 12px; border-color: var(--gold-dark);">
+        <span class="title">💡 Private K-12 + Other 529 Uses (SECURE Act)</span>
+        • <strong>Private K-12 tuition</strong>: up to $10k/yr per beneficiary qualified under §529(c)(7) (enacted TCJA 2017). Does NOT apply to books/room/fees — tuition only.<br>
+        • <strong>Student loan repayment</strong>: up to $10k lifetime per beneficiary (SECURE Act 2019) — use once college is complete to pay down kids' loans.<br>
+        • <strong>Roth rollover</strong> (SECURE 2.0, effective 2024): up to $35k lifetime from 529 to Roth IRA for beneficiary (15-yr account age required, subject to annual IRA contribution limits). <em>This turns unused 529 into tax-free retirement funding.</em><br>
+        • <strong>Apprenticeship + trade schools</strong>: qualified since 2019 (SECURE Act).
+      </div>
+
+      <div class="callout" style="margin-top: 12px;">
+        <span class="title">⚖️ 529 vs. UTMA Decision Framework</span>
+        • <strong>529 advantages</strong>: tax-free growth, FAFSA-friendly as parent asset (5.64% of value assessed, vs. 20% for student-owned UTMA), parent retains control<br>
+        • <strong>UTMA advantages</strong>: no-restriction on use, kiddie-tax shelters ~$1,350 of unearned income tax-free (2025), next $1,350 at child's rate, then at parent's rate<br>
+        • <strong>Grandparent 529</strong>: post-FAFSA-simplification (2024+), grandparent-owned 529s no longer count as student income on the CSS Profile — HUGE win for HNW grandparents funding their grandkids without financial-aid penalty<br>
+        • <strong>HNW rule</strong>: if family net worth > $3M, financial aid is off the table anyway — optimize for tax efficiency (529 wins)
+      </div>
+
+      <div class="callout" style="margin-top: 12px; border-color: var(--success);">
+        <span class="title">♿ ABLE Accounts (if applicable)</span>
+        For beneficiaries with a qualifying disability under §529A (blindness, significant cognitive or physical impairment, age of onset before 26), an <strong>ABLE account</strong> provides similar tax-free growth and withdrawal as a 529 — but withdrawals can fund living expenses, housing, transportation, and healthcare in addition to education. Contribution limit: ${fmt$(annualExclusion)}/yr per beneficiary (2025); employed beneficiaries can add ~$15k of earnings. ABLE-to-ABLE and 529-to-ABLE rollovers allowed. Consult with special-needs counsel before funding.
+      </div>
+    </div>
   `;
 }
 
@@ -9925,7 +10139,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'plan-type',
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
       'client-primary-age','client-spouse-age',
-      'debt-mortgage','debt-other','personal-property',
+      'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
