@@ -819,6 +819,52 @@
     margin-bottom: 12px;
   }
   .review-list { margin-bottom: 14px; }
+
+  /* ===== DIFF / COMPARE MODAL ===== */
+  .diff-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+  .diff-modal.hidden { display: none; }
+  .diff-modal-backdrop { position: absolute; inset: 0; background: rgba(20,20,20,0.65); }
+  .diff-modal-body {
+    position: relative;
+    background: var(--cream);
+    border: 1px solid var(--gold);
+    border-radius: 6px;
+    max-width: 1100px;
+    width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .diff-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(201,169,97,0.3);
+  }
+  .diff-modal-header h3 { margin: 0; color: var(--ink); font-family: 'Playfair Display', serif; font-size: 18px; letter-spacing: 1px; }
+  .diff-modal-header button { font-size: 18px; line-height: 1; padding: 4px 12px; }
+  .diff-modal-pickers {
+    display: flex;
+    gap: 16px;
+    padding: 16px 24px;
+    align-items: flex-end;
+    border-bottom: 1px solid rgba(201,169,97,0.15);
+    flex-wrap: wrap;
+  }
+  .diff-picker { flex: 1; min-width: 200px; }
+  .diff-picker label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 4px; }
+  .diff-picker select { width: 100%; padding: 8px 10px; background: var(--cream-panel); border: 1px solid rgba(201,169,97,0.4); border-radius: 3px; font-size: 13px; }
+  .diff-modal-result { flex: 1; overflow-y: auto; padding: 20px 24px; }
+  .diff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .diff-table th, .diff-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid rgba(201,169,97,0.2); }
+  .diff-table th { background: var(--cream-light); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 10px; color: var(--gold-dark); }
+  .diff-table td.num { text-align: right; font-family: 'Courier New', monospace; }
+  .diff-table td.delta.pos { color: var(--success); font-weight: 700; }
+  .diff-table td.delta.neg { color: var(--crimson); font-weight: 700; }
+  .diff-section { margin-top: 20px; }
+  .diff-section h4 { margin: 0 0 8px; font-family: 'Playfair Display', serif; font-size: 14px; color: var(--ink); letter-spacing: 1px; }
   .review-empty { font-size: 13px; color: var(--muted); font-style: italic; padding: 8px 0; }
   .review-item {
     padding: 10px 14px;
@@ -2526,8 +2572,10 @@
 <main id="plan-view" class="hidden">
   <div class="plan-actions">
     <button class="btn btn-secondary" id="btn-edit">← Edit Data</button>
+    <button class="btn btn-gold" id="btn-print-preview" title="Preview the print/PDF layout on-screen before committing to PDF">Print Preview</button>
     <button class="btn btn-gold" id="btn-print">Print</button>
     <button class="btn btn-gold" id="btn-pdf">Download PDF</button>
+    <button class="btn btn-secondary team-only" id="btn-diff" title="Compare two saved plan versions side-by-side">Compare Versions</button>
     <button class="btn btn-gold" id="btn-pptx">Download PPTX</button>
     <button class="btn btn-primary" id="btn-download">Download HTML</button>
     <button class="btn btn-gold" id="btn-plan-share">Copy Share Link</button>
@@ -2542,6 +2590,33 @@
       <div class="subtitle" id="plan-subtitle">—</div>
     </div>
   </header>
+
+  <!-- ====== DIFF / COMPARE MODAL — team-only feature to run two saved
+       plans side-by-side (e.g. "2025 plan" vs "2026 plan after Roth
+       conversion"). Shown via Compare Versions button above. -->
+  <div id="diff-modal" class="diff-modal hidden" role="dialog" aria-labelledby="diff-title">
+    <div class="diff-modal-backdrop" id="diff-modal-backdrop"></div>
+    <div class="diff-modal-body">
+      <div class="diff-modal-header">
+        <h3 id="diff-title">Compare Plan Versions</h3>
+        <button class="btn btn-secondary btn-sm" id="btn-diff-close">×</button>
+      </div>
+      <div class="diff-modal-pickers">
+        <div class="diff-picker">
+          <label>Plan A</label>
+          <select id="diff-select-a"><option value="">— select plan —</option></select>
+        </div>
+        <div class="diff-picker">
+          <label>Plan B</label>
+          <select id="diff-select-b"><option value="">— select plan —</option></select>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-diff-compute">Compare</button>
+      </div>
+      <div class="diff-modal-result" id="diff-result">
+        <div style="padding: 32px; text-align: center; color: var(--muted); font-style: italic;">Pick two saved plans above and click Compare.</div>
+      </div>
+    </div>
+  </div>
 
   <!-- REVIEW / COMMENTS PANEL (populated by JS when a plan is loaded) -->
   <div class="review-panel hidden" id="review-panel">
@@ -6944,6 +7019,31 @@ document.getElementById('btn-print').addEventListener('click', () => {
 });
 
 /* ============================================================
+   PRINT PREVIEW — toggles .print-layout on #plan-view so the
+   advisor can see exactly what the PDF will render (vertical
+   Life Timeline, no dot/phase chart). Click again to exit.
+   ============================================================ */
+document.getElementById('btn-print-preview').addEventListener('click', () => {
+  const planView = document.getElementById('plan-view');
+  if (!planView) return;
+  const nowPreview = !planView.classList.contains('print-layout');
+  planView.classList.toggle('print-layout', nowPreview);
+  // Toggle button label so the user knows how to exit
+  const btn = document.getElementById('btn-print-preview');
+  if (btn) btn.textContent = nowPreview ? '← Exit Preview' : 'Print Preview';
+  if (nowPreview) {
+    // Expose all tabs in preview so the whole plan is visible
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('active'));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    // Restore just the active tab
+    const active = document.querySelector('.plan-tab.active');
+    const tabId = active ? active.dataset.tab : 'summary';
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
+  }
+});
+
+/* ============================================================
    DOWNLOAD PPTX — packages the plan's KPIs + chart images into a
    client-branded PowerPoint using pptxgenjs. Cleaner than PDF for
    slides you want to drop into a pitch deck.
@@ -8096,6 +8196,134 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   }
 
   document.getElementById('btn-review-submit').addEventListener('click', postReview);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     DIFF / COMPARE VIEW — pick two saved plans, compute both, render a
+     side-by-side KPI table with deltas. Team-only (feature gated via CSS
+     .team-only on the launch button).
+     ────────────────────────────────────────────────────────────────────── */
+  async function openDiffModal() {
+    const modal = document.getElementById('diff-modal');
+    const selA = document.getElementById('diff-select-a');
+    const selB = document.getElementById('diff-select-b');
+    modal.classList.remove('hidden');
+    // Populate both selects from the user's visible plans
+    if (!currentUser) {
+      document.getElementById('diff-result').innerHTML = '<div style="padding: 20px; color: var(--crimson);">Sign in to compare saved plans.</div>';
+      return;
+    }
+    const { data, error } = await sb.from(TABLE)
+      .select('id,name,client_email,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(200);
+    if (error) {
+      document.getElementById('diff-result').innerHTML = `<div style="padding: 20px; color: var(--crimson);">Failed to load plans: ${error.message}</div>`;
+      return;
+    }
+    const opts = '<option value="">— select plan —</option>' +
+      (data || []).map(r => `<option value="${r.id}">${r.name || '(untitled)'} · ${r.updated_at ? new Date(r.updated_at).toLocaleDateString() : ''}</option>`).join('');
+    selA.innerHTML = opts;
+    selB.innerHTML = opts;
+    // Pre-select the current plan as A if set
+    if (currentId) selA.value = currentId;
+  }
+
+  function closeDiffModal() {
+    document.getElementById('diff-modal').classList.add('hidden');
+  }
+
+  async function computeSnapshotFromRow(planId) {
+    const { data, error } = await sb.from(TABLE).select('data,name').eq('id', planId).single();
+    if (error) return null;
+    return data;
+  }
+
+  // Apply a snapshot to a hidden clone of the form, snapshot reads, and
+  // run computePlan — without disturbing the current live form state.
+  function computePlanFromSnapshot(snap) {
+    if (!snap) return null;
+    // Save current values, apply snapshot, run computePlan, restore.
+    const saved = snapshotForm();
+    try {
+      hydrateForm(snap);
+      const d = readForm();
+      return computePlan(d);
+    } catch (e) {
+      console.warn('Diff compute failed', e);
+      return null;
+    } finally {
+      hydrateForm(saved);
+    }
+  }
+
+  async function runDiff() {
+    const idA = document.getElementById('diff-select-a').value;
+    const idB = document.getElementById('diff-select-b').value;
+    const resultEl = document.getElementById('diff-result');
+    if (!idA || !idB) { resultEl.innerHTML = '<div style="padding: 20px; color: var(--crimson);">Pick both A and B.</div>'; return; }
+    if (idA === idB)  { resultEl.innerHTML = '<div style="padding: 20px; color: var(--crimson);">Plans A and B are the same — pick different plans.</div>'; return; }
+    resultEl.innerHTML = '<div style="padding: 20px; color: var(--muted); font-style: italic;">Computing both plans…</div>';
+
+    const [rowA, rowB] = await Promise.all([computeSnapshotFromRow(idA), computeSnapshotFromRow(idB)]);
+    if (!rowA || !rowB) { resultEl.innerHTML = '<div style="padding: 20px; color: var(--crimson);">Failed to load one or both plans.</div>'; return; }
+
+    const pA = computePlanFromSnapshot(rowA.data);
+    const pB = computePlanFromSnapshot(rowB.data);
+    if (!pA || !pB) { resultEl.innerHTML = '<div style="padding: 20px; color: var(--crimson);">Failed to compute one or both plans. Check console.</div>'; return; }
+
+    const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+    const fmtPct = (n) => (n || 0).toFixed(1) + '%';
+    const row = (label, valA, valB, isMoney = true, lowerIsBetter = false) => {
+      const delta = (valB || 0) - (valA || 0);
+      const deltaClass = Math.abs(delta) < 1 ? '' : (delta > 0 ? (lowerIsBetter ? 'neg' : 'pos') : (lowerIsBetter ? 'pos' : 'neg'));
+      const sign = delta > 0 ? '+' : '';
+      return `<tr><td>${label}</td><td class="num">${isMoney ? fmt$(valA) : (valA || 0).toFixed(1)}</td><td class="num">${isMoney ? fmt$(valB) : (valB || 0).toFixed(1)}</td><td class="num delta ${deltaClass}">${Math.abs(delta) < 1 ? '—' : sign + (isMoney ? fmt$(delta) : delta.toFixed(1))}</td></tr>`;
+    };
+
+    const nameA = (rowA.name || 'Plan A').replace(/</g, '&lt;');
+    const nameB = (rowB.name || 'Plan B').replace(/</g, '&lt;');
+
+    resultEl.innerHTML = `
+      <table class="diff-table">
+        <thead>
+          <tr><th>Metric</th><th style="text-align: right;">${nameA}</th><th style="text-align: right;">${nameB}</th><th style="text-align: right;">Δ (B − A)</th></tr>
+        </thead>
+        <tbody>
+          <tr style="background: var(--cream-light);"><td colspan="4" style="font-weight: 700; color: var(--gold-dark);">Headline</td></tr>
+          ${row('Total Immediate Tax Savings',      pA.totalImmediate,               pB.totalImmediate)}
+          ${row('Family Net Worth (Post-Sale)',     pA.familyTotalNW,                pB.familyTotalNW)}
+          ${row('Annual Income (Post-Sale)',        pA.annualIncome,                 pB.annualIncome)}
+          ${row('CG Tax Saved vs No-Plan',          pA.cgTaxSavings,                 pB.cgTaxSavings)}
+          ${row('Federal Estate Tax (With Plan)',   pA.estateTaxWithPlan,            pB.estateTaxWithPlan, true, true)}
+          ${row('State Estate Tax (With Plan)',     pA.stateEstateTaxWithPlan,       pB.stateEstateTaxWithPlan, true, true)}
+          <tr style="background: var(--cream-light);"><td colspan="4" style="font-weight: 700; color: var(--gold-dark);">Strategy Values</td></tr>
+          ${row('Dynasty Funding',                  pA.input.dynasty.funding * (pA.input.use.dynasty ? 1 : 0), pB.input.dynasty.funding * (pB.input.use.dynasty ? 1 : 0))}
+          ${row('Dynasty Projected Value',          pA.dynasty20yr,                  pB.dynasty20yr)}
+          ${row('SLAT Future Value',                pA.slatFutureValue,              pB.slatFutureValue)}
+          ${row('IDGT Transferred',                 pA.idgtTransferred,              pB.idgtTransferred)}
+          ${row('GRAT Remainder',                   pA.gratRemainder,                pB.gratRemainder)}
+          ${row('QPRT Estate Removed',              pA.qprtEstateRemoved,            pB.qprtEstateRemoved)}
+          ${row('ILIT Coverage',                    pA.input.ilit.coverage * (pA.input.use.ilit ? 1 : 0), pB.input.ilit.coverage * (pB.input.use.ilit ? 1 : 0))}
+          ${row('QSBS Exclusion Saved',             pA.qsbsTotalSaving,              pB.qsbsTotalSaving)}
+          ${row('QOZ Investment',                   pA.scenarios.scenAll.qozInvestment, pB.scenarios.scenAll.qozInvestment)}
+          <tr style="background: var(--cream-light);"><td colspan="4" style="font-weight: 700; color: var(--gold-dark);">Tax Inputs</td></tr>
+          <tr><td>Federal CG Rate</td><td class="num">${fmtPct(pA.input.tax.fed*100)}</td><td class="num">${fmtPct(pB.input.tax.fed*100)}</td><td class="num">${((pB.input.tax.fed-pA.input.tax.fed)*100).toFixed(1)}%</td></tr>
+          <tr><td>State CG Rate</td><td class="num">${fmtPct(pA.input.tax.state*100)}</td><td class="num">${fmtPct(pB.input.tax.state*100)}</td><td class="num">${((pB.input.tax.state-pA.input.tax.state)*100).toFixed(1)}%</td></tr>
+          <tr><td>Estate Tax Rate</td><td class="num">${fmtPct(pA.input.tax.estate*100)}</td><td class="num">${fmtPct(pB.input.tax.estate*100)}</td><td class="num">${((pB.input.tax.estate-pA.input.tax.estate)*100).toFixed(1)}%</td></tr>
+          ${row('Federal Estate Exemption',         pA.fedEstateExemption,           pB.fedEstateExemption)}
+        </tbody>
+      </table>
+      <div style="margin-top: 16px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong style="color: var(--gold-dark);">Reading:</strong> green Δ = B is better than A for that metric · red Δ = B is worse · "—" means identical (within $1).
+      </div>
+    `;
+  }
+
+  const btnDiff = document.getElementById('btn-diff');
+  if (btnDiff) btnDiff.addEventListener('click', openDiffModal);
+  document.getElementById('btn-diff-close')?.addEventListener('click', closeDiffModal);
+  document.getElementById('diff-modal-backdrop')?.addEventListener('click', closeDiffModal);
+  document.getElementById('btn-diff-compute')?.addEventListener('click', runDiff);
 
   /* ---- Persistent Implementation Checklist ----
      Every .check-item with data-key persists its checked state to
