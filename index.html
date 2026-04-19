@@ -407,6 +407,22 @@
   body.client-view .plan-tab[data-tab="compare"] { display: none !important; }
   body.client-view .tab-panel#panel-tax,
   body.client-view .tab-panel#panel-compare { display: none !important; }
+
+  /* Clients (is-client body class, only true when signed-in + not team)
+     get a streamlined view: cloud bar + builder nav + advanced export
+     buttons are hidden. Their plan auto-loads via boot(); they should
+     only need the Print / Download PDF / Email Plan buttons. */
+  body.is-client .cloud-bar,
+  body.is-client .mode-btn[data-mode="builder"],
+  body.is-client .mode-btn[data-mode="dashboard"],
+  body.is-client #btn-edit,
+  body.is-client #btn-pptx,
+  body.is-client #btn-download,
+  body.is-client #btn-plan-share { display: none !important; }
+  body.is-client .client-welcome { display: block !important; }
+  .client-welcome { display: none; background: linear-gradient(135deg, var(--cream-panel) 0%, #FDF9EC 100%); border-left: 4px solid var(--gold); padding: 16px 24px; margin: 16px auto 0; max-width: 1280px; border-radius: 4px; }
+  .client-welcome h3 { margin: 0 0 6px; font-family: 'Playfair Display', serif; font-size: 18px; color: var(--ink); letter-spacing: 0.5px; }
+  .client-welcome p { margin: 0; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
   /* "Preview as Client" banner shown to team members who've toggled it on */
   .client-preview-banner {
     display: none;
@@ -2575,10 +2591,19 @@
     <button class="btn btn-gold" id="btn-print-preview" title="Preview the print/PDF layout on-screen before committing to PDF">Print Preview</button>
     <button class="btn btn-gold" id="btn-print">Print</button>
     <button class="btn btn-gold" id="btn-pdf">Download PDF</button>
+    <button class="btn btn-gold" id="btn-email-plan" title="Share this plan via email (uses your native share sheet or opens your mail app)">Email Plan</button>
     <button class="btn btn-secondary team-only" id="btn-diff" title="Compare two saved plan versions side-by-side">Compare Versions</button>
     <button class="btn btn-gold" id="btn-pptx">Download PPTX</button>
     <button class="btn btn-primary" id="btn-download">Download HTML</button>
     <button class="btn btn-gold" id="btn-plan-share">Copy Share Link</button>
+  </div>
+
+  <!-- Client welcome banner — shown only when body.is-client (non-team
+       signed-in user). Populated with the client's name + their firm's
+       contact on plan load. -->
+  <div class="client-welcome" id="client-welcome">
+    <h3>Welcome back, <span id="client-welcome-name">—</span></h3>
+    <p>This is your comprehensive financial plan prepared by your advisor. Browse the tabs to see your strategy, post-sale financials, retirement plan, and estate roadmap. Use <strong>Download PDF</strong> or <strong>Email Plan</strong> above to share a copy. Questions? Contact your advisor directly — their details appear in the plan footer.</p>
   </div>
 
   <header class="plan-header">
@@ -6852,6 +6877,9 @@ function generatePlan() {
   // Header
   document.getElementById('plan-title').textContent = `${d.client.primary}${d.client.spouse ? ' & ' + d.client.spouse : ''} — Comprehensive Financial Plan`;
   document.getElementById('plan-subtitle').textContent = `${d.client.location} • ${d.client.year} • ${d.client.subtitle}`;
+  // Client welcome banner — only visible when body.is-client is set
+  const welcomeNameEl = document.getElementById('client-welcome-name');
+  if (welcomeNameEl) welcomeNameEl.textContent = (d.client.primary || 'there').split(' ')[0];
   renderLogoBox(d.firm, d.firm.logo);
 
   // Tabs
@@ -7016,6 +7044,73 @@ document.getElementById('btn-print').addEventListener('click', () => {
   // Expose all tabs for print
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('active'));
   setTimeout(() => window.print(), 100);
+});
+
+/* ============================================================
+   EMAIL PLAN — share the current plan via the native share sheet
+   (navigator.share on macOS/iOS/Android supports file attachments)
+   with a mailto: fallback that prefills subject and body. The PDF
+   blob is generated first via html2pdf so it's ready to attach.
+   ============================================================ */
+document.getElementById('btn-email-plan').addEventListener('click', async () => {
+  if (!window.__PLAN_DATA__) { alert('Generate a plan first.'); return; }
+  if (!window.html2pdf)      { alert('PDF library not loaded yet — try again in a moment.'); return; }
+
+  const d = window.__PLAN_DATA__.input;
+  const primary = (d.client.primary || 'Plan').trim();
+  const fileName = `Pyle Plan — ${primary} — ${d.client.year}.pdf`.replace(/[/\\:*?"<>|]/g, '-');
+
+  // Build the same capture clone as btn-pdf
+  const planView = document.getElementById('plan-view');
+  const captureRoot = planView.cloneNode(true);
+  captureRoot.classList.add('print-layout');
+  captureRoot.style.cssText = 'position:fixed; left:-99999px; top:0; width:900px; background:#F5F1E8;';
+  captureRoot.querySelectorAll('.plan-actions, .plan-tabs, .client-welcome').forEach(el => el.remove());
+  captureRoot.querySelectorAll('.tab-panel').forEach(p => { p.classList.add('active'); p.style.display = 'block'; p.style.pageBreakAfter = 'always'; });
+  document.body.appendChild(captureRoot);
+
+  const subject = `${primary} — Financial Plan (${d.client.year})`;
+  const body = `Attached is the ${d.client.year} financial plan for ${primary}${d.client.spouse ? ' and ' + d.client.spouse : ''}, prepared by ${d.firm?.name || 'your advisor'}.\n\nPlease review and reach out with any questions.\n\nBest,\n${d.firm?.name || ''}`;
+
+  try {
+    // Generate the PDF blob
+    const pdfBlob = await html2pdf().from(captureRoot).set({
+      margin: [12, 12, 14, 12],
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.96 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    }).outputPdf('blob');
+
+    // Preferred: native share sheet with file attachment (Safari/mobile)
+    const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ title: subject, text: body, files: [file] });
+        return;
+      } catch (shareErr) {
+        // user cancelled or share failed — fall through to mailto
+      }
+    }
+
+    // Fallback: download the PDF, then open mailto so user can attach manually
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n(PDF was downloaded to your device — please attach it to this email before sending.)')}`;
+    window.location.href = mailto;
+  } catch (err) {
+    alert('Could not generate PDF for email: ' + err.message);
+  } finally {
+    captureRoot.remove();
+  }
 });
 
 /* ============================================================
