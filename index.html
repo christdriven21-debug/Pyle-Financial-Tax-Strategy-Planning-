@@ -2556,6 +2556,11 @@
         <label>Family &amp; Beneficiaries <span class="hint">(one per line: "Name (YYYY) — relationship". Used for client portrait + beneficiary tracking.)</span></label>
         <textarea id="family-composition" rows="4" style="width: 100%; padding: 10px; font-family: 'Helvetica Neue', sans-serif; font-size: 13px; border: 1px solid rgba(201,169,97,0.4); border-radius: 3px;" placeholder="James Harrison (1998) — son&#10;Emma Harrison (2001) — daughter&#10;Olivia Harrison (2024) — granddaughter&#10;Lucas Harrison (2026) — grandson"></textarea>
       </div>
+
+      <div class="field" style="grid-column: 1 / -1;">
+        <label>Financial Goals <span class="hint">(one per line: "Name | $Amount | TargetYear | Priority | Category". Priority = must / important / aspirational. Category = retirement / education / legacy / lifestyle / philanthropy / major_purchase)</span></label>
+        <textarea id="financial-goals" rows="6" style="width: 100%; padding: 10px; font-family: 'Helvetica Neue', sans-serif; font-size: 13px; border: 1px solid rgba(201,169,97,0.4); border-radius: 3px;" placeholder="Maintain lifestyle through retirement | 15000000 | 2055 | must | retirement&#10;Emma's Stanford education | 500000 | 2034 | must | education&#10;Olivia's college | 350000 | 2042 | important | education&#10;$10M to each child at death | 30000000 | 2055 | important | legacy&#10;Aspen vacation home | 3000000 | 2030 | aspirational | major_purchase&#10;$5M to the hospital foundation | 5000000 | 2040 | important | philanthropy"></textarea>
+      </div>
     </div>
   </section>
 
@@ -3379,6 +3384,7 @@
 
   <nav class="plan-tabs">
     <button class="plan-tab active" data-tab="portrait">Client Portrait</button>
+    <button class="plan-tab" data-tab="goals">Goals</button>
     <button class="plan-tab" data-tab="summary">Plan Overview</button>
     <button class="plan-tab" data-tab="transaction">Transaction Strategy</button>
     <button class="plan-tab" data-tab="financial">Financial Overview</button>
@@ -3393,6 +3399,7 @@
 
   <div class="plan-content">
     <div class="tab-panel active" id="panel-portrait"></div>
+    <div class="tab-panel" id="panel-goals"></div>
     <div class="tab-panel" id="panel-summary"></div>
     <div class="tab-panel" id="panel-transaction"></div>
     <div class="tab-panel" id="panel-financial"></div>
@@ -3937,6 +3944,31 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
 /* ============================================================
    CALCULATION ENGINE
    ============================================================ */
+/* ============================================================
+   GOAL PARSER — converts free-form text input into structured
+   goal objects.
+   Format per line:
+     Name | Amount | TargetYear | Priority | Category
+   Priority: must | important | aspirational
+   Category: retirement | education | legacy | lifestyle | philanthropy | major_purchase
+   ============================================================ */
+function parseGoals(raw) {
+  if (!raw || typeof raw !== 'string') return [];
+  return raw.split('\n').map(line => {
+    const parts = line.split('|').map(s => s.trim());
+    if (parts.length < 3) return null;
+    const [name, amountRaw, yearRaw, priorityRaw, categoryRaw] = parts;
+    const amount = parseFloat((amountRaw || '').replace(/[$,]/g, '')) || 0;
+    const year = parseInt(yearRaw, 10) || 0;
+    if (!name || amount <= 0 || year < 1900) return null;
+    const priority = ['must', 'important', 'aspirational'].includes((priorityRaw || '').toLowerCase())
+      ? priorityRaw.toLowerCase() : 'important';
+    const category = ['retirement', 'education', 'legacy', 'lifestyle', 'philanthropy', 'major_purchase']
+      .includes((categoryRaw || '').toLowerCase()) ? categoryRaw.toLowerCase() : 'lifestyle';
+    return { name, amount, year, priority, category };
+  }).filter(Boolean);
+}
+
 function readForm() {
   // Null-safe accessors. If a field is ever removed from the DOM or a
   // refactor lands an ID rename, these return sensible zero-values instead
@@ -3961,7 +3993,9 @@ function readForm() {
       eduBeneficiaries: n('edu-beneficiaries'),
       eduYearsToCollege: n('edu-years-to-college'),
       familyComposition: t('family-composition'),
+      goalsRaw: t('financial-goals'),
     },
+    goals: parseGoals(t('financial-goals')),
     retirement: {
       tradIRA: n('ret-trad-ira'),
       k401:    n('ret-401k'),
@@ -5208,6 +5242,7 @@ function computePlan(d) {
     ssStrategies, ssBest,
     monteCarlo: runMonteCarlo({ withPlanningTotal, ssAnnualHousehold, nwWithout_total }, d),
     multiYearTax: runMultiYearTax({ withPlanningProceeds, nwWithout_total, ssAnnualHousehold }, d),
+    goalAnalysis: analyzeGoals({ familyTotalNW, withPlanningTotal, dynasty20yr, monteCarlo: runMonteCarlo({ withPlanningTotal, ssAnnualHousehold, nwWithout_total }, d), totalImmediate }, d),
     saleIsAsset, recaptureAmount, recaptureOrdinaryTax, recaptureCGTaxIfStock, assetVsStockPenalty,
     dynasty20yr, dynastyGrowth, dynastyYears, dynastyUsesJointLE,
     cgTaxSavings, totalImmediate,
@@ -5275,6 +5310,15 @@ function renderClientPortrait(p) {
     narrativeParts.push(`This plan guides ${coupleName} through the sale of ${d.biz.name || 'your business'} — ${fmt$M(d.biz.sale)} of lifetime work — and the decades of wealth stewardship that follow.`);
   } else {
     narrativeParts.push(`This is your comprehensive wealth plan — taxes, estate, insurance, and retirement coordinated into one framework.`);
+  }
+
+  // Goals summary — if goals are defined, lead with them
+  const ga = p.goalAnalysis;
+  const hasGoals = ga && ga.goals && ga.goals.length > 0;
+  if (hasGoals) {
+    const greenCount = ga.goals.filter(g => g.status === 'green').length;
+    const total = ga.goals.length;
+    narrativeParts.push(`You've defined <strong>${total} goal${total === 1 ? '' : 's'}</strong> for this plan. <strong>${greenCount} of ${total}</strong> are on-track (≥90% probability). Overall plan-vs-goals score: <strong>${Math.round(ga.overallScore * 100)}%</strong>.`);
   }
 
   const strategyDescriptions = [];
@@ -5449,6 +5493,36 @@ function renderClientPortrait(p) {
       </div>
     </div>` : ''}
 
+    ${hasGoals ? `
+    <!-- Goals summary -->
+    <div class="portrait-section">
+      <div class="section-eyebrow">Your Goals</div>
+      <h2>What this plan is for</h2>
+      <p>The ${ga.goals.length} goal${ga.goals.length === 1 ? '' : 's'} below are what your plan is designed to achieve. Green means on track; yellow means monitor; red means we need to adjust. See the <strong>Goals tab</strong> above for full detail per goal.</p>
+      <div style="margin-top: 18px; display: flex; flex-direction: column; gap: 10px;">
+        ${ga.goals.slice(0, 5).map(g => {
+          const color = g.status === 'green' ? 'var(--success)' : g.status === 'yellow' ? 'var(--gold-dark)' : 'var(--crimson)';
+          const pct = Math.round(g.probability * 100);
+          const icon = { retirement: '🌅', education: '🎓', legacy: '👨‍👩‍👧‍👦', lifestyle: '🏡', philanthropy: '💝', major_purchase: '⭐' }[g.category] || '🎯';
+          return `
+            <div style="display: flex; align-items: center; gap: 16px; padding: 14px 18px; background: var(--cream-light); border-left: 3px solid ${color}; border-radius: 4px;">
+              <span style="font-size: 26px; flex-shrink: 0;">${icon}</span>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 700; color: var(--ink); font-size: 15px;">${g.name}</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">${fmt$M(g.amount)} by ${g.year}</div>
+              </div>
+              <div style="text-align: right; flex-shrink: 0;">
+                <div style="font-family: 'Playfair Display', serif; font-size: 24px; color: ${color}; font-weight: 500; line-height: 1;">${pct}%</div>
+                <div style="font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700; margin-top: 2px;">Confident</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+        ${ga.goals.length > 5 ? `<div style="text-align: center; font-size: 12px; color: var(--muted); font-style: italic; margin-top: 6px;">+${ga.goals.length - 5} more in the Goals tab</div>` : ''}
+      </div>
+    </div>
+    ` : ''}
+
     <!-- Next steps -->
     <div class="portrait-section">
       <div class="section-eyebrow">Your Next Steps</div>
@@ -5486,6 +5560,150 @@ function renderClientPortrait(p) {
         <p style="font-size: 12px; color: var(--muted);">Advisor tool: refine the narrative with AI polish (requires ANTHROPIC_API_KEY environment variable on Vercel).</p>
         <button class="btn-expand" style="background: var(--gold-dark);" onclick="window.__POLISH_NARRATIVE__ && window.__POLISH_NARRATIVE__()">✨ Polish Narrative with AI</button>
         <div id="polish-status" style="margin-top: 10px; font-size: 11px; color: var(--muted); font-style: italic;"></div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   GOALS TAB — per-goal probability analysis with visual progress
+   and strategies attributed. This is the "what do we actually want
+   this plan to achieve" view — everything else is in service of
+   these goals.
+   ============================================================ */
+function renderGoals(p) {
+  const d = p.input;
+  const ga = p.goalAnalysis;
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmtPct = (n) => Math.round((n || 0) * 100) + '%';
+
+  if (!ga || !ga.goals || ga.goals.length === 0) {
+    return `
+      <div class="card" style="border-left: 4px solid var(--gold);">
+        <div class="card-title">🎯 Financial Goals</div>
+        <div class="card-sub">
+          No goals defined yet. Goals turn a strategy plan into a narrative — they're what your client actually cares about (retiring at 60, leaving $10M to each child, funding three grandchildren's education).
+        </div>
+        <div style="margin-top: 18px; padding: 18px 20px; background: var(--cream-light); border-radius: 4px; font-size: 14px; line-height: 1.6; color: var(--ink);">
+          <strong>To add goals</strong>, open the Builder → Section 2 → "Financial Goals" field. Each goal is one line, format:<br><br>
+          <code style="background: #FFF; padding: 6px 10px; display: inline-block; border-radius: 3px; font-size: 12px;">Goal name | $Amount | Target Year | Priority | Category</code><br><br>
+          Example:<br>
+          <code style="background: #FFF; padding: 6px 10px; display: inline-block; border-radius: 3px; font-size: 12px;">Emma's Stanford education | 500000 | 2034 | must | education</code><br><br>
+          <strong>Priority</strong>: must / important / aspirational · <strong>Category</strong>: retirement / education / legacy / lifestyle / philanthropy / major_purchase
+        </div>
+      </div>
+    `;
+  }
+
+  const goals = ga.goals;
+  const overall = Math.round(ga.overallScore * 100);
+  const overallStatus = overall >= 90 ? 'success' : overall >= 70 ? 'gold' : 'warning';
+  const sorted = [...goals].sort((a, b) => {
+    const priorityOrder = { must: 0, important: 1, aspirational: 2 };
+    return priorityOrder[a.priority] - priorityOrder[b.priority] || a.year - b.year;
+  });
+
+  const categoryIcons = {
+    retirement: '🌅',
+    education: '🎓',
+    legacy: '👨‍👩‍👧‍👦',
+    lifestyle: '🏡',
+    philanthropy: '💝',
+    major_purchase: '⭐',
+  };
+  const priorityLabels = {
+    must: { label: 'Must-Have', color: 'var(--crimson)' },
+    important: { label: 'Important', color: 'var(--gold-dark)' },
+    aspirational: { label: 'Aspirational', color: 'var(--success)' },
+  };
+
+  // Overall plan-vs-goals summary
+  const greenCount = goals.filter(g => g.status === 'green').length;
+  const yellowCount = goals.filter(g => g.status === 'yellow').length;
+  const redCount = goals.filter(g => g.status === 'red').length;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold); background: linear-gradient(135deg, var(--cream-panel) 0%, #FDF9EC 100%);">
+      <div class="card-title">🎯 Financial Goals — ${goals.length} defined</div>
+      <div class="card-sub">
+        This is what the plan is for. Each goal below has a projected probability of success based on the strategies in place and Monte Carlo outcomes. Goals are ranked by priority (Must-Have &gt; Important &gt; Aspirational).
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 18px;">
+        <div class="kpi ${overallStatus}"><div class="label">Overall Plan Score</div><div class="value">${overall}%</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Priority-weighted probability</div></div>
+        <div class="kpi success"><div class="label">On Track</div><div class="value">${greenCount}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">≥ 90% probability</div></div>
+        <div class="kpi gold"><div class="label">Need Attention</div><div class="value">${yellowCount}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">70-89%</div></div>
+        <div class="kpi warning"><div class="label">At Risk</div><div class="value">${redCount}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">&lt; 70%</div></div>
+      </div>
+    </div>
+
+    ${sorted.map((g, i) => {
+      const pctW = Math.min(100, Math.round(g.probability * 100));
+      const barColor = g.status === 'green' ? 'var(--success)' : g.status === 'yellow' ? 'var(--gold)' : 'var(--crimson)';
+      const borderColor = g.status === 'green' ? 'var(--success)' : g.status === 'yellow' ? 'var(--gold-dark)' : 'var(--crimson)';
+      const icon = categoryIcons[g.category] || '🎯';
+      const prio = priorityLabels[g.priority] || priorityLabels.important;
+      const hasShortfall = g.shortfall > 0;
+
+      return `
+        <div class="card" style="border-left: 4px solid ${borderColor};">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 280px;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px; flex-wrap: wrap;">
+                <span style="font-size: 24px;">${icon}</span>
+                <h3 style="margin: 0; font-family: 'Playfair Display', serif; font-size: 20px; color: var(--ink);">${g.name}</h3>
+                <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 10px; border-radius: 12px; background: ${prio.color}; color: #FFF;">${prio.label}</span>
+              </div>
+              <div style="font-size: 13px; color: var(--muted); letter-spacing: 0.3px; margin-bottom: 14px;">
+                Target: <strong style="color: var(--ink); font-size: 15px;">${fmt$M(g.amount)}</strong> by ${g.year} · Category: ${g.category.replace('_', ' ')} · ${g.yearsOut} year${g.yearsOut === 1 ? '' : 's'} out
+              </div>
+            </div>
+            <div style="text-align: right; min-width: 140px;">
+              <div style="font-family: 'Playfair Display', serif; font-size: 44px; font-weight: 500; color: ${borderColor}; line-height: 1;">${pctW}%</div>
+              <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700; margin-top: 4px;">Probability of Success</div>
+            </div>
+          </div>
+
+          <!-- Progress bar -->
+          <div style="margin-top: 10px; background: #F0EBD8; border-radius: 4px; height: 12px; overflow: hidden; position: relative;">
+            <div style="background: ${barColor}; height: 100%; width: ${pctW}%; transition: width 0.4s ease;"></div>
+          </div>
+
+          <div style="margin-top: 16px; padding: 14px 16px; background: var(--cream-light); border-radius: 4px; font-size: 13px; line-height: 1.55; color: var(--ink-soft);">
+            <strong style="color: var(--ink);">Funding analysis:</strong> ${g.detail}
+          </div>
+
+          ${hasShortfall ? `
+            <div style="margin-top: 10px; padding: 12px 16px; background: #FFF0F0; border-left: 3px solid var(--crimson); border-radius: 3px; font-size: 12px; color: var(--ink-soft); line-height: 1.55;">
+              <strong style="color: var(--crimson);">⚠️ Shortfall of ${fmt$M(g.shortfall)}.</strong> Consider increasing savings rate, adjusting target amount or year, or layering in additional strategies to close the gap.
+            </div>
+          ` : ''}
+
+          ${g.strategiesAttributed.length > 0 ? `
+            <div style="margin-top: 12px;">
+              <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700; margin-bottom: 8px;">Strategies Attributed to This Goal</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                ${g.strategiesAttributed.map(s => `<span style="padding: 5px 12px; background: #FFF; border: 1px solid var(--gold); border-radius: 14px; font-size: 12px; color: var(--ink);">${s}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('')}
+
+    <div class="card" style="border-left: 4px solid var(--gold); background: var(--cream-light);">
+      <div class="card-title">📖 Reading the Probability Scores</div>
+      <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.6;">
+        Each probability is a directional estimate based on the strategies in the plan + Monte Carlo outcomes for relevant categories. These are planning guideposts, not guarantees:
+        <ul style="margin-top: 10px; margin-bottom: 0;">
+          <li><strong style="color: var(--success);">Green (≥ 90%)</strong>: on track — plan as configured comfortably meets this goal</li>
+          <li><strong style="color: var(--gold-dark);">Yellow (70-89%)</strong>: meet-able but needs monitoring — review annually</li>
+          <li><strong style="color: var(--crimson);">Red (&lt; 70%)</strong>: at risk — adjust goal, savings rate, or strategies</li>
+        </ul>
+        <div style="margin-top: 14px; font-style: italic; color: var(--muted); font-size: 12px;">
+          Scores reflect priority-weighted probability: Must-Have goals (3×) &gt; Important (2×) &gt; Aspirational (1×). Retirement uses Monte Carlo success; education uses 529 superfunding + growth; legacy uses Dynasty Trust + residual estate; philanthropy uses charitable vehicle capacity; lifestyle uses budget sustainability; major purchases use liquid-portfolio earmark.
+        </div>
       </div>
     </div>
   `;
@@ -8450,6 +8668,156 @@ function jointLastSurvivorExpectancy(ageA, ageB) {
 }
 
 /* ============================================================
+   GOAL ANALYSIS — compute per-goal probability of success + funding path
+   Each goal gets:
+     • projectedAtTargetYear: projected portfolio/wealth at target year
+     • probability: rough probability of meeting the goal
+     • status: green (≥90%) / yellow (70-89%) / red (<70%)
+     • shortfall: amount under target, if any
+     • strategiesAttributed: which strategies help fund this goal
+   ============================================================ */
+function analyzeGoals(p, d) {
+  const goals = d.goals || [];
+  if (!goals.length) return { goals: [], overallScore: 0, totalGoalValue: 0 };
+
+  const startYear = d.client.year || new Date().getFullYear();
+  const mcSuccess = (p.monteCarlo && p.monteCarlo.successRate) || 0.75;
+  const growth = d.proj.equity || 0.06;
+
+  // Allocate funding sources to goals by category
+  // Retirement: funded by portfolio + SS + RMD (MC success rate is the proxy)
+  // Education: 529 / taxable savings
+  // Legacy: Dynasty Trust + remainder estate after tax
+  // Lifestyle: annual income surplus
+  // Philanthropy: charitable strategies (DAF, CRAT, CRUT, CLT)
+  // Major_purchase: liquid savings / portfolio withdrawal
+
+  const totalRetirement = p.withPlanningTotal || 0;
+  const dynasty = p.dynasty20yr || 0;
+  const charitableCapacity = (d.use.crat ? d.crat.amount : 0) + (d.use.crut ? d.crut.amount : 0) + (d.use.daf ? d.daf.amount : 0) + (d.use.clt ? d.clt.amount : 0);
+
+  const analyzed = goals.map(g => {
+    const yearsOut = Math.max(0, g.year - startYear);
+    // Inflation-adjust the target back to today's dollars for comparison
+    const inflationAdj = Math.pow(1 + (d.proj.inflation || 0.025), yearsOut);
+    const targetInTodayDollars = g.amount / inflationAdj;
+
+    let probability = 0;
+    let funded = 0;
+    let strategiesAttributed = [];
+    let detail = '';
+
+    switch (g.category) {
+      case 'retirement':
+        // Use Monte Carlo success rate directly
+        probability = mcSuccess;
+        funded = totalRetirement;
+        strategiesAttributed = ['Monte Carlo-backed portfolio', 'Social Security', 'RMDs'];
+        if (d.use.roth) strategiesAttributed.push('Roth conversion');
+        detail = `Backed by the retirement portfolio (${Math.round(totalRetirement/1_000_000)}M) and ${Math.round(mcSuccess*100)}% Monte Carlo success rate over joint life expectancy.`;
+        break;
+
+      case 'education':
+        // 5-year superfunding per beneficiary + growth
+        const nBen = d.client.eduBeneficiaries || 1;
+        const superfund = 95_000 * 2 * nBen;   // $95k × 2 donors × beneficiaries
+        funded = superfund * Math.pow(1 + growth, yearsOut);
+        probability = funded >= g.amount ? 0.95 : Math.min(0.9, funded / g.amount);
+        strategiesAttributed = ['529 superfunding', 'Annual gift-exclusion stacking'];
+        if (d.use.dynasty) strategiesAttributed.push('Dynasty Trust education provisions');
+        detail = `$${Math.round(superfund/1000)}k funded today grows to $${Math.round(funded/1000)}k by ${g.year} at ${(growth*100).toFixed(1)}% return.`;
+        break;
+
+      case 'legacy':
+        // Dynasty Trust + remainder estate after tax
+        const dynastyAt = dynasty;
+        const estateRemainder = (p.familyTotalNW || 0) - (p.taxableEstateWithPlan * d.tax.estate);
+        funded = dynastyAt + Math.max(0, estateRemainder);
+        probability = funded >= g.amount ? 0.95 : Math.min(0.85, funded / g.amount);
+        strategiesAttributed = [];
+        if (d.use.dynasty) strategiesAttributed.push(`Dynasty Trust (projects to $${Math.round(dynastyAt/1_000_000)}M)`);
+        if (d.use.slat) strategiesAttributed.push('SLAT');
+        if (d.use.idgt) strategiesAttributed.push('IDGT');
+        if (d.use.grat) strategiesAttributed.push('GRAT');
+        if (d.use.qprt) strategiesAttributed.push('QPRT');
+        if (d.use.ilit) strategiesAttributed.push('ILIT');
+        detail = `Dynasty Trust + residual estate projected at $${Math.round(funded/1_000_000)}M vs. target $${Math.round(g.amount/1_000_000)}M.`;
+        break;
+
+      case 'lifestyle':
+        // Annual income surplus × years, capitalized
+        const annualSurplus = (p.annualIncome || 0) - ((p.annualBudget || 0));
+        funded = Math.max(0, annualSurplus * 10);  // 10-year running surplus
+        probability = p.budgetSustainable ? 0.90 : 0.55;
+        strategiesAttributed = ['Annual budget discipline', 'Investment portfolio', 'Social Security'];
+        detail = `Annual surplus of $${Math.round(annualSurplus/1000)}k supports lifestyle maintenance.`;
+        break;
+
+      case 'philanthropy':
+        funded = charitableCapacity;
+        probability = funded >= g.amount ? 0.95 : Math.min(0.85, funded / g.amount);
+        strategiesAttributed = [];
+        if (d.use.daf) strategiesAttributed.push(`DAF ($${Math.round(d.daf.amount/1_000_000)}M)`);
+        if (d.use.crat) strategiesAttributed.push(`CRAT ($${Math.round(d.crat.amount/1_000_000)}M)`);
+        if (d.use.crut) strategiesAttributed.push(`CRUT ($${Math.round(d.crut.amount/1_000_000)}M)`);
+        if (d.use.clt)  strategiesAttributed.push(`CLT ($${Math.round(d.clt.amount/1_000_000)}M)`);
+        detail = `Charitable vehicles provide $${Math.round(funded/1_000_000)}M of giving capacity.`;
+        break;
+
+      case 'major_purchase':
+        // Dedicated savings or portfolio withdrawal
+        const liquid = (p.withPlanningProceeds || 0) * 0.1;  // 10% earmarked
+        funded = liquid;
+        probability = funded >= g.amount ? 0.85 : Math.min(0.75, funded / g.amount);
+        strategiesAttributed = ['Liquid portfolio reserve', '§1031 exchange (if real estate)'];
+        detail = `Aspirational purchase — 10% of liquid portfolio earmark: $${Math.round(funded/1_000_000)}M available.`;
+        break;
+
+      default:
+        probability = 0.70;
+        funded = 0;
+        detail = 'Category-specific analysis not implemented — tracked as general goal.';
+    }
+
+    // Priority adjustment: must-have goals get a confidence penalty if underfunded
+    if (g.priority === 'must' && probability < 0.85) {
+      // No bonus; "must" goals need higher bar
+    }
+    if (g.priority === 'aspirational') {
+      probability = Math.min(0.95, probability + 0.05);  // gentler bar
+    }
+
+    const status = probability >= 0.90 ? 'green' : probability >= 0.70 ? 'yellow' : 'red';
+    const shortfall = Math.max(0, g.amount - funded);
+
+    return {
+      ...g,
+      yearsOut,
+      targetInTodayDollars,
+      projectedAtTargetYear: funded,
+      probability,
+      status,
+      shortfall,
+      strategiesAttributed,
+      detail,
+    };
+  });
+
+  const totalGoalValue = analyzed.reduce((s, g) => s + g.amount, 0);
+  // Overall score: weighted by priority
+  const weight = { must: 3, important: 2, aspirational: 1 };
+  let weightedProb = 0, totalWeight = 0;
+  analyzed.forEach(g => {
+    const w = weight[g.priority] || 1;
+    weightedProb += g.probability * w;
+    totalWeight += w;
+  });
+  const overallScore = totalWeight > 0 ? weightedProb / totalWeight : 0;
+
+  return { goals: analyzed, overallScore, totalGoalValue };
+}
+
+/* ============================================================
    MULTI-YEAR TAX FORECAST + ROTH CONVERSION LADDER
    Year-by-year projection of AGI, taxable income, fed + state tax,
    RMD triggers, SS onset, and an optimized Roth conversion schedule
@@ -9928,6 +10296,7 @@ function generatePlan() {
 
   // Tabs
   document.getElementById('panel-portrait').innerHTML = renderClientPortrait(p);
+  document.getElementById('panel-goals').innerHTML = renderGoals(p);
   document.getElementById('panel-summary').innerHTML = renderSummary(p);
   document.getElementById('panel-transaction').innerHTML = renderTransaction(p);
   document.getElementById('panel-financial').innerHTML = renderFinancial(p);
@@ -10542,7 +10911,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'plan-type',
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
       'client-primary-age','client-spouse-age',
-      'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college','family-composition',
+      'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college','family-composition','financial-goals',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
@@ -11917,6 +12286,17 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     lines.push(`\n=== TAX ASSUMPTIONS ===`);
     lines.push(`Federal CG: ${fmtPct(d.tax.fed*100)}, state: ${fmtPct(d.tax.state*100)}, NIIT: ${fmtPct(d.tax.medicare*100)}, marginal ordinary: ${fmtPct(d.tax.marginal*100)}, estate: ${fmtPct(d.tax.estate*100)}`);
     lines.push(`Projection horizon: ${d.proj.years} yrs; equity ${fmtPct(d.proj.equity*100)}; inflation ${fmtPct(d.proj.inflation*100)}`);
+
+    lines.push(`\n=== GOALS ===`);
+    const ga = p.goalAnalysis;
+    if (ga && ga.goals && ga.goals.length) {
+      ga.goals.forEach(g => {
+        lines.push(`• ${g.name} — ${fmt$M(g.amount)} by ${g.year} (${g.priority}, ${g.category}): ${Math.round(g.probability*100)}% probability ${g.status === 'green' ? '✓ on track' : g.status === 'yellow' ? '⚠ monitor' : '✗ at risk'}${g.shortfall > 0 ? ' · shortfall ' + fmt$M(g.shortfall) : ''}`);
+      });
+      lines.push(`Overall plan-vs-goals score: ${Math.round(ga.overallScore*100)}% (priority-weighted)`);
+    } else {
+      lines.push(`(no goals defined — advisor should add them in Section 2 of Builder)`);
+    }
 
     lines.push(`\n=== WARNINGS / FLAGS ===`);
     const warnings = [];
