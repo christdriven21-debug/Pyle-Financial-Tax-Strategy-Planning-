@@ -5881,7 +5881,7 @@ function renderTax(p) {
       <div class="card" style="border-left: 4px solid ${p.niitCapBinds ? 'var(--gold-dark)' : 'var(--success)'};">
         <div class="card-title">${p.niitCapBinds ? '⚠️ §1411 NIIT — MAGI threshold cap binds' : '✓ §1411 NIIT — Full 3.8% applies (MAGI well above threshold)'}</div>
         <div class="card-sub">
-          §1411(a) imposes NIIT = 3.8% × <strong>min</strong>(net investment income, MAGI − $${niitThreshold.toLocaleString()} MFJ). For HNW sales, MAGI usually far exceeds the threshold, so NIIT applies to the full gain at 3.8%. For borderline clients, the threshold cap can reduce NIIT below the full-gain amount.
+          §1411(a) imposes NIIT = 3.8% × <strong>min</strong>(net investment income, MAGI − $250,000 MFJ). For HNW sales, MAGI usually far exceeds the threshold, so NIIT applies to the full gain at 3.8%. For borderline clients, the threshold cap can reduce NIIT below the full-gain amount.
         </div>
         <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
           <div class="kpi"><div class="label">Net Investment Income (gain)</div><div class="value">${fmt$(p.niitNII)}</div></div>
