@@ -3122,6 +3122,7 @@
     <button class="plan-tab" data-tab="summary">Plan Overview</button>
     <button class="plan-tab" data-tab="transaction">Transaction Strategy</button>
     <button class="plan-tab" data-tab="financial">Financial Overview</button>
+    <button class="plan-tab" data-tab="investment">Investment Strategy</button>
     <button class="plan-tab" data-tab="risk">Risk Management</button>
     <button class="plan-tab" data-tab="retirement">Retirement Plan</button>
     <button class="plan-tab" data-tab="tax">Tax Optimization</button>
@@ -3135,6 +3136,7 @@
     <div class="tab-panel" id="panel-summary"></div>
     <div class="tab-panel" id="panel-transaction"></div>
     <div class="tab-panel" id="panel-financial"></div>
+    <div class="tab-panel" id="panel-investment"></div>
     <div class="tab-panel" id="panel-risk"></div>
     <div class="tab-panel" id="panel-retirement"></div>
     <div class="tab-panel" id="panel-tax"></div>
@@ -7859,6 +7861,343 @@ function renderMultiYearTax(p) {
 }
 
 /* ============================================================
+   INVESTMENT STRATEGY — portfolio allocation, asset location, concentration
+   risk, and tax-efficiency analysis. Covers the biggest gap in the original
+   tool: there was no investment guidance despite being a wealth-management
+   platform.
+
+   Engine:
+     1. Age-based glide path (110 - age rule for HNW longer horizons)
+     2. Asset location optimization (tax-inefficient → IRA, efficient → taxable,
+        high-growth → Roth). Computes annual tax drag savings from proper
+        location (typical 40-75 bps).
+     3. Concentration risk flags (pre-sale: biz 100%; post-sale: single-stock)
+     4. Annual investment-discipline checklist (rebalance, harvest, review)
+   ============================================================ */
+function renderInvestmentStrategy(p) {
+  const d = p.input;
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmtPct = (n) => (n || 0).toFixed(1) + '%';
+
+  const primaryAge = d.client.primaryAge || 55;
+  const spouseAge = d.client.spouseAge || 0;
+  const yngest = spouseAge > 0 && spouseAge < primaryAge ? spouseAge : primaryAge;
+
+  // ═══════════════════════════════════════════════════════════
+  // 1. TARGET ALLOCATION — HNW glide path
+  // ═══════════════════════════════════════════════════════════
+  // Rule: equity % = clamp(110 - youngest_age, 30, 90)
+  //   Then allocate remainder across: bonds, real estate, alternatives, cash
+  // HNW-specific: higher alt exposure (PE, hedge, private credit) than retail
+  const targetEquityPct = Math.max(30, Math.min(90, 110 - yngest));
+  const targetBondPct   = Math.max(5,  Math.min(55, 100 - targetEquityPct - 20));  // rest less 20 for RE/alts/cash
+  const targetREPct     = 10;   // real estate (direct + REITs)
+  const targetAltsPct   = 8;    // private equity, hedge, commodities
+  const targetCashPct   = 100 - targetEquityPct - targetBondPct - targetREPct - targetAltsPct;
+  const targetAlloc = [
+    { name: 'Equities',     pct: targetEquityPct, color: '#2D6A4F' },
+    { name: 'Fixed Income', pct: targetBondPct,   color: '#8B7640' },
+    { name: 'Real Estate',  pct: targetREPct,     color: '#C9A961' },
+    { name: 'Alternatives', pct: targetAltsPct,   color: '#8B1A1A' },
+    { name: 'Cash/Equiv',   pct: targetCashPct,   color: '#666666' },
+  ];
+
+  // ═══════════════════════════════════════════════════════════
+  // 2. ASSET LOCATION — map asset classes to account types
+  // ═══════════════════════════════════════════════════════════
+  // Account balances
+  const taxable      = Math.max(0, (p.withPlanningProceeds || 0) + (d.client.otherAssets || 0));
+  const tradIRA      = (d.retirement?.tradIRA || 0) + (d.retirement?.k401 || 0);
+  const rothIRA      = d.retirement?.rothIRA || 0;
+  const hsaBal       = d.retirement?.hsa || 0;
+  const totalAcct    = taxable + tradIRA + rothIRA + hsaBal;
+  const dynastyVal   = p.dynasty20yr || 0;   // handled separately — trust assets
+
+  // Target dollars per asset class
+  const targetDollars = targetAlloc.map(a => ({ ...a, dollars: totalAcct * (a.pct / 100) }));
+
+  // Optimal location: fill tax-inefficient buckets with tax-inefficient classes first
+  // Order of account tax-efficiency (least efficient first):
+  //   Traditional IRA/401k > HSA > Roth IRA > Taxable
+  // But Roth/HSA prefer HIGH GROWTH (long tax-free compounding)
+  //
+  // Recommended mapping:
+  //   Tax-inefficient (bonds, REITs, alts with OI): Traditional IRA
+  //   Moderate (equity mutual funds with turnover): Traditional IRA leftover
+  //   Tax-efficient (index equity, munis): Taxable
+  //   Highest-growth (small-cap, emerging): Roth/HSA
+  const locationPlan = [
+    {
+      asset: 'Fixed Income (taxable bonds)',
+      pct:   targetBondPct,
+      dollars: totalAcct * targetBondPct / 100,
+      rationale: 'Interest income is taxed as ordinary income — shield in pre-tax accounts',
+      recommended: 'Traditional IRA / 401(k)',
+      currentlyIn: tradIRA >= totalAcct * targetBondPct / 100 ? 'Fits' : 'Partial fit',
+    },
+    {
+      asset: 'Real Estate (REITs)',
+      pct:   targetREPct * 0.5,  // half of RE in REITs, half in direct
+      dollars: totalAcct * targetREPct / 100 * 0.5,
+      rationale: 'REIT dividends are non-qualified (ordinary rate) — shield in IRA',
+      recommended: 'Traditional IRA / 401(k)',
+      currentlyIn: 'Depends on holdings',
+    },
+    {
+      asset: 'Alternatives (hedge, private credit)',
+      pct:   targetAltsPct,
+      dollars: totalAcct * targetAltsPct / 100,
+      rationale: 'Ordinary-income-heavy; K-1 passthrough tax complexity — in taxable ONLY if direct partnership interest; else IRA',
+      recommended: 'Mixed: direct PE in taxable, fund-of-funds in IRA',
+      currentlyIn: 'Depends',
+    },
+    {
+      asset: 'Tax-efficient equity (index funds, ETFs)',
+      pct:   targetEquityPct * 0.55,
+      dollars: totalAcct * targetEquityPct / 100 * 0.55,
+      rationale: 'Qualified dividends + LTCG rates — prefer taxable for step-up at death',
+      recommended: 'Taxable',
+      currentlyIn: taxable > 0 ? 'Available' : 'Post-sale only',
+    },
+    {
+      asset: 'Muni bonds (tax-exempt)',
+      pct:   (d.biz.income > 500_000 ? Math.min(10, targetBondPct * 0.3) : 0),
+      dollars: totalAcct * (d.biz.income > 500_000 ? Math.min(10, targetBondPct * 0.3) / 100 : 0),
+      rationale: 'Tax-exempt interest — best held in taxable where the exemption matters',
+      recommended: 'Taxable (never in IRA — loses the exemption)',
+      currentlyIn: 'Recommended for HNW',
+    },
+    {
+      asset: 'High-growth equity (small-cap, emerging, tech)',
+      pct:   targetEquityPct * 0.25,
+      dollars: totalAcct * targetEquityPct / 100 * 0.25,
+      rationale: 'Highest expected long-term growth — maximize tax-free compounding',
+      recommended: 'Roth IRA / HSA',
+      currentlyIn: rothIRA + hsaBal > totalAcct * targetEquityPct / 100 * 0.25 ? 'Fits' : 'Partial fit',
+    },
+    {
+      asset: 'Core equity (large-cap, international)',
+      pct:   targetEquityPct * 0.20,
+      dollars: totalAcct * targetEquityPct / 100 * 0.20,
+      rationale: 'Balanced — split between taxable (basis step-up) and tax-deferred',
+      recommended: 'Split: Taxable + Traditional IRA',
+      currentlyIn: 'Flexible',
+    },
+  ];
+
+  // Tax drag savings from optimal location
+  // Typical advisor estimate: proper location saves 40-75 bps/yr on the whole portfolio
+  // Conservative: 50 bps × portfolio
+  const taxDragSaving = totalAcct * 0.005;
+  const taxDragOver10yr = taxDragSaving * ((Math.pow(1 + d.proj.equity, 10) - 1) / d.proj.equity);
+
+  // ═══════════════════════════════════════════════════════════
+  // 3. CONCENTRATION RISK
+  // ═══════════════════════════════════════════════════════════
+  const concentrationFlags = [];
+  if (d.biz.sale > 0 && d.biz.ownership > 0) {
+    const bizValue = d.biz.sale;
+    const totalWealth = (d.client.preSaleNW || 0) + bizValue + (d.client.otherAssets || 0);
+    const bizPctOfNW = totalWealth > 0 ? (bizValue / totalWealth) * 100 : 0;
+    if (bizPctOfNW > 40) {
+      concentrationFlags.push({
+        severity: 'high',
+        title: `${bizPctOfNW.toFixed(0)}% of net worth in ${d.biz.name || 'the business'}`,
+        detail: 'Pre-sale concentration risk is material. Between today and sale close, any business-specific shock (key-person, industry, buyer financing) could significantly reduce the sale outcome. Pre-sale hedging strategies — 10b5-1 plans (for public stock), exchange funds (for private), collars, and pre-sale diversification of any non-business liquid assets — should be in place.',
+      });
+    }
+  }
+  if (totalAcct > 0) {
+    // Rough post-sale allocation check (can't see real holdings, just flag framework)
+    concentrationFlags.push({
+      severity: 'medium',
+      title: `Post-sale single-stock concentration rule`,
+      detail: 'After sale close, no single position should exceed 10% of the liquid portfolio. Many business owners receive buyer stock as partial consideration; if so, develop a 10b5-1 plan or exchange fund strategy immediately to diversify systematically over 2-5 years. Outright sale may trigger large tax events — pair with QOZ / charitable vehicles to offset.',
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 4. ANNUAL INVESTMENT DISCIPLINE (checklist-style)
+  // ═══════════════════════════════════════════════════════════
+  const disciplineItems = [
+    { icon: '🎯', title: 'Rebalance to target allocation', cadence: 'Annually, or when any asset class drifts > 5% from target', value: `Historically adds ~30-50 bps/yr to risk-adjusted returns` },
+    { icon: '🌾', title: 'Tax-loss harvesting', cadence: 'Monthly scan in taxable; year-end sweep', value: `In taxable accounts: ~30-60 bps/yr of avoided tax (at your ${fmtPct(d.tax.marginal*100)} marginal rate)` },
+    { icon: '⚡', title: 'Direct indexing review', cadence: 'For taxable > $1M, quarterly', value: `Direct indexing captures ~50-100 bps of tax alpha vs. ETFs (custom loss harvesting)` },
+    { icon: '🏦', title: 'Asset location audit', cadence: 'Annually', value: `This plan estimates ${fmt$(taxDragSaving)}/yr of tax drag avoided at optimal location` },
+    { icon: '📊', title: 'Performance review + benchmarking', cadence: 'Quarterly (formal), monthly (informal)', value: 'Use time-weighted returns, compare to blended benchmark; avoid chasing outliers' },
+    { icon: '🔎', title: 'Concentration scan', cadence: 'Quarterly', value: 'Any position > 10% of liquid NW is a flag. HNW families often concentrate around a single ticker by accident.' },
+  ];
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">Investment &amp; Portfolio Strategy</div>
+      <div class="card-sub">
+        Target asset allocation, tax-efficient account placement, concentration risk, and the annual discipline items that separate strong long-term returns from average ones. This tab translates "what we invest in" into concrete recommendations aligned to ${d.client.primary || 'your'} age, tax situation, and account structure.
+      </div>
+    </div>
+
+    <!-- ═══════════════════ TARGET ALLOCATION ═══════════════════ -->
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">🎯 Target Asset Allocation — Age-Based Glide Path</div>
+      <div class="card-sub">
+        Based on youngest age ${yngest} with a long planning horizon, recommended equity weight is <strong>${targetEquityPct}%</strong> (HNW rule: ~110 − age, with a 30-90 band). The remainder is spread across fixed income, real estate, alternatives, and cash equivalents. This is the strategic target; implementation uses asset-location rules (next section) to minimize tax drag.
+      </div>
+
+      <!-- Horizontal stacked bar showing target allocation -->
+      <div style="margin: 20px 0 12px;">
+        <svg viewBox="0 0 800 80" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; display: block;">
+          ${(() => {
+            let x = 0;
+            return targetAlloc.filter(a => a.pct > 0).map(a => {
+              const w = (a.pct / 100) * 800;
+              const r = `<rect x="${x}" y="10" width="${w}" height="40" fill="${a.color}" opacity="0.85"/>
+                         <text x="${x + w/2}" y="35" text-anchor="middle" font-family="Helvetica Neue, sans-serif"
+                               font-size="12" font-weight="700" fill="white">${a.pct}%</text>
+                         <text x="${x + w/2}" y="68" text-anchor="middle" font-family="Helvetica Neue, sans-serif"
+                               font-size="10" fill="#333">${a.name}</text>`;
+              x += w;
+              return r;
+            }).join('');
+          })()}
+        </svg>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 16px;">
+        ${targetAlloc.filter(a => a.pct > 0).map(a => `
+          <div class="kpi" style="border-left: 3px solid ${a.color};">
+            <div class="label">${a.name}</div>
+            <div class="value">${fmt$M(totalAcct * a.pct / 100)}</div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${a.pct}% of ${fmt$M(totalAcct)}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">Expected return check</span>
+        Your plan uses ${fmtPct(d.proj.equity*100)} as the equity growth assumption. At ${targetEquityPct}% equity weight, blended expected nominal return ≈ <strong>${fmtPct(targetEquityPct/100 * d.proj.equity*100 + targetBondPct/100 * 4.5 + targetREPct/100 * d.proj.re*100 + targetAltsPct/100 * 8)}</strong> (equity × 6% + bonds × 4.5% + RE × ${fmtPct(d.proj.re*100)} + alts × 8%). After inflation (${fmtPct(d.proj.inflation*100)}) and typical ~25 bps fee drag, real return ≈ <strong>${fmtPct(targetEquityPct/100 * d.proj.equity*100 + targetBondPct/100 * 4.5 + targetREPct/100 * d.proj.re*100 + targetAltsPct/100 * 8 - d.proj.inflation*100 - 0.25)}</strong>/yr.
+      </div>
+    </div>
+
+    <!-- ═══════════════════ ASSET LOCATION ═══════════════════ -->
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">🏦 Asset Location — Tax-Efficient Account Placement</div>
+      <div class="card-sub">
+        The same dollar invested in a bond fund costs less in a Traditional IRA (no annual tax on interest) than in taxable. The same dollar in a high-growth stock pays off more in a Roth (tax-free forever). Getting location right is worth an estimated <strong>${fmt$(taxDragSaving)}/yr</strong> in tax drag avoided — compounding to <strong>${fmt$(taxDragOver10yr)}</strong> over 10 years.
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Taxable</div><div class="value">${fmt$M(taxable)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Post-sale proceeds + other</div></div>
+        <div class="kpi gold"><div class="label">Traditional IRA / 401(k)</div><div class="value">${fmt$M(tradIRA)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Pre-tax deferred</div></div>
+        <div class="kpi success"><div class="label">Roth IRA</div><div class="value">${fmt$M(rothIRA)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Tax-free forever</div></div>
+        <div class="kpi"><div class="label">HSA</div><div class="value">${fmt$M(hsaBal)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Triple tax-advantaged</div></div>
+      </div>
+
+      <div style="margin-top: 20px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 12px;">
+          <thead>
+            <tr>
+              <th>Asset Class</th>
+              <th class="num">Target %</th>
+              <th class="num">Target $</th>
+              <th>Best Location</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${locationPlan.filter(r => r.pct > 0).map(r => `
+              <tr>
+                <td><strong>${r.asset}</strong></td>
+                <td class="num">${r.pct.toFixed(1)}%</td>
+                <td class="num">${fmt$M(r.dollars)}</td>
+                <td><strong style="color: var(--gold-dark);">${r.recommended}</strong></td>
+                <td style="font-size: 11px; color: var(--ink-soft);">${r.rationale}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">Annual tax drag avoided: ${fmt$(taxDragSaving)}/yr (~50 bps)</span>
+        Empirical studies (Vanguard, Morningstar, Kitces) consistently find optimal asset location adds <strong>0.40%-0.75%/yr</strong> to after-tax returns on mixed portfolios with meaningful tax-deferred + Roth balances. For your portfolio of ${fmt$M(totalAcct)}, that's ${fmt$(totalAcct * 0.004)} to ${fmt$(totalAcct * 0.0075)}/yr. Over 10 years at ${fmtPct(d.proj.equity*100)} growth: <strong>${fmt$(taxDragOver10yr)}</strong> in cumulative tax savings.
+      </div>
+    </div>
+
+    <!-- ═══════════════════ CONCENTRATION RISK ═══════════════════ -->
+    ${concentrationFlags.length > 0 ? `
+    <div class="card" style="border-left: 4px solid ${concentrationFlags.some(f => f.severity === 'high') ? 'var(--crimson)' : 'var(--gold-dark)'};">
+      <div class="card-title">🎚 Concentration Risk Analysis</div>
+      <div class="card-sub">
+        Single-position concentration is the single largest preventable risk in HNW portfolios. Pre-sale and post-sale framework below.
+      </div>
+      <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 14px;">
+        ${concentrationFlags.map(f => `
+          <div style="padding: 16px 18px; background: ${f.severity === 'high' ? '#FFF0F0' : '#FFF8F0'}; border-left: 3px solid ${f.severity === 'high' ? 'var(--crimson)' : 'var(--gold-dark)'}; border-radius: 3px;">
+            <div style="font-weight: 700; font-size: 14px; color: ${f.severity === 'high' ? 'var(--crimson)' : 'var(--gold-dark)'}; margin-bottom: 6px;">${f.severity === 'high' ? '🔴' : '⚠️'} ${f.title}</div>
+            <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.55;">${f.detail}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">Hedging &amp; Diversification Toolkit</span>
+        • <strong>10b5-1 plan</strong> — pre-set trading schedule; SEC-compliant for insiders; removes timing/emotion from diversification<br>
+        • <strong>Exchange fund</strong> — swap concentrated position for diversified partnership units (requires 7-year hold); defers tax<br>
+        • <strong>Variable prepaid forward</strong> — monetize up to 75-90% of position while deferring tax 2-3+ years<br>
+        • <strong>Equity collar</strong> — protective put + call sale; hedges downside, limits upside; tax-deferred<br>
+        • <strong>Charitable stock gift</strong> — donate highly-appreciated position to DAF or CRUT; avoids CG + itemized deduction<br>
+        • <strong>Gradual diversification with QOZ offset</strong> — sell positions in tranches, reinvest gains in QOF
+      </div>
+    </div>
+    ` : ''}
+
+    <!-- ═══════════════════ ANNUAL DISCIPLINE ═══════════════════ -->
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📋 Annual Investment Discipline — The Multi-Basis-Point Checklist</div>
+      <div class="card-sub">
+        Most of the portfolio's long-term outperformance comes not from picking winners but from staying disciplined on six recurring items. Each adds 25-100 basis points/yr on average — combined, they're the difference between beating and trailing a comparable benchmark by 2-3% annually over 20 years.
+      </div>
+      <div style="margin-top: 16px;">
+        ${disciplineItems.map(item => `
+          <div style="margin-bottom: 14px; padding: 14px 16px; background: var(--cream-light); border-left: 3px solid var(--gold); border-radius: 3px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+              <strong style="color: var(--ink); font-size: 14px;">${item.icon} ${item.title}</strong>
+              <span style="font-size: 11px; font-family: 'Helvetica Neue', sans-serif; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700;">${item.cadence}</span>
+            </div>
+            <div style="font-size: 13px; color: var(--ink-soft); line-height: 1.5;">${item.value}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- Summary expected-savings card -->
+    <div class="card" style="border-left: 4px solid var(--success);">
+      <div class="card-title">✓ Investment Strategy Impact Summary</div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="kpi success"><div class="label">Asset Location Savings</div><div class="value">${fmt$(taxDragSaving)}/yr</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">~50 bps of avoided tax drag</div></div>
+        <div class="kpi success"><div class="label">10-Year Cumulative</div><div class="value">${fmt$(taxDragOver10yr)}</div></div>
+        <div class="kpi gold"><div class="label">Expected Real Return</div><div class="value">${fmtPct(targetEquityPct/100 * d.proj.equity*100 + targetBondPct/100 * 4.5 + targetREPct/100 * d.proj.re*100 + targetAltsPct/100 * 8 - d.proj.inflation*100 - 0.25)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">After inflation + fees</div></div>
+        <div class="kpi"><div class="label">Discipline Items</div><div class="value">6</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Reviewed on scheduled cadence</div></div>
+      </div>
+      <div style="margin-top: 14px; padding: 14px 16px; background: #FFF8F0; border-left: 3px solid var(--gold-dark); font-size: 12px; color: var(--ink-soft); line-height: 1.5;">
+        <strong>Note:</strong> This analysis uses the portfolio values on hand (taxable + retirement accounts + trusts). Dynasty Trust / SLAT / IDGT balances have their own investment policy statements maintained by the trustees; allocation below aligns the personal portfolio only. For trust-level asset location, work with the trustee and trust protector on a separate investment-policy-statement schedule.
+      </div>
+    </div>
+  `;
+}
+
+// Store tax drag for Client Portrait
+function _computeTaxDrag(p) {
+  const d = p.input;
+  const taxable  = (p.withPlanningProceeds || 0) + (d.client.otherAssets || 0);
+  const total = taxable + (d.retirement?.tradIRA || 0) + (d.retirement?.k401 || 0) + (d.retirement?.rothIRA || 0) + (d.retirement?.hsa || 0);
+  return total * 0.005;  // ~50 bps typical
+}
+
+/* ============================================================
    RISK MANAGEMENT TAB — life / disability / LTC / umbrella / IRMAA
    Insurance-needs analysis by industry-standard methods:
      - Life: DIME + Human Life Value
@@ -8569,6 +8908,7 @@ function generatePlan() {
   document.getElementById('panel-summary').innerHTML = renderSummary(p);
   document.getElementById('panel-transaction').innerHTML = renderTransaction(p);
   document.getElementById('panel-financial').innerHTML = renderFinancial(p);
+  document.getElementById('panel-investment').innerHTML = renderInvestmentStrategy(p);
   document.getElementById('panel-risk').innerHTML = renderRiskManagement(p);
   document.getElementById('panel-tax').innerHTML = renderTax(p);
   document.getElementById('panel-compare').innerHTML = renderCompare(p);
