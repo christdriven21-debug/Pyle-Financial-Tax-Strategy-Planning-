@@ -2044,9 +2044,37 @@
           </select>
         </div>
       </div>
-      <!-- Federal exclusion % is now DERIVED from the regime + years held
-           (see computePlan). The old manual "qsbs-excl" input was removed
-           because OBBBA's tiered rule is deterministic from holding period. -->
+
+      <!-- §1202 ELIGIBILITY ATTESTATIONS — all four MUST be checked before
+           the exclusion applies. Missing any one = IRS disqualifies the
+           exclusion on audit. These are advisor-verified facts that
+           cannot be inferred from the other fields. -->
+      <div style="margin-top: 16px; padding: 14px 16px; background: #FFF8F0; border: 1px solid var(--gold-dark); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 10px;">⚠️ §1202 Eligibility Attestations</div>
+        <div style="font-size: 12px; color: var(--ink-soft); margin-bottom: 12px; font-style: italic;">Every test below must be satisfied. Any "No" disqualifies the entire §1202 exclusion — the tool zeroes the saving until all four are confirmed.</div>
+        <div class="form-grid cols-2" style="gap: 10px;">
+          <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="qsbs-attest-ccorp" style="margin-top: 3px;">
+            <span><strong>C-Corporation throughout</strong> — entity has been a C-Corp for the entire holding period (§1202(c)(1)). LLC or S-Corp conversions disqualify the stock unless specifically structured to preserve §1202.</span>
+          </label>
+          <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="qsbs-attest-active" style="margin-top: 3px;">
+            <span><strong>Qualified active business</strong> — at least 80% of the corporation's assets are used in a qualified trade or business (§1202(e)(3)). NOT qualified: banking, insurance, financing, farming, hotels/motels, most SSTBs (health, law, accounting, consulting), and businesses whose principal asset is employee reputation.</span>
+          </label>
+          <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="qsbs-attest-grossassets" style="margin-top: 3px;">
+            <span><strong>Gross-asset test at issuance</strong> — corporation had <strong>≤$50M gross assets (pre-OBBBA) or ≤$75M (post-OBBBA)</strong> at the time the stock was issued, tested immediately before AND after the issuance (§1202(d)(1)).</span>
+          </label>
+          <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; cursor: pointer;">
+            <input type="checkbox" id="qsbs-attest-original" style="margin-top: 3px;">
+            <span><strong>Original issuance</strong> — stock was acquired <strong>at original issuance</strong> from the corporation (not purchased from another shareholder), in exchange for money, property (other than stock), or as compensation (§1202(c)(1)(B)).</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Federal exclusion % is DERIVED from regime + years held + attestations.
+           The old manual "qsbs-excl" input was removed because OBBBA's tiered
+           rule is deterministic. -->
       <input type="hidden" id="qsbs-excl" value="100">
     </div>
 
@@ -3161,6 +3189,10 @@ function readForm() {
       exclPct: n('qsbs-excl') / 100,
       stateConforms: t('qsbs-state-conforms') === 'yes',
       regime: t('qsbs-regime') || 'pre-obbba',  // 'pre-obbba' | 'post-obbba'
+      attestCCorp:       c('qsbs-attest-ccorp'),
+      attestActive:      c('qsbs-attest-active'),
+      attestGrossAssets: c('qsbs-attest-grossassets'),
+      attestOriginal:    c('qsbs-attest-original'),
     },
     exch1031: { sale: n('exch-sale'), basis: n('exch-basis'), replacement: n('exch-replacement') },
     qbi: { income: n('qbi-income'), pct: n('qbi-pct') / 100, sstb: t('qbi-sstb') === 'yes' },
@@ -3218,9 +3250,51 @@ function computePlan(d) {
   const recaptureCGTaxIfStock = recaptureAmount * combinedCGRate;
   const assetVsStockPenalty = Math.max(0, recaptureOrdinaryTax - recaptureCGTaxIfStock);
 
-  // Strategy amounts (zero if strategy disabled)
+  // ──────────────────────────────────────────────────────────────────────
+  // CRAT §664(d)(1) QUALIFICATION TESTS (run FIRST; a failed CRAT gets
+  // zero benefits — no deduction, no CG elimination, no estate savings).
+  //   (A) Annuity must be ≥ 5% and ≤ 50% of initial FMV
+  //   (D) PV of remainder interest must be ≥ 10% of initial FMV
+  //   (E) 5% probability-of-exhaustion test (Rev. Rul. 77-374, not tested
+  //       here — advisor verifies)
+  //   Remainder factor ≈ 1 - (rate × PV-annuity-factor at §7520 for term)
+  // ──────────────────────────────────────────────────────────────────────
+  const cratHurdle = (d.crat && d.crat.hurdle !== undefined) ? d.crat.hurdle : 0.054;
+  const cratTerm   = 20;  // max-term CRAT default (advisor sets rate; term is worst-case)
+  const cratAnnuityFactor = cratHurdle > 0
+    ? (1 - Math.pow(1 + cratHurdle, -cratTerm)) / cratHurdle
+    : cratTerm;
+  const cratRemainderPct = d.use.crat
+    ? Math.max(0, 1 - (d.crat.rate || 0) * cratAnnuityFactor)
+    : 0;
+  const cratFails10PctTest = d.use.crat && cratRemainderPct < 0.10;
+  const cratFails5PctMin   = d.use.crat && (d.crat.rate || 0) < 0.05;
+  const cratFails50PctMax  = d.use.crat && (d.crat.rate || 0) > 0.50;
+  const cratQualified = d.use.crat && !cratFails10PctTest && !cratFails5PctMin && !cratFails50PctMax;
+  const cratQualificationIssue = d.use.crat && !cratQualified;
+
+  // CRUT §664(d)(2) — same tests but unitrust remainder factor simulation
+  const crutHurdle = (d.crut && d.crut.hurdle !== undefined) ? d.crut.hurdle : 0.054;
+  const crutTerm   = 20;
+  let crutRemainderPct = 0;
+  if (d.use.crut && d.crut.amount > 0) {
+    // Simulate: bal = 1 normalized; each year payout = bal × rate, then
+    // compound at §7520 for actuarial remainder valuation; discount back.
+    let bal = 1;
+    for (let y = 0; y < crutTerm; y++) {
+      bal = bal * (1 - (d.crut.rate || 0)) * (1 + crutHurdle);
+    }
+    crutRemainderPct = bal / Math.pow(1 + crutHurdle, crutTerm);
+  }
+  const crutFails10PctTest = d.use.crut && crutRemainderPct < 0.10;
+  const crutFails5PctMin   = d.use.crut && (d.crut.rate || 0) < 0.05;
+  const crutFails50PctMax  = d.use.crut && (d.crut.rate || 0) > 0.50;
+  const crutQualified = d.use.crut && !crutFails10PctTest && !crutFails5PctMin && !crutFails50PctMax;
+  const crutQualificationIssue = d.use.crut && !crutQualified;
+
+  // Strategy amounts (zero if strategy disabled OR disqualified)
   const dyAmt = d.use.dynasty ? d.dynasty.funding : 0;
-  const crAmt = d.use.crat ? d.crat.amount : 0;
+  const crAmt = cratQualified ? d.crat.amount : 0;   // DISQUALIFIED CRAT = $0 benefits
   const dafAmt = d.use.daf ? d.daf.amount : 0;
 
   // CORRECTED: contribution reduces GAIN by (contribution × appreciation
@@ -3304,11 +3378,80 @@ function computePlan(d) {
     };
   })();
 
-  // Deductions
-  const cratDeduction = d.use.crat ? crAmt * d.crat.dedPct : 0;
+  // Deductions — CRAT deduction is zero if disqualified (§664(d) test
+  // failures zero out the charitable deduction AND the CG elimination)
+  const cratDeduction = cratQualified ? crAmt * d.crat.dedPct : 0;
   const dafDeduction = d.use.daf ? dafAmt : 0;
   const totalCharitableDed = cratDeduction + dafDeduction;
-  const incomeTaxSavings = totalCharitableDed * d.tax.marginal;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // §170(b) AGI CAPS on charitable deductions — CRITICAL
+  //
+  //   Cash to public charity (incl. DAF sponsor):    §170(b)(1)(A) — 60% of AGI
+  //   Long-term capital gain property to public:     §170(b)(1)(C) — 30% of AGI
+  //   Cash to private foundation:                    §170(b)(1)(B) — 30% of AGI
+  //   LTCG property to private foundation:           §170(b)(1)(D) — 20% of AGI
+  //   CRAT/CRUT contribution of appreciated LTCG:    30% of AGI cap (remainder interest)
+  //
+  //   EXCESS deduction carries forward 5 years per §170(d).
+  //
+  //   Assumptions (modifiable by advisor in future):
+  //   - DAF treated as LTCG-appreciated to public charity → 30% cap
+  //   - CRAT treated as LTCG-appreciated remainder to public → 30% cap
+  //
+  //   AGI proxy for YEAR OF SALE = biz.income + gross gain on sale (pre-tax,
+  //   post-§1202 exclusion). For ongoing (no sale) years, AGI = biz.income
+  //   only. This is the conservative baseline; CPA refines with full Schedule
+  //   A adjustments.
+  //
+  //   Output: current-year allowable deduction, carryforward amount, and
+  //   year-by-year schedule of when excess gets used up.
+  // ──────────────────────────────────────────────────────────────────────
+  const agiYearOfSale = (d.biz.income || 0) + Math.max(0, (scenAll.taxableGain - qsbsActualExcl));
+  const agiOngoing    = (d.biz.income || 0);
+  const agiForCap     = salePrice > 0 ? agiYearOfSale : agiOngoing;
+
+  // Caps
+  const capDaf30  = agiForCap * 0.30;   // LTCG property to public charity
+  const capCrat30 = agiForCap * 0.30;   // CRAT remainder, same 30% bucket
+
+  // Allowable deductions (capped) and 5-yr carryforward.
+  // §170(d) order: use up highest-cap bucket first (60%) then 30%, then 20%.
+  // For simplicity we apply DAF + CRAT to the 30% bucket combined.
+  const combined30BucketContrib = dafDeduction + cratDeduction;
+  const combined30BucketAllowed = Math.min(combined30BucketContrib, capDaf30);
+  const combined30BucketCarryover = Math.max(0, combined30BucketContrib - combined30BucketAllowed);
+
+  // Proportionally allocate allowed & carryover between DAF and CRAT
+  const dafPct  = combined30BucketContrib > 0 ? dafDeduction / combined30BucketContrib : 0;
+  const cratPct = combined30BucketContrib > 0 ? cratDeduction / combined30BucketContrib : 0;
+  const dafAllowed     = combined30BucketAllowed * dafPct;
+  const cratAllowed    = combined30BucketAllowed * cratPct;
+  const dafCarryover   = combined30BucketCarryover * dafPct;
+  const cratCarryover  = combined30BucketCarryover * cratPct;
+
+  // Year-of-sale savings uses allowed portion only. Carryforward savings
+  // get applied against AGI in subsequent years (assume same marginal rate).
+  const currentYearCharitableDed = dafAllowed + cratAllowed;
+  const carryoverCharitableDed   = dafCarryover + cratCarryover;
+  const incomeTaxSavings = currentYearCharitableDed * d.tax.marginal;
+  const incomeTaxSavingsCarryfwd = carryoverCharitableDed * d.tax.marginal;  // future-years savings
+
+  // Build carryforward schedule — assume ongoing years' AGI = biz.income only
+  // (no sale recurring); 30% cap applies against that ongoing AGI. §170(d)
+  // allows 5 years of carryforward.
+  const carryoverSchedule = [];
+  let remaining = carryoverCharitableDed;
+  for (let yr = 1; yr <= 5 && remaining > 0; yr++) {
+    const yrCap = agiOngoing * 0.30;
+    const used = Math.min(remaining, yrCap);
+    carryoverSchedule.push({ year: d.client.year + yr, deduction: used, savings: used * d.tax.marginal });
+    remaining -= used;
+  }
+  const carryoverUnused = remaining;  // any deduction that expires unused after year 5
+
+  // AGI cap flags for UI warning
+  const agiCapTriggered = combined30BucketCarryover > 0;
 
   // Estate tax savings — CORRECTED to avoid phantom "savings" from
   // exemption-using gifts.
@@ -3540,11 +3683,26 @@ function computePlan(d) {
   const qsbsRegime = d.qsbs.regime || 'pre-obbba';
   const qsbsIsPostOBBBA = qsbsRegime === 'post-obbba';
 
-  // Determine eligibility + auto-derived exclusion percentage based on regime
+  // Determine eligibility + auto-derived exclusion percentage based on
+  // regime AND on advisor-attested facts (§1202(c)(1), §1202(d), §1202(e)(3)).
+  // Any missing attestation = NO EXCLUSION — tool zeros out until all four
+  // are confirmed.
   let qsbsEligible = false;
   let qsbsExclPct = 0;
   let qsbsHoldStatus = '';
-  if (d.use.qsbs) {
+  const qsbsAttestationsComplete = d.use.qsbs
+    && d.qsbs.attestCCorp
+    && d.qsbs.attestActive
+    && d.qsbs.attestGrossAssets
+    && d.qsbs.attestOriginal;
+  const qsbsMissingAttestations = d.use.qsbs && !qsbsAttestationsComplete ? [
+    !d.qsbs.attestCCorp       && 'C-Corp throughout holding period (§1202(c)(1))',
+    !d.qsbs.attestActive      && 'Qualified active business (§1202(e)(3))',
+    !d.qsbs.attestGrossAssets && 'Gross-asset test at issuance (§1202(d))',
+    !d.qsbs.attestOriginal    && 'Original issuance requirement (§1202(c)(1)(B))',
+  ].filter(Boolean) : [];
+
+  if (d.use.qsbs && qsbsAttestationsComplete) {
     if (qsbsIsPostOBBBA) {
       if (d.qsbs.yearsHeld >= 5)      { qsbsEligible = true; qsbsExclPct = 1.00; qsbsHoldStatus = 'post-OBBBA, 5+yr → 100%'; }
       else if (d.qsbs.yearsHeld >= 4) { qsbsEligible = true; qsbsExclPct = 0.75; qsbsHoldStatus = 'post-OBBBA, 4-yr → 75%'; }
@@ -3554,6 +3712,8 @@ function computePlan(d) {
       if (d.qsbs.yearsHeld >= 5)      { qsbsEligible = true; qsbsExclPct = 1.00; qsbsHoldStatus = 'pre-OBBBA, 5+yr → 100%'; }
       else                            { qsbsHoldStatus = 'pre-OBBBA, under 5-yr — ineligible'; }
     }
+  } else if (d.use.qsbs) {
+    qsbsHoldStatus = `missing attestations: ${qsbsMissingAttestations.length} of 4 §1202 tests not confirmed`;
   }
 
   // Cap: $10M pre-OBBBA, $15M post-OBBBA; or 10× basis if larger
@@ -3666,11 +3826,14 @@ function computePlan(d) {
   //   which is a ~35% factor for 5% unitrust payout over long terms.
   // ──────────────────────────────────────────────────────────────────────
   let crutDeduction = 0, crutEstateSave = 0, crutIncome = 0;
-  if (d.use.crut) {
+  if (crutQualified) {
     crutDeduction  = d.crut.amount * d.crut.dedPct;
     crutEstateSave = d.crut.amount * d.tax.estate;
     crutIncome     = d.crut.amount * d.crut.rate; // first-year; grows with trust value
   }
+  // If CRUT fails §664(d)(2), the trust is not a qualified CRT: no charitable
+  // deduction, no CG elimination on contribution, no estate removal benefit.
+  // Advisor sees zeros across the board + red warning in the Tax tab card.
   const crutIncomeTaxSavings = crutDeduction * d.tax.marginal;
 
   // ──────────────────────────────────────────────────────────────────────
@@ -4035,6 +4198,11 @@ function computePlan(d) {
     combinedCGRate,
     scenarios: comparison,
     cratDeduction, dafDeduction, totalCharitableDed, incomeTaxSavings,
+    agiYearOfSale, agiOngoing, agiForCap, capDaf30, capCrat30,
+    combined30BucketContrib, combined30BucketAllowed, combined30BucketCarryover,
+    dafAllowed, cratAllowed, dafCarryover, cratCarryover,
+    currentYearCharitableDed, carryoverCharitableDed,
+    incomeTaxSavingsCarryfwd, carryoverSchedule, carryoverUnused, agiCapTriggered,
     dynastyEstateSave, cratEstateSave, dafEstateSave, totalEstateSave,
     dynastyGiftValue, dynastyDiscountAmt, dynastyDiscountSave,
     slatGiftValue, slatDiscountAmt, slatDiscountSave,
@@ -4047,6 +4215,7 @@ function computePlan(d) {
     rothIncomeTax, rothEstateSave, rothNetEstateSave, rothFutureValue, rothGrowthBenefit,
     gratRemainder, gratEstateSave, gratAnnuity,
     qsbsEligible, qsbsMaxExcl, qsbsActualExcl, qsbsExclPct, qsbsHoldStatus, qsbsIsPostOBBBA,
+    qsbsAttestationsComplete, qsbsMissingAttestations,
     qsbsFederalSaved, qsbsMedicareSaved, qsbsStateSaved, qsbsTotalSaving,
     exch1031Gain, exch1031Deferred, exch1031Boot, exch1031TaxDeferred,
     qbiDeduction, qbiSavings, qbiPhaseOutPct, qbiFullyPhasedOut,
@@ -4054,6 +4223,8 @@ function computePlan(d) {
     idgtTransferred, idgtEstateSave,
     qprtRemainderFactor, qprtMortalityProb, qprtTaxableGift, qprtResidenceFutureValue, qprtEstateRemoved, qprtEstateSave,
     crutDeduction, crutEstateSave, crutIncome, crutIncomeTaxSavings,
+    cratRemainderPct, cratQualified, cratFails10PctTest, cratFails5PctMin, cratFails50PctMax, cratQualificationIssue,
+    crutRemainderPct, crutQualified, crutFails10PctTest, crutFails5PctMin, crutFails50PctMax, crutQualificationIssue,
     cltTaxableGift, cltFutureValue, cltCharityTotal, cltRemainderValue, cltEstateSave,
     amti, amtAdjustedExemption, amtTaxable, amtTentative, amtRegularTax, amtLiability, amtTriggered,
     annualBudget, investableBase, requiredDistPct, budgetSafeRate, budgetHeadroom, budgetSustainable, budgetShortfall,
@@ -4526,6 +4697,63 @@ function renderTransaction(p) {
     detail: `Estate attorney, transaction attorney, tax CPA, and valuation expert engaged. Entity restructured to create voting/non-voting share classes (typically 1% voting / 99% non-voting) so the grantor retains control while transferring non-voting shares at discounted values.`,
   });
 
+  // ──────────────────────────────────────────────────────────────────────
+  // STEP-TRANSACTION RISK WARNING (Pre-Sale Dynasty/SLAT/IDGT with Discount)
+  //
+  //   Law: Holman v. Commissioner, 130 T.C. 170 (2008); Linton v. United
+   //   States, 630 F.3d 1211 (9th Cir. 2011); Rev. Rul. 76-103;
+  //   §2703 family entity restrictions.
+  //
+  //   If business shares are transferred to a trust with a valuation
+  //   discount SHORTLY BEFORE a pre-negotiated sale (LOI signed, buyer
+  //   identified, price known), the IRS invokes step-transaction doctrine
+  //   and treats the shares as if they never left the grantor's hands.
+  //   Consequence: discount collapses (no lack-of-control argument when
+  //   liquidity was imminent), and grantor attribution of the CG.
+  //
+  //   Practical threshold: most practitioners recommend funding at least
+  //   6-12 months before any LOI is signed, with contemporaneous business
+  //   purpose unrelated to the sale, and a qualified independent appraiser.
+  // ──────────────────────────────────────────────────────────────────────
+  const hasDiscountedPreSaleGift = d.biz.sale > 0 && (
+    (d.use.dynasty && (d.dynasty.discount || 0) > 0) ||
+    (d.use.slat    && (d.slat.discount    || 0) > 0) ||
+    (d.use.idgt    && (d.idgt.discount    || 0) > 0)
+  );
+  const stepTransactionWarning = hasDiscountedPreSaleGift ? `
+    <div class="card sale-only" style="border-left: 5px solid var(--crimson); background: #FFF8F0;">
+      <div class="card-title" style="color: var(--crimson);">🚨 STEP-TRANSACTION DOCTRINE RISK — Pre-Sale Discounted Gifts</div>
+      <div class="card-sub">
+        This plan uses <strong>valuation discounts</strong> on pre-sale transfers to:
+        ${d.use.dynasty && d.dynasty.discount > 0 ? `Dynasty Trust (${fmtPct(d.dynasty.discount*100)} discount on ${fmt$M(d.dynasty.funding)}) · ` : ''}
+        ${d.use.slat    && d.slat.discount    > 0 ? `SLAT (${fmtPct(d.slat.discount*100)} discount on ${fmt$M(d.slat.funding)}) · ` : ''}
+        ${d.use.idgt    && d.idgt.discount    > 0 ? `IDGT (${fmtPct(d.idgt.discount*100)} discount on ${fmt$M(d.idgt.amount)}) · ` : ''}
+        totaling <strong>${fmt$((d.use.dynasty ? d.dynasty.funding * (d.dynasty.discount || 0) : 0) + (d.use.slat ? d.slat.funding * (d.slat.discount || 0) : 0) + (d.use.idgt ? d.idgt.amount * (d.idgt.discount || 0) : 0))}</strong> of "free" wealth transfer. That benefit is at audit risk under step-transaction doctrine.
+      </div>
+      <div style="margin-top: 14px; padding: 14px 16px; background: #FFF; border-radius: 4px; border: 1px solid var(--crimson);">
+        <div style="font-size: 13px; color: var(--ink); line-height: 1.6;">
+          <strong style="color: var(--crimson);">What the IRS does at audit:</strong> If the transfer happened too close to a pre-negotiated sale, the IRS invokes <em>Holman v. Commissioner</em>, 130 T.C. 170 (2008) and <em>Linton v. United States</em>, 630 F.3d 1211 (9th Cir. 2011) — and under Rev. Rul. 76-103, collapses the transaction. Consequence:
+          <ul style="margin: 8px 0 8px 20px; padding: 0;">
+            <li>Valuation discount <strong>disappears</strong> — the IRS revalues at non-discounted FMV</li>
+            <li>Lack-of-marketability discount also fails (shares were about to be marketable)</li>
+            <li>§2703 family-entity restrictions may be disregarded if entity was created for tax purposes, not bona fide business reasons</li>
+            <li>Grantor may be attributed back the CG tax on shares "never actually transferred"</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 14px 16px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">Required Safe-Harbor Steps</div>
+        <div style="font-size: 13px; color: var(--ink); line-height: 1.6;">
+          <strong>1.</strong> Fund trusts <strong>BEFORE any LOI is signed</strong> — ideally 6–12+ months ahead of a known sale window.<br>
+          <strong>2.</strong> Document a <strong>bona fide business purpose independent of the sale</strong> (e.g., succession planning, creditor protection, GST planning for future generations) in the entity's minutes and trust instruments.<br>
+          <strong>3.</strong> Obtain a <strong>qualified independent appraisal</strong> under §170(f)(11) from an appraiser with no conflict of interest — preserves the discount's defensibility.<br>
+          <strong>4.</strong> Entity restrictions (non-voting shares, buy-sell, transfer restrictions) must satisfy all three §2703(b) requirements: bona fide business arrangement, not a device to transfer to family for less than full consideration, and comparable to arm's-length terms.<br>
+          <strong>5.</strong> <strong>Maintain the gift</strong> during negotiations — don't reverse, modify, or recapture the transferred shares once a buyer emerges.
+        </div>
+      </div>
+    </div>
+  ` : '';
+
   const preTransactionCard = `
     <div class="card sale-only" style="border-left: 4px solid var(--gold-dark);">
       <div class="card-title">📋 Pre-Transaction Playbook</div>
@@ -4619,6 +4847,8 @@ function renderTransaction(p) {
 
   return `
     ${timelineHTML}
+
+    ${stepTransactionWarning}
 
     ${preTransactionCard}
 
@@ -5141,11 +5371,29 @@ function renderTax(p) {
     }
   }
   if (d.use.crat) {
-    items.push({ label: 'CRAT Cap Gains Elimination', value: d.crat.amount * p.combinedCGRate, desc: `${fmt$M(d.crat.amount)} CRAT contribution eliminates capital gains tax on ${fmt$M(d.crat.amount)} of appreciated business assets.` });
-    items.push({ label: 'CRAT Charitable Deduction', value: p.cratDeduction * d.tax.marginal, desc: `Immediate charitable deduction of ${fmt$(p.cratDeduction)} from CRAT. Tax savings at ${fmtPct(d.tax.marginal*100)} marginal rate.` });
+    if (p.cratQualificationIssue) {
+      const reasons = [];
+      if (p.cratFails5PctMin)   reasons.push(`payout rate ${fmtPct(d.crat.rate*100)} below <strong>§664(d)(1)(A) 5% minimum</strong>`);
+      if (p.cratFails50PctMax)  reasons.push(`payout rate ${fmtPct(d.crat.rate*100)} above <strong>§664(d)(1)(A) 50% maximum</strong>`);
+      if (p.cratFails10PctTest) reasons.push(`PV of remainder is only <strong>${fmtPct(p.cratRemainderPct*100)}</strong>, below the <strong>§664(d)(1)(D) 10% minimum</strong>`);
+      items.push({
+        label: '⛔ CRAT DISQUALIFIED — §664(d)(1) test failure',
+        value: 0,
+        desc: `<strong style="color:var(--crimson);">This CRAT does NOT meet IRC §664(d)(1) and will not be recognized as a charitable remainder trust.</strong> Issues: ${reasons.join(' · ')}. <strong>Consequences if implemented as drafted:</strong> (1) no charitable deduction under §170 — lose ${fmt$(d.crat.amount * d.crat.dedPct * d.tax.marginal)} of income-tax savings; (2) contribution of appreciated assets recognized as sale to grantor — lose ${fmt$(d.crat.amount * p.combinedCGRate)} of CG elimination; (3) no estate removal. <strong>Fix:</strong> reduce payout rate to ≤ ${fmtPct((1 - 0.10) / ((1 - Math.pow(1.054, -20)) / 0.054) * 100)}% (or shorten term or raise §7520 assumption). Current 10% test result: ${fmtPct(p.cratRemainderPct*100)}.`,
+      });
+    } else {
+      items.push({ label: 'CRAT Cap Gains Elimination', value: d.crat.amount * p.combinedCGRate, desc: `${fmt$M(d.crat.amount)} CRAT contribution eliminates capital gains tax on ${fmt$M(d.crat.amount)} of appreciated business assets. §664(d)(1) tests passed: payout ${fmtPct(d.crat.rate*100)} (5%-50% range ✓), remainder PV ${fmtPct(p.cratRemainderPct*100)} (≥10% ✓).` });
+      const cratCapNote = p.cratCarryover > 0
+        ? ` <strong style="color:var(--gold-dark);">⚠️ §170(b) 30%-of-AGI cap limits year-1 deduction to ${fmt$(p.cratAllowed)}</strong>. Remaining ${fmt$(p.cratCarryover)} carries forward 5 years (§170(d)).`
+        : '';
+      items.push({ label: 'CRAT Charitable Deduction (after AGI cap)', value: p.cratAllowed * d.tax.marginal, desc: `CRAT PV-of-remainder deduction: ${fmt$(p.cratDeduction)} (${fmtPct(d.crat.dedPct*100)} factor). Year-1 allowable: <strong>${fmt$(p.cratAllowed)}</strong> at ${fmtPct(d.tax.marginal*100)} marginal.${cratCapNote}` });
+    }
   }
   if (d.use.daf) {
-    items.push({ label: 'DAF Charitable Deduction', value: d.daf.amount * d.tax.marginal, desc: `${fmt$M(d.daf.amount)} DAF contribution generates ${fmt$M(d.daf.amount)} immediate deduction. Tax savings at ${fmtPct(d.tax.marginal*100)} marginal rate.` });
+    const dafCapNote = p.dafCarryover > 0
+      ? ` <strong style="color:var(--gold-dark);">⚠️ §170(b)(1)(C) 30%-of-AGI cap limits year-1 deduction to ${fmt$(p.dafAllowed)}</strong>. Remaining ${fmt$(p.dafCarryover)} carries forward 5 years (§170(d)).`
+      : ` §170(b)(1)(C) 30%-of-AGI cap = ${fmt$(p.capDaf30)}; contribution fits within cap.`;
+    items.push({ label: 'DAF Charitable Deduction', value: p.dafAllowed * d.tax.marginal, desc: `${fmt$M(d.daf.amount)} DAF contribution of appreciated LTCG stock. Year-1 allowable deduction: <strong>${fmt$(p.dafAllowed)}</strong> at ${fmtPct(d.tax.marginal*100)} marginal = <strong>${fmt$(p.dafAllowed * d.tax.marginal)}</strong>.${dafCapNote}` });
   }
   if (d.use.qoz) {
     items.push({ label: `QOZ Tax Deferral (${d.qoz.defer} Years)`, value: p.scenarios.scenAll.qozDeferred, desc: `${fmt$(p.scenarios.scenAll.qozInvestment)} of gain invested in a Qualified Opportunity Fund within 180 days. CG tax of ${fmt$(p.scenarios.scenAll.qozDeferred)} deferred for ${d.qoz.defer} years. If held ${d.qoz.years}+ years, all appreciation is tax-free on exit. Full basis step-up at death.` });
@@ -5154,7 +5402,13 @@ function renderTax(p) {
     const regimeLabel = p.qsbsIsPostOBBBA ? 'Post-OBBBA (7/4/2025+)' : 'Pre-OBBBA';
     const capFloor = p.qsbsIsPostOBBBA ? '$15M' : '$10M';
     const grossCeiling = p.qsbsIsPostOBBBA ? '$75M' : '$50M';
-    if (p.qsbsEligible) {
+    if (!p.qsbsAttestationsComplete) {
+      items.push({
+        label: '⛔ §1202 QSBS — MISSING ELIGIBILITY ATTESTATIONS',
+        value: 0,
+        desc: `<strong style="color:var(--crimson);">The §1202 exclusion will NOT apply until all four eligibility tests are confirmed in the Builder.</strong> Missing attestations: <ul style="margin: 8px 0 8px 20px; padding: 0;">${p.qsbsMissingAttestations.map(m => `<li>${m}</li>`).join('')}</ul> Each unconfirmed test is a likely IRS audit failure point. Once all four are attested, the exclusion activates automatically.`,
+      });
+    } else if (p.qsbsEligible) {
       const stateNote = d.qsbs.stateConforms ? 'Your state conforms — state tax also excluded.' : 'Your state does NOT conform — state-level tax still applies to this gain.';
       items.push({
         label: `§1202 QSBS — ${regimeLabel} (${fmtPct(p.qsbsExclPct*100)} exclusion)`,
@@ -5247,21 +5501,33 @@ function renderTax(p) {
     });
   }
   if (d.use.crut) {
-    items.push({
-      label: 'CRUT Cap Gains Elimination',
-      value: d.crut.amount * p.combinedCGRate,
-      desc: `${fmt$M(d.crut.amount)} CRUT contribution eliminates capital gains tax on ${fmt$M(d.crut.amount)} of appreciated assets. Variable ${fmtPct(d.crut.rate*100)} unitrust payout (first-year income: ${fmt$(p.crutIncome)} — grows with trust value, inflation-hedged).`
-    });
-    items.push({
-      label: 'CRUT Charitable Deduction',
-      value: p.crutIncomeTaxSavings,
-      desc: `Charitable deduction of ${fmt$(p.crutDeduction)} (${fmtPct(d.crut.dedPct*100)} PV of remainder interest). Tax savings at ${fmtPct(d.tax.marginal*100)} marginal: ${fmt$(p.crutIncomeTaxSavings)}.`
-    });
-    items.push({
-      label: 'Estate Tax Savings (CRUT)',
-      value: p.crutEstateSave,
-      desc: `${fmt$M(d.crut.amount)} removed from taxable estate. Savings at ${fmtPct(d.tax.estate*100)} = ${fmt$(p.crutEstateSave)}.`
-    });
+    if (p.crutQualificationIssue) {
+      const reasons = [];
+      if (p.crutFails5PctMin)   reasons.push(`payout rate ${fmtPct(d.crut.rate*100)} below <strong>§664(d)(2)(A) 5% minimum</strong>`);
+      if (p.crutFails50PctMax)  reasons.push(`payout rate ${fmtPct(d.crut.rate*100)} above <strong>§664(d)(2)(A) 50% maximum</strong>`);
+      if (p.crutFails10PctTest) reasons.push(`PV of remainder is only <strong>${fmtPct(p.crutRemainderPct*100)}</strong>, below the <strong>§664(d)(2)(D) 10% minimum</strong>`);
+      items.push({
+        label: '⛔ CRUT DISQUALIFIED — §664(d)(2) test failure',
+        value: 0,
+        desc: `<strong style="color:var(--crimson);">This CRUT does NOT meet IRC §664(d)(2) and will not be recognized as a charitable remainder unitrust.</strong> Issues: ${reasons.join(' · ')}. <strong>Consequences if implemented as drafted:</strong> (1) no charitable deduction under §170; (2) contribution of appreciated assets treated as sale to grantor — CG recognized; (3) no estate removal. <strong>Fix:</strong> reduce the unitrust payout rate (rates between 5% and ~9% typically pass the 10% test for most term/age combinations).`,
+      });
+    } else {
+      items.push({
+        label: 'CRUT Cap Gains Elimination',
+        value: d.crut.amount * p.combinedCGRate,
+        desc: `${fmt$M(d.crut.amount)} CRUT contribution eliminates capital gains tax on ${fmt$M(d.crut.amount)} of appreciated assets. Variable ${fmtPct(d.crut.rate*100)} unitrust payout (first-year income: ${fmt$(p.crutIncome)} — grows with trust value, inflation-hedged). §664(d)(2) tests passed: remainder PV ${fmtPct(p.crutRemainderPct*100)} (≥10% ✓).`
+      });
+      items.push({
+        label: 'CRUT Charitable Deduction',
+        value: p.crutIncomeTaxSavings,
+        desc: `Charitable deduction of ${fmt$(p.crutDeduction)} (${fmtPct(d.crut.dedPct*100)} PV of remainder interest). Tax savings at ${fmtPct(d.tax.marginal*100)} marginal: ${fmt$(p.crutIncomeTaxSavings)}. ⚠️ Subject to §170(b) AGI cap.`
+      });
+      items.push({
+        label: 'Estate Tax Savings (CRUT)',
+        value: p.crutEstateSave,
+        desc: `${fmt$M(d.crut.amount)} removed from taxable estate. Savings at ${fmtPct(d.tax.estate*100)} = ${fmt$(p.crutEstateSave)}.`
+      });
+    }
   }
   if (d.use.clt) {
     items.push({
@@ -5315,6 +5581,40 @@ function renderTax(p) {
         ${d.use.qoz ? `• QOZ Deferral: ${fmt$(p.scenarios.scenAll.qozDeferred)} (plus tax-free appreciation)<br>` : ''}
       </div>
     </div>
+
+    ${(d.use.daf || d.use.crat) ? `
+      <div class="card" style="border-left: 4px solid ${p.agiCapTriggered ? 'var(--gold-dark)' : 'var(--success)'};">
+        <div class="card-title">${p.agiCapTriggered ? '⚠️ §170(b) AGI Cap Limits Charitable Deduction' : '✓ §170(b) AGI Cap — Fits Within Limit'}</div>
+        <div class="card-sub">
+          Per §170(b)(1)(C), contributions of appreciated LTCG property to public charities (DAF) and CRAT/CRUT are capped at <strong>30% of AGI</strong> per year. Excess deductions carry forward 5 years under §170(d). AGI used for this test:
+          ${d.biz.sale > 0
+            ? `Year-of-sale AGI = ordinary income (${fmt$(d.biz.income)}) + post-§1202 taxable gain (${fmt$(p.scenarios.scenAll.taxableGain - p.qsbsActualExcl)}) = <strong>${fmt$(p.agiYearOfSale)}</strong>.`
+            : `Ongoing AGI = ordinary income (${fmt$(d.biz.income)}) = <strong>${fmt$(p.agiOngoing)}</strong>.`}
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+          <div class="kpi"><div class="label">Total Charitable Contribution</div><div class="value">${fmt$(p.combined30BucketContrib)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">DAF ${fmt$(p.dafDeduction)} + CRAT ${fmt$(p.cratDeduction)}</div></div>
+          <div class="kpi gold"><div class="label">30%-of-AGI Cap</div><div class="value">${fmt$(p.capDaf30)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">AGI ${fmt$(p.agiForCap)} × 30%</div></div>
+          <div class="kpi ${p.agiCapTriggered ? 'warning' : 'success'}"><div class="label">Year-1 Allowable</div><div class="value">${fmt$(p.combined30BucketAllowed)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${p.agiCapTriggered ? 'Capped by AGI limit' : 'Full deduction preserved'}</div></div>
+          <div class="kpi ${p.agiCapTriggered ? 'gold' : ''}"><div class="label">5-Year Carryforward</div><div class="value">${fmt$(p.combined30BucketCarryover)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">§170(d) allows 5 yrs to use</div></div>
+        </div>
+
+        ${p.agiCapTriggered && p.carryoverSchedule.length > 0 ? `
+          <div style="margin-top: 18px;">
+            <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--ink); margin-bottom: 8px;">Carryforward Schedule (assumes ongoing AGI of ${fmt$(p.agiOngoing)}/yr)</div>
+            <table class="plan-table" style="margin-top: 4px;">
+              <thead><tr><th>Year</th><th class="num">Deduction Used</th><th class="num">Tax Savings @ ${fmtPct(d.tax.marginal*100)}</th></tr></thead>
+              <tbody>
+                <tr style="background: var(--cream-light);"><td><strong>${d.client.year} (Year 1)</strong></td><td class="num"><strong>${fmt$(p.currentYearCharitableDed)}</strong></td><td class="num"><strong>${fmt$(p.incomeTaxSavings)}</strong></td></tr>
+                ${p.carryoverSchedule.map(r => `<tr><td>${r.year}</td><td class="num">${fmt$(r.deduction)}</td><td class="num">${fmt$(r.savings)}</td></tr>`).join('')}
+                ${p.carryoverUnused > 0 ? `<tr style="background: #FFE8E8;"><td colspan="3" style="color: var(--crimson);"><strong>⚠️ ${fmt$(p.carryoverUnused)} of deduction EXPIRES unused after 5 years — §170(d) does not permit further carryforward.</strong></td></tr>` : ''}
+              </tbody>
+            </table>
+            <div style="margin-top: 10px; font-size: 12px; color: var(--muted); font-style: italic;">Total lifetime savings from charitable contribution: <strong style="color: var(--ink);">${fmt$(p.incomeTaxSavings + p.incomeTaxSavingsCarryfwd - p.carryoverUnused * d.tax.marginal)}</strong> (vs. uncapped projection of ${fmt$(p.combined30BucketContrib * d.tax.marginal)}).</div>
+          </div>
+        ` : ''}
+      </div>
+    ` : ''}
 
     <div class="card" style="border-left: 4px solid ${p.amtTriggered ? 'var(--crimson)' : 'var(--success)'};">
       <div class="card-title">${p.amtTriggered ? '⚠️ Alternative Minimum Tax (AMT) Exposure' : '✓ AMT Check — No Exposure Flagged'}</div>
@@ -5420,6 +5720,29 @@ function renderTax(p) {
               ${d.use.roth ? item('yr1-roth-paid', 'Pay income tax due from Roth conversion (estimated tax / with return)') : ''}
               ${item('yr1-tax-return', 'File year-1 tax return with CPA including all strategy elections')}
               ${item('yr1-review-meeting', 'Year-1 annual review meeting: compare actual vs. projected outcomes')}
+            </ul>
+          </div>
+
+          <!-- ═══════════════════════════════════════════════════════════
+               REQUIRED IRS FILINGS — statutory deadlines with CPE numbers.
+               Missing any one of these creates permanent audit exposure
+               (e.g., unfiled Form 709 keeps the statute of limitations
+               open INDEFINITELY under §6501(c)(9)).
+               ═══════════════════════════════════════════════════════════ -->
+          <div class="checklist-phase" style="border-left: 4px solid var(--crimson); padding-left: 16px; background: #FFF8F0;">
+            <h4 style="color: var(--crimson);">📎 Required IRS Filings &amp; Deadlines</h4>
+            <p style="font-size: 12px; color: var(--ink-soft); margin: 4px 0 10px; font-style: italic;">Missing any of these creates permanent audit exposure. Unfiled Form 709 keeps the statute of limitations open <strong>indefinitely</strong> (§6501(c)(9)). Missed DSUE election is a permanent loss of the deceased spouse's exemption.</p>
+            <ul>
+              ${(d.use.dynasty || d.use.slat || d.use.idgt || d.use.grat || d.use.qprt || d.use.crat || d.use.crut || d.use.clt) ? item('file-709', `<strong>Form 709 (Gift Tax Return)</strong> — due <strong>4/15/${(d.client.year || new Date().getFullYear()) + 1}</strong>, covers every transfer to Dynasty / SLAT / IDGT / GRAT / QPRT / CRT / CLT above the annual exclusion ($19k/donee for 2025). Adequate disclosure on Form 709 is REQUIRED to start the 3-year statute of limitations on gift valuation (§6501(c)(9), Reg §301.6501(c)-1(f))`) : ''}
+              ${(d.use.crat || d.use.crut || d.use.daf) ? item('file-8283', `<strong>Form 8283 (Noncash Charitable Contributions)</strong> — attached to year-1 Form 1040 for any non-cash gift over $5,000 (§170(f)(11)). Section B requires a <strong>qualified appraisal</strong> by a qualified appraiser (no conflict of interest, demonstrated qualifications, signed declaration on Form 8283). Defective or missing appraisal = deduction disallowed entirely (Mohamed v. Commissioner, T.C. Memo 2012-152)`) : ''}
+              ${d.use.qoz ? item('file-8949', `<strong>Form 8949 + Form 8997 (QOZ Election)</strong> — filed with year-of-recognition return. <strong>180-day window</strong> from gain recognition to invest into a QOF (§1400Z-2(a)(1)(A)). Form 8997 is filed annually thereafter until disposition. QOF itself files <strong>Form 8996</strong> semi-annually testing the 90% qualified-asset requirement`) : ''}
+              ${(d.use.crat || d.use.crut) ? item('file-crt-5227', `<strong>Form 5227 (Split-Interest Trust Info Return)</strong> — due 4/15 annually. Filed by the CRT trustee, not the grantor. Reports income, distributions, and the 4-tier character of distributions to beneficiaries (§664(b))`) : ''}
+              ${(d.use.daf || d.use.crat || d.use.crut) ? item('file-cwa', `<strong>Contemporaneous Written Acknowledgment</strong> (§170(f)(8)) — obtain a written CWA from the charity or DAF sponsor for any contribution ≥ $250 BEFORE filing the return. Missing CWA = entire deduction disallowed regardless of amount`) : ''}
+              ${d.use.qsbs ? item('file-qsbs-basis', `<strong>§1202 QSBS Documentation</strong> — maintain records showing (i) C-Corp status throughout hold, (ii) gross-asset test at issuance, (iii) active-business test, (iv) original issuance. IRS burden-shifting: taxpayer must substantiate. Recommend: qualified opinion letter before sale`) : ''}
+              ${item('file-706-dsue', `<strong>Form 706 (DSUE / Portability Election)</strong> — at death of first spouse, Form 706 must be filed within <strong>9 months</strong> (+ 6-mo auto-extension) to claim deceased-spouse-unused-exemption under §2010(c)(5)(A). Missing this is permanent loss of ≈ ${fmt$(d.tax.estateExempt || 15_000_000)} of exemption. Rev. Proc. 2022-32 offers a 5-year late election for estates not otherwise required to file`)}
+              ${item('file-706-main', `<strong>Form 706 (Estate Tax Return)</strong> — due 9 months after death (+ 6-mo extension). Required if gross estate + lifetime adjusted taxable gifts exceeds the exemption`)}
+              ${(d.use.idgt || d.use.slat || d.use.dynasty) ? item('file-adequate-interest', `<strong>Document adequate interest rate</strong> on IDGT note — §7872 imputes interest if note rate below applicable AFR for the month of sale. Confirm monthly AFR at IRS.gov/AFR`) : ''}
+              ${d.use.qprt ? item('file-qprt-rent', `<strong>QPRT rent documentation (post-term)</strong> — after term ends, grantor MUST pay fair-market rent (§2702(b), Reg §25.2702-5(c)). Document rent agreement + third-party FMV appraisal + actual payment records to avoid §2036 inclusion`) : ''}
             </ul>
           </div>
         </div>
@@ -6774,7 +7097,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'budget-fixed','budget-variable','budget-taxes','budget-safe-rate',
       'firm-name','firm-tag'
     ];
-    const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt'];
+    const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt',
+                    'qsbs-attest-ccorp','qsbs-attest-active','qsbs-attest-grossassets','qsbs-attest-original'];
     const values = {};
     const checkboxes = {};
     ids.forEach(id => { const el = document.getElementById(id); if (el) values[id] = el.value; });
