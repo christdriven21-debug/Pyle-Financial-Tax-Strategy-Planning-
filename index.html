@@ -8305,6 +8305,210 @@ function renderCompare(p) {
         <strong>Methodology note:</strong> every column uses the same client inputs (sale price, basis, income, tax rates, projection assumptions). Only the <em>use.*</em> toggles differ. Any strategy marked with a 5+ year hold requirement (QSBS) still enforces that in each scenario.
       </div>
     </div>
+    ${renderUniversalScenarioPlanner(p)}
+  `;
+}
+
+/* ============================================================
+   UNIVERSAL SCENARIO PLANNER — "What if?" overlays.
+   Unlike renderCompare (which only toggles strategy use.* flags),
+   this mutates ANY input — market crash, retire earlier, lose
+   job, tax rates rise, gift now, big purchase, spouse passes,
+   LTC event, social-security cut, divorce.
+   Each scenario card shows: Baseline KPI vs Scenario KPI vs Δ.
+   ============================================================ */
+const SCENARIO_LIBRARY = [
+  {
+    id: 'crash30',
+    icon: '📉',
+    name: 'Market crash −30% today',
+    why: 'Stress-tests the plan against a 2008-style equity drawdown.',
+    mutate: (d) => {
+      d.client.preSaleNW   = Math.round((d.client.preSaleNW   || 0) * 0.70);
+      d.client.otherAssets = Math.round((d.client.otherAssets || 0) * 0.70);
+      d.proj.equity        = Math.max(0.02, d.proj.equity - 0.005);
+    },
+  },
+  {
+    id: 'taxhike',
+    icon: '🧾',
+    name: 'Top tax rates rise to 50%',
+    why: 'Models a Congressional move toward Biden/Sanders-era rate proposals.',
+    mutate: (d) => {
+      d.tax.fed      = Math.max(d.tax.fed,      0.32);
+      d.tax.marginal = Math.max(d.tax.marginal, 0.50);
+      d.tax.estate   = Math.max(d.tax.estate,   0.50);
+    },
+  },
+  {
+    id: 'sscut',
+    icon: '🏛',
+    name: 'Social Security cut 23% in 2034',
+    why: 'Models the Trustees\' projected trust-fund shortfall hitting full benefits.',
+    mutate: (d) => {
+      if (d.ss) {
+        d.ss.primaryBenefit = Math.round((d.ss.primaryBenefit || 0) * 0.77);
+        d.ss.spouseBenefit  = Math.round((d.ss.spouseBenefit  || 0) * 0.77);
+      }
+    },
+  },
+  {
+    id: 'retire5early',
+    icon: '🏖',
+    name: 'Retire 5 years earlier (shorter horizon)',
+    why: 'Tests whether the portfolio can support an earlier exit.',
+    mutate: (d) => {
+      d.proj.years = Math.max(5, (d.proj.years || 30) - 5);
+      d.biz.income = Math.round((d.biz.income || 0) * 0.5); // half of pre-retirement comp
+    },
+  },
+  {
+    id: 'losejob',
+    icon: '💼',
+    name: 'Lose primary income for 18 months',
+    why: 'Models a sudden compensation gap — common in tech executive transitions.',
+    mutate: (d) => {
+      d.biz.income = Math.round((d.biz.income || 0) * 0.40);
+    },
+  },
+  {
+    id: 'spouse',
+    icon: '🕊',
+    name: 'Spouse passes prematurely',
+    why: 'Loss of double exemption + survivor income shift. Validates the ILIT and survivor planning.',
+    mutate: (d) => {
+      d.client.spouse = '';
+      d.tax.estateExempt = Math.round((d.tax.estateExempt || 27980000) / 2);
+      d.tax.portability  = false;
+    },
+  },
+  {
+    id: 'ltc',
+    icon: '🏥',
+    name: 'Long-term care event ($150k/yr × 4 yr)',
+    why: 'Stress-tests insurance coverage and liquid reserves against a six-figure LTC drain.',
+    mutate: (d) => {
+      d.client.preSaleNW   = Math.max(0, (d.client.preSaleNW   || 0) - 600000);
+      d.client.otherAssets = Math.max(0, (d.client.otherAssets || 0) - 0);
+    },
+  },
+  {
+    id: 'divorce',
+    icon: '⚖️',
+    name: 'Adult child divorces (asset-protection test)',
+    why: 'Confirms Dynasty/SLAT spendthrift provisions hold up to a beneficiary\'s divorce.',
+    mutate: (d) => {
+      d.use = { ...(d.use || {}), dynasty: true, slat: true };
+    },
+  },
+  {
+    id: 'gift5m',
+    icon: '🎁',
+    name: 'Gift $5M to kids today',
+    why: 'Uses lifetime exemption now before the 2026 sunset; tests the impact on retirement security.',
+    mutate: (d) => {
+      d.client.preSaleNW = Math.max(0, (d.client.preSaleNW || 0) - 5000000);
+      d.use = { ...(d.use || {}), dynasty: true };
+      if (d.dynasty) d.dynasty.funding = Math.max(d.dynasty.funding || 0, 5000000);
+    },
+  },
+  {
+    id: 'buyhome',
+    icon: '🏡',
+    name: 'Buy $5M second home',
+    why: 'Tests liquidity drain + carrying-cost impact on the long-term plan.',
+    mutate: (d) => {
+      d.client.preSaleNW   = Math.max(0, (d.client.preSaleNW   || 0) - 5000000);
+      d.client.otherAssets = (d.client.otherAssets || 0) + 5000000;
+    },
+  },
+  {
+    id: 'sunset',
+    icon: '🌅',
+    name: 'TCJA sunset Jan 1, 2026 (exemption halves)',
+    why: 'Models the scheduled drop from $13.99M to ~$7M lifetime exemption per person.',
+    mutate: (d) => {
+      d.tax.estateExempt = Math.min(d.tax.estateExempt || 27980000, 14000000);
+    },
+  },
+];
+
+function runScenario(baselineInput, scenario) {
+  // Deep clone so mutations don't bleed back into the baseline.
+  const clone = JSON.parse(JSON.stringify(baselineInput));
+  try { scenario.mutate(clone); } catch (e) { console.warn('Scenario mutate failed', scenario.id, e); }
+  try { return computePlan(clone); } catch (e) { console.warn('Scenario compute failed', scenario.id, e); return null; }
+}
+
+function renderUniversalScenarioPlanner(p) {
+  const baseline = p;
+  const cards = SCENARIO_LIBRARY.map(scen => {
+    const v = runScenario(p.input, scen);
+    if (!v) {
+      return `
+        <div class="card" style="border-left: 3px solid var(--crimson);">
+          <div class="card-title" style="font-size: 14px;">${scen.icon} ${scen.name}</div>
+          <div class="card-sub" style="font-style: italic; color: var(--crimson);">Compute failed for this scenario — check console.</div>
+        </div>`;
+    }
+    const baseFamilyNW = baseline.familyTotalNW || 0;
+    const scenFamilyNW = v.familyTotalNW || 0;
+    const deltaNW = scenFamilyNW - baseFamilyNW;
+    const deltaNWPct = baseFamilyNW > 0 ? (deltaNW / baseFamilyNW) * 100 : 0;
+    const baseImm = baseline.totalImmediate || 0;
+    const scenImm = v.totalImmediate || 0;
+    const deltaImm = scenImm - baseImm;
+    const sign = (n) => n >= 0 ? '+' : '−';
+    const arrow = (n) => n > 0 ? '↑' : (n < 0 ? '↓' : '→');
+    const color = (n, goodIfHigher = true) => {
+      if (n === 0) return 'var(--muted)';
+      const good = goodIfHigher ? n > 0 : n < 0;
+      return good ? 'var(--green, #2c8a3e)' : 'var(--crimson)';
+    };
+    return `
+      <div class="card" style="break-inside: avoid;">
+        <div class="card-title" style="font-size: 14px; display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 22px;">${scen.icon}</span> ${scen.name}
+        </div>
+        <div class="card-sub" style="font-size: 11px; font-style: italic;">${scen.why}</div>
+        <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 12px;">
+          <div>
+            <div style="color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Baseline Family NW</div>
+            <div style="font-size: 14px; font-weight: 600; color: var(--ink);">${fmt$(baseFamilyNW)}</div>
+          </div>
+          <div>
+            <div style="color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Scenario Family NW</div>
+            <div style="font-size: 14px; font-weight: 600; color: var(--ink);">${fmt$(scenFamilyNW)}</div>
+          </div>
+          <div>
+            <div style="color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Δ Family NW</div>
+            <div style="font-size: 14px; font-weight: 700; color: ${color(deltaNW, true)};">
+              ${arrow(deltaNW)} ${sign(deltaNW)}${fmt$(Math.abs(deltaNW))}
+              <span style="font-size: 10px; color: var(--muted);">(${sign(deltaNW)}${Math.abs(deltaNWPct).toFixed(1)}%)</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 8px; font-size: 11px; color: var(--muted);">
+          Δ Immediate tax benefit: <strong style="color: ${color(deltaImm, true)};">${sign(deltaImm)}${fmt$(Math.abs(deltaImm))}</strong>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="card" style="margin-top: 24px;">
+      <div class="card-title">⚡ Universal Scenario Planner — "What if?" overlays</div>
+      <div class="card-sub">Each card applies a single overlay to the baseline plan and shows the impact on Family Net Worth and Immediate Tax Benefit. These are <em>read-only</em> simulations — the underlying plan inputs are never modified. Use this to walk a client through stress tests, contingency planning, and sequencing decisions.</div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; margin-top: 18px;">
+        ${cards}
+      </div>
+      <div class="callout" style="margin-top: 18px;">
+        <span class="title">🧪 How to use this</span>
+        Sit with the client and pick the scenario that scares them most ("what if I lose my job?", "what if the market crashes the year I retire?", "what if my spouse passes early?"). The Δ Family NW column quantifies the dollar damage — and gives you a concrete reason to recommend the appropriate hedge (more cash reserve, term life ladder, accelerated Roth conversion, ILIT, etc.).
+        <br><br>
+        <strong>Scenarios are intentionally directional, not pinpoint forecasts.</strong> A "−$2.1M" delta means the strategy fails materially under that overlay; a "−$80k" delta means it's robust. Use the magnitudes to drive prioritization conversations, not exact tax filings.
+      </div>
+    </div>
   `;
 }
 
