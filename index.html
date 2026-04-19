@@ -2596,6 +2596,34 @@
         <textarea id="family-composition" rows="4" style="width: 100%; padding: 10px; font-family: 'Helvetica Neue', sans-serif; font-size: 13px; border: 1px solid rgba(201,169,97,0.4); border-radius: 3px;" placeholder="James Harrison (1998) — son&#10;Emma Harrison (2001) — daughter&#10;Olivia Harrison (2024) — granddaughter&#10;Lucas Harrison (2026) — grandson"></textarea>
       </div>
 
+      <div class="field">
+        <label>Concentrated Stock Position <span class="hint">(single ticker > 10% of NW — RSUs, ISOs exercised, founder stock, etc.)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="concentrated-value" value="0"></div>
+      </div>
+      <div class="field">
+        <label>Concentrated Position — Cost Basis</label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="concentrated-basis" value="0"></div>
+      </div>
+      <div class="field">
+        <label>Position Name / Ticker <span class="hint">(e.g., AAPL, TSLA, private co. stock)</span></label>
+        <input type="text" id="concentrated-ticker" value="" style="width: 100%; padding: 10px 12px; border: 1px solid rgba(201,169,97,0.4); border-radius: 3px;">
+      </div>
+      <div class="field">
+        <label>Client is an Insider / §16 Officer?</label>
+        <select id="concentrated-insider">
+          <option value="no">No</option>
+          <option value="yes">Yes — 10b5-1 plan recommended</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>ISO / NQSO Options Outstanding — Total Value <span class="hint">(FMV × # options, unexercised)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="options-value" value="0"></div>
+      </div>
+      <div class="field">
+        <label>ISO Bargain Element <span class="hint">(spread × unexercised ISO shares — AMT preference)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="iso-bargain" value="0"></div>
+      </div>
+
       <div class="field" style="grid-column: 1 / -1;">
         <label>Financial Goals <span class="hint">(one per line: "Name | $Amount | TargetYear | Priority | Category". Priority = must / important / aspirational. Category = retirement / education / legacy / lifestyle / philanthropy / major_purchase)</span></label>
         <textarea id="financial-goals" rows="6" style="width: 100%; padding: 10px; font-family: 'Helvetica Neue', sans-serif; font-size: 13px; border: 1px solid rgba(201,169,97,0.4); border-radius: 3px;" placeholder="Maintain lifestyle through retirement | 15000000 | 2055 | must | retirement&#10;Emma's Stanford education | 500000 | 2034 | must | education&#10;Olivia's college | 350000 | 2042 | important | education&#10;$10M to each child at death | 30000000 | 2055 | important | legacy&#10;Aspen vacation home | 3000000 | 2030 | aspirational | major_purchase&#10;$5M to the hospital foundation | 5000000 | 2040 | important | philanthropy"></textarea>
@@ -4063,6 +4091,12 @@ function readForm() {
       eduYearsToCollege: n('edu-years-to-college'),
       familyComposition: t('family-composition'),
       goalsRaw: t('financial-goals'),
+      concentratedValue: n('concentrated-value'),
+      concentratedBasis: n('concentrated-basis'),
+      concentratedTicker: t('concentrated-ticker'),
+      concentratedInsider: t('concentrated-insider') === 'yes',
+      optionsValue: n('options-value'),
+      isoBargain: n('iso-bargain'),
     },
     goals: parseGoals(t('financial-goals')),
     retirement: {
@@ -9098,6 +9132,236 @@ function renderMultiYearTax(p) {
      3. Concentration risk flags (pre-sale: biz 100%; post-sale: single-stock)
      4. Annual investment-discipline checklist (rebalance, harvest, review)
    ============================================================ */
+/* ============================================================
+   EQUITY COMP MODULE — for tech execs, biotech founders, and
+   anyone with concentrated single-stock exposure. Covers:
+     • Concentration risk quantification
+     • 10b5-1 plan recommendation (insider compliance)
+     • Exchange fund analysis (7-yr hold, diversified exit)
+     • Variable prepaid forward (monetize + defer)
+     • Equity collar (hedged downside)
+     • Charitable gift of low-basis stock
+     • ISO AMT exposure modeling
+     • Diversification-with-QOZ-offset schedule
+   Only renders if concentrated position > 0 OR options > 0.
+   ============================================================ */
+function renderEquityCompModule(d, p) {
+  const concen = d.client.concentratedValue || 0;
+  const optsVal = d.client.optionsValue || 0;
+  if (concen === 0 && optsVal === 0) return '';
+
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : n >= 1_000 ? '$' + Math.round(n / 1_000) + 'K' : '$' + Math.round(n);
+  const fmtPct = (n) => (n || 0).toFixed(1) + '%';
+
+  const basis = d.client.concentratedBasis || 0;
+  const ticker = d.client.concentratedTicker || 'concentrated position';
+  const insider = d.client.concentratedInsider;
+  const isoBargain = d.client.isoBargain || 0;
+
+  const totalNW = (p.familyTotalNW || 0) || ((d.client.preSaleNW || 0) + (d.client.otherAssets || 0) + (d.biz.sale || 0));
+  const concentrationPct = totalNW > 0 ? (concen / totalNW) * 100 : 0;
+  const unrealizedGain = Math.max(0, concen - basis);
+  const cgRate = (d.tax.fed || 0.20) + (d.tax.state || 0) + (d.tax.medicare || 0.038);
+  const cgTaxIfSoldToday = unrealizedGain * cgRate;
+
+  // Exchange fund analysis
+  // Typical terms: 7-year hold, ~50 bps/yr fee, you get diversified basket back
+  const exchangeFundFees = concen * 0.005 * 7;   // 50 bps × 7 years
+  const exchangeFundNet = concen - exchangeFundFees;
+
+  // Variable Prepaid Forward: monetize 75-90% of position
+  const vpfProceeds = concen * 0.85;
+  const vpfTaxDeferred = Math.min(vpfProceeds, unrealizedGain) * cgRate;
+
+  // Charitable gift: avoids CG entirely, deduct FMV up to 30% of AGI
+  const charitableSaving = unrealizedGain * cgRate;   // tax avoided on gifted portion
+  const charitableDeduction = concen * (d.tax.marginal || 0.37);
+
+  // ISO AMT exposure (simplified):
+  // AMT pref = bargain element (spread × shares exercised)
+  // AMTI = regular income + bargain; AMT = max(0, 28% × AMTI − exemption − regular tax)
+  const amtRate = 0.28;
+  const amtOnBargain = isoBargain * amtRate;
+
+  // 5-year diversification schedule: sell 20%/yr, offset via QOZ if enabled
+  const schedule = [];
+  for (let yr = 1; yr <= 5; yr++) {
+    const sold = concen * 0.20;
+    const gain = sold * (unrealizedGain / concen);
+    const tax  = gain * cgRate;
+    schedule.push({ yr, sold, gain, tax });
+  }
+  const totalScheduleTax = schedule.reduce((s, r) => s + r.tax, 0);
+
+  return `
+    <!-- ═══════════════════ CONCENTRATED POSITION / EQUITY COMP ═══════════════════ -->
+    ${concen > 0 ? `
+    <div class="card" style="border-left: 4px solid ${concentrationPct > 30 ? 'var(--crimson)' : concentrationPct > 15 ? 'var(--gold-dark)' : 'var(--gold)'};">
+      <div class="card-title">📈 Concentrated Stock Position — ${ticker}</div>
+      <div class="card-sub">
+        Current position: <strong>${fmt$M(concen)}</strong> in ${ticker} · Basis: ${fmt$M(basis)} · Unrealized gain: <strong>${fmt$M(unrealizedGain)}</strong>. At current tax rates, outright sale today triggers ${fmt$M(cgTaxIfSoldToday)} of tax at ${fmtPct(cgRate*100)} combined. Position represents <strong>${concentrationPct.toFixed(1)}% of total net worth</strong> ${concentrationPct > 30 ? '(HIGH concentration risk)' : concentrationPct > 15 ? '(elevated concentration)' : '(manageable concentration)'}.
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Position Value</div><div class="value">${fmt$M(concen)}</div></div>
+        <div class="kpi"><div class="label">Cost Basis</div><div class="value">${fmt$M(basis)}</div></div>
+        <div class="kpi ${concentrationPct > 30 ? 'warning' : ''}"><div class="label">% of Net Worth</div><div class="value">${concentrationPct.toFixed(1)}%</div></div>
+        <div class="kpi"><div class="label">Unrealized Gain</div><div class="value">${fmt$M(unrealizedGain)}</div></div>
+        <div class="kpi"><div class="label">Tax if Sold Today</div><div class="value">${fmt$M(cgTaxIfSoldToday)}</div></div>
+      </div>
+
+      ${insider ? `
+      <div class="callout" style="margin-top: 16px; border-color: var(--crimson); background: #FFF0F0;">
+        <span class="title" style="color: var(--crimson);">🔴 Insider / §16 Officer — 10b5-1 Plan REQUIRED</span>
+        Selling concentrated stock as an insider requires a pre-established <strong>Rule 10b5-1 trading plan</strong> to provide the affirmative defense against insider-trading allegations (15 U.S.C. §78j, SEC Rule 10b5-1). Plan must be set up during an open trading window, have a mandatory cooling-off period (90-120 days for officers/directors per 2023 SEC amendments), and specify dates/quantities/prices or a formula — no discretion. Consult securities counsel before implementing ANY of the strategies below.
+      </div>
+      ` : ''}
+
+      <h3 style="margin-top: 24px; font-family: 'Playfair Display', serif; font-size: 18px; color: var(--ink);">🧰 Diversification Strategy Toolkit</h3>
+
+      <!-- Strategy comparison table -->
+      <div style="margin-top: 14px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 12px;">
+          <thead>
+            <tr><th style="width: 22%;">Strategy</th><th class="num">Exits Position?</th><th class="num">Tax Impact</th><th>Pros</th><th>Cons</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Outright Sale</strong></td>
+              <td class="num">Yes (100%)</td>
+              <td class="num">${fmt$M(cgTaxIfSoldToday)} now</td>
+              <td style="font-size: 11px;">Simple · full diversification · no hold-period lock-up</td>
+              <td style="font-size: 11px;">Maximum immediate tax · concentrated exposure to market timing</td>
+            </tr>
+            <tr style="background: #FFF8F0;">
+              <td><strong>Exchange Fund</strong> (§721)</td>
+              <td class="num">Yes (100% after 7 yrs)</td>
+              <td class="num">$0 at exchange; deferred basis</td>
+              <td style="font-size: 11px;">Immediate diversification (30-40 stock basket) · no CG at swap · basis carried over</td>
+              <td style="font-size: 11px;">7-yr lock-up · ~50 bps/yr fees (${fmt$M(exchangeFundFees)} over 7 yrs) · $1M+ minimum typical · accredited investor only</td>
+            </tr>
+            <tr>
+              <td><strong>Variable Prepaid Forward</strong> (VPF)</td>
+              <td class="num">Partial (75-90%)</td>
+              <td class="num">Deferred 2-3+ yrs</td>
+              <td style="font-size: 11px;">Monetize ${fmt$M(vpfProceeds)} today · tax deferred until settlement · retain voting rights</td>
+              <td style="font-size: 11px;">Complex · counterparty risk (investment bank) · upside cap</td>
+            </tr>
+            <tr>
+              <td><strong>Equity Collar</strong></td>
+              <td class="num">No (0%)</td>
+              <td class="num">$0 now; tax on unwind</td>
+              <td style="font-size: 11px;">Downside protection (put) · maintains economic exposure · tax deferred</td>
+              <td style="font-size: 11px;">Caps upside (call sold) · margin requirements · §1259 constructive-sale risk if too tight</td>
+            </tr>
+            <tr style="background: #F0F7F3;">
+              <td><strong>Charitable Gift</strong> (§170)</td>
+              <td class="num">Yes (gifted portion)</td>
+              <td class="num">–${fmt$M(charitableSaving)} avoided CG<br>–${fmt$M(charitableDeduction)} deduction</td>
+              <td style="font-size: 11px;">Highest-use for charity-motivated clients · avoids CG entirely · itemized deduction at FMV · supports DAF/CRAT/CRUT</td>
+              <td style="font-size: 11px;">Irrevocable — no financial return to client · §170(b)(1)(C) 30%-of-AGI cap applies</td>
+            </tr>
+            <tr>
+              <td><strong>QOZ-Offset Diversification</strong></td>
+              <td class="num">Yes (gradually)</td>
+              <td class="num">Deferred via §1400Z-2</td>
+              <td style="font-size: 11px;">Diversify in tranches while deferring CG via QOF · 10-year tax-free QOZ appreciation</td>
+              <td style="font-size: 11px;">QOZ fund-selection risk · 180-day reinvestment deadline · pending 12/31/2026 recognition</td>
+            </tr>
+            <tr>
+              <td><strong>5-Year Gradual Sale</strong></td>
+              <td class="num">Yes (100% over 5 yrs)</td>
+              <td class="num">${fmt$M(totalScheduleTax)} spread</td>
+              <td style="font-size: 11px;">Averages into market · manageable annual tax · no lockup</td>
+              <td style="font-size: 11px;">5-yr concentration exposure continues · no hedge during wind-down</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">🎯 Recommended Approach by Client Profile</span>
+        <strong>Charity-motivated, ≥ $2M gift capacity:</strong> charitable gift + gradual sale of remainder<br>
+        <strong>Diversification priority, flexible time horizon:</strong> exchange fund (§721) — trades 7-yr illiquidity for tax-deferred diversification<br>
+        <strong>Immediate liquidity need, tax-sensitive:</strong> VPF on 75-85% (monetize today, defer tax)<br>
+        <strong>Downside protection priority, retain equity upside:</strong> equity collar<br>
+        <strong>Large unrealized gain + charitable intent:</strong> fund a CRAT or CRUT with appreciated stock — eliminates CG tax AND provides income AND charitable deduction<br>
+        <strong>Pre-IPO or high-growth stock:</strong> hold for §1202 QSBS benefit (${fmtPct(d.tax.fed*100)} fed exclusion on $10-15M gain)
+      </div>
+
+      <!-- 5-year diversification schedule -->
+      <div style="margin-top: 20px; padding: 18px 20px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 10px;">5-Year Gradual-Diversification Schedule (example)</div>
+        <table class="plan-table" style="font-size: 12px;">
+          <thead><tr><th>Year</th><th class="num">Sell</th><th class="num">Cap Gain</th><th class="num">Tax @ ${fmtPct(cgRate*100)}</th><th>Offset Options</th></tr></thead>
+          <tbody>
+            ${schedule.map(r => `<tr><td>Year ${r.yr}</td><td class="num">${fmt$M(r.sold)}</td><td class="num">${fmt$M(r.gain)}</td><td class="num">${fmt$M(r.tax)}</td><td style="font-size: 11px; color: var(--ink-soft);">${r.yr <= 2 ? 'QOZ reinvestment (180 days); charitable gift; TLH harvest' : 'Tax-loss harvest; charitable layering'}</td></tr>`).join('')}
+            <tr style="background: #FFF; font-weight: 700;"><td>Total (5 yrs)</td><td class="num">${fmt$M(concen)}</td><td class="num">${fmt$M(unrealizedGain)}</td><td class="num">${fmt$M(totalScheduleTax)}</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ` : ''}
+
+    <!-- ═══════════════════ ISO / NQSO / EQUITY COMP ═══════════════════ -->
+    ${optsVal > 0 || isoBargain > 0 ? `
+    <div class="card" style="border-left: 4px solid var(--gold-dark);">
+      <div class="card-title">🎯 Stock Options &amp; Equity Compensation Planning</div>
+      <div class="card-sub">
+        Outstanding options value: <strong>${fmt$M(optsVal)}</strong>. ISO bargain element (if exercised): <strong>${fmt$M(isoBargain)}</strong>. Exercise timing is the single biggest AMT-driver for tech-exec clients — this section quantifies the trade-offs.
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Options Outstanding</div><div class="value">${fmt$M(optsVal)}</div></div>
+        <div class="kpi"><div class="label">ISO Bargain Element</div><div class="value">${fmt$M(isoBargain)}</div></div>
+        <div class="kpi warning"><div class="label">AMT on ISO Exercise (~28%)</div><div class="value">${fmt$M(amtOnBargain)}</div></div>
+        <div class="kpi"><div class="label">ISO Holding Period for LTCG</div><div class="value">2 yrs + 1 yr</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">From grant + from exercise</div></div>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">ISO vs. NQSO — Key Tax Differences</span>
+        <strong>ISO (§422):</strong><br>
+        • At grant: $0 tax<br>
+        • At exercise: $0 regular tax BUT bargain element is an AMT preference item (Form 6251)<br>
+        • At sale: LTCG if held 2 years from grant AND 1 year from exercise — "qualifying disposition"; otherwise ordinary income on the spread ("disqualifying disposition")<br>
+        • $100k/yr grant limit (value at grant)<br><br>
+        <strong>NQSO:</strong><br>
+        • At grant: $0 tax<br>
+        • At exercise: ordinary income tax on spread, plus FICA · employer withholds<br>
+        • At sale: CG on post-exercise appreciation (ST or LT based on hold)<br>
+        • No quantity limit<br>
+        • Employer gets a deduction equal to employee's ordinary income
+      </div>
+
+      <div class="callout" style="margin-top: 12px; border-color: var(--gold-dark);">
+        <span class="title">📅 Optimal ISO Exercise Timing</span>
+        <strong>Early exercise (§83(b) election)</strong> — at grant or within 30 days of early-exercise grants. Starts the holding-period clock immediately. Bargain element is $0 (FMV = strike at grant), so no AMT. Powerful for pre-IPO shares where FMV will explode.<br><br>
+        <strong>Normal exercise + hold (qualifying disposition)</strong> — exercise when you can afford the AMT, hold 1+ year from exercise for LTCG. Best when ISO spread is small; AMT is recoverable via credit (§53).<br><br>
+        <strong>Exercise-and-sell same day (cashless)</strong> — treats as disqualifying disposition; ordinary-income tax on full spread; avoids AMT but forfeits LTCG treatment. Simple but tax-inefficient.<br><br>
+        <strong>End-of-year strategic exercise</strong> — exercise just enough ISOs each December to use up the AMT "crack" (the AMTI range below phase-out) without triggering AMT. Requires CPA modeling.
+      </div>
+
+      ${isoBargain > 0 ? `
+      <div class="callout" style="margin-top: 12px; border-color: var(--crimson); background: #FFF0F0;">
+        <span class="title" style="color: var(--crimson);">⚠ AMT Exposure on Pending ISO Exercise</span>
+        Exercising ISOs with ${fmt$M(isoBargain)} bargain element creates <strong>${fmt$M(amtOnBargain)}</strong> of AMT at the 28% AMT rate (simplified). This is a PREPAYMENT of tax, not a permanent cost — generates an <strong>AMT credit (§53)</strong> usable in future years when regular tax exceeds AMT. Still: cash-flow hit requires planning. CPA should model multi-year AMT credit recovery before advising on exercise timing.
+      </div>
+      ` : ''}
+
+      <div class="callout" style="margin-top: 12px;">
+        <span class="title">RSU-Specific Considerations</span>
+        RSUs (Restricted Stock Units) taxed as ordinary income at vest — no timing flexibility on taxation. But:<br>
+        • Post-vest, shares are ordinary stock — open to all the diversification strategies above (exchange fund, VPF, collar, charitable gift)<br>
+        • <strong>Section 83(b) election</strong> does NOT apply to standard RSUs (only to restricted stock grants). Confirm which instrument is involved before attempting.<br>
+        • Consider <strong>sell-to-cover at vest</strong> to fund the tax withholding without adding to concentration. Many employers default to this but advisor can adjust.<br>
+        • Post-vest RSUs that have appreciated benefit from the same QSBS analysis if the underlying company qualifies.
+      </div>
+    </div>
+    ` : ''}
+  `;
+}
+
 function renderInvestmentStrategy(p) {
   const d = p.input;
   const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
@@ -9377,6 +9641,8 @@ function renderInvestmentStrategy(p) {
       </div>
     </div>
     ` : ''}
+
+    ${renderEquityCompModule(d, p)}
 
     <!-- ═══════════════════ ANNUAL DISCIPLINE ═══════════════════ -->
     <div class="card" style="border-left: 4px solid var(--gold);">
@@ -10981,6 +11247,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
       'client-primary-age','client-spouse-age',
       'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college','family-composition','financial-goals',
+      'concentrated-value','concentrated-basis','concentrated-ticker','concentrated-insider','options-value','iso-bargain',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
