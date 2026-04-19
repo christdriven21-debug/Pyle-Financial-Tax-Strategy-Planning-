@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="./config.js"></script>
 <style>
@@ -2443,6 +2444,12 @@
       <button class="btn btn-secondary btn-sm" id="btn-schwab-connect" title="Connect your Schwab API credentials (Vercel env vars required)">Connect Schwab</button>
       <button class="btn btn-gold btn-sm" id="btn-schwab-pull" title="Pull account balances from Schwab and populate the plan">Pull Balances</button>
       <button class="btn btn-secondary btn-sm" id="btn-schwab-disconnect" title="Clear Schwab token cookie">Disconnect</button>
+    </div>
+    <div class="cb-group team-only">
+      <span class="cb-label">Plaid:</span>
+      <button class="btn btn-primary btn-sm" id="btn-plaid-connect" title="Link client's bank/brokerage accounts via Plaid (12,000+ institutions)">🔗 Connect Accounts</button>
+      <button class="btn btn-gold btn-sm" id="btn-plaid-refresh" title="Refresh balances from all linked Plaid accounts">↻ Refresh Balances</button>
+      <a href="./plaid-setup.html" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;" title="Setup guide">Setup</a>
     </div>
     <div class="cb-status" id="cloud-status">Connecting…</div>
   </div>
@@ -11673,6 +11680,101 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   if (new URLSearchParams(location.search).get('schwab') === 'connected') {
     setTimeout(() => setStatus('Schwab connected ✓ — click "Pull Balances" to populate the plan', 'ok'), 500);
   }
+
+  /* ─────────────────────────────────────────────────────────────────────
+     PLAID INTEGRATION — link 12,000+ institutions, refresh balances
+     Connect: creates a link token, launches Plaid Link, exchanges public
+       token for access token (stored server-side)
+     Refresh: aggregates balances across all linked items for this user
+  ───────────────────────────────────────────────────────────────────── */
+  const btnPlaidConnect = document.getElementById('btn-plaid-connect');
+  const btnPlaidRefresh = document.getElementById('btn-plaid-refresh');
+
+  if (btnPlaidConnect) btnPlaidConnect.addEventListener('click', async () => {
+    if (!currentUser) { setStatus('Sign in first', 'err'); return; }
+    if (typeof Plaid === 'undefined') { setStatus('Plaid Link SDK not loaded — check network', 'err'); return; }
+    setStatus('Creating Plaid link token…');
+    try {
+      const resp = await fetch('/api/plaid/link-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id, clientName: cfg.FIRM_NAME || 'Pyle Financial Services' }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        if (data.code === 'no_plaid_config') {
+          setStatus('Plaid not configured — see /plaid-setup.html for activation', 'err');
+        } else {
+          setStatus('Plaid link error: ' + (data.error || '').slice(0, 100), 'err');
+        }
+        return;
+      }
+
+      // Launch Plaid Link
+      const handler = Plaid.create({
+        token: data.link_token,
+        onSuccess: async (publicToken, metadata) => {
+          setStatus('Linking account…');
+          const institutionName = metadata.institution?.name || 'Linked Account';
+          const exResp = await fetch('/api/plaid/exchange', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ publicToken, userId: currentUser.id, institutionName }),
+          });
+          if (exResp.ok) {
+            setStatus(`✓ Linked ${institutionName}. Click "Refresh Balances" to populate the plan.`, 'ok');
+          } else {
+            const errData = await exResp.json().catch(() => ({}));
+            setStatus('Exchange failed: ' + (errData.error || '').slice(0, 100), 'err');
+          }
+        },
+        onExit: (err) => {
+          if (err) setStatus('Plaid Link exited: ' + err.error_message, 'err');
+          else    setStatus('Plaid Link closed (no accounts linked)', 'ok');
+        },
+      });
+      handler.open();
+    } catch (err) {
+      setStatus('Plaid connect failed: ' + err.message, 'err');
+    }
+  });
+
+  if (btnPlaidRefresh) btnPlaidRefresh.addEventListener('click', async () => {
+    if (!currentUser) { setStatus('Sign in first', 'err'); return; }
+    setStatus('Refreshing balances from Plaid…');
+    try {
+      const resp = await fetch('/api/plaid/balances', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setStatus('Refresh failed: ' + (data.error || '').slice(0, 100), 'err');
+        return;
+      }
+      if ((data.items || 0) === 0) {
+        setStatus('No Plaid accounts linked yet — click "Connect Accounts" first', 'err');
+        return;
+      }
+      // Populate the Builder with aggregated Plaid balances
+      const agg = data.aggregated || {};
+      const liquid = Math.round((agg.depository || 0) + (agg.investment || 0));
+      const pnwEl = document.getElementById('client-pnw');
+      const retEl = document.getElementById('ret-trad-ira');
+      if (pnwEl && agg.depository > 0) { pnwEl.value = String(Math.round(agg.depository)); pnwEl.dispatchEvent(new Event('input')); }
+      if (retEl && agg.investment > 0) { retEl.value = String(Math.round(agg.investment)); retEl.dispatchEvent(new Event('input')); }
+      // Liabilities
+      const mortEl = document.getElementById('debt-mortgage');
+      const otherDebtEl = document.getElementById('debt-other');
+      if (mortEl && agg.loan > 0)    { mortEl.value = String(Math.round(agg.loan)); mortEl.dispatchEvent(new Event('input')); }
+      if (otherDebtEl && agg.credit > 0) { otherDebtEl.value = String(Math.round(agg.credit)); otherDebtEl.dispatchEvent(new Event('input')); }
+      if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
+      setStatus(`Plaid: ${data.accounts.length} accounts across ${data.items} institutions · total liquid $${liquid.toLocaleString()}`, 'ok');
+    } catch (err) {
+      setStatus('Plaid refresh failed: ' + err.message, 'err');
+    }
+  });
   const pfpInput = document.getElementById('precisefp-input');
   document.getElementById('btn-precisefp-import').addEventListener('click', () => pfpInput.click());
   pfpInput.addEventListener('change', e => importPreciseFPCSV(e.target.files[0]));

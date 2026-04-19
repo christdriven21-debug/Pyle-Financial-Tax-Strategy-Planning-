@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activate Plaid Account Aggregation — Pyle Plan Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --gold: #C9A961; --gold-dark: #8B7640; --cream: #F5F1E8; --cream-panel: #FAF6ED; --cream-light: #F2EDDD; --ink: #1a1a1a; --ink-soft: #444; --muted: #6B6556; --success: #2D6A4F; --crimson: #8B1A1A; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Helvetica Neue', sans-serif; background: var(--cream); color: var(--ink); line-height: 1.6; }
+    .wrap { max-width: 800px; margin: 0 auto; padding: 48px 24px; }
+    header { padding: 32px 0 40px; border-bottom: 1px solid rgba(201,169,97,0.25); margin-bottom: 32px; }
+    .eyebrow { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700; margin-bottom: 10px; }
+    h1 { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 500; margin: 0 0 10px; }
+    .lead { font-size: 15px; color: var(--ink-soft); }
+    .status-banner { padding: 16px 20px; border-radius: 6px; margin-bottom: 32px; display: flex; align-items: center; gap: 14px; font-size: 14px; border: 1px solid; }
+    .status-banner.checking { background: var(--cream-light); border-color: var(--gold); color: var(--gold-dark); }
+    .status-banner.active { background: #F0F7F3; border-color: var(--success); color: var(--success); }
+    .status-banner.inactive { background: #FFF8F0; border-color: var(--gold-dark); color: var(--gold-dark); }
+    .status-banner.error { background: #FFF0F0; border-color: var(--crimson); color: var(--crimson); }
+    .status-banner .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .status-banner.active .dot { background: var(--success); }
+    .status-banner.inactive .dot { background: var(--gold-dark); }
+    .status-banner.error .dot { background: var(--crimson); }
+    .status-banner.checking .dot { background: var(--gold-dark); animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    .step { background: #FFF; border: 1px solid rgba(201,169,97,0.25); border-radius: 6px; padding: 28px 32px; margin-bottom: 18px; }
+    .step-header { display: flex; align-items: flex-start; gap: 20px; margin-bottom: 14px; }
+    .step-num { width: 40px; height: 40px; border-radius: 50%; background: var(--gold); color: var(--cream); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; flex-shrink: 0; }
+    .step.done .step-num { background: var(--success); }
+    .step.done .step-num::after { content: '✓'; }
+    .step.done .step-num span { display: none; }
+    .step-title h2 { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 500; margin: 6px 0 4px; }
+    .step-title .time { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+    .step-body { padding-left: 60px; font-size: 14px; color: var(--ink-soft); }
+    .step-body ol, .step-body ul { padding-left: 20px; margin: 10px 0; }
+    .step-body li { margin-bottom: 6px; }
+    .step-body strong { color: var(--ink); font-weight: 700; }
+
+    .copy-block { display: flex; align-items: center; gap: 10px; background: #FAFAF5; border: 1px solid rgba(201,169,97,0.35); padding: 10px 14px; border-radius: 4px; margin: 12px 0; font-family: Menlo, monospace; font-size: 13px; }
+    .copy-block code { flex: 1; background: transparent; color: var(--gold-dark); font-weight: 600; user-select: all; }
+    .copy-btn { background: var(--gold-dark); color: var(--cream); border: none; padding: 6px 14px; border-radius: 3px; cursor: pointer; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700; font-family: 'Helvetica Neue', sans-serif; }
+    .copy-btn:hover { background: var(--gold); }
+    .copy-btn.copied { background: var(--success); }
+
+    .external-link { display: inline-flex; align-items: center; gap: 6px; background: var(--gold); color: var(--cream); padding: 10px 18px; border-radius: 4px; text-decoration: none; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; margin: 10px 0 4px; }
+    .external-link:hover { background: var(--gold-dark); }
+
+    .cost-note { background: var(--cream-light); border-left: 3px solid var(--gold); padding: 10px 14px; margin: 12px 0; font-size: 13px; color: var(--ink-soft); }
+
+    .test-button { background: var(--gold-dark); color: var(--cream); border: none; padding: 14px 28px; border-radius: 4px; cursor: pointer; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin: 14px 0; }
+    .test-button:hover:not(:disabled) { background: var(--gold); }
+    .test-button:disabled { background: #CCC; cursor: not-allowed; }
+
+    .test-result { margin-top: 14px; padding: 14px 16px; border-radius: 4px; font-size: 13px; display: none; }
+    .test-result.success { display: block; background: #F0F7F3; border-left: 3px solid var(--success); color: var(--success); }
+    .test-result.fail { display: block; background: #FFF0F0; border-left: 3px solid var(--crimson); color: var(--crimson); }
+
+    .nav-link { display: inline-block; color: var(--gold-dark); text-decoration: none; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; margin-top: 24px; }
+    .nav-link:hover { text-decoration: underline; }
+
+    .sql-block {
+      background: #1a1a1a;
+      color: #f0f0f0;
+      padding: 16px 20px;
+      border-radius: 4px;
+      font-family: Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow-x: auto;
+      margin: 14px 0;
+      position: relative;
+    }
+    .sql-block .sql-copy {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--gold);
+      color: #000;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <a href="./" class="nav-link">← Back to Plan Builder</a>
+
+  <header>
+    <div class="eyebrow">Setup Guide</div>
+    <h1>Activate Plaid Account Aggregation</h1>
+    <p class="lead">Link 12,000+ U.S. financial institutions. Balances auto-populate into the plan, refreshed on demand. 15-minute one-time setup; then clients connect accounts in-app.</p>
+  </header>
+
+  <div class="status-banner checking" id="live-status">
+    <span class="dot"></span>
+    <span id="live-status-text">Checking Plaid endpoint status…</span>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="step" id="step-1">
+    <div class="step-header">
+      <div class="step-num"><span>1</span></div>
+      <div class="step-title">
+        <h2>Create a Plaid account</h2>
+        <div class="time">~ 5 minutes</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <ol>
+        <li>Go to <strong>dashboard.plaid.com/signup</strong> and sign up with your firm's email.</li>
+        <li>Complete the business-info form (firm name, address, use case = "Financial Planning").</li>
+        <li>After approval (usually instant for financial planning), you'll land in the dashboard.</li>
+        <li>Navigate to <strong>Team Settings → Keys</strong> in the left sidebar.</li>
+        <li>Copy your <strong>client_id</strong> (shown plaintext) and <strong>Sandbox secret</strong> (click "Reveal").</li>
+      </ol>
+      <a class="external-link" href="https://dashboard.plaid.com/signup" target="_blank" rel="noopener">Sign up for Plaid →</a>
+      <div class="cost-note">
+        💰 <strong>Cost:</strong> Plaid <strong>Sandbox is free and unlimited</strong>. Development and Production use an account-based model: ~$0.30/linked account/month for basic balances. For 50 linked clients × 3 institutions each = ~$45/month in production. Sandbox first, graduate to production when ready.
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step" id="step-2">
+    <div class="step-header">
+      <div class="step-num"><span>2</span></div>
+      <div class="step-title">
+        <h2>Add Plaid environment variables to Vercel</h2>
+        <div class="time">~ 3 minutes</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>In your Vercel project → <strong>Settings</strong> → <strong>Environment Variables</strong>, add three variables (apply to Production, Preview, Development):</p>
+
+      <div class="copy-block">
+        <code>PLAID_CLIENT_ID</code>
+        <button class="copy-btn" data-copy="PLAID_CLIENT_ID">Copy</button>
+      </div>
+      <p style="font-size: 12px; margin-top: -6px; color: var(--muted);">Value: your client_id from Plaid dashboard</p>
+
+      <div class="copy-block">
+        <code>PLAID_SECRET</code>
+        <button class="copy-btn" data-copy="PLAID_SECRET">Copy</button>
+      </div>
+      <p style="font-size: 12px; margin-top: -6px; color: var(--muted);">Value: your Sandbox secret (switch to Production secret when going live)</p>
+
+      <div class="copy-block">
+        <code>PLAID_ENV</code>
+        <button class="copy-btn" data-copy="PLAID_ENV">Copy</button>
+      </div>
+      <p style="font-size: 12px; margin-top: -6px; color: var(--muted);">Value: <code>sandbox</code> (start here) or <code>production</code> (when live)</p>
+
+      <a class="external-link" href="https://vercel.com/dashboard" target="_blank" rel="noopener">Open Vercel Dashboard →</a>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step" id="step-3">
+    <div class="step-header">
+      <div class="step-num"><span>3</span></div>
+      <div class="step-title">
+        <h2>Add Supabase service role key</h2>
+        <div class="time">~ 2 minutes</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>The Plaid exchange endpoint writes to a private table in Supabase (<code>plaid_items</code>). This requires the service-role key, not the anon key.</p>
+      <ol>
+        <li>Open your Supabase project → <strong>Project Settings → API</strong></li>
+        <li>Under <strong>Project API keys</strong>, copy the <strong>service_role</strong> key (starts with <code>eyJ...</code>)</li>
+        <li>In Vercel → Environment Variables, add:</li>
+      </ol>
+      <div class="copy-block">
+        <code>SUPABASE_SERVICE_ROLE_KEY</code>
+        <button class="copy-btn" data-copy="SUPABASE_SERVICE_ROLE_KEY">Copy</button>
+      </div>
+      <div class="copy-block">
+        <code>SUPABASE_URL</code>
+        <button class="copy-btn" data-copy="SUPABASE_URL">Copy</button>
+      </div>
+      <p style="font-size: 12px; margin-top: -6px; color: var(--muted);">Value: your Supabase project URL (e.g., <code>https://xxxxx.supabase.co</code>)</p>
+      <div class="cost-note" style="border-color: var(--crimson); background: #FFF0F0; color: var(--crimson);">
+        ⚠️ <strong>Security note:</strong> the service-role key bypasses row-level security. Never expose it to the client — it must only live in Vercel env vars and be used by serverless functions. Never paste it into index.html or config.js.
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step" id="step-4">
+    <div class="step-header">
+      <div class="step-num"><span>4</span></div>
+      <div class="step-title">
+        <h2>Run the Supabase migration</h2>
+        <div class="time">~ 1 minute</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Creates the <code>plaid_items</code> + <code>plaid_balance_snapshots</code> tables with row-level security. Open your Supabase project → <strong>SQL Editor</strong> → <strong>New query</strong> → paste + run:</p>
+      <div class="sql-block">
+        <button class="sql-copy" id="copy-sql">Copy SQL</button>
+        <pre id="sql-content">Loading supabase/add_plaid.sql…</pre>
+      </div>
+      <p>After running you should see <em>"Success. No rows returned"</em>. Verify in <strong>Table Editor</strong> that <code>plaid_items</code> appears.</p>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step" id="step-5">
+    <div class="step-header">
+      <div class="step-num"><span>5</span></div>
+      <div class="step-title">
+        <h2>Redeploy on Vercel</h2>
+        <div class="time">~ 1 minute</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Env vars only activate after a fresh deploy. In Vercel → <strong>Deployments</strong> → top row → <strong>⋯ → Redeploy</strong> (check "Use existing Build Cache"). Wait for the green ✓.</p>
+    </div>
+  </div>
+
+  <!-- STEP 6 -->
+  <div class="step" id="step-6">
+    <div class="step-header">
+      <div class="step-num"><span>6</span></div>
+      <div class="step-title">
+        <h2>Test the connection</h2>
+        <div class="time">~ 30 seconds</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Clicks <code>/api/plaid/link-token</code> to verify the key is configured. Doesn't actually link an account — just confirms the handshake works.</p>
+      <button class="test-button" id="test-button">▶ Test Plaid Configuration</button>
+      <div class="test-result" id="test-result"></div>
+      <p style="margin-top: 18px;">Once the test passes, open the main app, load a plan, and the <strong>"🔗 Connect Accounts"</strong> button in the builder will launch Plaid Link.</p>
+    </div>
+  </div>
+
+  <a href="./" class="nav-link">← Back to Plan Builder</a>
+</div>
+
+<script>
+  async function checkStatus() {
+    const banner = document.getElementById('live-status');
+    const txt = document.getElementById('live-status-text');
+    try {
+      const resp = await fetch('/api/plaid/link-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'status-check' }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data.link_token) {
+        banner.className = 'status-banner active';
+        txt.innerHTML = `✓ <strong>Plaid is ACTIVE.</strong> Env vars configured and link-token endpoint responding. You're ready — go test in the main app.`;
+        ['step-1','step-2','step-3','step-4','step-5'].forEach(id => document.getElementById(id).classList.add('done'));
+      } else if (data.code === 'no_plaid_config') {
+        banner.className = 'status-banner inactive';
+        txt.innerHTML = `⚠ <strong>Plaid env vars not set.</strong> Complete Steps 1-3 below, then redeploy.`;
+      } else if (data.code === 'no_supabase_config') {
+        banner.className = 'status-banner inactive';
+        txt.innerHTML = `⚠ <strong>Supabase service key not set.</strong> Complete Step 3, then redeploy.`;
+      } else if (resp.status === 404) {
+        banner.className = 'status-banner error';
+        txt.innerHTML = `✗ <strong>Endpoint not found.</strong> The /api/plaid/ functions may not be deployed — push to GitHub and let Vercel redeploy.`;
+      } else {
+        banner.className = 'status-banner error';
+        txt.innerHTML = `✗ <strong>${resp.status}:</strong> ${(data.error || '').slice(0, 200)}`;
+      }
+    } catch (err) {
+      banner.className = 'status-banner error';
+      txt.innerHTML = `✗ <strong>Network error:</strong> ${err.message}. Expected on localhost; test on pyle-planning.vercel.app.`;
+    }
+  }
+
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(btn.dataset.copy);
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+    });
+  });
+
+  // Fetch the SQL file and render it
+  fetch('./supabase/add_plaid.sql')
+    .then(r => r.text())
+    .then(sql => {
+      document.getElementById('sql-content').textContent = sql;
+      document.getElementById('copy-sql').addEventListener('click', async () => {
+        await navigator.clipboard.writeText(sql);
+        const btn = document.getElementById('copy-sql');
+        btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = 'Copy SQL'; }, 2000);
+      });
+    })
+    .catch(() => { document.getElementById('sql-content').textContent = 'Could not fetch SQL — copy manually from repo: supabase/add_plaid.sql'; });
+
+  document.getElementById('test-button').addEventListener('click', async () => {
+    const btn = document.getElementById('test-button');
+    const result = document.getElementById('test-result');
+    btn.disabled = true; btn.textContent = 'Testing…'; result.className = 'test-result';
+    try {
+      const resp = await fetch('/api/plaid/link-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'test-user', clientName: 'Pyle Financial Services' }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data.link_token) {
+        result.className = 'test-result success';
+        result.innerHTML = `<strong>✓ Plaid is active!</strong><br><br>Received a link token: <code>${data.link_token.slice(0, 30)}…</code>, expiring ${data.expiration}. The main app's "Connect Accounts" button will work when you click it.`;
+      } else if (data.code === 'no_plaid_config') {
+        result.className = 'test-result fail';
+        result.innerHTML = `<strong>Plaid env vars missing.</strong> Confirm PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV are set for the current deployment environment (Production).`;
+      } else {
+        result.className = 'test-result fail';
+        result.innerHTML = `<strong>Test failed (${resp.status}):</strong><br>${(data.error || 'Unknown').slice(0, 400)}`;
+      }
+    } catch (err) {
+      result.className = 'test-result fail';
+      result.innerHTML = `<strong>Network error:</strong> ${err.message}`;
+    } finally {
+      btn.disabled = false; btn.textContent = '▶ Test Plaid Configuration Again';
+    }
+  });
+
+  checkStatus();
+</script>
+
+</body>
+</html>
