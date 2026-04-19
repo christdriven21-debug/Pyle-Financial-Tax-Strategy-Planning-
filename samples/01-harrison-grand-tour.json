@@ -129,7 +129,11 @@
       "use-idgt": true,
       "use-qprt": true,
       "use-crut": true,
-      "use-clt": true
+      "use-clt": true,
+      "qsbs-attest-ccorp": true,
+      "qsbs-attest-active": true,
+      "qsbs-attest-grossassets": true,
+      "qsbs-attest-original": true
     },
     "firmLogo": null,
     "schemaVersion": 1

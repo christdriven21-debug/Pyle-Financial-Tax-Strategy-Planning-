@@ -3415,25 +3415,32 @@ function computePlan(d) {
   const capDaf30  = agiForCap * 0.30;   // LTCG property to public charity
   const capCrat30 = agiForCap * 0.30;   // CRAT remainder, same 30% bucket
 
+  // CRUT deduction (PV of remainder interest) is computed earlier but
+  // referenced here. Variable must be hoisted — we'll use a pre-read.
+  const _crutDedForCap = (d.use.crut && d.crut.amount > 0) ? d.crut.amount * d.crut.dedPct : 0;
+
   // Allowable deductions (capped) and 5-yr carryforward.
   // §170(d) order: use up highest-cap bucket first (60%) then 30%, then 20%.
-  // For simplicity we apply DAF + CRAT to the 30% bucket combined.
-  const combined30BucketContrib = dafDeduction + cratDeduction;
+  // For simplicity we apply DAF + CRAT + CRUT to the 30% bucket combined.
+  const combined30BucketContrib = dafDeduction + cratDeduction + _crutDedForCap;
   const combined30BucketAllowed = Math.min(combined30BucketContrib, capDaf30);
   const combined30BucketCarryover = Math.max(0, combined30BucketContrib - combined30BucketAllowed);
 
-  // Proportionally allocate allowed & carryover between DAF and CRAT
+  // Proportionally allocate allowed & carryover across DAF / CRAT / CRUT
   const dafPct  = combined30BucketContrib > 0 ? dafDeduction / combined30BucketContrib : 0;
   const cratPct = combined30BucketContrib > 0 ? cratDeduction / combined30BucketContrib : 0;
+  const crutPctAgi = combined30BucketContrib > 0 ? _crutDedForCap / combined30BucketContrib : 0;
   const dafAllowed     = combined30BucketAllowed * dafPct;
   const cratAllowed    = combined30BucketAllowed * cratPct;
+  const crutAllowed    = combined30BucketAllowed * crutPctAgi;
   const dafCarryover   = combined30BucketCarryover * dafPct;
   const cratCarryover  = combined30BucketCarryover * cratPct;
+  const crutCarryover  = combined30BucketCarryover * crutPctAgi;
 
   // Year-of-sale savings uses allowed portion only. Carryforward savings
   // get applied against AGI in subsequent years (assume same marginal rate).
-  const currentYearCharitableDed = dafAllowed + cratAllowed;
-  const carryoverCharitableDed   = dafCarryover + cratCarryover;
+  const currentYearCharitableDed = dafAllowed + cratAllowed + crutAllowed;
+  const carryoverCharitableDed   = dafCarryover + cratCarryover + crutCarryover;
   const incomeTaxSavings = currentYearCharitableDed * d.tax.marginal;
   const incomeTaxSavingsCarryfwd = carryoverCharitableDed * d.tax.marginal;  // future-years savings
 
@@ -4200,7 +4207,7 @@ function computePlan(d) {
     cratDeduction, dafDeduction, totalCharitableDed, incomeTaxSavings,
     agiYearOfSale, agiOngoing, agiForCap, capDaf30, capCrat30,
     combined30BucketContrib, combined30BucketAllowed, combined30BucketCarryover,
-    dafAllowed, cratAllowed, dafCarryover, cratCarryover,
+    dafAllowed, cratAllowed, crutAllowed, dafCarryover, cratCarryover, crutCarryover,
     currentYearCharitableDed, carryoverCharitableDed,
     incomeTaxSavingsCarryfwd, carryoverSchedule, carryoverUnused, agiCapTriggered,
     dynastyEstateSave, cratEstateSave, dafEstateSave, totalEstateSave,
@@ -5382,7 +5389,7 @@ function renderTax(p) {
         desc: `<strong style="color:var(--crimson);">This CRAT does NOT meet IRC §664(d)(1) and will not be recognized as a charitable remainder trust.</strong> Issues: ${reasons.join(' · ')}. <strong>Consequences if implemented as drafted:</strong> (1) no charitable deduction under §170 — lose ${fmt$(d.crat.amount * d.crat.dedPct * d.tax.marginal)} of income-tax savings; (2) contribution of appreciated assets recognized as sale to grantor — lose ${fmt$(d.crat.amount * p.combinedCGRate)} of CG elimination; (3) no estate removal. <strong>Fix:</strong> reduce payout rate to ≤ ${fmtPct((1 - 0.10) / ((1 - Math.pow(1.054, -20)) / 0.054) * 100)}% (or shorten term or raise §7520 assumption). Current 10% test result: ${fmtPct(p.cratRemainderPct*100)}.`,
       });
     } else {
-      items.push({ label: 'CRAT Cap Gains Elimination', value: d.crat.amount * p.combinedCGRate, desc: `${fmt$M(d.crat.amount)} CRAT contribution eliminates capital gains tax on ${fmt$M(d.crat.amount)} of appreciated business assets. §664(d)(1) tests passed: payout ${fmtPct(d.crat.rate*100)} (5%-50% range ✓), remainder PV ${fmtPct(p.cratRemainderPct*100)} (≥10% ✓).` });
+      items.push({ label: 'CRAT Cap Gains Elimination', value: d.crat.amount * p.combinedCGRate, desc: `${fmt$M(d.crat.amount)} CRAT contribution eliminates capital gains tax on ${fmt$M(d.crat.amount)} of appreciated business assets. §664(d)(1) tests passed: payout ${fmtPct(d.crat.rate*100)} (5%-50% range ✓), remainder PV ${fmtPct(p.cratRemainderPct*100)} (≥10% ✓). <strong>§664(b) tier ordering on distributions:</strong> beneficiary payments are characterized under a 4-tier WORST-first waterfall — (1) ordinary income accumulated in trust, (2) capital gains, (3) tax-exempt income, (4) return of corpus. For a post-sale CRAT holding LTCG assets, the full ${fmt$(d.crat.amount * d.crat.rate)}/yr payment is typically fully LTCG-character until the trust's CG pool is exhausted (often many years out for buy-and-hold strategy).` });
       const cratCapNote = p.cratCarryover > 0
         ? ` <strong style="color:var(--gold-dark);">⚠️ §170(b) 30%-of-AGI cap limits year-1 deduction to ${fmt$(p.cratAllowed)}</strong>. Remaining ${fmt$(p.cratCarryover)} carries forward 5 years (§170(d)).`
         : '';
@@ -5517,10 +5524,13 @@ function renderTax(p) {
         value: d.crut.amount * p.combinedCGRate,
         desc: `${fmt$M(d.crut.amount)} CRUT contribution eliminates capital gains tax on ${fmt$M(d.crut.amount)} of appreciated assets. Variable ${fmtPct(d.crut.rate*100)} unitrust payout (first-year income: ${fmt$(p.crutIncome)} — grows with trust value, inflation-hedged). §664(d)(2) tests passed: remainder PV ${fmtPct(p.crutRemainderPct*100)} (≥10% ✓).`
       });
+      const crutCapNote = p.crutCarryover > 0
+        ? ` <strong style="color:var(--gold-dark);">⚠️ §170(b) 30%-of-AGI cap limits year-1 deduction to ${fmt$(p.crutAllowed)}</strong>. Remaining ${fmt$(p.crutCarryover)} carries forward 5 years (§170(d)).`
+        : '';
       items.push({
-        label: 'CRUT Charitable Deduction',
-        value: p.crutIncomeTaxSavings,
-        desc: `Charitable deduction of ${fmt$(p.crutDeduction)} (${fmtPct(d.crut.dedPct*100)} PV of remainder interest). Tax savings at ${fmtPct(d.tax.marginal*100)} marginal: ${fmt$(p.crutIncomeTaxSavings)}. ⚠️ Subject to §170(b) AGI cap.`
+        label: 'CRUT Charitable Deduction (after AGI cap)',
+        value: p.crutAllowed * d.tax.marginal,
+        desc: `Charitable deduction of ${fmt$(p.crutDeduction)} (${fmtPct(d.crut.dedPct*100)} PV of remainder interest). Year-1 allowable: <strong>${fmt$(p.crutAllowed)}</strong> at ${fmtPct(d.tax.marginal*100)} marginal = <strong>${fmt$(p.crutAllowed * d.tax.marginal)}</strong>.${crutCapNote} <strong>§664(b) tier ordering on distributions:</strong> unitrust payouts are characterized worst-first — OI, then CG, then tax-exempt, then corpus. Typically CG-character for many years in post-sale CRUTs.`
       });
       items.push({
         label: 'Estate Tax Savings (CRUT)',
@@ -5542,8 +5552,52 @@ function renderTax(p) {
 
   const totalAll = items.reduce((s, i) => s + i.value, 0);
 
+  // ──────────────────────────────────────────────────────────────────────
+  // SLAT Reciprocal Trust Doctrine warning card — surfaced at top of Tax
+  // Optimization tab when SLAT is on AND there's a spouse (risk only
+  // arises when both spouses have SLATs for each other, producing the
+  // "equivalent positions" that the IRS collapses).
+  //
+  // Law: United States v. Estate of Grace, 395 U.S. 316 (1969); applied
+  // to SLATs in Estate of Bischoff v. Commissioner, 69 T.C. 32 (1977)
+  // and followed in TAMs. If two SLATs are economically equivalent, the
+  // IRS treats each grantor as having created their own SLAT (uncrosses
+  // the trusts), pulling the assets back into both estates.
+  //
+  // Only triggers if spouse exists in the plan — for single grantors,
+  // reciprocal trust is structurally impossible.
+  // ──────────────────────────────────────────────────────────────────────
+  const slatReciprocalWarning = (d.use.slat && d.client.spouse) ? `
+    <div class="card" style="border-left: 5px solid var(--crimson); background: #FFF8F0;">
+      <div class="card-title" style="color: var(--crimson);">🚨 SLAT Reciprocal Trust Doctrine — Review Required</div>
+      <div class="card-sub">
+        This plan funds a Spousal Lifetime Access Trust with <strong>${fmt$M(d.slat.funding)}</strong> for the benefit of ${d.client.spouse}. If ${d.client.spouse} also creates a similar SLAT for ${d.client.primary || 'the grantor'}, the IRS may invoke the <strong>reciprocal trust doctrine</strong> under <em>United States v. Estate of Grace</em>, 395 U.S. 316 (1969) — and collapse both trusts back into each spouse's respective estate, destroying the entire estate-tax benefit.
+      </div>
+      <div style="margin-top: 14px; padding: 14px 16px; background: #FFF; border-radius: 4px; border: 1px solid var(--crimson);">
+        <div style="font-size: 13px; color: var(--ink); line-height: 1.6;">
+          <strong style="color: var(--crimson);">How the IRS uncrosses the trusts:</strong> If Trust A and Trust B leave each grantor in approximately the same economic position they would have occupied absent either trust, the two trusts are treated as if each grantor created their OWN trust — meaning both trusts become includible in the grantor's estate under §§2036/2038.
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 14px 16px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">Material Differences Required to Defeat the Doctrine</div>
+        <div style="font-size: 13px; color: var(--ink); line-height: 1.6;">
+          <strong>1.</strong> <strong>Different timing</strong> — fund the two SLATs in DIFFERENT TAX YEARS (minimum 6-12 month gap; longer is safer).<br>
+          <strong>2.</strong> <strong>Different terms</strong> — distribution standards (HEMS vs. sole-trustee-discretion), trustees (independent trustee for one, spouse-trustee for the other), beneficiaries (children included in one, just spouse in the other), powers of appointment (lifetime vs. testamentary-only, or none in one trust).<br>
+          <strong>3.</strong> <strong>Different funding amounts</strong> — avoid symmetrical funding ($10M / $10M triggers equivalence; $10M / $6M is more defensible).<br>
+          <strong>4.</strong> <strong>Different asset classes</strong> — fund one with business stock, the other with marketable securities or cash.<br>
+          <strong>5.</strong> <strong>Document bona fide separate purposes</strong> — one for spousal support, one for descendants; one as a legacy vehicle, one for current needs. Memorialize in trust recitals and contemporaneous memos.
+        </div>
+        <div style="margin-top: 10px; font-size: 12px; color: var(--muted); font-style: italic;">
+          Safest path: fund ONE SLAT only (not a reciprocal pair). If both spouses need access to gifts, consider combining a SLAT with an ILIT, or using a single SLAT plus separate annual-exclusion gifts.
+        </div>
+      </div>
+    </div>
+  ` : '';
+
   return `
     ${annualPlaybookCard}
+
+    ${slatReciprocalWarning}
 
     <div class="card">
       <div class="card-title">Comprehensive Tax Optimization Strategy</div>
@@ -5582,18 +5636,18 @@ function renderTax(p) {
       </div>
     </div>
 
-    ${(d.use.daf || d.use.crat) ? `
+    ${(d.use.daf || d.use.crat || d.use.crut) ? `
       <div class="card" style="border-left: 4px solid ${p.agiCapTriggered ? 'var(--gold-dark)' : 'var(--success)'};">
         <div class="card-title">${p.agiCapTriggered ? '⚠️ §170(b) AGI Cap Limits Charitable Deduction' : '✓ §170(b) AGI Cap — Fits Within Limit'}</div>
         <div class="card-sub">
-          Per §170(b)(1)(C), contributions of appreciated LTCG property to public charities (DAF) and CRAT/CRUT are capped at <strong>30% of AGI</strong> per year. Excess deductions carry forward 5 years under §170(d). AGI used for this test:
+          Per §170(b)(1)(C), contributions of appreciated LTCG property to public charities (DAF) and CRAT/CRUT remainder interests are capped at <strong>30% of AGI</strong> per year. Excess deductions carry forward 5 years under §170(d). AGI used for this test:
           ${d.biz.sale > 0
             ? `Year-of-sale AGI = ordinary income (${fmt$(d.biz.income)}) + post-§1202 taxable gain (${fmt$(p.scenarios.scenAll.taxableGain - p.qsbsActualExcl)}) = <strong>${fmt$(p.agiYearOfSale)}</strong>.`
             : `Ongoing AGI = ordinary income (${fmt$(d.biz.income)}) = <strong>${fmt$(p.agiOngoing)}</strong>.`}
         </div>
 
         <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-          <div class="kpi"><div class="label">Total Charitable Contribution</div><div class="value">${fmt$(p.combined30BucketContrib)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">DAF ${fmt$(p.dafDeduction)} + CRAT ${fmt$(p.cratDeduction)}</div></div>
+          <div class="kpi"><div class="label">Total Charitable Contribution</div><div class="value">${fmt$(p.combined30BucketContrib)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${[d.use.daf && `DAF ${fmt$(p.dafDeduction)}`, d.use.crat && `CRAT ${fmt$(p.cratDeduction)}`, d.use.crut && `CRUT ${fmt$(p.crutDeduction)}`].filter(Boolean).join(' + ')}</div></div>
           <div class="kpi gold"><div class="label">30%-of-AGI Cap</div><div class="value">${fmt$(p.capDaf30)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">AGI ${fmt$(p.agiForCap)} × 30%</div></div>
           <div class="kpi ${p.agiCapTriggered ? 'warning' : 'success'}"><div class="label">Year-1 Allowable</div><div class="value">${fmt$(p.combined30BucketAllowed)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${p.agiCapTriggered ? 'Capped by AGI limit' : 'Full deduction preserved'}</div></div>
           <div class="kpi ${p.agiCapTriggered ? 'gold' : ''}"><div class="label">5-Year Carryforward</div><div class="value">${fmt$(p.combined30BucketCarryover)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">§170(d) allows 5 yrs to use</div></div>
