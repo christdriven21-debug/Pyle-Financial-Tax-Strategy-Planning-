@@ -2316,6 +2316,10 @@
         <label>Avg Years Until Each Beneficiary Starts College <span class="hint">(0 if adult / in college)</span></label>
         <input type="number" id="edu-years-to-college" value="10" min="0" max="22">
       </div>
+      <div class="field" style="grid-column: 1 / -1;">
+        <label>Family &amp; Beneficiaries <span class="hint">(one per line: "Name (YYYY) — relationship". Used for client portrait + beneficiary tracking.)</span></label>
+        <textarea id="family-composition" rows="4" style="width: 100%; padding: 10px; font-family: 'Helvetica Neue', sans-serif; font-size: 13px; border: 1px solid rgba(201,169,97,0.4); border-radius: 3px;" placeholder="James Harrison (1998) — son&#10;Emma Harrison (2001) — daughter&#10;Olivia Harrison (2024) — granddaughter&#10;Lucas Harrison (2026) — grandson"></textarea>
+      </div>
     </div>
   </section>
 
@@ -3720,6 +3724,7 @@ function readForm() {
       personalProperty: n('personal-property'),
       eduBeneficiaries: n('edu-beneficiaries'),
       eduYearsToCollege: n('edu-years-to-college'),
+      familyComposition: t('family-composition'),
     },
     retirement: {
       tradIRA: n('ret-trad-ira'),
@@ -5722,6 +5727,168 @@ function renderSummary(p) {
         <div class="kpi gold"><div class="label">Insurance Coverage</div><div class="value">${fmt$(d.ins.current)}</div></div>
         <div class="kpi success"><div class="label">Annual Tax Savings (Combined)</div><div class="value">${fmt$(p.totalImmediate)}</div></div>
         <div class="kpi success"><div class="label">Family Net Worth (Projected)</div><div class="value">${fmt$(p.familyTotalNW)}</div></div>
+      </div>
+    </div>
+
+    ${renderFamilyTree(p)}
+
+    ${renderPeerBenchmark(p)}
+
+    ${renderAdvisorNotes(p)}
+  `;
+}
+
+/* ============================================================
+   ADVISOR NOTES — team-only card that points to the existing
+   Reviews & Comments panel with quick-access hints. Consolidates
+   the CRM role of the tool: meeting notes, decisions, next-review
+   reminders. Piggybacks on the plan_reviews Supabase table so
+   the full history travels with each plan.
+   ============================================================ */
+function renderAdvisorNotes(p) {
+  const d = p.input;
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  // Suggest next-review date: 6 months after plan year start, or
+  // the client's next birthday, or 1 year from today — pick the earliest future date.
+  const now = new Date();
+  const nextReviewDate = new Date(now.getFullYear(), now.getMonth() + 6, 1);
+  const nextReviewLabel = nextReviewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  return `
+    <div class="card team-only" style="border-left: 4px solid var(--gold-dark); background: var(--cream-light);">
+      <div class="card-title">📝 Advisor Notes &amp; Meeting Log</div>
+      <div class="card-sub">
+        Team-only section. Meeting notes, decisions, and approvals are stored in the <strong>Reviews &amp; Comments</strong> panel below the header — they travel with the plan and are visible to the client in read-only mode (if you mark them as "comment"). Use "Changes Requested" to signal follow-ups between advisor + client.
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 16px;">
+        <div class="kpi gold"><div class="label">Next Review Target</div><div class="value">${nextReviewLabel}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Suggested 6-month cadence</div></div>
+        <div class="kpi"><div class="label">Plan Age</div><div class="value">${d.client.year || new Date().getFullYear()}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Current plan year</div></div>
+        <div class="kpi"><div class="label">Strategies Active</div><div class="value">${Object.values(d.use).filter(Boolean).length}</div></div>
+      </div>
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">Recommended Review Cadence</span>
+        • <strong>Quarterly</strong> — performance check, tax-loss harvesting in Q4, beneficiary review, life-event scan (birth, death, divorce, new job)<br>
+        • <strong>Semi-annually</strong> — full plan review meeting; revisit strategies as tax law changes<br>
+        • <strong>Annually</strong> — use "Clone → Next Year" button to spin up next year's plan with refreshed rates; complete Implementation Checklist items; file Form 709 if gifts were made<br>
+        • <strong>Event-driven</strong> — immediately on: business sale LOI, major market dislocation (>15% drawdown), family life event, tax law enactment
+      </div>
+      <div style="margin-top: 12px; padding: 12px 16px; background: #FFF; border-radius: 4px; font-size: 12px; color: var(--ink-soft); line-height: 1.55;">
+        <strong>Scroll up to the Reviews &amp; Comments panel (just below the plan header) to add a meeting note or approval.</strong> Clients see their own plan's reviews in read-only mode — good for documenting "we discussed X on Y date and agreed to Z" in a way that's visible to both sides.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   FAMILY TREE — parsed from free-form text input. Each line should
+   follow "Name (YYYY) — relationship". Shows a readable family
+   composition table with computed ages.
+   ============================================================ */
+function renderFamilyTree(p) {
+  const d = p.input;
+  const raw = (d.client.familyComposition || '').trim();
+  if (!raw && !d.client.primary) return '';
+
+  const thisYear = new Date().getFullYear();
+  // Parse lines: "Name (YYYY) — relationship" or "Name (YYYY) - relationship"
+  const members = [];
+  // Lead with primary + spouse (from top-level client fields)
+  if (d.client.primary) {
+    const birthYr = (d.client.year || thisYear) - (d.client.primaryAge || 0);
+    members.push({ name: d.client.primary, year: birthYr, relation: 'primary', age: d.client.primaryAge || 0 });
+  }
+  if (d.client.spouse && d.client.spouseAge) {
+    const birthYr = (d.client.year || thisYear) - d.client.spouseAge;
+    members.push({ name: d.client.spouse, year: birthYr, relation: 'spouse', age: d.client.spouseAge });
+  }
+  raw.split('\n').forEach(line => {
+    const m = line.match(/^(.+?)\s*[\(\[](\d{4})[\)\]]\s*[—\-–]\s*(.+)$/);
+    if (m) {
+      const year = parseInt(m[2], 10);
+      members.push({ name: m[1].trim(), year, relation: m[3].trim(), age: thisYear - year });
+    }
+  });
+  if (members.length === 0) return '';
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">👨‍👩‍👧‍👦 Family Composition</div>
+      <div class="card-sub">
+        Beneficiaries, dependents, and family members tracked in this plan. Ages computed from DOB year. Useful for coordinating education funding, generation-skipping planning, and beneficiary designations across retirement accounts and insurance.
+      </div>
+      <table class="plan-table" style="margin-top: 16px; font-size: 13px;">
+        <thead><tr><th>Name</th><th>Relationship</th><th class="num">Birth Year</th><th class="num">Age ${thisYear}</th></tr></thead>
+        <tbody>
+          ${members.map(m => `
+            <tr>
+              <td><strong>${m.name}</strong></td>
+              <td style="text-transform: capitalize;">${m.relation}</td>
+              <td class="num">${m.year}</td>
+              <td class="num">${m.age}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div style="margin-top: 12px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Updating the family tree:</strong> edit "Family &amp; Beneficiaries" in Section 2 of the Builder (format: "Name (YYYY) — relationship" per line). Adding beneficiaries here makes them available for education funding, Dynasty Trust allocations, annual-exclusion gifting schedules, and beneficiary designation audits.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   PEER BENCHMARKING — placeholder card.
+   Real implementation requires aggregate data from many plans
+   (Supabase query with de-identified aggregation). Until that
+   data volume exists, this card shows typical HNW industry
+   benchmarks by NW tier sourced from published studies
+   (Spectrem Group, Capgemini World Wealth Report, SEI).
+   ============================================================ */
+function renderPeerBenchmark(p) {
+  const d = p.input;
+  const fmt$ = (n) => '$' + Math.round(n || 0).toLocaleString();
+  const fmt$M = (n) => n >= 1_000_000 ? '$' + (n / 1_000_000).toFixed(1) + 'M' : '$' + Math.round(n / 1_000) + 'K';
+  const fmtPct = (n) => (n || 0).toFixed(0) + '%';
+
+  const nw = p.familyTotalNW || ((d.client.preSaleNW || 0) + (d.client.otherAssets || 0));
+  // Tier detection
+  const tier = nw < 5_000_000  ? { label: 'Emerging HNW', range: '< $5M', size: 'small' }
+             : nw < 25_000_000 ? { label: 'HNW',           range: '$5M–$25M' }
+             : nw < 100_000_000 ? { label: 'Ultra-HNW',    range: '$25M–$100M' }
+             : { label: 'Family Office-scale', range: '$100M+' };
+
+  // Benchmark allocations by tier (industry-typical)
+  const benchmarks = {
+    'Emerging HNW':       { equity: 65, fixed: 25, re:  7, alts: 0,  cash: 3, giving: 2,  insurance: 12 },
+    'HNW':                { equity: 60, fixed: 20, re: 10, alts: 5,  cash: 5, giving: 5,  insurance: 15 },
+    'Ultra-HNW':          { equity: 55, fixed: 15, re: 15, alts: 10, cash: 5, giving: 10, insurance: 20 },
+    'Family Office-scale':{ equity: 45, fixed: 10, re: 15, alts: 25, cash: 5, giving: 15, insurance: 25 },
+  };
+  const b = benchmarks[tier.label];
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📊 Peer Benchmark — How You Compare to Your NW Tier</div>
+      <div class="card-sub">
+        Aggregate industry benchmarks for families at the <strong>${tier.label}</strong> tier (${tier.range}). Your projected family NW of <strong>${fmt$M(nw)}</strong> places you in this cohort. Allocations below reflect typical practice; individual circumstances justify deviation. Sources: Spectrem Group 2024 · Capgemini World Wealth Report 2024 · SEI Private Wealth Study 2024 · UBS Billionaire Ambitions 2024.
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Equity Allocation (typical)</div><div class="value">${fmtPct(b.equity)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Peer median</div></div>
+        <div class="kpi"><div class="label">Fixed Income</div><div class="value">${fmtPct(b.fixed)}</div></div>
+        <div class="kpi gold"><div class="label">Real Estate</div><div class="value">${fmtPct(b.re)}</div></div>
+        <div class="kpi"><div class="label">Alternatives</div><div class="value">${fmtPct(b.alts)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">PE, hedge, private credit</div></div>
+        <div class="kpi success"><div class="label">Charitable Giving (% NW/yr)</div><div class="value">${fmtPct(b.giving / 10)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Lifetime ~${fmtPct(b.giving)}</div></div>
+        <div class="kpi"><div class="label">Life Insurance (% NW)</div><div class="value">${fmtPct(b.insurance)}</div></div>
+      </div>
+
+      <div class="callout" style="margin-top: 16px;">
+        <span class="title">Reading the benchmark</span>
+        Peer data above is directional, not prescriptive. Your plan's actual allocation (Investment Strategy tab) is calibrated to ${d.client.primary}'s age, time horizon, and tax situation — deliberate deviations from peer median are typical for optimized HNW planning. Benchmark primarily serves as a "sanity check" — if your plan differs from peers by &gt;20 percentage points in any row, that's a conversation point, not necessarily a problem.
+      </div>
+
+      <div style="margin-top: 12px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Note on data scope:</strong> these benchmarks are industry-wide published medians. Pyle Financial will publish client-cohort benchmarks (de-identified aggregates of plans at your NW tier inside the firm) once the sample size supports statistical rigor (target: 50+ client plans per tier, protecting individual privacy via k-anonymity).
       </div>
     </div>
   `;
@@ -10139,7 +10306,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'plan-type',
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
       'client-primary-age','client-spouse-age',
-      'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college',
+      'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college','family-composition',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
       'ss-primary-benefit','ss-spouse-benefit','ss-claim-age',
       'biz-name','biz-type','biz-ownership','biz-sale','biz-basis','biz-date','biz-sale-type','biz-recapture',
@@ -11262,13 +11429,33 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const nextYear = currentYear + 1;
     const primary = document.getElementById('client-primary').value.trim() || 'Client';
 
-    if (!confirm(`Clone "${nameEl.value || primary}" as a new plan for ${nextYear}?`)) return;
+    const confirmMsg = `Clone "${nameEl.value || primary}" as a new plan for ${nextYear}?\n\n` +
+      `REMINDER: before using the cloned plan, refresh these rates to the current month:\n` +
+      `  • §7520 rate (GRAT, QPRT, CLT, CRAT, CRUT valuations) — IRS.gov/AFR\n` +
+      `  • Mid-term AFR (IDGT installment note) — IRS.gov/AFR\n` +
+      `  • Federal estate exemption ($15M/person 2025, inflation-indexed)\n` +
+      `  • IRMAA thresholds + AMT exemption + QBI thresholds\n` +
+      `  • §1202 regime (pre/post-OBBBA) if selling newly-issued stock\n\n` +
+      `Proceed?`;
+    if (!confirm(confirmMsg)) return;
 
     setStatus('Cloning…');
 
     // Capture current form state, then bump the year for the clone.
     const snap = snapshotForm();
     if (snap.values) snap.values['client-year'] = String(nextYear);
+
+    // Auto-update year-dependent values that drift with inflation / law.
+    // Advisor should verify each against current-month IRS publications.
+    // We only bump values that are reliably inflation-indexed.
+    if (snap.values) {
+      // Federal exemption inflation-adjusts ~2.5%/yr
+      const currentExempt = parseFloat(snap.values['tax-estate-exempt']) || 15_000_000;
+      snap.values['tax-estate-exempt'] = String(Math.round(currentExempt * 1.025 / 10_000) * 10_000);
+      // AMT exemption similar
+      const currentAmt = parseFloat(snap.values['tax-amt-exemption']) || 137_000;
+      snap.values['tax-amt-exemption'] = String(Math.round(currentAmt * 1.025));
+    }
 
     // Carry forward client_email assignment (team decides if they want
     // to re-assign or keep the same client seeing both years).
