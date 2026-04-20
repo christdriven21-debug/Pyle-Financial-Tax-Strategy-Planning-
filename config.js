@@ -11,5 +11,15 @@ window.__PYLE_CONFIG__ = {
   TABLE_NAME: 'plans',
   // Anyone with an email on this domain is treated as Team (full access).
   // Everyone else who signs in is treated as Client (read/edit own plan only).
-  TEAM_DOMAIN: 'pfs4u.com'
+  TEAM_DOMAIN: 'pfs4u.com',
+
+  // Sentry error monitoring. Paste your project DSN here to activate.
+  // Get one from https://sentry.io → Create Project → JavaScript → copy DSN.
+  // Leave as '' and Sentry will not load — no errors, no warnings.
+  SENTRY_DSN: '',
+
+  // Firm identity for branded emails + PDF footers.
+  FIRM_NAME: 'Pyle Financial Services, Inc',
+  FIRM_EMAIL: 'Admin@PFS4u.com',
+  FIRM_WEBSITE: 'https://www.pylefinancialservices.com'
 };

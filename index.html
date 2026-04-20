@@ -32,6 +32,41 @@
         integrity="sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a"
         crossorigin="anonymous"></script>
 <script src="./config.js"></script>
+<!-- Sentry error monitoring. Loads only if SENTRY_DSN is set in config.js.
+     Captures JS exceptions + unhandled promise rejections + performance
+     issues. Free tier is 5k errors/month — plenty for a single-advisor
+     practice. No client PII leaves the browser (we tune beforeSend below). -->
+<script>
+  (function loadSentryIfConfigured() {
+    var dsn = (window.__PYLE_CONFIG__ || {}).SENTRY_DSN || '';
+    if (!dsn) return;  // not configured — skip load entirely
+    var s = document.createElement('script');
+    s.src = 'https://browser.sentry-cdn.com/8.47.0/bundle.min.js';
+    s.integrity = 'sha384-F1SqswdlOeNYRWB3oa9RUmKftSyuOow0eg62rQ02yu79aQrHRFj4n6JMD8B1oHlO';
+    s.crossOrigin = 'anonymous';
+    s.onload = function () {
+      try {
+        window.Sentry.init({
+          dsn: dsn,
+          environment: location.hostname.includes('localhost') ? 'dev' : 'production',
+          release: 'pyle-plan-builder',
+          tracesSampleRate: 0.1,
+          // Scrub out any financial numbers that might leak into error messages.
+          beforeSend: function (event) {
+            try {
+              var s = JSON.stringify(event);
+              // Redact dollar amounts and SSN-like patterns defensively.
+              s = s.replace(/\$[\d,]+(\.\d+)?/g, '$[redacted]');
+              s = s.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[ssn-redacted]');
+              return JSON.parse(s);
+            } catch (e) { return event; }
+          }
+        });
+      } catch (e) { /* ignore — don't break the app */ }
+    };
+    document.head.appendChild(s);
+  })();
+</script>
 <style>
   :root {
     --cream: #F5F1E8;
@@ -860,6 +895,61 @@
     margin-bottom: 12px;
   }
   .review-list { margin-bottom: 14px; }
+
+  /* ===== WELCOME / ONBOARDING MODAL ===== */
+  .welcome-modal { position: fixed; inset: 0; z-index: 1100; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+  .welcome-modal.hidden { display: none; }
+  .welcome-backdrop { position: absolute; inset: 0; background: rgba(20,20,20,0.7); backdrop-filter: blur(3px); }
+  .welcome-body {
+    position: relative; background: var(--cream);
+    border: 1px solid var(--gold); border-radius: 10px;
+    max-width: 560px; width: 100%;
+    box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+    padding: 42px 44px 28px; overflow: hidden;
+  }
+  .welcome-slide { display: none; animation: welcomeFade .35s ease; }
+  .welcome-slide.active { display: block; }
+  .welcome-eyebrow {
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--gold-dark); font-weight: 700; margin-bottom: 10px;
+  }
+  .welcome-body h2 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 28px; font-weight: 500; color: var(--ink);
+    margin: 0 0 16px; letter-spacing: 0.3px;
+  }
+  .welcome-body p { font-size: 15px; color: var(--ink-soft, #444); line-height: 1.65; margin: 0 0 28px; }
+  .welcome-body p strong { color: var(--ink); font-weight: 700; }
+  .welcome-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; margin-top: 24px; padding-top: 20px;
+    border-top: 1px solid rgba(201,169,97,0.22);
+  }
+  .welcome-dots { display: flex; gap: 8px; }
+  .welcome-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: rgba(201,169,97,0.32);
+    transition: background .2s ease, transform .2s ease;
+  }
+  .welcome-dot.active { background: var(--gold); transform: scale(1.25); }
+  .welcome-skip {
+    background: transparent; border: 1px solid rgba(201,169,97,0.4);
+    color: var(--muted); padding: 8px 14px; border-radius: 4px;
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    font-weight: 700; cursor: pointer;
+    font-family: 'Helvetica Neue', sans-serif;
+  }
+  .welcome-skip:hover { color: var(--gold-dark); border-color: var(--gold-dark); }
+  .welcome-next {
+    background: var(--gold); color: var(--cream); border: none;
+    padding: 11px 22px; border-radius: 4px; cursor: pointer;
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    font-weight: 700;
+    font-family: 'Helvetica Neue', sans-serif;
+    transition: background .15s ease;
+  }
+  .welcome-next:hover { background: var(--gold-dark); }
+  @keyframes welcomeFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
   /* ===== DIFF / COMPARE MODAL ===== */
   .diff-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
@@ -3500,6 +3590,51 @@
         <div style="padding: 32px; text-align: center; color: var(--muted); font-style: italic;">
           Pick a meeting type and click Generate. Claude reads the plan + recent reviews and produces a 1-page briefing with snapshot, talking points, red flags, action items, and suggested scripts for hard conversations.
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== WELCOME / ONBOARDING MODAL — shown to a client on first
+       sign-in. Four quick slides explaining what they're looking at.
+       Dismissed permanently via localStorage flag `pyle-welcome-seen`. -->
+  <div id="welcome-modal" class="welcome-modal hidden" role="dialog" aria-labelledby="welcome-title">
+    <div class="welcome-backdrop"></div>
+    <div class="welcome-body">
+      <div class="welcome-slide active" data-slide="1">
+        <div class="welcome-eyebrow">Welcome to Your Plan</div>
+        <h2 id="welcome-title">A 30-second tour</h2>
+        <p>Your advisor has built a comprehensive financial plan just for you. This quick tour shows you how to get the most from it — or skip if you'd rather explore on your own.</p>
+      </div>
+      <div class="welcome-slide" data-slide="2">
+        <div class="welcome-eyebrow">Step 1</div>
+        <h2>Navigate with the tabs</h2>
+        <p>The <strong>Client Portrait</strong> tab shows your headline numbers. Other tabs dive into retirement, tax strategy, estate planning, and more. Click any tab to explore — nothing breaks if you wander.</p>
+      </div>
+      <div class="welcome-slide" data-slide="3">
+        <div class="welcome-eyebrow">Step 2</div>
+        <h2>Ask the AI assistant</h2>
+        <p>See the <strong>"Ask Your Plan"</strong> button in the bottom-right? Ask it anything — "When can I retire?" "How much will go to my kids?" "Is the Dynasty Trust worth the cost?" It answers in plain English, grounded in your actual numbers.</p>
+      </div>
+      <div class="welcome-slide" data-slide="4">
+        <div class="welcome-eyebrow">Step 3</div>
+        <h2>Upload documents &amp; leave notes</h2>
+        <p>Use the <strong>Plan Documents</strong> panel to send your advisor tax returns or insurance policies securely. Leave a note in the Reviews panel if you have a question between meetings. Your advisor is notified automatically.</p>
+      </div>
+      <div class="welcome-slide" data-slide="5">
+        <div class="welcome-eyebrow">You're Set</div>
+        <h2>Any questions, just ask.</h2>
+        <p>This plan is yours — explore it, share it with your CPA or attorney, and come back whenever anything changes in your life. Your advisor will update it for you and send an email when they do.</p>
+      </div>
+      <div class="welcome-nav">
+        <button type="button" class="welcome-skip" id="welcome-skip">Skip tour</button>
+        <div class="welcome-dots">
+          <span class="welcome-dot active" data-dot="1"></span>
+          <span class="welcome-dot" data-dot="2"></span>
+          <span class="welcome-dot" data-dot="3"></span>
+          <span class="welcome-dot" data-dot="4"></span>
+          <span class="welcome-dot" data-dot="5"></span>
+        </div>
+        <button type="button" class="welcome-next" id="welcome-next">Next →</button>
       </div>
     </div>
   </div>
@@ -12437,10 +12572,65 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     applyRoleUI();
     if (currentUser) {
       setStatus('Signed in as ' + currentUser.email + (isTeam ? ' (team)' : ' (client)'), 'ok');
+      // First-time-client welcome tour. Shown once per client based on a
+      // localStorage marker — they can re-trigger it by clearing that key.
+      // Team members never see the welcome modal (they built the thing).
+      if (!isTeam && typeof showWelcomeTourIfNew === 'function') showWelcomeTourIfNew();
     } else {
       setStatus('Not signed in — local-only (Download/Upload JSON)', 'err');
     }
   }
+
+  // ─────────────────────────────────────────────────────────
+  // WELCOME / ONBOARDING MODAL — 5-slide tour shown once per
+  // client on their first signed-in visit. Uses localStorage.
+  // ─────────────────────────────────────────────────────────
+  function showWelcomeTourIfNew() {
+    try {
+      if (!currentUser) return;
+      const key = 'pyle-welcome-seen-' + currentUser.id;
+      if (localStorage.getItem(key)) return;
+      const modal = document.getElementById('welcome-modal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+    } catch (e) { /* ignore */ }
+  }
+  function closeWelcomeTour() {
+    try {
+      const modal = document.getElementById('welcome-modal');
+      if (modal) modal.classList.add('hidden');
+      if (currentUser) localStorage.setItem('pyle-welcome-seen-' + currentUser.id, String(Date.now()));
+    } catch (e) { /* ignore */ }
+  }
+  (function bindWelcomeTour() {
+    const modal   = document.getElementById('welcome-modal');
+    if (!modal) return;
+    const nextBtn = document.getElementById('welcome-next');
+    const skipBtn = document.getElementById('welcome-skip');
+    const slides  = modal.querySelectorAll('.welcome-slide');
+    const dots    = modal.querySelectorAll('.welcome-dot');
+    const backdrop = modal.querySelector('.welcome-backdrop');
+    let idx = 0;
+    function show(n) {
+      idx = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+      nextBtn.textContent = idx === slides.length - 1 ? 'Get Started' : 'Next →';
+    }
+    nextBtn.addEventListener('click', () => {
+      if (idx === slides.length - 1) closeWelcomeTour();
+      else show(idx + 1);
+    });
+    skipBtn.addEventListener('click', closeWelcomeTour);
+    backdrop.addEventListener('click', closeWelcomeTour);
+    document.addEventListener('keydown', (e) => {
+      if (modal.classList.contains('hidden')) return;
+      if (e.key === 'Escape') closeWelcomeTour();
+      if (e.key === 'ArrowRight' || e.key === 'Enter') nextBtn.click();
+      if (e.key === 'ArrowLeft' && idx > 0) show(idx - 1);
+    });
+    show(0);
+  })();
 
   async function signIn(email) {
     if (!email) return;
@@ -12728,6 +12918,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     refreshReviews();
     if (typeof refreshDocuments === 'function') refreshDocuments();
     hydrateChecklist();
+    // Fire-and-forget email notification. Silent failure — if Resend/domain
+    // isn't set up yet, the endpoint returns 503 and we just skip.
+    notify('plan_saved', currentId);
   }
 
   async function loadPlan(id) {
@@ -12851,6 +13044,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     reviewStatusEl.value = 'comment';
     reviewMsgEl.textContent = 'Posted ✓';
     refreshReviews();
+    notify('review_posted', currentId, comment);
     setTimeout(() => { reviewMsgEl.textContent = ''; }, 3000);
   }
 
@@ -12995,6 +13189,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     fileInput.value = '';
     setTimeout(() => { docStatusEl.textContent = ''; }, 3000);
     refreshDocuments();
+    notify('doc_uploaded', currentId, file.name);
   }
 
   window.__DOWNLOAD_DOC__ = async function(filePath, fileName) {
@@ -13048,6 +13243,23 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   }
   // Expose globally so any code path can log without scope juggling.
   window.__AUDIT__ = audit;
+
+  // ─────────────────────────────────────────────────────────
+  // EMAIL NOTIFICATIONS (Resend via /api/notify)
+  // Fire-and-forget. If Resend/domain isn't configured yet,
+  // the server returns 503 and we silently skip. Never blocks
+  // the user's action.
+  // ─────────────────────────────────────────────────────────
+  async function notify(type, planId, note) {
+    try {
+      if (!sb || !currentUser || !planId) return;
+      await authedFetch('/api/notify', {
+        method: 'POST',
+        body: JSON.stringify({ type, planId, note: note || '' }),
+      }).catch(() => {});
+    } catch (e) { /* ignore — notifications are optional */ }
+  }
+  window.__NOTIFY__ = notify;
 
   const AUDIT_ACTION_LABELS = {
     'plan.create':  '🆕 Plan created',

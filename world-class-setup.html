@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World-Class Setup — Pyle Financial Services</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --gold:#C9A961; --gold-dark:#8B7640; --cream:#F5F1E8; --cream-panel:#FAF6ED; --cream-light:#F2EDDD; --ink:#1a1a1a; --ink-soft:#444; --muted:#6B6556; --success:#2D6A4F; --crimson:#8B1A1A; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:0; font-family:'Helvetica Neue', sans-serif; background:var(--cream); color:var(--ink); line-height:1.6; }
+  .wrap { max-width:880px; margin:0 auto; padding:48px 24px 96px; }
+  header { padding:32px 0 40px; border-bottom:1px solid rgba(201,169,97,.25); margin-bottom:32px; }
+  .eyebrow { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--gold-dark); font-weight:700; margin-bottom:10px; }
+  h1 { font-family:'Playfair Display', serif; font-size:34px; font-weight:500; margin:0 0 10px; }
+  .lead { font-size:15px; color:var(--ink-soft); max-width:700px; }
+  .nav-link { color:var(--gold-dark); text-decoration:none; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; font-weight:700; margin-bottom:24px; display:inline-block; }
+  .nav-link:hover { text-decoration:underline; }
+
+  .progress-wrap { display:flex; align-items:center; gap:14px; margin-bottom:32px; padding:16px 20px; background:#FFF; border:1px solid rgba(201,169,97,.35); border-radius:6px; }
+  .progress-bar { flex:1; height:8px; background:var(--cream-light); border-radius:4px; overflow:hidden; }
+  .progress-fill { height:100%; background:var(--gold); transition:width .4s ease; }
+  .progress-fill.done { background:var(--success); }
+  .progress-text { font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--gold-dark); font-weight:700; white-space:nowrap; }
+  .reset-link { font-size:11px; color:var(--muted); cursor:pointer; text-decoration:underline; }
+  .reset-link:hover { color:var(--crimson); }
+
+  .step { background:#FFF; border:1px solid rgba(201,169,97,.25); border-radius:6px; padding:28px 32px; margin-bottom:18px; transition:box-shadow .2s ease; }
+  .step:hover { box-shadow:0 4px 16px rgba(0,0,0,.04); }
+  .step.done { background:#F5FBF7; border-color:rgba(45,106,79,.4); }
+  .step-header { display:flex; align-items:flex-start; gap:20px; margin-bottom:14px; }
+  .step-num { width:40px; height:40px; border-radius:50%; background:var(--gold); color:var(--cream); display:flex; align-items:center; justify-content:center; font-family:'Playfair Display', serif; font-size:18px; font-weight:700; flex-shrink:0; }
+  .step.done .step-num { background:var(--success); font-size:22px; }
+  .step.done .step-num span { display:none; }
+  .step.done .step-num::after { content:'✓'; }
+  .step-title { flex:1; padding-top:6px; }
+  .step-title h2 { font-family:'Playfair Display', serif; font-size:20px; font-weight:500; margin:0 0 4px; }
+  .step-title .time { font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .step-mark { padding-top:8px; }
+  .step-mark input { width:22px; height:22px; cursor:pointer; accent-color:var(--success); }
+  .step-mark label { display:block; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); font-weight:700; text-align:center; margin-top:4px; cursor:pointer; }
+  .step-body { padding-left:60px; font-size:14px; color:var(--ink-soft); }
+  .step-body ol, .step-body ul { padding-left:22px; margin:10px 0; }
+  .step-body li { margin-bottom:8px; }
+  .step-body strong { color:var(--ink); font-weight:700; }
+  .step-body code { background:#FAFAF5; border:1px solid rgba(201,169,97,.3); padding:2px 8px; border-radius:3px; font-size:12px; color:var(--gold-dark); font-weight:600; }
+
+  .btn-row { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0; }
+  .external-link, .copy-btn-lg { display:inline-flex; align-items:center; gap:8px; padding:11px 20px; border-radius:4px; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; font-weight:700; cursor:pointer; border:none; text-decoration:none; font-family:'Helvetica Neue', sans-serif; transition:background .15s ease; }
+  .external-link { background:var(--gold); color:var(--cream); }
+  .external-link:hover { background:var(--gold-dark); }
+  .external-link::after { content:' ↗'; }
+  .copy-btn-lg { background:var(--gold-dark); color:var(--cream); }
+  .copy-btn-lg:hover { background:var(--ink); }
+  .copy-btn-lg.copied { background:var(--success); }
+  .copy-btn-lg.copied::after { content:' ✓'; margin-left:6px; }
+
+  .copy-block { display:flex; align-items:center; gap:10px; background:#FAFAF5; border:1px solid rgba(201,169,97,.35); padding:10px 14px; border-radius:4px; margin:12px 0; font-family:Menlo, monospace; font-size:13px; word-break:break-all; }
+  .copy-block code { flex:1; background:transparent; color:var(--gold-dark); font-weight:600; user-select:all; border:none; padding:0; }
+  .copy-block .copy-btn { background:var(--gold-dark); color:var(--cream); border:none; padding:6px 14px; border-radius:3px; cursor:pointer; font-size:11px; letter-spacing:1px; text-transform:uppercase; font-weight:700; font-family:'Helvetica Neue', sans-serif; flex-shrink:0; }
+  .copy-block .copy-btn:hover { background:var(--gold); }
+  .copy-block .copy-btn.copied { background:var(--success); }
+
+  .callout { background:var(--cream-light); border-left:3px solid var(--gold); padding:12px 16px; margin:14px 0; font-size:13px; color:var(--ink-soft); }
+  .callout strong { color:var(--ink); }
+  .pill { display:inline-block; background:var(--cream-light); border:1px solid rgba(201,169,97,.35); padding:3px 10px; border-radius:12px; font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--gold-dark); margin-left:8px; vertical-align:middle; }
+  .pill.required { background:#FFF0F0; border-color:var(--crimson); color:var(--crimson); }
+  .pill.optional { background:#F0F7F3; border-color:var(--success); color:var(--success); }
+
+  .section-heading { font-family:'Playfair Display', serif; font-size:22px; font-weight:500; color:var(--ink); margin:40px 0 14px; padding-bottom:10px; border-bottom:1px solid rgba(201,169,97,.2); }
+  .section-sub { font-size:13px; color:var(--muted); margin:-8px 0 18px; }
+  .foot { margin-top:48px; padding-top:22px; border-top:1px solid rgba(201,169,97,.25); font-size:12px; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="./" class="nav-link">← Back to Plan Builder</a>
+  <header>
+    <div class="eyebrow">World-Class Setup</div>
+    <h1>Turn the platform on, piece by piece.</h1>
+    <p class="lead">You've already shipped the core planning tool, the security hardening, and the six "yes to all" features. This page walks you through the operational polish — custom domain, error monitoring, email notifications, and the rest of the Tier 1 items. Check off as you go; progress saves automatically.</p>
+  </header>
+
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%;"></div></div>
+    <div class="progress-text" id="progress-text">0 / 7 complete</div>
+    <span class="reset-link" onclick="resetProgress()">Reset</span>
+  </div>
+
+  <div class="section-heading">Phase 1 — Core operations</div>
+  <div class="section-sub">Custom domain, error monitoring, automated email. ~45 minutes total.</div>
+
+  <!-- 1. CUSTOM DOMAIN -->
+  <div class="step" data-step-id="domain">
+    <div class="step-header">
+      <div class="step-num"><span>1</span></div>
+      <div class="step-title">
+        <h2>Custom domain: www.pylefinancialservices.com <span class="pill required">Required</span></h2>
+        <div class="time">~ 10 minutes + DNS propagation</div>
+      </div>
+      <div class="step-mark"><input type="checkbox" id="check-domain"><label for="check-domain">Done</label></div>
+    </div>
+    <div class="step-body">
+      <p>Gets rid of the <code>pyle-planning.vercel.app</code> URL. Clients see a real domain that matches your firm.</p>
+      <ol>
+        <li>Open Vercel → your project → <strong>Settings → Domains</strong>.</li>
+        <li>Click <strong>Add Domain</strong> and type <code>www.pylefinancialservices.com</code>.</li>
+        <li>Vercel shows you DNS records to add at your domain registrar (GoDaddy, Cloudflare, etc.).</li>
+        <li>Add the records at your registrar. Usually a <code>CNAME</code> from <code>www</code> → <code>cname.vercel-dns.com</code>.</li>
+        <li>Also add the root redirect: Vercel will walk you through making <code>pylefinancialservices.com</code> redirect to <code>www.pylefinancialservices.com</code>.</li>
+        <li>Wait 5-30 minutes for DNS propagation. Vercel auto-provisions the SSL certificate.</li>
+      </ol>
+      <div class="btn-row">
+        <a href="https://vercel.com/dashboard" target="_blank" class="external-link">Open Vercel Domains</a>
+      </div>
+      <div class="callout">
+        <strong>After the domain is live:</strong> update <code>Supabase → Auth → URL Configuration</code> so the Site URL is <code>https://www.pylefinancialservices.com</code>. Otherwise magic links will still redirect to the vercel.app URL.
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. SENTRY -->
+  <div class="step" data-step-id="sentry">
+    <div class="step-header">
+      <div class="step-num"><span>2</span></div>
+      <div class="step-title">
+        <h2>Sentry error monitoring <span class="pill optional">Free tier</span></h2>
+        <div class="time">~ 5 minutes</div>
+      </div>
+      <div class="step-mark"><input type="checkbox" id="check-sentry"><label for="check-sentry">Done</label></div>
+    </div>
+    <div class="step-body">
+      <p>Catches JavaScript errors in the field before clients report them. If something breaks in Monte Carlo for a specific client's inputs, you'll see it in Sentry before they see it on screen.</p>
+      <ol>
+        <li>Create a Sentry account (free tier: 5k errors/month — plenty).</li>
+        <li>Create a new project → pick <strong>JavaScript → Browser</strong>.</li>
+        <li>Copy the <strong>DSN</strong> (looks like <code>https://abc123@o12345.ingest.sentry.io/67890</code>).</li>
+        <li>In your project folder, open <code>config.js</code> and paste the DSN into the <code>SENTRY_DSN</code> field.</li>
+        <li>Push the change with the desktop button. Sentry activates automatically on next page load.</li>
+      </ol>
+      <div class="btn-row">
+        <a href="https://sentry.io/signup/" target="_blank" class="external-link">Create Sentry account</a>
+      </div>
+      <div class="callout">
+        <strong>Privacy note:</strong> I've already wired the Sentry SDK to scrub dollar amounts and SSN-like patterns out of error reports before they leave the browser. Client PII never reaches Sentry.
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. RESEND -->
+  <div class="step" data-step-id="resend">
+    <div class="step-header">
+      <div class="step-num"><span>3</span></div>
+      <div class="step-title">
+        <h2>Email notifications via Resend <span class="pill optional">Free tier</span></h2>
+        <div class="time">~ 15 minutes</div>
+      </div>
+      <div class="step-mark"><input type="checkbox" id="check-resend"><label for="check-resend">Done</label></div>
+    </div>
+    <div class="step-body">
+      <p>Automatic emails when a plan is updated, a document is uploaded, or a review is posted. Free tier is 3,000 emails/month — well beyond what a solo practice needs.</p>
+      <ol>
+        <li>Create a Resend account.</li>
+        <li><strong>Add your domain</strong> (<code>pylefinancialservices.com</code>) under Domains. Resend gives you DNS records — add them at your registrar. This takes ~15 minutes to verify.</li>
+        <li>Create an API key. Copy it.</li>
+        <li>Add these three env vars to Vercel (Settings → Environment Variables):
+          <div class="copy-block"><code>RESEND_API_KEY</code><button class="copy-btn" onclick="copyText('RESEND_API_KEY', this)">Copy</button></div>
+          Value: paste the API key from step 3.
+          <div class="copy-block"><code>NOTIFY_FROM</code><button class="copy-btn" onclick="copyText('NOTIFY_FROM', this)">Copy</button></div>
+          Value: <code>Pyle Planning &lt;notify@pylefinancialservices.com&gt;</code>
+          <div class="copy-block"><code>NOTIFY_TEAM</code><button class="copy-btn" onclick="copyText('NOTIFY_TEAM', this)">Copy</button></div>
+          Value: <code>Admin@PFS4u.com</code>
+          <div class="copy-block"><code>APP_URL</code><button class="copy-btn" onclick="copyText('APP_URL', this)">Copy</button></div>
+          Value: <code>https://www.pylefinancialservices.com</code>
+        </li>
+        <li>Trigger a redeploy so the env vars pick up.</li>
+      </ol>
+      <div class="btn-row">
+        <a href="https://resend.com/signup" target="_blank" class="external-link">Create Resend account</a>
+        <a href="https://vercel.com/dashboard" target="_blank" class="external-link">Open Vercel Env Vars</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. BRANDED MAGIC-LINK EMAIL -->
+  <div class="step" data-step-id="magic">
+    <div class="step-header">
+      <div class="step-num"><span>4</span></div>
+      <div class="step-title">
+        <h2>Branded magic-link email <span class="pill optional">Polish</span></h2>
+        <div class="time">~ 5 minutes</div>
+      </div>
+      <div class="step-mark"><input type="checkbox" id="check-magic"><label for="check-magic">Done</label></div>
+    </div>
+    <div class="step-body">
+      <p>Replaces Supabase's default "Confirm your email" with a properly-branded email carrying your firm colors, tagline, and a large "Open My Plan" button.</p>
+      <ol>
+        <li>Open Supabase Auth → Email Templates → <strong>Magic Link</strong>.</li>
+        <li>Click the button below to copy the pre-written HTML to your clipboard.</li>
+        <li>Paste into the Supabase template body.</li>
+        <li>Set the subject to: <code>Sign in to your financial plan — Pyle Financial Services</code></li>
+        <li>Click Save.</li>
+        <li>(Optional) Do the same for the <strong>Invite user</strong> template using <code>invite.html</code>.</li>
+      </ol>
+      <div class="btn-row">
+        <a href="https://supabase.com/dashboard/project/ecrgcajxolritivqixkg/auth/templates" target="_blank" class="external-link">Open Supabase Templates</a>
+        <button class="copy-btn-lg" onclick="copyFromUrl('./supabase/email-templates/magic-link.html', this)">Copy Magic-Link HTML</button>
+        <button class="copy-btn-lg" onclick="copyFromUrl('./supabase/email-templates/invite.html', this)">Copy Invite HTML</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. SUPABASE BACKUPS -->
+  <div class="step" data-step-id="backups">
+    <div class="step-header">
+      <div class="step-num"><span>5</span></div>
+      <div class="step-title">
+        <h2>Verify automated backups are on <span class="pill required">Required</span></h2>
+        <div class="time">~ 2 minutes</div>
+      </div>
+      <div class="step-mark"><input type="checkbox" id="check-backups"><label for="check-backups">Done</label></div>
+    </div>
+    <div class="step-body">
+      <p>You just upgraded to Supabase Pro — which means Point-in-Time Recovery (PITR) is available. Verify it's actually turned on. Without this, if anything ever corrupts the database, the best you can do is roll back to yesterday's backup.</p>
+      <ol>
+        <li>Open Supabase → Database → Backups.</li>
+        <li>Confirm "Point-in-Time Recovery" is <strong>Enabled</strong>.</li>
+        <li>If not, click Enable — it's included in your Pro plan.</li>
+      </ol>
+      <div class="btn-row">
+        <a href="https://supabase.com/dashboard/project/ecrgcajxolritivqixkg/database/backups" target="_blank" class="external-link">Open Supabase Backups</a>
+      </div>
+      <div class="callout">
+        <strong>Why this matters:</strong> PITR lets you restore to any moment in the last 7 days. If an advisor accidentally deletes a plan on Wednesday, you can roll back to Tuesday afternoon without losing the other work done that week.
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. STATUS PAGE -->
+  <div class="step" data-step-id="status">
+    <div class="step-header">
+      <div class="step-num"><span>6</span></div>
+      <div class="step-title">
+        <h2>Share your status page URL <span class="pill optional">Nice-to-have</span></h2>
+        <div class="time">~ 30 seconds</div>
+      </div>
+      <div class="step-mark"><input type="checkbox" id="check-status"><label for="check-status">Done</label></div>
+    </div>
+    <div class="step-body">
+      <p>You now have a live status page at <code>/status.html</code>. It auto-probes every core service every 60 seconds. Bookmark it and share with any RIA firms asking about your vendor reliability posture.</p>
+      <div class="btn-row">
+        <a href="./status.html" target="_blank" class="external-link">Open Status Page</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-heading">Phase 2 — Legal &amp; compliance</div>
+  <div class="section-sub">Engage professionals. ~1-4 weeks for full SOC 2 readiness.</div>
+
+  <!-- 7. LEGAL -->
+  <div class="step" data-step-id="legal">
+    <div class="step-header">
+      <div class="step-num"><span>7</span></div>
+      <div class="step-title">
+        <h2>Privacy Policy, Terms of Service, Cyber insurance <span class="pill required">Required for enterprise sales</span></h2>
+        <div class="time">~ 1-2 weeks</div>
+      </div>
+      <div class="step-mark"><input type="checkbox" id="check-legal"><label for="check-legal">Done</label></div>
+    </div>
+    <div class="step-body">
+      <p>You're storing HNW client financial data as an RIA. Without these documents, an SEC audit or client complaint becomes existential. Engage a real RIA-tech attorney — don't use a template.</p>
+      <ul>
+        <li><strong>RIA-tech attorneys</strong> — firms specializing in this space: Hamburger Law Firm (hamburgerlaw.com), Michelle Jacko at Jacko Law Group, Core Compliance and Legal Services. Budget ~$2-5k for a full Privacy Policy + ToS package.</li>
+        <li><strong>Cyber liability insurance</strong> — $1M minimum, ~$3-8k/yr. Brokers: Embroker, Coalition, Berkley, The Hartford. Tell them you're an RIA-tech handling HNW client financial data via Supabase/Vercel/Plaid.</li>
+        <li><strong>SOC 2 Type I readiness</strong> — Drata, Vanta, or SecureFrame will walk you through it in ~3-6 weeks. Budget $15-30k the first year, $8-15k/yr after. Unlocks enterprise RIA sales.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="foot">
+    Pyle Financial Services, Inc · <a href="https://www.pylefinancialservices.com" style="color:var(--gold-dark);">pylefinancialservices.com</a>
+    <br>Progress saves in localStorage. Reset clears it.
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'pyle-world-class-progress-v1';
+  const ALL_CHECKS = Array.from(document.querySelectorAll('.step-mark input[type="checkbox"]'));
+
+  async function copyText(text, btn) {
+    try {
+      await navigator.clipboard.writeText(text);
+      const original = btn.textContent;
+      btn.textContent = '✓ Copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 2000);
+    } catch (e) { alert('Copy failed — please select the text manually.'); }
+  }
+
+  async function copyFromUrl(url, btn) {
+    const orig = btn.textContent;
+    btn.textContent = 'Loading…';
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const text = await resp.text();
+      await navigator.clipboard.writeText(text);
+      btn.textContent = '✓ Copied to clipboard';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2500);
+    } catch (e) { btn.textContent = 'Copy failed'; setTimeout(() => { btn.textContent = orig; }, 2000); }
+  }
+
+  function loadProgress() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      ALL_CHECKS.forEach(c => { if (saved[c.id]) c.checked = true; });
+    } catch (e) { /* ignore */ }
+    syncStepStyles();
+    updateProgress();
+  }
+  function saveProgress() {
+    const state = {};
+    ALL_CHECKS.forEach(c => { if (c.checked) state[c.id] = true; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+  function syncStepStyles() {
+    ALL_CHECKS.forEach(c => {
+      const step = c.closest('.step');
+      if (step) step.classList.toggle('done', c.checked);
+    });
+  }
+  function updateProgress() {
+    const total = ALL_CHECKS.length;
+    const done = ALL_CHECKS.filter(c => c.checked).length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    const fill = document.getElementById('progress-fill');
+    fill.style.width = pct + '%';
+    fill.classList.toggle('done', done === total);
+    document.getElementById('progress-text').textContent =
+      done === total ? `🎉 All ${total} complete!` : `${done} / ${total} complete`;
+  }
+  ALL_CHECKS.forEach(c => c.addEventListener('change', () => { saveProgress(); syncStepStyles(); updateProgress(); }));
+  function resetProgress() {
+    if (!confirm('Reset all progress?')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    ALL_CHECKS.forEach(c => c.checked = false);
+    syncStepStyles(); updateProgress();
+  }
+  window.resetProgress = resetProgress;
+  loadProgress();
+</script>
+</body>
+</html>

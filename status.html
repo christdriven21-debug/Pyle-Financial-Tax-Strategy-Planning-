@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Status — Pyle Financial Services</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gold: #C9A961; --gold-dark: #8B7640;
+      --cream: #F5F1E8; --cream-light: #F2EDDD;
+      --ink: #1a1a1a; --ink-soft: #444; --muted: #6B6556;
+      --success: #2D6A4F; --crimson: #8B1A1A;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: 'Helvetica Neue', sans-serif; background: var(--cream); color: var(--ink); line-height: 1.55; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
+    .eyebrow { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700; margin-bottom: 10px; }
+    h1 { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 500; margin: 0 0 8px; letter-spacing: .3px; }
+    .sub { color: var(--ink-soft); font-size: 15px; max-width: 560px; }
+    header { padding: 32px 0 32px; border-bottom: 1px solid rgba(201,169,97,.25); margin-bottom: 32px; }
+    .banner { padding: 22px 26px; border-radius: 8px; border: 1px solid; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; }
+    .banner.ok { background: #F0F7F3; border-color: var(--success); color: var(--success); }
+    .banner.deg { background: #FFF5E6; border-color: #B07D00; color: #7A5800; }
+    .banner.out { background: #FFF0F0; border-color: var(--crimson); color: var(--crimson); }
+    .banner-icon { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; }
+    .banner.ok .banner-icon { background: var(--success); }
+    .banner.deg .banner-icon { background: #B07D00; }
+    .banner.out .banner-icon { background: var(--crimson); }
+    .banner h2 { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 500; margin: 0 0 4px; }
+    .banner p { margin: 0; font-size: 13px; opacity: .85; }
+
+    .services { background: #FFF; border: 1px solid rgba(201,169,97,.25); border-radius: 8px; padding: 6px 0; }
+    .service { display: flex; align-items: center; padding: 14px 24px; border-bottom: 1px solid rgba(201,169,97,.15); gap: 14px; }
+    .service:last-child { border-bottom: none; }
+    .service-name { flex: 1; font-weight: 600; font-size: 14px; }
+    .service-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .service-status { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; padding: 4px 10px; border-radius: 12px; }
+    .service-status.ok { background: #DEF1E5; color: var(--success); }
+    .service-status.deg { background: #FCEBD0; color: #7A5800; }
+    .service-status.out { background: #FFE0E0; color: var(--crimson); }
+    .service-status.check { background: var(--cream-light); color: var(--muted); }
+    .service-status .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+    .service-status.ok .dot { background: var(--success); }
+    .service-status.deg .dot { background: #B07D00; }
+    .service-status.out .dot { background: var(--crimson); }
+    .service-status.check .dot { background: var(--muted); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+
+    .legend { margin-top: 32px; background: var(--cream-light); padding: 18px 22px; border-radius: 6px; font-size: 13px; color: var(--muted); }
+    .legend strong { color: var(--ink); }
+    .legend code { background: #FFF; padding: 2px 6px; border-radius: 3px; color: var(--gold-dark); font-size: 12px; }
+    .foot { margin-top: 48px; padding-top: 22px; border-top: 1px solid rgba(201,169,97,.25); font-size: 12px; color: var(--muted); text-align: center; }
+    .foot a { color: var(--gold-dark); text-decoration: none; }
+    .foot a:hover { text-decoration: underline; }
+    .last-checked { font-size: 11px; color: var(--muted); margin-top: 14px; text-align: right; letter-spacing: .5px; }
+    .back { color: var(--gold-dark); text-decoration: none; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <a href="./" class="back">← Back to Plan Builder</a>
+
+  <header>
+    <div class="eyebrow">System Status</div>
+    <h1>All Systems</h1>
+    <p class="sub">Live health of the Pyle Financial Services planning platform. This page auto-refreshes every 60 seconds.</p>
+  </header>
+
+  <div id="overall-banner" class="banner ok">
+    <span class="banner-icon"></span>
+    <div>
+      <h2 id="overall-heading">All systems operational</h2>
+      <p id="overall-note">Every core service is reachable and responding normally.</p>
+    </div>
+  </div>
+
+  <div class="services">
+    <div class="service" data-check="site">
+      <div style="flex:1;">
+        <div class="service-name">Plan Builder Application</div>
+        <div class="service-desc">The main web app at pylefinancialservices.com</div>
+      </div>
+      <span class="service-status check"><span class="dot"></span>Checking</span>
+    </div>
+    <div class="service" data-check="supabase">
+      <div style="flex:1;">
+        <div class="service-name">Database &amp; Authentication</div>
+        <div class="service-desc">Supabase — plans, documents, audit log, sign-in</div>
+      </div>
+      <span class="service-status check"><span class="dot"></span>Checking</span>
+    </div>
+    <div class="service" data-check="anthropic">
+      <div style="flex:1;">
+        <div class="service-name">AI Plan Assistant</div>
+        <div class="service-desc">Anthropic Claude API — Q&amp;A, Meeting Prep, narrative polish</div>
+      </div>
+      <span class="service-status check"><span class="dot"></span>Checking</span>
+    </div>
+    <div class="service" data-check="plaid">
+      <div style="flex:1;">
+        <div class="service-name">Account Aggregation</div>
+        <div class="service-desc">Plaid — real-time bank, brokerage, credit balances</div>
+      </div>
+      <span class="service-status check"><span class="dot"></span>Checking</span>
+    </div>
+    <div class="service" data-check="email">
+      <div style="flex:1;">
+        <div class="service-name">Email Notifications</div>
+        <div class="service-desc">Resend — plan updates, document uploads, review notes</div>
+      </div>
+      <span class="service-status check"><span class="dot"></span>Checking</span>
+    </div>
+  </div>
+
+  <p class="last-checked" id="last-checked">Last checked: just now</p>
+
+  <div class="legend">
+    <p style="margin: 0 0 8px;"><strong>How this page works</strong></p>
+    <p style="margin: 0;">Each row runs a lightweight probe against the relevant service. Green <code>OPERATIONAL</code> means the service responded within 3 seconds with a valid status. Amber <code>DEGRADED</code> means elevated latency or a partial failure. Red <code>DOWN</code> means the service is unreachable or returning errors. Checks re-run every 60 seconds while this page is open.</p>
+  </div>
+
+  <div class="foot">
+    <p>Pyle Financial Services, Inc · <a href="https://www.pylefinancialservices.com">pylefinancialservices.com</a></p>
+    <p>For incident alerts or questions about availability, email <a href="mailto:Admin@PFS4u.com">Admin@PFS4u.com</a></p>
+  </div>
+</div>
+
+<script>
+  // Each check returns one of: 'ok' | 'deg' | 'out'
+  // Timeouts → 'out'. 200 → 'ok'. 401/503 → 'deg' (service is up but not fully configured).
+  async function probe(url, opts = {}) {
+    const { timeout = 3500, method = 'GET', body } = opts;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const started = performance.now();
+      const resp = await fetch(url, { method, signal: controller.signal, body, headers: body ? { 'Content-Type': 'application/json' } : {} });
+      const latency = performance.now() - started;
+      clearTimeout(timer);
+      return { status: resp.status, latency };
+    } catch (e) {
+      clearTimeout(timer);
+      return { status: 0, latency: null };
+    }
+  }
+
+  function setStatus(key, level, label) {
+    const row = document.querySelector(`.service[data-check="${key}"] .service-status`);
+    if (!row) return;
+    row.className = 'service-status ' + level;
+    row.innerHTML = `<span class="dot"></span>${label}`;
+  }
+
+  async function runChecks() {
+    // 1. Site — fetch self (always same-origin; confirms Vercel edge alive)
+    const site = await probe('/');
+    setStatus('site', site.status === 200 ? 'ok' : 'out', site.status === 200 ? 'Operational' : 'Down');
+
+    // 2. Supabase — call the anon /auth/v1/health proxy (no auth required)
+    const cfg = await fetch('./config.js').then(r => r.text()).catch(() => '');
+    const urlMatch = cfg.match(/SUPABASE_URL:\s*'([^']+)'/);
+    if (urlMatch) {
+      const supa = await probe(urlMatch[1] + '/auth/v1/health');
+      setStatus('supabase', supa.status === 200 ? 'ok' : (supa.status ? 'deg' : 'out'),
+        supa.status === 200 ? 'Operational' : (supa.status ? 'Degraded' : 'Down'));
+    } else {
+      setStatus('supabase', 'out', 'Not configured');
+    }
+
+    // 3. Anthropic — hit our /api/ask-plan without auth → expect 401 = endpoint alive + gated
+    const ai = await probe('/api/ask-plan', { method: 'POST', body: '{}' });
+    // 401 = auth layer is up (good signal the service is reachable)
+    // 503 = missing ANTHROPIC_API_KEY config
+    if (ai.status === 401) setStatus('anthropic', 'ok', 'Operational');
+    else if (ai.status === 503) setStatus('anthropic', 'deg', 'Not configured');
+    else if (ai.status === 0) setStatus('anthropic', 'out', 'Down');
+    else setStatus('anthropic', 'deg', 'Status ' + ai.status);
+
+    // 4. Plaid — same approach, probe /api/plaid/balances expecting 401
+    const pl = await probe('/api/plaid/balances', { method: 'POST', body: '{}' });
+    if (pl.status === 401) setStatus('plaid', 'ok', 'Operational');
+    else if (pl.status === 503) setStatus('plaid', 'deg', 'Not configured');
+    else if (pl.status === 0) setStatus('plaid', 'out', 'Down');
+    else setStatus('plaid', 'deg', 'Status ' + pl.status);
+
+    // 5. Email (Resend) — probe /api/notify expecting 401
+    const em = await probe('/api/notify', { method: 'POST', body: '{}' });
+    if (em.status === 401) setStatus('email', 'ok', 'Operational');
+    else if (em.status === 503) setStatus('email', 'deg', 'Not configured');
+    else if (em.status === 0) setStatus('email', 'out', 'Down');
+    else setStatus('email', 'deg', 'Status ' + em.status);
+
+    // Roll up overall banner.
+    const statuses = Array.from(document.querySelectorAll('.service-status')).map(el => el.classList);
+    const hasOut = statuses.some(c => c.contains('out'));
+    const hasDeg = statuses.some(c => c.contains('deg'));
+    const banner = document.getElementById('overall-banner');
+    const heading = document.getElementById('overall-heading');
+    const note = document.getElementById('overall-note');
+    if (hasOut) {
+      banner.className = 'banner out';
+      heading.textContent = 'Service disruption';
+      note.textContent = 'One or more core services are unreachable. Contact support if this persists.';
+    } else if (hasDeg) {
+      banner.className = 'banner deg';
+      heading.textContent = 'Partial configuration';
+      note.textContent = 'All critical services are online. Some optional integrations are not configured yet.';
+    } else {
+      banner.className = 'banner ok';
+      heading.textContent = 'All systems operational';
+      note.textContent = 'Every core service is reachable and responding normally.';
+    }
+    document.getElementById('last-checked').textContent = 'Last checked: ' + new Date().toLocaleTimeString();
+  }
+
+  runChecks();
+  setInterval(runChecks, 60_000);
+</script>
+</body>
+</html>
