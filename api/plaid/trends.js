@@ -5,26 +5,37 @@
 //
 // Returns { series: [{ date, total, depository, investment }, ...] }
 
+import { requireUser, isValidUuid } from '../_lib/auth.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Require authenticated session. userId comes from the verified JWT,
+  // not the request body — prevents cross-tenant trend reads.
+  const user = await requireUser(req, res);
+  if (!user) return;
+
   const supaUrl = process.env.SUPABASE_URL;
   const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supaUrl || !supaKey) {
     return res.status(503).json({ error: 'Supabase not configured', code: 'no_config' });
   }
-  const { userId, days = 90 } = req.body || {};
-  if (!userId) return res.status(400).json({ error: 'Missing userId' });
+  const { days = 90 } = req.body || {};
+  const userId = user.id;
+  if (!isValidUuid(userId)) return res.status(400).json({ error: 'Invalid user id format' });
 
+  // Clamp days to a safe range to avoid abusive queries.
+  const safeDays = Math.max(1, Math.min(3650, Number(days) || 90));
   const since = new Date();
-  since.setDate(since.getDate() - Number(days));
+  since.setDate(since.getDate() - safeDays);
   const sinceIso = since.toISOString();
 
   try {
     const url = `${supaUrl}/rest/v1/plaid_balance_snapshots`
-      + `?user_id=eq.${userId}`
+      + `?user_id=eq.${encodeURIComponent(userId)}`
       + `&captured_at=gte.${encodeURIComponent(sinceIso)}`
       + `&select=captured_at,account_type,balance,available,currency,institution`
       + `&order=captured_at.asc`

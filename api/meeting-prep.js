@@ -11,6 +11,8 @@
 // Designed for advisor use — not client-facing. Always advisor tone,
 // technical, with statute citations and specific dollar figures.
 
+import { requireUser } from './_lib/auth.js';
+
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 2048;
 
@@ -19,6 +21,10 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Require authenticated session — meeting prep is advisor-only content.
+  const user = await requireUser(req, res);
+  if (!user) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

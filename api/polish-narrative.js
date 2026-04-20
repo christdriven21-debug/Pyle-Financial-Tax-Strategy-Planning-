@@ -11,6 +11,8 @@
 // Cost: ~1-2 cents per call using claude-sonnet-4-5 with a ~2k token prompt
 // and a ~400 token response. Only triggered by advisor button click.
 
+import { requireUser } from './_lib/auth.js';
+
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 1024;
 
@@ -19,6 +21,10 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Require authenticated session — advisor feature only.
+  const user = await requireUser(req, res);
+  if (!user) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

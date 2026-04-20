@@ -103,7 +103,8 @@ export default async function handler(req, res) {
         }
 
         // Update last_balance_sync on the item
-        await fetch(`${supaUrl}/rest/v1/plaid_items?item_id=eq.${item.item_id}`, {
+        // item_id comes from Plaid/our DB, not user input, but encode anyway.
+        await fetch(`${supaUrl}/rest/v1/plaid_items?item_id=eq.${encodeURIComponent(item.item_id)}`, {
           method: 'PATCH',
           headers: {
             'apikey': supaKey,

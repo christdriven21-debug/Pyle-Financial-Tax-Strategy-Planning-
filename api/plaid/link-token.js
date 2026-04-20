@@ -6,6 +6,8 @@
 // Requires PLAID_CLIENT_ID + PLAID_SECRET + PLAID_ENV env vars.
 // See /plaid-setup.html for step-by-step activation.
 
+import { requireUser } from '../_lib/auth.js';
+
 const PLAID_ENVS = {
   sandbox:     'https://sandbox.plaid.com',
   development: 'https://development.plaid.com',
@@ -18,6 +20,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Require authenticated session. Previously we accepted any userId from
+  // the body — now we derive it from the verified JWT, so an attacker can't
+  // mint link tokens tied to other users' IDs.
+  const user = await requireUser(req, res);
+  if (!user) return;
+
   const clientId = process.env.PLAID_CLIENT_ID;
   const secret = process.env.PLAID_SECRET;
   const env = process.env.PLAID_ENV || 'sandbox';
@@ -29,8 +37,8 @@ export default async function handler(req, res) {
   }
 
   const baseUrl = PLAID_ENVS[env] || PLAID_ENVS.sandbox;
-  const { userId, clientName } = req.body || {};
-  if (!userId) return res.status(400).json({ error: 'Missing "userId"' });
+  const { clientName } = req.body || {};
+  const userId = user.id;   // from verified JWT, not the request body
 
   try {
     const resp = await fetch(`${baseUrl}/link/token/create`, {

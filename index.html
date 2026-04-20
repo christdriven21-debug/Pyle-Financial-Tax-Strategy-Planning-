@@ -9,6 +9,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<!-- DOMPurify: sanitizes AI-generated HTML before innerHTML injection.
+     Prompt injection inside client data could otherwise coerce Claude
+     into returning <script>/<img onerror> payloads that execute in the
+     advisor's authenticated browser. -->
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="./config.js"></script>
 <style>
   :root {
@@ -3669,6 +3674,22 @@ const fmt$ = formatMoney;
 const fmt$M = formatMoneyM;
 const fmtPct = n => n.toFixed(1) + '%';
 
+// ─────────────────────────────────────────────────────────────────────
+// XSS-SAFE STRING ESCAPING — use these anywhere user-controlled text
+// flows into innerHTML templates. Client names, firm names, plan names,
+// file names, review comments, etc. are all attacker-controllable and
+// MUST go through esc() before interpolation. escAttr() also escapes
+// the extra characters that matter inside HTML attributes.
+// ─────────────────────────────────────────────────────────────────────
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+function escAttr(s) { return esc(s); }  // same escaping; named for intent
+window.__esc = esc;
+
 // Compact currency formatter ($1.5M / $750K / $250) — used by chart axis
 // labels and small KPI tiles. Honors __FX__ symbol + rate.
 function formatMoneyShort(n) {
@@ -5534,10 +5555,12 @@ function renderClientPortrait(p) {
   const fmt$ = formatMoney;
   const fmt$M = formatMoneyShort;
 
-  const primary = d.client.primary || 'your family';
-  const spouse = d.client.spouse || '';
-  const primaryFirst = primary.split(' ')[0];
-  const spouseFirst = spouse.split(' ')[0];
+  // Client name fields are user-controllable (team enters them, but a
+  // client can self-update their own plan via RLS) so escape on render.
+  const primary = esc(d.client.primary || 'your family');
+  const spouse = esc(d.client.spouse || '');
+  const primaryFirst = esc(String(d.client.primary || 'your family').split(' ')[0]);
+  const spouseFirst = esc(String(d.client.spouse || '').split(' ')[0]);
   const coupleName = spouse ? `${primaryFirst} & ${spouseFirst}` : primaryFirst;
 
   // Monte Carlo success rate → big ring
@@ -5650,9 +5673,9 @@ function renderClientPortrait(p) {
   return `
     <!-- Hero section: name, success ring, narrative lead -->
     <div class="portrait-hero">
-      <div class="eyebrow">${d.client.year || new Date().getFullYear()} Wealth Plan</div>
+      <div class="eyebrow">${esc(d.client.year || new Date().getFullYear())} Wealth Plan</div>
       <h1>${coupleName}</h1>
-      <div class="hero-sub">${d.client.location || ''}${d.client.location && d.client.subtitle ? ' · ' : ''}${d.client.subtitle || ''}</div>
+      <div class="hero-sub">${esc(d.client.location || '')}${d.client.location && d.client.subtitle ? ' · ' : ''}${esc(d.client.subtitle || '')}</div>
 
       <div class="portrait-hero-grid">
         <div>
@@ -11087,12 +11110,18 @@ function decorateChartsWithPNGButton() {
    ============================================================ */
 function renderLogoBox(firm, logoDataURL) {
   const box = document.getElementById('plan-logo-box');
-  if (logoDataURL) {
+  const altText = escAttr(firm?.name || 'Pyle Financial Services, Inc');
+  // Only accept data:image/* URLs — blocks data:text/html, data:application/*
+  // and all other protocols (javascript:, file:, etc.) from ever reaching src.
+  const safeLogoSrc = (typeof logoDataURL === 'string' && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(logoDataURL))
+    ? logoDataURL
+    : null;
+  if (safeLogoSrc) {
     box.className = 'logo-box custom';
-    box.innerHTML = `<img src="${logoDataURL}" alt="${firm.name}">`;
+    box.innerHTML = `<img src="${safeLogoSrc}" alt="${altText}">`;
   } else {
     box.className = 'logo-box';
-    box.innerHTML = `<img src="./assets/pyle-logo.png" alt="${firm.name || 'Pyle Financial Services, Inc'}">`;
+    box.innerHTML = `<img src="./assets/pyle-logo.png" alt="${altText}">`;
   }
 }
 
@@ -11605,9 +11634,8 @@ window.__POLISH_NARRATIVE__ = async function() {
   };
 
   try {
-    const resp = await fetch('/api/polish-narrative', {
+    const resp = await authedFetch('/api/polish-narrative', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     if (!resp.ok) {
@@ -11617,7 +11645,16 @@ window.__POLISH_NARRATIVE__ = async function() {
     }
     const data = await resp.json();
     if (data.narrative) {
-      narrEl.innerHTML = data.narrative;
+      // Sanitize AI-returned HTML — prompt injection could otherwise return
+      // <script> / <img onerror> payloads that execute in the advisor's
+      // authenticated browser.
+      const safe = (window.DOMPurify && DOMPurify.sanitize)
+        ? DOMPurify.sanitize(data.narrative, {
+            ALLOWED_TAGS: ['p', 'strong', 'em', 'br', 'ul', 'ol', 'li', 'h3', 'h4'],
+            ALLOWED_ATTR: []
+          })
+        : esc(data.narrative);
+      narrEl.innerHTML = safe;
       statusEl.textContent = '✓ Narrative polished. Refresh the page to restore original.';
       statusEl.style.color = 'var(--success)';
     } else {
@@ -12193,10 +12230,10 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (typeof Plaid === 'undefined') { setStatus('Plaid Link SDK not loaded — check network', 'err'); return; }
     setStatus('Creating Plaid link token…');
     try {
-      const resp = await fetch('/api/plaid/link-token', {
+      // userId is no longer sent — server derives it from the verified JWT.
+      const resp = await authedFetch('/api/plaid/link-token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id, clientName: cfg.FIRM_NAME || 'Pyle Financial Services' }),
+        body: JSON.stringify({ clientName: cfg.FIRM_NAME || 'Pyle Financial Services' }),
       });
       const data = await resp.json();
       if (!resp.ok) {
@@ -12214,10 +12251,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
         onSuccess: async (publicToken, metadata) => {
           setStatus('Linking account…');
           const institutionName = metadata.institution?.name || 'Linked Account';
-          const exResp = await fetch('/api/plaid/exchange', {
+          const exResp = await authedFetch('/api/plaid/exchange', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ publicToken, userId: currentUser.id, institutionName }),
+            body: JSON.stringify({ publicToken, institutionName }),
           });
           if (exResp.ok) {
             setStatus(`✓ Linked ${institutionName}. Click "Refresh Balances" to populate the plan.`, 'ok');
@@ -12241,10 +12277,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (!currentUser) { setStatus('Sign in first', 'err'); return; }
     setStatus('Refreshing balances from Plaid…');
     try {
-      const resp = await fetch('/api/plaid/balances', {
+      const resp = await authedFetch('/api/plaid/balances', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id }),
+        body: JSON.stringify({}),
       });
       const data = await resp.json();
       if (!resp.ok) {
@@ -12300,6 +12335,25 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   });
   const TABLE = cfg.TABLE_NAME || 'plans';
   const TEAM_DOMAIN = (cfg.TEAM_DOMAIN || 'pfs4u.com').toLowerCase();
+
+  // ═══════════════════════════════════════════════════════════
+  // AUTHENTICATED FETCH — attaches the Supabase JWT to every
+  // request to our own /api/* endpoints. Without this token the
+  // server rejects the request with 401. This is what makes
+  // our serverless functions safe from cross-origin abuse.
+  // ═══════════════════════════════════════════════════════════
+  async function authedFetch(url, opts = {}) {
+    const { data: { session } } = await sb.auth.getSession();
+    const headers = Object.assign(
+      { 'Content-Type': 'application/json' },
+      opts.headers || {}
+    );
+    if (session?.access_token) {
+      headers['Authorization'] = 'Bearer ' + session.access_token;
+    }
+    return fetch(url, Object.assign({}, opts, { headers }));
+  }
+  window.__authedFetch = authedFetch;
 
   /* ---- Auth state ---- */
   let currentUser = null;
@@ -12814,25 +12868,53 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       return;
     }
 
+    // File names, uploader emails, categories are all user-controllable.
+    // Escape EVERY interpolation. Avoid onclick-string-templating entirely —
+    // use data-* attributes and event delegation instead so a malicious
+    // file name like `abc" onclick="alert(1)` can't break out of an
+    // attribute context.
     docsList.innerHTML = data.map(doc => {
       const size = doc.file_size ? (doc.file_size < 1024 * 1024 ? Math.round(doc.file_size / 1024) + ' KB' : (doc.file_size / 1024 / 1024).toFixed(1) + ' MB') : '';
       const when = new Date(doc.created_at).toLocaleDateString();
       const cat = CATEGORY_ICONS[doc.category] || '📎';
-      const catLabel = CATEGORY_LABELS[doc.category] || doc.category;
+      const catLabel = esc(CATEGORY_LABELS[doc.category] || doc.category);
       const advisorOnly = !doc.is_client_visible ? '<span class="status-pill" style="background: var(--crimson); color: #FFF; font-size: 10px;">Advisor-only</span>' : '';
-      const deleteBtn = isTeam ? `<button class="btn btn-sm" style="background: transparent; color: var(--crimson); font-size: 11px; margin-left: 8px; border: 1px solid var(--crimson);" onclick="window.__DELETE_DOC__('${doc.id}','${doc.file_path}')">Delete</button>` : '';
+      const deleteBtn = isTeam
+        ? `<button class="btn btn-sm doc-delete-btn" style="background: transparent; color: var(--crimson); font-size: 11px; margin-left: 8px; border: 1px solid var(--crimson);" data-doc-id="${escAttr(doc.id)}" data-doc-path="${escAttr(doc.file_path)}">Delete</button>`
+        : '';
       return `
         <div class="review-item" style="display: flex; align-items: center; gap: 14px; padding: 12px 14px;">
           <span style="font-size: 22px;">${cat}</span>
           <div style="flex: 1; min-width: 0;">
-            <div style="font-weight: 600; color: var(--ink); font-size: 14px;">${doc.file_name} ${advisorOnly}</div>
-            <div style="font-size: 11px; color: var(--muted);">${catLabel} · ${size} · uploaded by ${doc.uploader_email || '—'} · ${when}</div>
+            <div style="font-weight: 600; color: var(--ink); font-size: 14px;">${esc(doc.file_name)} ${advisorOnly}</div>
+            <div style="font-size: 11px; color: var(--muted);">${catLabel} · ${esc(size)} · uploaded by ${esc(doc.uploader_email || '—')} · ${esc(when)}</div>
           </div>
-          <button class="btn btn-sm" style="background: var(--gold); color: var(--cream); font-size: 11px; padding: 5px 10px;" onclick="window.__DOWNLOAD_DOC__('${doc.file_path}','${doc.file_name.replace(/'/g, "\\'")}')">Download</button>
+          <button class="btn btn-sm doc-download-btn" style="background: var(--gold); color: var(--cream); font-size: 11px; padding: 5px 10px;" data-doc-path="${escAttr(doc.file_path)}" data-doc-name="${escAttr(doc.file_name)}">Download</button>
           ${deleteBtn}
         </div>
       `;
     }).join('');
+  }
+
+  // Event delegation for document download/delete — replaces inline onclick
+  // handlers. Safer because data-* attributes are properly escaped.
+  if (docsList && !docsList.__delegated) {
+    docsList.__delegated = true;
+    docsList.addEventListener('click', (ev) => {
+      const dl = ev.target.closest('.doc-download-btn');
+      if (dl) {
+        const path = dl.dataset.docPath;
+        const name = dl.dataset.docName || 'download';
+        if (path) window.__DOWNLOAD_DOC__(path, name);
+        return;
+      }
+      const del = ev.target.closest('.doc-delete-btn');
+      if (del) {
+        const id = del.dataset.docId;
+        const path = del.dataset.docPath;
+        if (id && path) window.__DELETE_DOC__(id, path);
+      }
+    });
   }
 
   async function uploadDocument() {
@@ -13054,7 +13136,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       return;
     }
     const opts = '<option value="">— select plan —</option>' +
-      (data || []).map(r => `<option value="${r.id}">${r.name || '(untitled)'} · ${r.updated_at ? new Date(r.updated_at).toLocaleDateString() : ''}</option>`).join('');
+      (data || []).map(r => `<option value="${escAttr(r.id)}">${esc(r.name || '(untitled)')} · ${r.updated_at ? esc(new Date(r.updated_at).toLocaleDateString()) : ''}</option>`).join('');
     selA.innerHTML = opts;
     selB.innerHTML = opts;
     // Pre-select the current plan as A if set
@@ -13197,9 +13279,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const ctx = buildPlanContextForAI();
 
     try {
-      const resp = await fetch('/api/meeting-prep', {
+      const resp = await authedFetch('/api/meeting-prep', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planContext: ctx,
           meetingType,
@@ -13217,9 +13298,16 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       }
 
       const meta = `<div class="mp-meta">
-        ${meetingType} · Generated ${new Date(data.generatedAt || Date.now()).toLocaleString()} · ${data.usage ? data.usage.input_tokens + ' input + ' + data.usage.output_tokens + ' output tokens' : ''}
+        ${esc(meetingType)} · Generated ${esc(new Date(data.generatedAt || Date.now()).toLocaleString())} · ${data.usage ? esc(data.usage.input_tokens + ' input + ' + data.usage.output_tokens + ' output tokens') : ''}
       </div>`;
-      resultEl.innerHTML = meta + '<div class="mp-briefing">' + data.briefing + '</div>';
+      // Sanitize AI-returned briefing HTML — prompt-injection-proof.
+      const safeBriefing = (window.DOMPurify && DOMPurify.sanitize)
+        ? DOMPurify.sanitize(data.briefing || '', {
+            ALLOWED_TAGS: ['h3', 'h4', 'p', 'ul', 'ol', 'li', 'strong', 'em', 'br'],
+            ALLOWED_ATTR: []
+          })
+        : esc(data.briefing || '');
+      resultEl.innerHTML = meta + '<div class="mp-briefing">' + safeBriefing + '</div>';
     } catch (err) {
       resultEl.innerHTML = '<div style="padding: 40px; color: var(--crimson); text-align: center;">Network error: ' + err.message + '</div>';
     }
@@ -13689,9 +13777,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     };
 
     try {
-      const resp = await fetch('/api/ask-plan', {
+      const resp = await authedFetch('/api/ask-plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await resp.json();

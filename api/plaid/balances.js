@@ -7,6 +7,8 @@
 // "Refresh Balances". Typical use: advisor runs daily/weekly
 // sync; client account data auto-populates into the plan inputs.
 
+import { requireUser, isValidUuid } from '../_lib/auth.js';
+
 const PLAID_ENVS = {
   sandbox:     'https://sandbox.plaid.com',
   development: 'https://development.plaid.com',
@@ -19,6 +21,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Require authenticated session. userId comes from the verified JWT,
+  // not the request body — prevents cross-tenant balance reads.
+  const user = await requireUser(req, res);
+  if (!user) return;
+
   const clientId = process.env.PLAID_CLIENT_ID;
   const secret = process.env.PLAID_SECRET;
   const env = process.env.PLAID_ENV || 'sandbox';
@@ -30,12 +37,17 @@ export default async function handler(req, res) {
   }
 
   const baseUrl = PLAID_ENVS[env] || PLAID_ENVS.sandbox;
-  const { userId } = req.body || {};
-  if (!userId) return res.status(400).json({ error: 'Missing userId' });
+  const userId = user.id;
+  // Extra defense-in-depth: the Supabase JWT guarantees a UUID, but
+  // validate anyway before interpolating into a PostgREST URL.
+  if (!isValidUuid(userId)) {
+    return res.status(400).json({ error: 'Invalid user id format' });
+  }
 
   try {
-    // Fetch all plaid_items for this user
-    const itemsResp = await fetch(`${supaUrl}/rest/v1/plaid_items?user_id=eq.${userId}&select=*`, {
+    // Fetch all plaid_items for this user. encodeURIComponent on the UUID
+    // is belt-and-suspenders against PostgREST filter injection.
+    const itemsResp = await fetch(`${supaUrl}/rest/v1/plaid_items?user_id=eq.${encodeURIComponent(userId)}&select=*`, {
       headers: { 'apikey': supaKey, 'Authorization': `Bearer ${supaKey}` },
     });
     const items = await itemsResp.json();

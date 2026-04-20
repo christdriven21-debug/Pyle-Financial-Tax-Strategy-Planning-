@@ -8,6 +8,8 @@
 // write on behalf of authenticated users — RLS enforces read-only
 // from the client-side anon key).
 
+import { requireUser } from '../_lib/auth.js';
+
 const PLAID_ENVS = {
   sandbox:     'https://sandbox.plaid.com',
   development: 'https://development.plaid.com',
@@ -19,6 +21,12 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Require authenticated session. The user_id stored in plaid_items
+  // comes from the verified JWT, not the request body — so an attacker
+  // can't hijack someone else's account with a forged user_id.
+  const user = await requireUser(req, res);
+  if (!user) return;
 
   const clientId = process.env.PLAID_CLIENT_ID;
   const secret = process.env.PLAID_SECRET;
@@ -34,9 +42,10 @@ export default async function handler(req, res) {
   }
 
   const baseUrl = PLAID_ENVS[env] || PLAID_ENVS.sandbox;
-  const { publicToken, userId, institutionName } = req.body || {};
-  if (!publicToken || !userId) {
-    return res.status(400).json({ error: 'Missing publicToken or userId' });
+  const { publicToken, institutionName } = req.body || {};
+  const userId = user.id;  // from verified JWT — never trust request body for this
+  if (!publicToken) {
+    return res.status(400).json({ error: 'Missing publicToken' });
   }
 
   try {

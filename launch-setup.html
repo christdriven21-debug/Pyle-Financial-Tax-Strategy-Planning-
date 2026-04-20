@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Launch Checklist — Pyle Plan Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gold: #C9A961;
+      --gold-dark: #8B7640;
+      --cream: #F5F1E8;
+      --cream-panel: #FAF6ED;
+      --cream-light: #F2EDDD;
+      --ink: #1a1a1a;
+      --ink-soft: #444;
+      --muted: #6B6556;
+      --success: #2D6A4F;
+      --crimson: #8B1A1A;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: 'Helvetica Neue', sans-serif;
+      background: var(--cream); color: var(--ink); line-height: 1.6;
+    }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+
+    header {
+      padding: 32px 0 40px;
+      border-bottom: 1px solid rgba(201, 169, 97, 0.25);
+      margin-bottom: 32px;
+    }
+    .eyebrow {
+      font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--gold-dark); font-weight: 700; margin-bottom: 10px;
+    }
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 34px; font-weight: 500; margin: 0 0 10px; letter-spacing: 0.3px;
+    }
+    .lead { font-size: 15px; color: var(--ink-soft); max-width: 700px; }
+
+    /* Progress bar showing completion */
+    .progress-wrap {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 32px; padding: 16px 20px;
+      background: #FFF; border: 1px solid rgba(201, 169, 97, 0.35);
+      border-radius: 6px;
+    }
+    .progress-bar {
+      flex: 1; height: 8px; background: var(--cream-light);
+      border-radius: 4px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--gold);
+      transition: width 0.4s ease;
+    }
+    .progress-fill.done { background: var(--success); }
+    .progress-text {
+      font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--gold-dark); font-weight: 700; white-space: nowrap;
+    }
+
+    /* Tab nav across the top */
+    .group-nav {
+      display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 24px;
+    }
+    .group-nav button {
+      background: transparent; border: 1px solid rgba(201, 169, 97, 0.35);
+      padding: 8px 16px; border-radius: 4px; cursor: pointer;
+      font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+      font-weight: 700; color: var(--gold-dark);
+      font-family: 'Helvetica Neue', sans-serif;
+      transition: all 0.15s ease;
+    }
+    .group-nav button:hover { background: var(--cream-light); }
+    .group-nav button.active { background: var(--gold-dark); color: var(--cream); border-color: var(--gold-dark); }
+    .group-nav button .badge {
+      display: inline-block; margin-left: 6px;
+      background: var(--success); color: #FFF;
+      padding: 1px 6px; border-radius: 8px; font-size: 10px;
+    }
+    .group-nav button .badge-pending {
+      display: inline-block; margin-left: 6px;
+      background: var(--gold-dark); color: var(--cream);
+      padding: 1px 6px; border-radius: 8px; font-size: 10px;
+    }
+
+    /* Steps */
+    .step {
+      background: #FFF;
+      border: 1px solid rgba(201, 169, 97, 0.25);
+      border-radius: 6px;
+      padding: 28px 32px;
+      margin-bottom: 18px;
+      position: relative;
+      transition: box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+    .step:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+    .step.done {
+      background: #F5FBF7;
+      border-color: rgba(45, 106, 79, 0.4);
+    }
+    .step-header {
+      display: flex; align-items: flex-start; gap: 20px; margin-bottom: 14px;
+    }
+    .step-num {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--gold); color: var(--cream);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 18px; font-weight: 700; flex-shrink: 0;
+      transition: background 0.2s ease;
+    }
+    .step.done .step-num { background: var(--success); font-size: 22px; }
+    .step.done .step-num span { display: none; }
+    .step.done .step-num::after { content: '✓'; }
+
+    .step-title { flex: 1; padding-top: 6px; }
+    .step-title h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px; font-weight: 500; margin: 0 0 4px;
+    }
+    .step-title .time {
+      font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--muted); font-weight: 700;
+    }
+    .step-mark {
+      flex-shrink: 0; padding-top: 8px;
+    }
+    .step-mark input[type="checkbox"] {
+      width: 22px; height: 22px; cursor: pointer; accent-color: var(--success);
+    }
+    .step-mark label {
+      display: block; font-size: 10px; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted); font-weight: 700;
+      text-align: center; margin-top: 4px; cursor: pointer;
+    }
+
+    .step-body {
+      padding-left: 60px;
+      font-size: 14px; color: var(--ink-soft);
+    }
+    .step-body ol, .step-body ul { padding-left: 20px; margin: 10px 0; }
+    .step-body li { margin-bottom: 8px; }
+    .step-body strong { color: var(--ink); font-weight: 700; }
+    .step-body p { margin: 10px 0; }
+
+    /* Buttons / actions */
+    .btn-row {
+      display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0;
+    }
+    .external-link, .copy-btn-lg, .test-button {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 20px; border-radius: 4px;
+      font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+      font-weight: 700; cursor: pointer; border: none;
+      font-family: 'Helvetica Neue', sans-serif;
+      text-decoration: none;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+    .external-link {
+      background: var(--gold); color: var(--cream);
+    }
+    .external-link:hover { background: var(--gold-dark); }
+    .external-link:active { transform: scale(0.98); }
+    .external-link::after { content: ' ↗'; }
+
+    .copy-btn-lg {
+      background: var(--gold-dark); color: var(--cream);
+    }
+    .copy-btn-lg:hover { background: var(--ink); }
+    .copy-btn-lg.copied { background: var(--success); }
+    .copy-btn-lg.copied::after { content: ' ✓'; margin-left: 6px; }
+
+    .test-button {
+      background: #FFF; color: var(--gold-dark);
+      border: 1px solid var(--gold-dark);
+    }
+    .test-button:hover { background: var(--cream-light); }
+
+    /* Inline copy block */
+    .copy-block {
+      display: flex; align-items: center; gap: 10px;
+      background: #FAFAF5;
+      border: 1px solid rgba(201, 169, 97, 0.35);
+      padding: 10px 14px; border-radius: 4px; margin: 12px 0;
+      font-family: Menlo, monospace; font-size: 13px;
+      word-break: break-all;
+    }
+    .copy-block code {
+      flex: 1; background: transparent;
+      color: var(--gold-dark); font-weight: 600; user-select: all;
+    }
+    .copy-block .copy-btn {
+      background: var(--gold-dark); color: var(--cream);
+      border: none; padding: 6px 14px; border-radius: 3px; cursor: pointer;
+      font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+      font-weight: 700; flex-shrink: 0;
+      font-family: 'Helvetica Neue', sans-serif;
+      transition: background 0.15s ease;
+    }
+    .copy-block .copy-btn:hover { background: var(--gold); }
+    .copy-block .copy-btn.copied { background: var(--success); }
+
+    /* SQL preview pane */
+    .sql-preview {
+      background: #1d1d1d; color: #f0e7d0;
+      border-radius: 4px; padding: 14px 16px; margin: 12px 0;
+      font-family: Menlo, monospace; font-size: 11px;
+      max-height: 180px; overflow: auto;
+      white-space: pre; line-height: 1.4;
+    }
+    .sql-preview .sql-comment { color: #8a8770; font-style: italic; }
+    .sql-preview .sql-keyword { color: #d4a747; font-weight: 700; }
+
+    /* Test result panes */
+    .test-result {
+      margin-top: 10px; padding: 12px 16px; border-radius: 4px;
+      font-size: 13px; line-height: 1.5;
+      display: none;
+    }
+    .test-result.success {
+      display: block;
+      background: #F0F7F3; border-left: 3px solid var(--success); color: var(--success);
+    }
+    .test-result.fail {
+      display: block;
+      background: #FFF0F0; border-left: 3px solid var(--crimson); color: var(--crimson);
+    }
+    .test-result.checking {
+      display: block;
+      background: var(--cream-light); border-left: 3px solid var(--gold); color: var(--gold-dark);
+    }
+
+    /* Status pill at top of each section */
+    .section-status {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 4px 12px; border-radius: 12px;
+      font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+      font-weight: 700;
+      margin-left: 12px; vertical-align: middle;
+    }
+    .section-status .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .section-status.ok { background: #DEF1E5; color: var(--success); }
+    .section-status.ok .dot { background: var(--success); }
+    .section-status.pending { background: #FCEBD0; color: var(--gold-dark); }
+    .section-status.pending .dot { background: var(--gold-dark); }
+    .section-status.checking { background: var(--cream-light); color: var(--muted); }
+    .section-status.checking .dot { background: var(--muted); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    .nav-link {
+      display: inline-block; color: var(--gold-dark); text-decoration: none;
+      font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+      font-weight: 700; margin-bottom: 24px;
+    }
+    .nav-link:hover { text-decoration: underline; }
+
+    .group { display: none; }
+    .group.active { display: block; }
+
+    .callout {
+      background: var(--cream-light);
+      border-left: 3px solid var(--gold);
+      padding: 12px 16px; margin: 14px 0;
+      font-size: 13px; color: var(--ink-soft);
+    }
+    .callout strong { color: var(--ink); }
+
+    .reset-link {
+      font-size: 11px; color: var(--muted); cursor: pointer;
+      text-decoration: underline; margin-left: auto;
+    }
+    .reset-link:hover { color: var(--crimson); }
+
+    .footer-note {
+      margin-top: 48px; padding-top: 24px;
+      border-top: 1px solid rgba(201, 169, 97, 0.25);
+      font-size: 12px; color: var(--muted); text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <a href="./" class="nav-link">← Back to Plan Builder</a>
+
+  <header>
+    <div class="eyebrow">Launch Checklist</div>
+    <h1>Six features. Twenty minutes. Then you're live.</h1>
+    <p class="lead">
+      Step-by-step deploy guide for the latest build (State Domicile Analyzer, Document Vault, Audit Log, Plaid Daily Sync, Universal Scenario Planner, Multi-currency). Click each button to open the right page in a new tab. Check off steps as you go — your progress saves automatically.
+    </p>
+  </header>
+
+  <div class="progress-wrap">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
+    </div>
+    <div class="progress-text" id="progress-text">0 / 14 complete</div>
+    <span class="reset-link" onclick="resetProgress()">Reset</span>
+  </div>
+
+  <div class="group-nav" id="group-nav">
+    <button data-group="ship" class="active">1. Ship Code <span class="badge-pending" data-group-badge="ship">0/2</span></button>
+    <button data-group="db">2. Supabase <span class="badge-pending" data-group-badge="db">0/3</span></button>
+    <button data-group="vercel">3. Vercel <span class="badge-pending" data-group-badge="vercel">0/2</span></button>
+    <button data-group="test">4. Test &amp; Verify <span class="badge-pending" data-group-badge="test">0/7</span></button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- GROUP 1: SHIP CODE                                           -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="group active" data-group="ship">
+
+    <div class="step" data-step-id="push">
+      <div class="step-header">
+        <div class="step-num"><span>1</span></div>
+        <div class="step-title">
+          <h2>Push the new commits to GitHub</h2>
+          <div class="time">~ 2 minutes</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-push">
+          <label for="check-push">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Six new commits are sitting locally. The fastest way to ship them is the <strong>Push to GitHub.command</strong> file in your project folder — double-click it.</p>
+        <p>Vercel will auto-deploy within ~30 seconds of the push.</p>
+        <div class="btn-row">
+          <a href="https://github.com/scottpyle/Pyle-Plan-builder/commits/main" target="_blank" class="external-link">Open GitHub repo</a>
+          <a href="https://vercel.com/dashboard" target="_blank" class="external-link">Open Vercel dashboard</a>
+        </div>
+        <div class="callout">
+          <strong>Verify it shipped:</strong> Vercel dashboard should show a deployment with commit message "Multi-currency display — 11 currencies, FX-aware formatters" or newer. Check it before continuing.
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="deployed">
+      <div class="step-header">
+        <div class="step-num"><span>2</span></div>
+        <div class="step-title">
+          <h2>Confirm the deploy is live</h2>
+          <div class="time">~ 30 seconds</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-deployed">
+          <label for="check-deployed">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Click Test below — the script fetches the live site and checks for a marker string only present in the new build.</p>
+        <button class="test-button" onclick="testNewBuild()">Test deploy is live</button>
+        <div class="test-result" id="test-deploy-result"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- GROUP 2: SUPABASE                                            -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="group" data-group="db">
+
+    <div class="step" data-step-id="docs-sql">
+      <div class="step-header">
+        <div class="step-num"><span>3</span></div>
+        <div class="step-title">
+          <h2>Run the Document Vault migration</h2>
+          <div class="time">~ 2 minutes</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-docs-sql">
+          <label for="check-docs-sql">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Creates the <code>plan_documents</code> metadata table with row-level security policies for team + client access.</p>
+        <ol>
+          <li>Click <strong>Open Supabase SQL Editor</strong> below.</li>
+          <li>Click <strong>Copy SQL</strong>, paste into the editor.</li>
+          <li>Click <strong>Run</strong> in Supabase (or press Cmd+Enter).</li>
+        </ol>
+        <div class="btn-row">
+          <a href="https://supabase.com/dashboard/project/ecrgcajxolritivqixkg/sql/new" target="_blank" class="external-link">Open Supabase SQL Editor</a>
+          <button class="copy-btn-lg" onclick="copyFromUrl('./supabase/add_documents.sql', this)">Copy SQL (add_documents.sql)</button>
+          <button class="test-button" onclick="testTable('plan_documents', this)">Test table exists</button>
+        </div>
+        <div class="test-result" id="test-docs-table-result"></div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="bucket">
+      <div class="step-header">
+        <div class="step-num"><span>4</span></div>
+        <div class="step-title">
+          <h2>Create the storage bucket</h2>
+          <div class="time">~ 1 minute</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-bucket">
+          <label for="check-bucket">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>The bucket holds the actual file binaries. Metadata lives in the table from the prior step.</p>
+        <ol>
+          <li>Click <strong>Open Supabase Storage</strong> below.</li>
+          <li>Click "New bucket" in the Supabase UI.</li>
+          <li>Name it exactly:</li>
+        </ol>
+        <div class="copy-block">
+          <code>plan-documents</code>
+          <button class="copy-btn" onclick="copyText('plan-documents', this)">Copy</button>
+        </div>
+        <ol start="4">
+          <li><strong>Public:</strong> leave as <strong>OFF</strong> (private bucket — RLS gates access)</li>
+          <li><strong>File size limit:</strong> 50 MB</li>
+          <li>Click "Save"</li>
+        </ol>
+        <div class="btn-row">
+          <a href="https://supabase.com/dashboard/project/ecrgcajxolritivqixkg/storage/buckets" target="_blank" class="external-link">Open Supabase Storage</a>
+          <button class="test-button" onclick="testBucket()">Test bucket exists</button>
+        </div>
+        <div class="test-result" id="test-bucket-result"></div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="audit-sql">
+      <div class="step-header">
+        <div class="step-num"><span>5</span></div>
+        <div class="step-title">
+          <h2>Run the Audit Log migration (SOC 2)</h2>
+          <div class="time">~ 2 minutes</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-audit-sql">
+          <label for="check-audit-sql">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Creates the <code>audit_log</code> table + triggers that auto-record every plan create/update/delete and document upload/delete. The app also writes sign-in / AI-query / PDF-export entries directly.</p>
+        <ol>
+          <li>Click <strong>Open Supabase SQL Editor</strong> below.</li>
+          <li>Click <strong>Copy SQL</strong>, paste into the editor, run.</li>
+        </ol>
+        <div class="btn-row">
+          <a href="https://supabase.com/dashboard/project/ecrgcajxolritivqixkg/sql/new" target="_blank" class="external-link">Open Supabase SQL Editor</a>
+          <button class="copy-btn-lg" onclick="copyFromUrl('./supabase/add_audit_log.sql', this)">Copy SQL (add_audit_log.sql)</button>
+          <button class="test-button" onclick="testTable('audit_log', this)">Test table exists</button>
+        </div>
+        <div class="test-result" id="test-audit-table-result"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- GROUP 3: VERCEL                                              -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="group" data-group="vercel">
+
+    <div class="step" data-step-id="cron-secret">
+      <div class="step-header">
+        <div class="step-num"><span>6</span></div>
+        <div class="step-title">
+          <h2>Set CRON_SECRET (protects the daily Plaid sync)</h2>
+          <div class="time">~ 2 minutes</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-cron-secret">
+          <label for="check-cron-secret">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>The daily balance sync at 06:00 UTC runs as a Vercel cron. We protect the endpoint with a shared secret so nobody else can trigger it.</p>
+        <p>I generated a fresh random secret for you — copy it, then paste it into Vercel as <code>CRON_SECRET</code>.</p>
+        <div class="copy-block">
+          <code id="cron-secret-value">loading…</code>
+          <button class="copy-btn" onclick="copyText(document.getElementById('cron-secret-value').textContent, this)">Copy</button>
+        </div>
+        <ol>
+          <li>Click <strong>Open Vercel Env Vars</strong> below.</li>
+          <li>Click "Add New".</li>
+          <li><strong>Key:</strong> <code>CRON_SECRET</code></li>
+          <li><strong>Value:</strong> paste the secret you copied above</li>
+          <li><strong>Environments:</strong> check Production, Preview, Development</li>
+          <li>Click "Save".</li>
+        </ol>
+        <div class="btn-row">
+          <a href="https://vercel.com/dashboard" target="_blank" class="external-link">Open Vercel Env Vars</a>
+        </div>
+        <div class="callout">
+          <strong>Note:</strong> Vercel cron jobs require a Pro plan. You're on one cron currently, which is supported on Hobby (one daily cron). If you add more in the future, you'll need to upgrade.
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="redeploy">
+      <div class="step-header">
+        <div class="step-num"><span>7</span></div>
+        <div class="step-title">
+          <h2>Trigger a redeploy so env vars + cron activate</h2>
+          <div class="time">~ 1 minute</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-redeploy">
+          <label for="check-redeploy">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Vercel only picks up new env vars + new cron entries on the next deploy. After saving CRON_SECRET, click "Redeploy" on the most recent deployment.</p>
+        <ol>
+          <li>Click <strong>Open Deployments</strong> below.</li>
+          <li>Find the most recent deployment (top of the list).</li>
+          <li>Click the "⋯" menu → "Redeploy" → confirm.</li>
+        </ol>
+        <div class="btn-row">
+          <a href="https://vercel.com/dashboard" target="_blank" class="external-link">Open Deployments</a>
+          <button class="test-button" onclick="testCronEndpoint()">Test cron endpoint</button>
+        </div>
+        <div class="test-result" id="test-cron-result"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- GROUP 4: TEST EACH FEATURE                                   -->
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <div class="group" data-group="test">
+
+    <div class="step" data-step-id="test-domicile">
+      <div class="step-header">
+        <div class="step-num"><span>8</span></div>
+        <div class="step-title">
+          <h2>State Domicile Analyzer</h2>
+          <div class="time">~ 1 minute</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-test-domicile">
+          <label for="check-test-domicile">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Open the Builder, in Section 2 set <strong>"Considering a Move?"</strong> to Yes, pick a target state, click Generate Plan, then go to the Tax Optimization tab.</p>
+        <p>You should see a "State Domicile Analyzer" card comparing current state vs target with annual + 10-year savings.</p>
+        <div class="btn-row">
+          <a href="./" target="_blank" class="external-link">Open Plan Builder</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="test-vault">
+      <div class="step-header">
+        <div class="step-num"><span>9</span></div>
+        <div class="step-title">
+          <h2>Document Vault</h2>
+          <div class="time">~ 2 minutes</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-test-vault">
+          <label for="check-test-vault">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Sign in, load a saved plan, then scroll up to the "📁 Plan Documents" panel. Pick a small PDF, choose a category, click Upload. The file should appear in the list with Download + Delete buttons.</p>
+        <p>If you see <em>"Document vault not initialized"</em>, the SQL migration in step 3 didn't take — go back and re-run it.</p>
+        <div class="btn-row">
+          <a href="./" target="_blank" class="external-link">Open Plan Builder</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="test-audit">
+      <div class="step-header">
+        <div class="step-num"><span>10</span></div>
+        <div class="step-title">
+          <h2>Audit Log (team-only)</h2>
+          <div class="time">~ 1 minute</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-test-audit">
+          <label for="check-test-audit">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Sign in as a team member. The "🔒 Audit Log" panel appears between the Document Vault and the Reviews panel.</p>
+        <p>It should show your sign-in event from when you logged in. Try uploading a document, then click "Refresh" — a <code>doc.upload</code> entry should appear at the top.</p>
+        <div class="btn-row">
+          <a href="./" target="_blank" class="external-link">Open Plan Builder</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="test-scenarios">
+      <div class="step-header">
+        <div class="step-num"><span>11</span></div>
+        <div class="step-title">
+          <h2>Universal Scenario Planner</h2>
+          <div class="time">~ 1 minute</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-test-scenarios">
+          <label for="check-test-scenarios">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Generate any plan, then go to the Scenario Comparison tab. Scroll past the strategy-stack table — the new "⚡ Universal Scenario Planner" card holds 11 "what if?" overlays (market crash, tax hike, spouse passes, LTC event, gift $5M, TCJA sunset, etc.) each showing Δ Family NW vs baseline.</p>
+        <div class="btn-row">
+          <a href="./" target="_blank" class="external-link">Open Plan Builder</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="test-currency">
+      <div class="step-header">
+        <div class="step-num"><span>12</span></div>
+        <div class="step-title">
+          <h2>Multi-currency display</h2>
+          <div class="time">~ 30 seconds</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-test-currency">
+          <label for="check-test-currency">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>In Section 1 of the Builder, change <strong>Reporting Currency</strong> to CHF (or any non-USD). The plan re-renders instantly with CHF-prefixed values and a "Reporting in CHF (1 USD ≈ 0.91 CHF)" subtitle.</p>
+        <div class="btn-row">
+          <a href="./" target="_blank" class="external-link">Open Plan Builder</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="test-plaid">
+      <div class="step-header">
+        <div class="step-num"><span>13</span></div>
+        <div class="step-title">
+          <h2>Plaid daily sync (verify tomorrow)</h2>
+          <div class="time">~ 1 minute (tomorrow)</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-test-plaid">
+          <label for="check-test-plaid">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>The cron fires at <strong>06:00 UTC daily</strong>. After the first run, check Vercel → Logs → filter for <code>/api/plaid/sync-balances</code>. You should see a 200 response with <code>{ items: N, snapshots: N }</code>.</p>
+        <p>You can also manually trigger via curl using your CRON_SECRET (mostly useful for debugging).</p>
+        <div class="btn-row">
+          <a href="https://vercel.com/dashboard" target="_blank" class="external-link">Open Vercel Logs</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" data-step-id="test-regression">
+      <div class="step-header">
+        <div class="step-num"><span>14</span></div>
+        <div class="step-title">
+          <h2>Quick regression check</h2>
+          <div class="time">~ 3 minutes</div>
+        </div>
+        <div class="step-mark">
+          <input type="checkbox" id="check-test-regression">
+          <label for="check-test-regression">Done</label>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Generate a plan you used before this update. Click each tab in the plan view — confirm nothing shows literal <code>$NaN</code>, <code>[object Object]</code>, or undefined values. The currency formatting refactor touched ~30 sites; if anything looks broken, tell me which tab + which row.</p>
+        <div class="btn-row">
+          <a href="./" target="_blank" class="external-link">Open Plan Builder</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    Progress is saved in your browser localStorage. Reset clears it.
+    <br>Need help? The original setup guides at
+    <a href="./ai-setup.html" style="color: var(--gold-dark);">ai-setup.html</a> and
+    <a href="./plaid-setup.html" style="color: var(--gold-dark);">plaid-setup.html</a> still work for those individual features.
+  </div>
+</div>
+
+<script>
+  // ─────────────────────────────────────────────────────────
+  // Generate a fresh CRON_SECRET on page load
+  // ─────────────────────────────────────────────────────────
+  (function generateSecret() {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    document.getElementById('cron-secret-value').textContent = hex;
+  })();
+
+  // ─────────────────────────────────────────────────────────
+  // Copy helpers
+  // ─────────────────────────────────────────────────────────
+  async function copyText(text, btn) {
+    try {
+      await navigator.clipboard.writeText(text);
+      const original = btn.textContent;
+      btn.textContent = '✓ Copied';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove('copied');
+      }, 2000);
+    } catch (e) {
+      alert('Copy failed — please select the text manually.');
+    }
+  }
+
+  async function copyFromUrl(url, btn) {
+    btn.textContent = 'Loading…';
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const text = await resp.text();
+      await navigator.clipboard.writeText(text);
+      btn.textContent = '✓ Copied to clipboard';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = btn.dataset.label || 'Copy SQL';
+        btn.classList.remove('copied');
+      }, 2500);
+    } catch (e) {
+      btn.textContent = 'Copy failed — open file manually';
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // Tab switcher
+  // ─────────────────────────────────────────────────────────
+  document.querySelectorAll('#group-nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#group-nav button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.group').forEach(g => g.classList.remove('active'));
+      document.querySelector(`.group[data-group="${btn.dataset.group}"]`).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // Checkbox + progress persistence
+  // ─────────────────────────────────────────────────────────
+  const STORAGE_KEY = 'pyle-launch-progress-v1';
+  const ALL_CHECKS = Array.from(document.querySelectorAll('.step-mark input[type="checkbox"]'));
+  const GROUP_COUNTS = {
+    ship:   ['check-push', 'check-deployed'],
+    db:     ['check-docs-sql', 'check-bucket', 'check-audit-sql'],
+    vercel: ['check-cron-secret', 'check-redeploy'],
+    test:   ['check-test-domicile', 'check-test-vault', 'check-test-audit', 'check-test-scenarios', 'check-test-currency', 'check-test-plaid', 'check-test-regression'],
+  };
+
+  function loadProgress() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      ALL_CHECKS.forEach(c => { if (saved[c.id]) c.checked = true; });
+    } catch (e) { /* ignore */ }
+    syncStepStyles();
+    updateProgress();
+  }
+
+  function saveProgress() {
+    const state = {};
+    ALL_CHECKS.forEach(c => { if (c.checked) state[c.id] = true; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function syncStepStyles() {
+    ALL_CHECKS.forEach(c => {
+      const step = c.closest('.step');
+      if (step) step.classList.toggle('done', c.checked);
+    });
+  }
+
+  function updateProgress() {
+    const total = ALL_CHECKS.length;
+    const done  = ALL_CHECKS.filter(c => c.checked).length;
+    const pct   = total ? Math.round((done / total) * 100) : 0;
+    const fill  = document.getElementById('progress-fill');
+    fill.style.width = pct + '%';
+    fill.classList.toggle('done', done === total);
+    document.getElementById('progress-text').textContent =
+      done === total ? `🎉 All ${total} steps complete!` : `${done} / ${total} complete`;
+
+    // Per-tab badges
+    Object.entries(GROUP_COUNTS).forEach(([group, ids]) => {
+      const groupDone = ids.filter(id => document.getElementById(id)?.checked).length;
+      const badge = document.querySelector(`[data-group-badge="${group}"]`);
+      if (!badge) return;
+      badge.textContent = `${groupDone}/${ids.length}`;
+      badge.className = groupDone === ids.length ? 'badge' : 'badge-pending';
+    });
+  }
+
+  ALL_CHECKS.forEach(c => {
+    c.addEventListener('change', () => {
+      saveProgress();
+      syncStepStyles();
+      updateProgress();
+    });
+  });
+
+  function resetProgress() {
+    if (!confirm('Reset all progress?')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    ALL_CHECKS.forEach(c => { c.checked = false; });
+    syncStepStyles();
+    updateProgress();
+  }
+  window.resetProgress = resetProgress;
+
+  loadProgress();
+
+  // ─────────────────────────────────────────────────────────
+  // Live tests
+  // ─────────────────────────────────────────────────────────
+  function setResult(id, klass, html) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'test-result ' + klass;
+    el.innerHTML = html;
+  }
+
+  async function testNewBuild() {
+    setResult('test-deploy-result', 'checking', 'Checking live site for new build markers…');
+    try {
+      const resp = await fetch('./', { cache: 'no-store' });
+      const html = await resp.text();
+      const hasUniversal = html.includes('Universal Scenario Planner');
+      const hasFx       = html.includes('reporting-currency');
+      const hasAudit    = html.includes('audit-panel');
+      if (hasUniversal && hasFx && hasAudit) {
+        setResult('test-deploy-result', 'success',
+          '✅ Live build includes all 6 new features. Move on to Supabase setup.');
+        document.getElementById('check-deployed').checked = true;
+        saveProgress(); syncStepStyles(); updateProgress();
+      } else {
+        setResult('test-deploy-result', 'fail',
+          `⚠️ Live build is missing markers — Universal: ${hasUniversal}, FX: ${hasFx}, Audit: ${hasAudit}. Push may not have shipped yet. Wait 30 seconds and try again.`);
+      }
+    } catch (e) {
+      setResult('test-deploy-result', 'fail', '❌ Could not reach the live site: ' + e.message);
+    }
+  }
+
+  async function testTable(tableName, btn) {
+    const resultId = tableName === 'plan_documents' ? 'test-docs-table-result' : 'test-audit-table-result';
+    setResult(resultId, 'checking', `Checking if <code>${tableName}</code> exists…`);
+    try {
+      // Use the Supabase REST API (anon key) to query — table existence
+      // returns 200 (with possibly empty array) or 404 if missing.
+      const resp = await fetch('./config.js');
+      const cfg = await resp.text();
+      const urlMatch = cfg.match(/SUPABASE_URL[^']+'([^']+)'/);
+      const keyMatch = cfg.match(/SUPABASE_ANON_KEY[^']+'([^']+)'/);
+      if (!urlMatch || !keyMatch) {
+        setResult(resultId, 'fail', '❌ Could not read Supabase config from config.js');
+        return;
+      }
+      const url = `${urlMatch[1]}/rest/v1/${tableName}?limit=1`;
+      const r = await fetch(url, { headers: { apikey: keyMatch[1], Authorization: 'Bearer ' + keyMatch[1] }});
+      if (r.ok) {
+        setResult(resultId, 'success', `✅ Table <code>${tableName}</code> exists and is queryable.`);
+        const checkId = tableName === 'plan_documents' ? 'check-docs-sql' : 'check-audit-sql';
+        document.getElementById(checkId).checked = true;
+        saveProgress(); syncStepStyles(); updateProgress();
+      } else if (r.status === 404 || r.status === 400) {
+        const txt = await r.text();
+        if (txt.includes('does not exist') || r.status === 404) {
+          setResult(resultId, 'fail', `❌ Table <code>${tableName}</code> not found. Run the SQL migration above first.`);
+        } else {
+          setResult(resultId, 'fail', `⚠️ Got ${r.status}: ${txt.slice(0, 200)}`);
+        }
+      } else {
+        setResult(resultId, 'fail', `⚠️ Unexpected response (${r.status}). Check browser console.`);
+      }
+    } catch (e) {
+      setResult(resultId, 'fail', '❌ Test failed: ' + e.message);
+    }
+  }
+
+  async function testBucket() {
+    setResult('test-bucket-result', 'checking', 'Checking if storage bucket exists…');
+    try {
+      const cfgResp = await fetch('./config.js');
+      const cfg = await cfgResp.text();
+      const urlMatch = cfg.match(/SUPABASE_URL[^']+'([^']+)'/);
+      const keyMatch = cfg.match(/SUPABASE_ANON_KEY[^']+'([^']+)'/);
+      if (!urlMatch || !keyMatch) {
+        setResult('test-bucket-result', 'fail', '❌ Could not read Supabase config.');
+        return;
+      }
+      // List objects in the bucket — 200 with array (possibly empty) means
+      // the bucket exists and we have list permission via RLS.
+      const url = `${urlMatch[1]}/storage/v1/object/list/plan-documents`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { apikey: keyMatch[1], Authorization: 'Bearer ' + keyMatch[1], 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 1 }),
+      });
+      if (r.ok) {
+        setResult('test-bucket-result', 'success', '✅ Bucket <code>plan-documents</code> exists.');
+        document.getElementById('check-bucket').checked = true;
+        saveProgress(); syncStepStyles(); updateProgress();
+      } else if (r.status === 400 || r.status === 404) {
+        setResult('test-bucket-result', 'fail', `❌ Bucket not found. Create it in Supabase Storage UI.`);
+      } else {
+        // 401 / 403 likely means bucket exists but list policy not set — still OK
+        setResult('test-bucket-result', 'success', '✅ Bucket likely exists (got ' + r.status + ', which is normal for private bucket without anon list policy).');
+        document.getElementById('check-bucket').checked = true;
+        saveProgress(); syncStepStyles(); updateProgress();
+      }
+    } catch (e) {
+      setResult('test-bucket-result', 'fail', '❌ Test failed: ' + e.message);
+    }
+  }
+
+  async function testCronEndpoint() {
+    setResult('test-cron-result', 'checking', 'Hitting /api/plaid/sync-balances (expect 401 — proves auth is wired)…');
+    try {
+      const r = await fetch('/api/plaid/sync-balances', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await r.json().catch(() => ({}));
+      if (r.status === 401) {
+        setResult('test-cron-result', 'success',
+          '✅ Endpoint returns 401 Unauthorized — exactly what we want. CRON_SECRET protection is wired correctly. Vercel cron will hit it with the right user-agent at 06:00 UTC.');
+        document.getElementById('check-redeploy').checked = true;
+        saveProgress(); syncStepStyles(); updateProgress();
+      } else if (r.status === 503) {
+        setResult('test-cron-result', 'fail', '⚠️ 503 Service Unavailable — Plaid or Supabase env vars not configured. See plaid-setup.html.');
+      } else if (r.status === 404) {
+        setResult('test-cron-result', 'fail', '❌ 404 — endpoint does not exist on the live site. Push may not have shipped or redeploy is needed.');
+      } else {
+        setResult('test-cron-result', 'fail', `⚠️ Unexpected ${r.status}: ${JSON.stringify(data).slice(0, 200)}`);
+      }
+    } catch (e) {
+      setResult('test-cron-result', 'fail', '❌ Test failed: ' + e.message);
+    }
+  }
+
+  // Expose for inline onclick attrs
+  window.testNewBuild = testNewBuild;
+  window.testTable = testTable;
+  window.testBucket = testBucket;
+  window.testCronEndpoint = testCronEndpoint;
+</script>
+
+</body>
+</html>

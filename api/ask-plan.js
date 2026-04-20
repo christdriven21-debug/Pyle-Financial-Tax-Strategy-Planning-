@@ -18,6 +18,8 @@
 // numbers, or PII beyond what the advisor entered in the Builder. Anthropic's
 // API terms (2025) commit to no training on API inputs by default.
 
+import { requireUser } from './_lib/auth.js';
+
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 1024;
 
@@ -26,6 +28,11 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Require authenticated Supabase session to prevent API-credit burn
+  // and unauthorized access to plan data through the AI proxy.
+  const user = await requireUser(req, res);
+  if (!user) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
