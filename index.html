@@ -12388,12 +12388,29 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       setAuthMsg('');
       if (!currentId) boot();
       armIdleTimer();
-      // Fire-and-forget audit log entry. currentUser is set inside
-      // refreshAuthState which may not have resolved yet, so defer.
-      setTimeout(() => { if (typeof audit === 'function') audit('signin', { entityType: 'session' }); }, 500);
+      // Audit-log only ACTUAL new sign-ins, not session rehydration or
+      // token refresh. Supabase fires SIGNED_IN on page load, tab focus,
+      // and every ~60min token refresh — we'd flood the log otherwise.
+      //
+      // Strategy: remember the last-logged session in sessionStorage
+      // (per-tab, resets on close). If the current session ID matches,
+      // skip. Also skip if the session was created > 30 seconds ago
+      // (meaning it's a restored session, not a fresh login).
+      try {
+        const sid = session?.access_token?.slice(-24) || '';
+        const lastSid = sessionStorage.getItem('pyle-last-audit-sid') || '';
+        const issuedAt = session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at).getTime() : 0;
+        const ageSec = issuedAt ? (Date.now() - issuedAt) / 1000 : 999999;
+        const isFreshLogin = ageSec < 30 && sid !== lastSid;
+        if (isFreshLogin) {
+          sessionStorage.setItem('pyle-last-audit-sid', sid);
+          setTimeout(() => { if (typeof audit === 'function') audit('signin', { entityType: 'session' }); }, 500);
+        }
+      } catch (e) { /* ignore */ }
     }
     if (event === 'SIGNED_OUT') {
       clearIdleTimer();
+      try { sessionStorage.removeItem('pyle-last-audit-sid'); } catch {}
     }
   });
 
