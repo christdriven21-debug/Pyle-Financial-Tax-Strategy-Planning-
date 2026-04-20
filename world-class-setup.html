@@ -95,7 +95,7 @@
     <div class="step-header">
       <div class="step-num"><span>1</span></div>
       <div class="step-title">
-        <h2>Custom domain: www.pylefinancialservices.com <span class="pill required">Required</span></h2>
+        <h2>Custom domain: plan.pylefinancialservices.com <span class="pill required">Required</span></h2>
         <div class="time">~ 10 minutes + DNS propagation</div>
       </div>
       <div class="step-mark"><input type="checkbox" id="check-domain"><label for="check-domain">Done</label></div>
@@ -104,17 +104,24 @@
       <p>Gets rid of the <code>pyle-planning.vercel.app</code> URL. Clients see a real domain that matches your firm.</p>
       <ol>
         <li>Open Vercel → your project → <strong>Settings → Domains</strong>.</li>
-        <li>Click <strong>Add Domain</strong> and type <code>www.pylefinancialservices.com</code>.</li>
-        <li>Vercel shows you DNS records to add at your domain registrar (GoDaddy, Cloudflare, etc.).</li>
-        <li>Add the records at your registrar. Usually a <code>CNAME</code> from <code>www</code> → <code>cname.vercel-dns.com</code>.</li>
-        <li>Also add the root redirect: Vercel will walk you through making <code>pylefinancialservices.com</code> redirect to <code>www.pylefinancialservices.com</code>.</li>
-        <li>Wait 5-30 minutes for DNS propagation. Vercel auto-provisions the SSL certificate.</li>
+        <li>Click <strong>Add Domain</strong> and type <code>plan.pylefinancialservices.com</code>.</li>
+        <li>Vercel shows you a CNAME record. Copy it.</li>
+        <li>Open Cloudflare (where your DNS lives) → DNS → Records → <strong>Add record</strong>.
+          <ul>
+            <li>Type: <code>CNAME</code></li>
+            <li>Name: <code>plan</code></li>
+            <li>Target: <code>cname.vercel-dns.com</code></li>
+            <li>Proxy status: <strong>DNS only</strong> (gray cloud — NOT the orange cloud)</li>
+          </ul>
+        </li>
+        <li>Save. DNS propagates in 1-5 minutes; Vercel auto-provisions the SSL cert.</li>
+        <li>When Vercel shows a green checkmark next to the domain, you're live.</li>
       </ol>
       <div class="btn-row">
         <a href="https://vercel.com/dashboard" target="_blank" class="external-link">Open Vercel Domains</a>
       </div>
       <div class="callout">
-        <strong>After the domain is live:</strong> update <code>Supabase → Auth → URL Configuration</code> so the Site URL is <code>https://www.pylefinancialservices.com</code>. Otherwise magic links will still redirect to the vercel.app URL.
+        <strong>After the domain is live:</strong> update <code>Supabase → Auth → URL Configuration</code> so the Site URL is <code>https://plan.pylefinancialservices.com</code>. Otherwise magic links will still redirect to the vercel.app URL.
       </div>
     </div>
   </div>
@@ -171,7 +178,7 @@
           <div class="copy-block"><code>NOTIFY_TEAM</code><button class="copy-btn" onclick="copyText('NOTIFY_TEAM', this)">Copy</button></div>
           Value: <code>Admin@PFS4u.com</code>
           <div class="copy-block"><code>APP_URL</code><button class="copy-btn" onclick="copyText('APP_URL', this)">Copy</button></div>
-          Value: <code>https://www.pylefinancialservices.com</code>
+          Value: <code>https://plan.pylefinancialservices.com</code> (the app's subdomain, not your marketing site)
         </li>
         <li>Trigger a redeploy so the env vars pick up.</li>
       </ol>
@@ -278,7 +285,7 @@
   </div>
 
   <div class="foot">
-    Pyle Financial Services, Inc · <a href="https://www.pylefinancialservices.com" style="color:var(--gold-dark);">pylefinancialservices.com</a>
+    Pyle Financial Services, Inc · <a href="https://plan.pylefinancialservices.com" style="color:var(--gold-dark);">pylefinancialservices.com</a>
     <br>Progress saves in localStorage. Reset clears it.
   </div>
 </div>

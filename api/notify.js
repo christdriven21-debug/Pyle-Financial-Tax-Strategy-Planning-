@@ -32,7 +32,7 @@ export default async function handler(req, res) {
   const supaUrl  = process.env.SUPABASE_URL;
   const supaKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const teamRaw  = process.env.NOTIFY_TEAM || '';
-  const appUrl   = process.env.APP_URL || 'https://www.pylefinancialservices.com';
+  const appUrl   = process.env.APP_URL || 'https://plan.pylefinancialservices.com';
   if (!apiKey || !from || !supaUrl || !supaKey) {
     return res.status(503).json({ error: 'Notifications not configured', code: 'no_config' });
   }
