@@ -12442,29 +12442,39 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       setAuthMsg('');
       if (!currentId) boot();
       armIdleTimer();
-      // Audit-log only ACTUAL new sign-ins, not session rehydration or
-      // token refresh. Supabase fires SIGNED_IN on page load, tab focus,
-      // and every ~60min token refresh — we'd flood the log otherwise.
-      //
-      // Strategy: remember the last-logged session in sessionStorage
-      // (per-tab, resets on close). If the current session ID matches,
-      // skip. Also skip if the session was created > 30 seconds ago
-      // (meaning it's a restored session, not a fresh login).
+      // Log at most one 'signin' audit entry per user per 12 hours.
+      // Supabase fires SIGNED_IN on every page load, tab focus, and ~60
+      // minute token refresh — the 30-second age gate we tried before
+      // didn't work because last_sign_in_at is bumped on every refresh.
+      // localStorage keyed by user id + 12-hour bucket is tab-safe and
+      // refresh-proof: if we logged a signin for this user within the
+      // last 12 hours, skip. Covers the "one login per session per day"
+      // intent for SOC 2 without flooding the log.
       try {
-        const sid = session?.access_token?.slice(-24) || '';
-        const lastSid = sessionStorage.getItem('pyle-last-audit-sid') || '';
-        const issuedAt = session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at).getTime() : 0;
-        const ageSec = issuedAt ? (Date.now() - issuedAt) / 1000 : 999999;
-        const isFreshLogin = ageSec < 30 && sid !== lastSid;
-        if (isFreshLogin) {
-          sessionStorage.setItem('pyle-last-audit-sid', sid);
-          setTimeout(() => { if (typeof audit === 'function') audit('signin', { entityType: 'session' }); }, 500);
+        const uid = session?.user?.id || '';
+        if (uid) {
+          const key = 'pyle-last-signin-log-' + uid;
+          const lastLoggedMs = parseInt(localStorage.getItem(key) || '0', 10);
+          const twelveHours = 12 * 60 * 60 * 1000;
+          if (!lastLoggedMs || (Date.now() - lastLoggedMs) > twelveHours) {
+            localStorage.setItem(key, String(Date.now()));
+            setTimeout(() => {
+              if (typeof audit === 'function') audit('signin', { entityType: 'session' });
+            }, 500);
+          }
         }
       } catch (e) { /* ignore */ }
     }
     if (event === 'SIGNED_OUT') {
       clearIdleTimer();
-      try { sessionStorage.removeItem('pyle-last-audit-sid'); } catch {}
+      // Clear all per-user signin-log markers so the next login re-logs
+      // immediately (don't want the 12-hour bucket to suppress a fresh
+      // login right after sign-out).
+      try {
+        Object.keys(localStorage).forEach(k => {
+          if (k.startsWith('pyle-last-signin-log-')) localStorage.removeItem(k);
+        });
+      } catch {}
     }
   });
 
