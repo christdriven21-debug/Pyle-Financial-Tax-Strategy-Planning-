@@ -4,16 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pyle Financial Services, Inc — Comprehensive Financial Plan Builder</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<!-- All third-party scripts pinned to exact versions + Subresource Integrity
+     hashes so a CDN compromise can't inject malicious JavaScript that
+     would execute with access to every user's Supabase session tokens.
+     Regenerate a hash if the pinned version is bumped:
+         curl -sfL <url> | openssl dgst -sha384 -binary | openssl base64 -A
+     Plaid's link-initialize.js is intentionally left unpinned — Plaid
+     ships fixes via that URL and recommends against SRI for it. -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"
+        integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"
+        integrity="sha384-GFr3yTh5lJznCbZfpTtXnwboFsxqtTQoeTZCRHhE0579KrRmlCzen5AA8ohaB5ug"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"
+        integrity="sha384-Yv5O+t3uE3hunW8uyrbpPW3iw6/5/Y7HitWJBLgqfMoA36NogMmy+8wWZMpn3HWc"
+        crossorigin="anonymous"></script>
 <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"
+        integrity="sha384-Cck14aA9cifjYolcnjebXRfWGkz5ltHMBiG4px/j8GS+xQcb7OhNQWZYyWjQ+UwQ"
+        crossorigin="anonymous"></script>
 <!-- DOMPurify: sanitizes AI-generated HTML before innerHTML injection.
      Prompt injection inside client data could otherwise coerce Claude
      into returning <script>/<img onerror> payloads that execute in the
      advisor's authenticated browser. -->
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"
+        integrity="sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a"
+        crossorigin="anonymous"></script>
 <script src="./config.js"></script>
 <style>
   :root {
@@ -12183,16 +12200,23 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   const btnSchwabPull    = document.getElementById('btn-schwab-pull');
   const btnSchwabDisc    = document.getElementById('btn-schwab-disconnect');
   if (btnSchwabConnect) btnSchwabConnect.addEventListener('click', () => {
+    if (!currentUser) { setStatus('Sign in before connecting Schwab', 'err'); return; }
     const returnTo = location.pathname + (location.search || '');
-    location.href = '/api/schwab/authorize?return_to=' + encodeURIComponent(returnTo);
+    // user_id is included so the OAuth callback can bind the resulting
+    // tokens to this Supabase user (via HMAC-signed cookie). Prevents
+    // cross-user token leakage when a browser is shared between advisors.
+    location.href = '/api/schwab/authorize'
+      + '?return_to=' + encodeURIComponent(returnTo)
+      + '&user_id=' + encodeURIComponent(currentUser.id);
   });
   if (btnSchwabDisc) btnSchwabDisc.addEventListener('click', async () => {
-    await fetch('/api/schwab/disconnect', { method: 'POST' });
+    await authedFetch('/api/schwab/disconnect', { method: 'POST' });
     setStatus('Schwab disconnected', 'ok');
   });
   if (btnSchwabPull) btnSchwabPull.addEventListener('click', async () => {
     setStatus('Pulling Schwab balances…');
-    const resp = await fetch('/api/schwab/accounts');
+    // authedFetch supplies the Supabase Bearer token that /accounts requires.
+    const resp = await authedFetch('/api/schwab/accounts');
     if (resp.status === 401) {
       setStatus('Not connected to Schwab — click Connect first', 'err');
       return;
