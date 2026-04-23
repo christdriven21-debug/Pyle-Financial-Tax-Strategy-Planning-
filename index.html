@@ -896,6 +896,92 @@
   }
   .review-list { margin-bottom: 14px; }
 
+  /* ===== AUTO-SOLVER MODAL ===== */
+  .solver-modal { position: fixed; inset: 0; z-index: 1050; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+  .solver-modal.hidden { display: none; }
+  .solver-backdrop { position: absolute; inset: 0; background: rgba(20,20,20,0.7); backdrop-filter: blur(2px); }
+  .solver-body {
+    position: relative; background: var(--cream);
+    border: 1px solid var(--gold); border-radius: 8px;
+    max-width: 860px; width: 100%; max-height: 85vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+  }
+  .solver-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 28px; border-bottom: 1px solid rgba(201,169,97,0.25);
+  }
+  .solver-header h2 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 22px; font-weight: 500; margin: 0; color: var(--ink);
+  }
+  .solver-close {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 22px; cursor: pointer; padding: 4px 10px; border-radius: 4px;
+    line-height: 1;
+  }
+  .solver-close:hover { color: var(--crimson); background: var(--cream-light); }
+  .solver-content { padding: 24px 32px; overflow-y: auto; flex: 1; }
+  .solver-intro { font-size: 13px; color: var(--ink-soft, #444); line-height: 1.6; margin-bottom: 18px; }
+  .solver-intro strong { color: var(--ink); }
+  .solver-run { margin-bottom: 18px; }
+  .solver-progress {
+    padding: 14px 18px; background: var(--cream-light);
+    border: 1px solid rgba(201,169,97,0.4); border-radius: 4px;
+    font-size: 13px; color: var(--gold-dark); font-style: italic;
+  }
+  .solver-progress .progbar {
+    height: 6px; background: rgba(201,169,97,0.25); border-radius: 3px;
+    margin-top: 8px; overflow: hidden;
+  }
+  .solver-progress .progbar-fill {
+    height: 100%; background: var(--gold); width: 0%;
+    transition: width .25s ease;
+  }
+
+  .solver-summary {
+    background: #FFF; border: 1px solid rgba(201,169,97,0.3);
+    border-radius: 6px; padding: 20px 24px; margin-bottom: 18px;
+  }
+  .solver-summary h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 18px; font-weight: 500; margin: 0 0 14px; color: var(--ink);
+  }
+  .solver-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+  .solver-kpi {
+    background: var(--cream-light); padding: 14px 16px; border-radius: 4px;
+    border-left: 3px solid var(--gold);
+  }
+  .solver-kpi .lbl { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700; }
+  .solver-kpi .val { font-family: 'Playfair Display', Georgia, serif; font-size: 24px; font-weight: 500; color: var(--ink); margin-top: 4px; }
+  .solver-kpi .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .solver-stack {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px;
+  }
+  .solver-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--gold); color: var(--cream);
+    padding: 5px 12px; border-radius: 14px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  }
+  .solver-chip.off { background: transparent; color: var(--muted); border: 1px dashed rgba(107, 101, 86, 0.35); }
+
+  .solver-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .solver-actions .btn { margin: 0; }
+
+  .solver-steps {
+    margin-top: 22px; padding-top: 18px;
+    border-top: 1px solid rgba(201,169,97,0.2);
+    font-size: 12px; color: var(--muted);
+  }
+  .solver-steps h4 {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--gold-dark); margin: 0 0 8px;
+  }
+  .solver-steps ol { padding-left: 20px; margin: 0; }
+  .solver-steps li { margin-bottom: 4px; font-size: 12px; }
+
   /* ===== WELCOME / ONBOARDING MODAL ===== */
   .welcome-modal { position: fixed; inset: 0; z-index: 1100; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
   .welcome-modal.hidden { display: none; }
@@ -3526,9 +3612,30 @@
   <!-- ACTION ROW -->
   <div class="action-row">
     <button class="btn btn-secondary" id="btn-reset">Reset to Defaults</button>
+    <button class="btn btn-gold" id="btn-auto-solve" title="Automatically pick the strategy stack that minimizes total tax across pre-sale capital gains, post-sale income, and estate tax">⚡ Auto-Solve: Minimum Tax</button>
     <button class="btn btn-primary" id="btn-generate">Generate Plan →</button>
   </div>
 </main>
+
+<!-- ========== AUTO-SOLVER MODAL ========== -->
+<div id="solver-modal" class="solver-modal hidden" role="dialog" aria-labelledby="solver-title">
+  <div class="solver-backdrop" id="solver-backdrop"></div>
+  <div class="solver-body">
+    <div class="solver-header">
+      <h2 id="solver-title">⚡ Auto-Solver — Minimum Tax Stack</h2>
+      <button class="solver-close" id="solver-close" aria-label="Close">✕</button>
+    </div>
+    <div class="solver-content" id="solver-content">
+      <div class="solver-intro">
+        This solver runs a greedy search across every strategy in the Library, adding one at a time and keeping it only if it increases total family wealth after taxes. It respects the qualification tests already built into the tool: §1202 attestations, CRAT 10% remainder, QOZ hold period, AGI caps on charitable deductions, etc.
+        <br><br>
+        Scoring: <strong>total tax saved</strong> = immediate capital-gains + income-tax savings <em>plus</em> estate-tax savings at joint life expectancy. The recommended stack is whichever combination maximizes that total.
+      </div>
+      <button class="btn btn-primary solver-run" id="solver-run">▶ Run Solver</button>
+      <div id="solver-result"></div>
+    </div>
+  </div>
+</div>
 
 <!-- ========== PLAN VIEW ========== -->
 <main id="plan-view" class="hidden">
@@ -8681,6 +8788,235 @@ function runScenario(baselineInput, scenario) {
   const clone = JSON.parse(JSON.stringify(baselineInput));
   try { scenario.mutate(clone); } catch (e) { console.warn('Scenario mutate failed', scenario.id, e); }
   try { return computePlan(clone); } catch (e) { console.warn('Scenario compute failed', scenario.id, e); return null; }
+}
+
+/* ============================================================
+   AUTO-SOLVER — "Solve for minimum tax"
+   Runs a greedy search across the 15 strategy toggles. Starts
+   with all off, tries adding each one, keeps the one that
+   maximizes total tax saved, repeats until no further gain.
+   Respects the in-tool qualification tests (§1202 attestations,
+   CRAT 10% remainder, QOZ hold, AGI caps).
+   ============================================================ */
+const SOLVER_STRATEGIES = [
+  { key: 'dynasty',  label: 'Dynasty Trust',          tip: 'Multi-generational GST-exempt trust, exemption-funded, appreciation outside estate forever' },
+  { key: 'crat',     label: 'CRAT',                   tip: 'Charitable Remainder Annuity Trust — fund pre-sale; no gain recognition on funded shares' },
+  { key: 'crut',     label: 'CRUT',                   tip: 'Charitable Remainder Unitrust — annual revaluation, better inflation hedge than CRAT' },
+  { key: 'daf',      label: 'Donor-Advised Fund',     tip: 'Lump-sum charitable deduction in sale year' },
+  { key: 'qoz',      label: 'QOZ / QOF',              tip: 'Defers remaining cap gains; permanent exclusion of appreciation after 10-year hold' },
+  { key: 'ilit',     label: 'ILIT',                   tip: 'Irrevocable life insurance trust — estate-tax-free wealth replacement' },
+  { key: 'roth',     label: 'Roth Conversion Ladder', tip: 'Convert in low-income post-sale years to avoid future RMD drag' },
+  { key: 'grat',     label: 'GRAT',                   tip: 'Grantor-retained annuity trust — downside-protected wealth transfer' },
+  { key: 'qsbs',     label: '§1202 QSBS',             tip: 'Per-shareholder federal exclusion of up to 100% of gain (regime-dependent)' },
+  { key: 'exch1031', label: '§1031 Exchange',         tip: 'Like-kind exchange for real estate — defers gain into replacement property' },
+  { key: 'qbi',      label: '§199A QBI',              tip: '20% qualified business income deduction (mostly for recurring operating income)' },
+  { key: 'slat',     label: 'SLAT',                   tip: 'Spousal Lifetime Access Trust — use exemption while preserving indirect access' },
+  { key: 'idgt',     label: 'IDGT Sale',              tip: 'Sale to intentionally-defective grantor trust — freezes valuation at current value' },
+  { key: 'qprt',     label: 'QPRT',                   tip: 'Qualified Personal Residence Trust — transfer residence at discounted value' },
+  { key: 'clt',      label: 'CLT',                    tip: 'Charitable Lead Trust — charity paid first, residue to heirs at discounted value' },
+];
+
+function solverScore(d, useSet) {
+  const override = JSON.parse(JSON.stringify(d));
+  override.use = {};
+  SOLVER_STRATEGIES.forEach(s => { override.use[s.key] = useSet.has(s.key); });
+  try {
+    const p = computePlan(override);
+    // Total tax saved across buckets. Higher = better.
+    //   totalImmediate = capital-gains + income-tax savings vs no-planning
+    //   totalEstateSave = fed estate + state estate savings at joint LE
+    return {
+      score: (p.totalImmediate || 0) + (p.totalEstateSave || 0),
+      totalImmediate: p.totalImmediate || 0,
+      totalEstateSave: p.totalEstateSave || 0,
+      familyNW: p.familyTotalNW || 0,
+    };
+  } catch (e) {
+    return { score: -Infinity, totalImmediate: 0, totalEstateSave: 0, familyNW: 0 };
+  }
+}
+
+// Greedy search — adds one strategy at a time, keeps whichever delivers
+// the biggest marginal lift. Stops when no remaining strategy helps.
+// Yields between candidates so the UI stays responsive.
+async function runAutoSolver(progressCb) {
+  const d = readForm();
+  const active = new Set();
+  let current = solverScore(d, active);
+  const baseline = current;
+  const steps = [{ stack: [], score: current.score, ...current, note: 'No planning' }];
+
+  const total = SOLVER_STRATEGIES.length;
+  let attempt = 0;
+  let improved = true;
+
+  while (improved) {
+    improved = false;
+    let bestAdd = null;
+    let bestOut = null;
+    for (const strat of SOLVER_STRATEGIES) {
+      if (active.has(strat.key)) continue;
+      const trial = new Set(active); trial.add(strat.key);
+      const out = solverScore(d, trial);
+      if (out.score > current.score && (!bestOut || out.score > bestOut.score)) {
+        bestAdd = strat; bestOut = out;
+      }
+      attempt++;
+      if (progressCb) progressCb(attempt, total * total);
+      // Yield occasionally so UI stays responsive
+      if (attempt % 5 === 0) await new Promise(r => setTimeout(r, 0));
+    }
+    if (bestAdd && bestOut) {
+      active.add(bestAdd.key);
+      current = bestOut;
+      steps.push({
+        added: bestAdd,
+        stack: Array.from(active),
+        ...bestOut,
+      });
+      improved = true;
+    }
+  }
+
+  return { stack: Array.from(active), score: current.score, steps, baseline, final: current };
+}
+
+function renderSolverResult(result) {
+  const lookup = Object.fromEntries(SOLVER_STRATEGIES.map(s => [s.key, s]));
+  const chipsOn  = result.stack.map(k => `<span class="solver-chip">${esc(lookup[k]?.label || k)}</span>`).join('');
+  const chipsOff = SOLVER_STRATEGIES.filter(s => !result.stack.includes(s.key))
+    .map(s => `<span class="solver-chip off">${esc(s.label)}</span>`).join('');
+
+  const totalSaved = result.final.score;
+  const immediate  = result.final.totalImmediate;
+  const estate     = result.final.totalEstateSave;
+  const familyGain = result.final.familyNW - result.baseline.familyNW;
+
+  const stepsHtml = result.steps
+    .filter((s, i) => i > 0)
+    .map((s, i) => `
+      <li>
+        Added <strong>${esc(s.added?.label || '?')}</strong> — marginal lift
+        <strong>${fmt$(s.score - (result.steps[i]?.score || 0))}</strong>
+        <span style="color: var(--muted); font-size: 11px;"> · ${esc(s.added?.tip || '')}</span>
+      </li>
+    `).join('');
+
+  return `
+    <div class="solver-summary">
+      <h3>🎯 Recommended Stack</h3>
+      <div class="solver-kpis">
+        <div class="solver-kpi">
+          <div class="lbl">Immediate Tax Saved</div>
+          <div class="val">${fmt$(immediate)}</div>
+          <div class="sub">Capital gains + income tax in sale year</div>
+        </div>
+        <div class="solver-kpi">
+          <div class="lbl">Estate Tax Saved</div>
+          <div class="val">${fmt$(estate)}</div>
+          <div class="sub">Fed + state, projected at joint life expectancy</div>
+        </div>
+        <div class="solver-kpi" style="border-left-color: var(--success, #2D6A4F); background: #F0F7F3;">
+          <div class="lbl" style="color: var(--success, #2D6A4F);">Total Tax Saved</div>
+          <div class="val" style="color: var(--success, #2D6A4F);">${fmt$(totalSaved)}</div>
+          <div class="sub">Across all three buckets</div>
+        </div>
+      </div>
+      <div class="solver-kpi" style="background: var(--cream-light); border-left-color: var(--gold); margin-bottom: 14px;">
+        <div class="lbl">Family Net Worth vs. No-Planning Baseline</div>
+        <div class="val">${familyGain >= 0 ? '+' : ''}${fmt$(familyGain)}</div>
+        <div class="sub">What the family actually receives, net of all taxes, at the end of the projection horizon</div>
+      </div>
+      <div style="margin-top: 12px;">
+        <div style="font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--gold-dark); font-weight: 700; margin-bottom: 6px;">Strategies turned ON</div>
+        <div class="solver-stack">${chipsOn || '<em style="color: var(--muted);">None — no planning improves this plan</em>'}</div>
+        ${chipsOff ? `
+          <div style="font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 14px 0 6px;">Skipped (would not improve outcome)</div>
+          <div class="solver-stack">${chipsOff}</div>
+        ` : ''}
+      </div>
+      <div class="solver-actions">
+        <button class="btn btn-primary" id="solver-apply" data-stack="${esc(result.stack.join(','))}">Apply This Stack &amp; Generate Plan →</button>
+        <button class="btn btn-secondary" id="solver-dismiss">Close — don't change anything</button>
+      </div>
+    </div>
+    ${stepsHtml ? `
+      <div class="solver-steps">
+        <h4>How the solver got here</h4>
+        <ol>${stepsHtml}</ol>
+      </div>
+    ` : ''}
+  `;
+}
+
+function applySolverStack(stackKeys) {
+  // Turn ON every key in the list, turn OFF every other strategy toggle.
+  const ON = new Set(stackKeys);
+  SOLVER_STRATEGIES.forEach(s => {
+    const id = 'use-' + (s.key === 'exch1031' ? '1031' : s.key);
+    const el = document.getElementById(id);
+    if (el) {
+      el.checked = ON.has(s.key);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  // Trigger plan regeneration
+  const genBtn = document.getElementById('btn-generate');
+  if (genBtn) genBtn.click();
+}
+
+function bindAutoSolver() {
+  const btn = document.getElementById('btn-auto-solve');
+  const modal = document.getElementById('solver-modal');
+  const closeBtn = document.getElementById('solver-close');
+  const backdrop = document.getElementById('solver-backdrop');
+  const runBtn = document.getElementById('solver-run');
+  const resultEl = document.getElementById('solver-result');
+  if (!btn || !modal) return;
+
+  function open() { modal.classList.remove('hidden'); resultEl.innerHTML = ''; runBtn.style.display = ''; }
+  function close() { modal.classList.add('hidden'); }
+  btn.addEventListener('click', open);
+  closeBtn.addEventListener('click', close);
+  backdrop.addEventListener('click', close);
+
+  runBtn.addEventListener('click', async () => {
+    runBtn.style.display = 'none';
+    resultEl.innerHTML = `
+      <div class="solver-progress">
+        Running greedy search across ${SOLVER_STRATEGIES.length} strategies…
+        <div class="progbar"><div class="progbar-fill" id="solver-progbar"></div></div>
+      </div>
+    `;
+    try {
+      const result = await runAutoSolver((done, total) => {
+        const pct = Math.min(100, Math.round((done / total) * 100));
+        const pb = document.getElementById('solver-progbar');
+        if (pb) pb.style.width = pct + '%';
+      });
+      resultEl.innerHTML = renderSolverResult(result);
+
+      // Wire the Apply + Dismiss buttons inside the rendered result.
+      const applyBtn = document.getElementById('solver-apply');
+      const dismissBtn = document.getElementById('solver-dismiss');
+      if (applyBtn) applyBtn.addEventListener('click', () => {
+        const keys = (applyBtn.dataset.stack || '').split(',').filter(Boolean);
+        applySolverStack(keys);
+        close();
+      });
+      if (dismissBtn) dismissBtn.addEventListener('click', close);
+    } catch (e) {
+      resultEl.innerHTML = `<div class="solver-progress" style="color: var(--crimson); border-color: var(--crimson);">Solver failed: ${esc(e.message)}. Check console for details.</div>`;
+      console.error('Auto-solver failed:', e);
+    }
+  });
+}
+
+// Wire up after DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bindAutoSolver);
+} else {
+  bindAutoSolver();
 }
 
 function renderUniversalScenarioPlanner(p) {
