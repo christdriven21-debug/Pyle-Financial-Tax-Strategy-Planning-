@@ -16,7 +16,7 @@ window.__PYLE_CONFIG__ = {
   // Sentry error monitoring. Paste your project DSN here to activate.
   // Get one from https://sentry.io → Create Project → JavaScript → copy DSN.
   // Leave as '' and Sentry will not load — no errors, no warnings.
-  SENTRY_DSN: '',
+  SENTRY_DSN: 'https://ff438b5daf6d6ca5159f8f4c22a36d00@o4511276177162240.ingest.us.sentry.io/4511276190662656',
 
   // Firm identity for branded emails + PDF footers.
   FIRM_NAME: 'Pyle Financial Services, Inc',
