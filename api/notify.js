@@ -101,74 +101,62 @@ export default async function handler(req, res) {
 
 // Pre-templated emails. All server-constructed — client can't inject content
 // except via the optional "note" field, which is rendered as plain text.
+//
+// CURRENT POLICY (advisor preference, April 2026):
+//   - Clients are NOT emailed when the team makes changes. Advisors
+//     communicate with clients on their own schedule, via other channels.
+//   - The team IS emailed whenever a client does something in the app:
+//     edits their plan, uploads a document, etc.
+//   - Meeting Prep notifications still go to the team (internal).
+// This can be toggled back on per-event later by restoring the
+// team→client branches below.
 function buildEmail({ type, note, plan, planUrl, callerIsTeam, callerIsClient, teamEmails, callerEmail }) {
   const safeNote = String(note || '').slice(0, 2000)
     .replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))
     .replace(/\n/g, '<br>');
   const planName = (plan.name || 'your plan').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   const base = styleShell;
-
-  // Recipient logic:
-  //   plan_saved: team → client. client → team.
-  //   review_posted: team → client (tell client a review was posted)
-  //   doc_uploaded: other party
-  //   meeting_prep_ready: team only
   const clientEmail = (plan.client_email || '').toLowerCase();
 
+  // plan_saved — team edit: SILENT (was: email client). Client edit: email team.
   if (type === 'plan_saved') {
-    if (callerIsTeam && clientEmail) {
-      return {
-        to: [clientEmail],
-        subject: `Your financial plan has been updated — ${planName}`,
-        html: base(`
-          <p>Your advisor has just updated your financial plan, <strong>${planName}</strong>.</p>
-          ${safeNote ? `<p style="background:#FAF6ED;padding:14px 18px;border-left:3px solid #C9A961;">${safeNote}</p>` : ''}
-          <p><a href="${planUrl}" class="btn">Open Your Plan →</a></p>
-        `),
-      };
-    }
     if (callerIsClient && teamEmails.length) {
       return {
         to: teamEmails,
         subject: `Client updated their plan — ${planName}`,
         html: base(`
-          <p>The client <strong>${callerEmail}</strong> updated their plan: <strong>${planName}</strong>.</p>
+          <p>The client <strong>${callerEmail}</strong> just updated their plan: <strong>${planName}</strong>.</p>
           ${safeNote ? `<p style="background:#FAF6ED;padding:14px 18px;border-left:3px solid #C9A961;">${safeNote}</p>` : ''}
           <p><a href="${planUrl}" class="btn">Review the Changes →</a></p>
         `),
       };
     }
+    // Team edit → no email sent (per advisor policy)
   }
 
+  // review_posted — no emails at all right now. Advisor posts reviews for
+  // internal workflow; client doesn't need to be pinged.
   if (type === 'review_posted') {
-    if (callerIsTeam && clientEmail) {
-      return {
-        to: [clientEmail],
-        subject: `New note on your plan — ${planName}`,
-        html: base(`
-          <p>Your advisor left a new note on <strong>${planName}</strong>.</p>
-          ${safeNote ? `<p style="background:#FAF6ED;padding:14px 18px;border-left:3px solid #C9A961;">${safeNote}</p>` : ''}
-          <p><a href="${planUrl}" class="btn">View in Your Plan →</a></p>
-        `),
-      };
-    }
+    // Intentionally silent. Reviews are internal-only for now.
   }
 
+  // doc_uploaded — team upload: SILENT. Client upload: email team.
   if (type === 'doc_uploaded') {
-    const to = callerIsTeam ? (clientEmail ? [clientEmail] : []) : teamEmails;
-    if (to.length) {
+    if (callerIsClient && teamEmails.length) {
       return {
-        to,
-        subject: `New document on plan — ${planName}`,
+        to: teamEmails,
+        subject: `Client uploaded a document — ${planName}`,
         html: base(`
-          <p>A new document has been added to the plan <strong>${planName}</strong> by <strong>${callerEmail}</strong>.</p>
-          ${safeNote ? `<p style="background:#FAF6ED;padding:14px 18px;border-left:3px solid #C9A961;"><em>${safeNote}</em></p>` : ''}
+          <p>The client <strong>${callerEmail}</strong> uploaded a document to <strong>${planName}</strong>.</p>
+          ${safeNote ? `<p style="background:#FAF6ED;padding:14px 18px;border-left:3px solid #C9A961;"><em>File: ${safeNote}</em></p>` : ''}
           <p><a href="${planUrl}" class="btn">View Document →</a></p>
         `),
       };
     }
+    // Team upload → no email
   }
 
+  // meeting_prep_ready — team-internal (your own notification).
   if (type === 'meeting_prep_ready') {
     if (callerIsTeam && teamEmails.length) {
       return {
