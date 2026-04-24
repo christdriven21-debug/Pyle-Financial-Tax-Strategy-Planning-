@@ -157,13 +157,18 @@
     const site = await probe('/');
     setStatus('site', site.status === 200 ? 'ok' : 'out', site.status === 200 ? 'Operational' : 'Down');
 
-    // 2. Supabase — call the anon /auth/v1/health proxy (no auth required)
+    // 2. Supabase — any HTTP response from /auth/v1/health means the server
+    // is alive. Supabase returns 401 without an apikey header, which is
+    // expected + proves the gateway is responding.
     const cfg = await fetch('./config.js').then(r => r.text()).catch(() => '');
     const urlMatch = cfg.match(/SUPABASE_URL:\s*'([^']+)'/);
     if (urlMatch) {
       const supa = await probe(urlMatch[1] + '/auth/v1/health');
-      setStatus('supabase', supa.status === 200 ? 'ok' : (supa.status ? 'deg' : 'out'),
-        supa.status === 200 ? 'Operational' : (supa.status ? 'Degraded' : 'Down'));
+      // 200 / 401 / 405 all mean "Supabase is up and responding correctly"
+      // Only a network timeout (status === 0) or 5xx = real outage
+      if (supa.status === 0) setStatus('supabase', 'out', 'Down');
+      else if (supa.status >= 500) setStatus('supabase', 'deg', 'Status ' + supa.status);
+      else setStatus('supabase', 'ok', 'Operational');
     } else {
       setStatus('supabase', 'out', 'Not configured');
     }
