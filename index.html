@@ -10243,25 +10243,26 @@ function renderZeroTaxMenu(p) {
       .ztm-on { background: rgba(201,169,97,0.12); }
       .ztm-dim { opacity: 0.55; }
     </style>
-    <script>
-      // Wire inline toggles to the hidden form checkboxes + trigger regenerate.
-      // This script runs every time renderTax runs, which is every Generate.
-      // Idempotent: we re-bind on each render.
-      document.querySelectorAll('.ztm-toggle').forEach(cb => {
-        cb.addEventListener('change', (ev) => {
-          const useId = ev.target.dataset.useId;
-          const actual = document.getElementById(useId);
-          if (actual) {
-            actual.checked = ev.target.checked;
-            actual.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-          const gen = document.getElementById('btn-generate');
-          if (gen) gen.click();
-        });
-      });
-    </script>
   `;
 }
+
+// Event delegation for the Zero-Tax Tool Menu toggles. Runs once at page
+// load; delegated listener handles clicks regardless of when the menu is
+// (re-)rendered. This replaces the inline <script> we initially tried to
+// embed inside a template literal — which broke because the HTML parser
+// terminates the outer <script> on any literal "</script>" it finds.
+document.addEventListener('change', (ev) => {
+  const cb = ev.target && ev.target.closest && ev.target.closest('.ztm-toggle');
+  if (!cb) return;
+  const useId = cb.dataset.useId;
+  const actual = document.getElementById(useId);
+  if (actual) {
+    actual.checked = cb.checked;
+    actual.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  const gen = document.getElementById('btn-generate');
+  if (gen) gen.click();
+});
 
 /* ============================================================
    MULTI-YEAR TAX FORECAST + ROTH LADDER — RENDER
