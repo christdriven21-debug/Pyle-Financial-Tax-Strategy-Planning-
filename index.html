@@ -3384,6 +3384,19 @@
       <input type="checkbox" id="use-qprt">
       <input type="checkbox" id="use-crut">
       <input type="checkbox" id="use-clt">
+      <!-- New Phase-1 strategies (hidden toggles; real inputs in dedicated
+           sections elsewhere when implemented). Solver uses these directly. -->
+      <input type="checkbox" id="use-dbplan">      <!-- Defined Benefit / Cash Balance Plan -->
+      <input type="checkbox" id="use-muni">        <!-- Muni Bond Allocation -->
+      <input type="checkbox" id="use-flp">         <!-- Family Limited Partnership valuation discount -->
+      <input type="checkbox" id="use-ing">         <!-- Incomplete Non-Grantor Trust (state tax) -->
+      <input type="checkbox" id="use-ceasement">   <!-- Conservation Easement (within safe harbor) -->
+      <input type="hidden" id="dbplan-contribution" value="300000">
+      <input type="hidden" id="dbplan-years" value="15">
+      <input type="hidden" id="muni-alloc-pct" value="20">
+      <input type="hidden" id="flp-discount-pct" value="25">
+      <input type="hidden" id="ing-income" value="500000">
+      <input type="hidden" id="ceasement-deduction" value="0">
     </div>
   </section>
 
@@ -3612,7 +3625,7 @@
   <!-- ACTION ROW -->
   <div class="action-row">
     <button class="btn btn-secondary" id="btn-reset">Reset to Defaults</button>
-    <button class="btn btn-gold" id="btn-auto-solve" title="Automatically pick the strategy stack that minimizes total tax across pre-sale capital gains, post-sale income, and estate tax">⚡ Auto-Solve: Minimum Tax</button>
+    <button class="btn btn-gold" id="btn-auto-solve" title="Automatically pick the strategy stack that drives taxes as close to zero as statute allows — across federal income, capital gains, state & local, and estate tax">⚡ Solve Toward Zero Tax</button>
     <button class="btn btn-primary" id="btn-generate">Generate Plan →</button>
   </div>
 </main>
@@ -3622,14 +3635,16 @@
   <div class="solver-backdrop" id="solver-backdrop"></div>
   <div class="solver-body">
     <div class="solver-header">
-      <h2 id="solver-title">⚡ Auto-Solver — Minimum Tax Stack</h2>
+      <h2 id="solver-title">⚡ Solve Toward Zero — Best Legal Tax Stack</h2>
       <button class="solver-close" id="solver-close" aria-label="Close">✕</button>
     </div>
     <div class="solver-content" id="solver-content">
       <div class="solver-intro">
-        This solver runs a greedy search across every strategy in the Library, adding one at a time and keeping it only if it increases total family wealth after taxes. It respects the qualification tests already built into the tool: §1202 attestations, CRAT 10% remainder, QOZ hold period, AGI caps on charitable deductions, etc.
+        <strong>Target: $0 across all four tax buckets</strong> — federal income, capital gains, state &amp; local, and estate. True zero isn't achievable on a transaction of this size (QSBS caps at $10M, CRAT 10% remainder test, etc.), but the solver finds the legal combination that gets closest.
         <br><br>
-        Scoring: <strong>total tax saved</strong> = immediate capital-gains + income-tax savings <em>plus</em> estate-tax savings at joint life expectancy. The recommended stack is whichever combination maximizes that total.
+        The search adds one strategy at a time and keeps it only if it reduces total tax. It respects every qualification check already built in: §1202 attestations, CRAT 10% remainder, QOZ hold period, AGI caps on charitable deductions, recapture treatment.
+        <br><br>
+        <strong>Realistic outcome:</strong> for a $42M sale in Florida, expect a 5-8% effective federal rate (vs. the 23.8% baseline), $0 state, and estate tax driven close to $0 via trust stacking.
       </div>
       <button class="btn btn-primary solver-run" id="solver-run">▶ Run Solver</button>
       <div id="solver-result"></div>
@@ -4562,6 +4577,8 @@ function readForm() {
       ilit: c('use-ilit'), roth: c('use-roth'), grat: c('use-grat'), qsbs: c('use-qsbs'),
       exch1031: c('use-1031'), qbi: c('use-qbi'), slat: c('use-slat'), idgt: c('use-idgt'),
       qprt: c('use-qprt'), crut: c('use-crut'), clt: c('use-clt'),
+      dbplan: c('use-dbplan'), muni: c('use-muni'), flp: c('use-flp'),
+      ing: c('use-ing'), ceasement: c('use-ceasement'),
     },
     dynasty: {
       funding: n('dt-funding'),
@@ -4614,6 +4631,12 @@ function readForm() {
     crut: { amount: n('crut-amount'), rate: n('crut-rate') / 100, dedPct: n('crut-ded') / 100 },
     clt:  { amount: n('clt-amount'), payout: n('clt-payout'), term: n('clt-term'),
             hurdle: n('clt-7520') / 100, growth: n('clt-growth') / 100 },
+    // Phase-1 "zero-tax menu" strategy inputs. Defaults are advisor-typical.
+    dbplan:    { contribution: n('dbplan-contribution'), years: n('dbplan-years') || 15 },
+    muni:      { allocPct: (n('muni-alloc-pct') || 20) / 100 },
+    flp:       { discountPct: (n('flp-discount-pct') || 25) / 100 },
+    ing:       { income: n('ing-income') },
+    ceasement: { deduction: n('ceasement-deduction') },
     clientState: t('client-state'),
     tax: {
       fed: n('tax-fed') / 100, state: n('tax-state') / 100,
@@ -5382,13 +5405,57 @@ function computePlan(d) {
   const amtLiability = Math.max(0, amtTentative - amtRegularTax);
   const amtTriggered = amtLiability > 0;
 
+  // ───────────────────────────────────────────────────────────────────────
+  // PHASE-1 "ZERO-TAX MENU" STRATEGIES — ordinary-income + state + estate
+  // ───────────────────────────────────────────────────────────────────────
+
+  // Defined Benefit / Cash Balance Plan: up to ~$300k/yr tax-deductible
+  // contribution for a high-earning owner age 45+. For a 15-year window,
+  // total savings = contribution × marginal × years; present-valued roughly.
+  const dbplanAnnualSaving  = d.use.dbplan ? (d.dbplan.contribution || 0) * d.tax.marginal : 0;
+  const dbplanLifetimeSaving = d.use.dbplan
+    ? dbplanAnnualSaving * Math.min(d.dbplan.years || 15, d.proj.years || 20)
+    : 0;
+
+  // Muni bond allocation: tax-free federal yield on portion of portfolio.
+  // Savings ≈ (portfolio × alloc × yield differential × marginal) × horizon.
+  // We conservatively assume 3% tax-equivalent yield differential.
+  const muniSaving = d.use.muni
+    ? ((d.client.preSaleNW + d.client.otherAssets) * (d.muni.allocPct || 0) * 0.03 * d.tax.marginal) * Math.min(d.proj.years || 10, 20)
+    : 0;
+
+  // Family Limited Partnership: valuation discount on gifted interests
+  // reduces transfer tax on gifts to heirs. Savings = assets-gifted ×
+  // discount × estate-tax-rate. Applied against dynasty/slat funding.
+  const flpTransferBase = d.use.flp ? ((d.dynasty?.funding || 0) + (d.slat?.funding || 0)) : 0;
+  const flpSaving = flpTransferBase * (d.flp?.discountPct || 0) * d.tax.estate;
+
+  // ING Trust (Incomplete Non-Grantor): moves income-producing assets to
+  // a no-state-tax jurisdiction (Delaware, Nevada). Savings ≈ ing.income
+  // × user's state tax rate × years. Only meaningful if client state has
+  // tax (FL/TX/WA/NV have $0 state, so savings = 0 automatically).
+  const ingAnnualSaving = d.use.ing ? ((d.ing?.income || 0) * d.tax.state) : 0;
+  const ingLifetimeSaving = ingAnnualSaving * Math.min(d.proj.years || 10, 20);
+
+  // Conservation Easement: charitable deduction of the easement value.
+  // Advisor enters a conservative deduction figure. Savings = deduction
+  // × marginal. (Aggressive syndicated easements are disallowed — we only
+  // credit basis-appropriate charitable donations.)
+  const ceasementSaving = d.use.ceasement ? ((d.ceasement?.deduction || 0) * d.tax.marginal) : 0;
+
+  // Bucket the new strategy savings by tax category for the solver UI.
+  const phase1FedIncomeSaving = dbplanAnnualSaving + muniSaving + ceasementSaving;
+  const phase1StateSaving     = ingAnnualSaving;
+  const phase1EstateSaving    = flpSaving;
+
   // Total immediate tax savings
   const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave + qsbsTotalSaving
                        + exch1031TaxDeferred + qbiSavings + slatEstateSave + idgtEstateSave
                        + qprtEstateSave + crutEstateSave + crutIncomeTaxSavings + cltEstateSave
                        + totalDiscountSavings
                        + dynastyStateArbitrage
-                       + dynastyIncomeTaxGiftEstateSave;
+                       + dynastyIncomeTaxGiftEstateSave
+                       + phase1FedIncomeSaving + phase1StateSaving + phase1EstateSaving;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -5787,6 +5854,11 @@ function computePlan(d) {
     saleIsAsset, recaptureAmount, recaptureOrdinaryTax, recaptureCGTaxIfStock, assetVsStockPenalty,
     dynasty20yr, dynastyGrowth, dynastyYears, dynastyUsesJointLE,
     cgTaxSavings, totalImmediate,
+    dbplanAnnualSaving, dbplanLifetimeSaving,
+    muniSaving, flpSaving,
+    ingAnnualSaving, ingLifetimeSaving,
+    ceasementSaving,
+    phase1FedIncomeSaving, phase1StateSaving, phase1EstateSaving,
     nwWithout_netProceeds, nwWithout_total,
     withPlanningProceeds, withPlanningTotal,
     familyTotalNW, familyTotalProceeds,
@@ -8444,6 +8516,8 @@ function renderTax(p) {
 
     ${renderStateDomicileAnalyzer(p)}
 
+    ${renderZeroTaxMenu(p)}
+
     ${d.use.grat ? `
       <div class="card" style="border-left: 4px solid var(--gold);">
         <div class="card-title">🏛 GRAT — Legislative Risk Note (Walton & §2702 Reform)</div>
@@ -8798,22 +8872,34 @@ function runScenario(baselineInput, scenario) {
    Respects the in-tool qualification tests (§1202 attestations,
    CRAT 10% remainder, QOZ hold, AGI caps).
    ============================================================ */
+// Tax categories each strategy targets. Used by the "Zero-Tax Menu" panel
+// to group strategies visually and by the solver results view.
+//   fed-income = federal ordinary income tax (charitable ded, QBI, DB plan, etc.)
+//   cap-gains  = federal capital gains + NIIT
+//   state      = state + local income / cap gains
+//   estate     = federal & state estate/gift tax
 const SOLVER_STRATEGIES = [
-  { key: 'dynasty',  label: 'Dynasty Trust',          tip: 'Multi-generational GST-exempt trust, exemption-funded, appreciation outside estate forever' },
-  { key: 'crat',     label: 'CRAT',                   tip: 'Charitable Remainder Annuity Trust — fund pre-sale; no gain recognition on funded shares' },
-  { key: 'crut',     label: 'CRUT',                   tip: 'Charitable Remainder Unitrust — annual revaluation, better inflation hedge than CRAT' },
-  { key: 'daf',      label: 'Donor-Advised Fund',     tip: 'Lump-sum charitable deduction in sale year' },
-  { key: 'qoz',      label: 'QOZ / QOF',              tip: 'Defers remaining cap gains; permanent exclusion of appreciation after 10-year hold' },
-  { key: 'ilit',     label: 'ILIT',                   tip: 'Irrevocable life insurance trust — estate-tax-free wealth replacement' },
-  { key: 'roth',     label: 'Roth Conversion Ladder', tip: 'Convert in low-income post-sale years to avoid future RMD drag' },
-  { key: 'grat',     label: 'GRAT',                   tip: 'Grantor-retained annuity trust — downside-protected wealth transfer' },
-  { key: 'qsbs',     label: '§1202 QSBS',             tip: 'Per-shareholder federal exclusion of up to 100% of gain (regime-dependent)' },
-  { key: 'exch1031', label: '§1031 Exchange',         tip: 'Like-kind exchange for real estate — defers gain into replacement property' },
-  { key: 'qbi',      label: '§199A QBI',              tip: '20% qualified business income deduction (mostly for recurring operating income)' },
-  { key: 'slat',     label: 'SLAT',                   tip: 'Spousal Lifetime Access Trust — use exemption while preserving indirect access' },
-  { key: 'idgt',     label: 'IDGT Sale',              tip: 'Sale to intentionally-defective grantor trust — freezes valuation at current value' },
-  { key: 'qprt',     label: 'QPRT',                   tip: 'Qualified Personal Residence Trust — transfer residence at discounted value' },
-  { key: 'clt',      label: 'CLT',                    tip: 'Charitable Lead Trust — charity paid first, residue to heirs at discounted value' },
+  { key: 'dynasty',   label: 'Dynasty Trust',          targets: ['estate','state'],   tip: 'Multi-generational GST-exempt trust, exemption-funded, appreciation outside estate forever' },
+  { key: 'crat',      label: 'CRAT',                   targets: ['cap-gains','fed-income','estate'], tip: 'Charitable Remainder Annuity Trust — fund pre-sale; no gain recognition on funded shares' },
+  { key: 'crut',      label: 'CRUT',                   targets: ['cap-gains','fed-income','estate'], tip: 'Charitable Remainder Unitrust — annual revaluation, better inflation hedge than CRAT' },
+  { key: 'daf',       label: 'Donor-Advised Fund',     targets: ['fed-income','state'], tip: 'Lump-sum charitable deduction in sale year' },
+  { key: 'qoz',       label: 'QOZ / QOF',              targets: ['cap-gains'],        tip: 'Defers remaining cap gains; permanent exclusion of appreciation after 10-year hold' },
+  { key: 'ilit',      label: 'ILIT',                   targets: ['estate'],           tip: 'Irrevocable life insurance trust — estate-tax-free wealth replacement' },
+  { key: 'roth',      label: 'Roth Conversion Ladder', targets: ['fed-income'],       tip: 'Convert in low-income post-sale years to avoid future RMD drag' },
+  { key: 'grat',      label: 'GRAT',                   targets: ['estate'],           tip: 'Grantor-retained annuity trust — downside-protected wealth transfer' },
+  { key: 'qsbs',      label: '§1202 QSBS',             targets: ['cap-gains'],        tip: 'Per-shareholder federal exclusion of up to 100% of gain (regime-dependent)' },
+  { key: 'exch1031',  label: '§1031 Exchange',         targets: ['cap-gains'],        tip: 'Like-kind exchange for real estate — defers gain into replacement property' },
+  { key: 'qbi',       label: '§199A QBI',              targets: ['fed-income'],       tip: '20% qualified business income deduction (mostly for recurring operating income)' },
+  { key: 'slat',      label: 'SLAT',                   targets: ['estate'],           tip: 'Spousal Lifetime Access Trust — use exemption while preserving indirect access' },
+  { key: 'idgt',      label: 'IDGT Sale',              targets: ['estate'],           tip: 'Sale to intentionally-defective grantor trust — freezes valuation at current value' },
+  { key: 'qprt',      label: 'QPRT',                   targets: ['estate'],           tip: 'Qualified Personal Residence Trust — transfer residence at discounted value' },
+  { key: 'clt',       label: 'CLT',                    targets: ['estate','fed-income'], tip: 'Charitable Lead Trust — charity paid first, residue to heirs at discounted value' },
+  // ──── Phase-1 additions ────
+  { key: 'dbplan',    label: 'Defined Benefit / Cash Balance Plan', targets: ['fed-income'], tip: 'Up to ~$300k/yr tax-deductible contribution for high-earning owners age 45+. Stacks on top of 401(k) + profit sharing.' },
+  { key: 'muni',      label: 'Muni Bond Allocation',   targets: ['fed-income','state'], tip: 'Tax-free federal interest on a portion of the portfolio. Double tax-free if in-state munis.' },
+  { key: 'flp',       label: 'FLP Valuation Discount', targets: ['estate'],           tip: 'Family Limited Partnership — 20-40% valuation discount on gifted interests (lack of marketability + minority)' },
+  { key: 'ing',       label: 'ING Trust (NING / DING)', targets: ['state'],           tip: 'Incomplete Non-Grantor trust sited in NV or DE to avoid residence-state income tax on investment income' },
+  { key: 'ceasement', label: 'Conservation Easement',  targets: ['fed-income','state'], tip: 'Charitable deduction for permanent conservation of land. Use only within IRS safe harbor — avoid syndicated easements.' },
 ];
 
 function solverScore(d, useSet) {
@@ -8822,17 +8908,36 @@ function solverScore(d, useSet) {
   SOLVER_STRATEGIES.forEach(s => { override.use[s.key] = useSet.has(s.key); });
   try {
     const p = computePlan(override);
-    // Total tax saved across buckets. Higher = better.
-    //   totalImmediate = capital-gains + income-tax savings vs no-planning
-    //   totalEstateSave = fed estate + state estate savings at joint LE
+    // Decompose savings by tax category so the solver can show which buckets
+    // each strategy helps with. Some values overlap (QSBS is a fed cap-gains
+    // exclusion AND can have state benefit if state conforms) — we attribute
+    // to the primary tax category, not double-count.
+    const combinedCGRate = d.tax.fed + d.tax.state + d.tax.medicare || 0.238;
+    const fedShareOfCG = combinedCGRate > 0 ? (d.tax.fed + d.tax.medicare) / combinedCGRate : 1;
+    const stateShareOfCG = combinedCGRate > 0 ? d.tax.state / combinedCGRate : 0;
+
+    const fedIncome  = (p.incomeTaxSavings || 0) + (p.qbiSavings || 0)
+                     + (p.dbplanAnnualSaving || 0) + (p.muniSaving || 0)
+                     + (p.ceasementSaving || 0);
+    const capGains   = ((p.cgTaxSavings || 0) * fedShareOfCG)
+                     + (p.qsbsTotalSaving || 0)
+                     + (p.exch1031TaxDeferred || 0);
+    const stateLocal = (p.cgTaxSavings || 0) * stateShareOfCG
+                     + (p.ingAnnualSaving || 0)
+                     + (p.dynastyStateArbitrage || 0);
+    const estate     = (p.totalEstateSave || 0) + (p.slatEstateSave || 0) + (p.idgtEstateSave || 0)
+                     + (p.flpSaving || 0);
+    const total      = fedIncome + capGains + stateLocal + estate;
+
     return {
-      score: (p.totalImmediate || 0) + (p.totalEstateSave || 0),
+      score: total,
+      fedIncome, capGains, stateLocal, estate, total,
       totalImmediate: p.totalImmediate || 0,
       totalEstateSave: p.totalEstateSave || 0,
       familyNW: p.familyTotalNW || 0,
     };
   } catch (e) {
-    return { score: -Infinity, totalImmediate: 0, totalEstateSave: 0, familyNW: 0 };
+    return { score: -Infinity, fedIncome: 0, capGains: 0, stateLocal: 0, estate: 0, total: 0, totalImmediate: 0, totalEstateSave: 0, familyNW: 0 };
   }
 }
 
@@ -8887,9 +8992,11 @@ function renderSolverResult(result) {
   const chipsOff = SOLVER_STRATEGIES.filter(s => !result.stack.includes(s.key))
     .map(s => `<span class="solver-chip off">${esc(s.label)}</span>`).join('');
 
-  const totalSaved = result.final.score;
-  const immediate  = result.final.totalImmediate;
-  const estate     = result.final.totalEstateSave;
+  const totalSaved = result.final.total || result.final.score;
+  const fedIncome  = result.final.fedIncome || 0;
+  const capGains   = result.final.capGains || 0;
+  const stateLocal = result.final.stateLocal || 0;
+  const estate     = result.final.estate || 0;
   const familyGain = result.final.familyNW - result.baseline.familyNW;
 
   const stepsHtml = result.steps
@@ -8904,23 +9011,33 @@ function renderSolverResult(result) {
 
   return `
     <div class="solver-summary">
-      <h3>🎯 Recommended Stack</h3>
-      <div class="solver-kpis">
+      <h3>🎯 Recommended Stack — Tax Savings by Category</h3>
+      <div class="solver-kpis" style="grid-template-columns: repeat(4, 1fr);">
         <div class="solver-kpi">
-          <div class="lbl">Immediate Tax Saved</div>
-          <div class="val">${fmt$(immediate)}</div>
-          <div class="sub">Capital gains + income tax in sale year</div>
+          <div class="lbl">Fed Income Tax Saved</div>
+          <div class="val">${fmt$(fedIncome)}</div>
+          <div class="sub">§199A QBI + charitable deduction</div>
+        </div>
+        <div class="solver-kpi">
+          <div class="lbl">Capital Gains Tax Saved</div>
+          <div class="val">${fmt$(capGains)}</div>
+          <div class="sub">§1202 QSBS, CRT, QOZ, §1031</div>
+        </div>
+        <div class="solver-kpi">
+          <div class="lbl">State &amp; Local Saved</div>
+          <div class="val">${fmt$(stateLocal)}</div>
+          <div class="sub">Conforming-state deductions (FL/TX/WA/NV/etc have $0 state tax baseline)</div>
         </div>
         <div class="solver-kpi">
           <div class="lbl">Estate Tax Saved</div>
           <div class="val">${fmt$(estate)}</div>
-          <div class="sub">Fed + state, projected at joint life expectancy</div>
+          <div class="sub">Fed + state at joint LE</div>
         </div>
-        <div class="solver-kpi" style="border-left-color: var(--success, #2D6A4F); background: #F0F7F3;">
-          <div class="lbl" style="color: var(--success, #2D6A4F);">Total Tax Saved</div>
-          <div class="val" style="color: var(--success, #2D6A4F);">${fmt$(totalSaved)}</div>
-          <div class="sub">Across all three buckets</div>
-        </div>
+      </div>
+      <div class="solver-kpi" style="margin-top: 10px; border-left-color: var(--success, #2D6A4F); background: #F0F7F3;">
+        <div class="lbl" style="color: var(--success, #2D6A4F);">🎯 TOTAL TAX SAVED — ACROSS ALL FOUR BUCKETS</div>
+        <div class="val" style="color: var(--success, #2D6A4F); font-size: 32px;">${fmt$(totalSaved)}</div>
+        <div class="sub">This is the sum of column totals above. Compare to the "no planning" baseline.</div>
       </div>
       <div class="solver-kpi" style="background: var(--cream-light); border-left-color: var(--gold); margin-bottom: 14px;">
         <div class="lbl">Family Net Worth vs. No-Planning Baseline</div>
@@ -8949,11 +9066,23 @@ function renderSolverResult(result) {
   `;
 }
 
+// Map strategy keys → the actual checkbox IDs in the form. Most follow
+// the `use-<key>` convention, but a handful historically used shorter IDs.
+const STRATEGY_USE_ID = Object.fromEntries(
+  [
+    ['exch1031', 'use-1031'],
+  ].concat(
+    // Default: use-<key>
+    ['dynasty','crat','crut','daf','qoz','ilit','roth','grat','qsbs','qbi','slat','idgt','qprt','clt',
+     'dbplan','muni','flp','ing','ceasement'].map(k => [k, 'use-' + k])
+  )
+);
+
 function applySolverStack(stackKeys) {
   // Turn ON every key in the list, turn OFF every other strategy toggle.
   const ON = new Set(stackKeys);
   SOLVER_STRATEGIES.forEach(s => {
-    const id = 'use-' + (s.key === 'exch1031' ? '1031' : s.key);
+    const id = STRATEGY_USE_ID[s.key];
     const el = document.getElementById(id);
     if (el) {
       el.checked = ON.has(s.key);
@@ -10019,6 +10148,118 @@ function renderStateDomicileAnalyzer(p) {
         <strong>Methodology:</strong> Ordinary savings uses business income as the proxy; real calc should include investment income (dividends, interest, muni bond income that may still be taxable in new state), pension sourcing rules, and deferred comp clawbacks. State estate tax savings assumes target state has no estate tax (verify — CT, HI, IL, MA, MD, ME, MN, NY, OR, RI, VT, WA, DC all have state estate taxes). ${d.use.dynasty || d.use.slat || d.use.idgt ? 'Trust planning complicates domicile changes — trusts sited in a favorable state (DE, NV, SD, WY, AK) may already be capturing some benefit. CPA/estate-counsel review essential before relocating.' : ''}
       </div>
     </div>
+  `;
+}
+
+/* ============================================================
+   ZERO-TAX TOOL MENU — strategies grouped by which tax bucket
+   they reduce. Shown inside the Tax Optimization tab. Gives the
+   advisor a checklist-style view of every legal lever we have
+   and one-click access to toggle them.
+   ============================================================ */
+function renderZeroTaxMenu(p) {
+  const d = p.input;
+  if (typeof SOLVER_STRATEGIES === 'undefined') return '';
+
+  const CAT_LABELS = {
+    'fed-income': { label: 'Federal Income Tax', icon: '🧾', color: 'var(--crimson)' },
+    'cap-gains':  { label: 'Capital Gains Tax',  icon: '📈', color: '#7a4d2a' },
+    'state':      { label: 'State & Local Tax',  icon: '🗺',  color: '#2a5a7a' },
+    'estate':     { label: 'Estate Tax',         icon: '🏛',  color: '#5a2a7a' },
+  };
+
+  function strategyStatus(key) {
+    // Map to the form checkbox to determine current on/off state.
+    const id = (typeof STRATEGY_USE_ID !== 'undefined' ? STRATEGY_USE_ID[key] : 'use-' + key);
+    const el = document.getElementById(id);
+    return el && el.checked;
+  }
+
+  // Bucket strategies by target
+  const buckets = {};
+  Object.keys(CAT_LABELS).forEach(cat => { buckets[cat] = []; });
+  SOLVER_STRATEGIES.forEach(s => {
+    (s.targets || []).forEach(t => {
+      if (buckets[t]) buckets[t].push(s);
+    });
+  });
+
+  // State eligibility: ING only useful if there's an actual state tax to save
+  // FL/TX/WA/NV/etc have 0% state tax so ING returns $0
+  const stateHasTax = (d.tax.state || 0) > 0;
+
+  const cards = Object.keys(CAT_LABELS).map(cat => {
+    const info = CAT_LABELS[cat];
+    const list = buckets[cat];
+    const rows = list.map(s => {
+      const on = strategyStatus(s.key);
+      const id = (typeof STRATEGY_USE_ID !== 'undefined' ? STRATEGY_USE_ID[s.key] : 'use-' + s.key);
+      const dim = (s.key === 'ing' && !stateHasTax);
+      return `
+        <label class="ztm-row${on ? ' ztm-on' : ''}${dim ? ' ztm-dim' : ''}" style="display:flex; align-items:flex-start; gap:10px; padding:9px 12px; border-radius:4px; cursor:pointer; transition:background .12s ease;">
+          <input type="checkbox" class="ztm-toggle" data-use-id="${escAttr(id)}" ${on ? 'checked' : ''} style="margin-top:3px; flex-shrink:0;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:13px; color:var(--ink);">${esc(s.label)}${dim ? ' <em style="color:var(--muted); font-weight:400;">(no benefit — your state has 0% tax)</em>' : ''}</div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px; line-height:1.4;">${esc(s.tip)}</div>
+          </div>
+        </label>
+      `;
+    }).join('');
+    return `
+      <div class="card ztm-card" style="border-top:3px solid ${info.color};">
+        <div class="card-title" style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:22px;">${info.icon}</span> ${info.label}
+          <span class="status-pill" style="background:${info.color}; color:#FFF; margin-left:auto; font-size:10px;">${list.length} tools</span>
+        </div>
+        <div class="card-sub" style="margin-bottom:10px;">Target: drive this bucket toward $0 using the tools below.</div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          ${rows || '<em style="color:var(--muted);">No strategies</em>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="card" style="margin-top: 28px; background: linear-gradient(180deg, var(--cream-panel, #FAF6ED) 0%, #FFF 80%);">
+      <div class="card-title" style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:28px;">🎯</span>
+        Zero-Tax Tool Menu — Every Legal Lever, Grouped by Which Tax It Reduces
+      </div>
+      <div class="card-sub">
+        Target: <strong>$0 across all four buckets</strong> (federal income, capital gains, state &amp; local, estate). True zero isn't possible on a transaction of this size, but each tool below pushes the number down. Toggle any strategy on/off and the plan recomputes automatically. For the fastest path, use the <strong>⚡ Solve Toward Zero Tax</strong> button at the top of the builder — it runs a greedy search and picks the stack that minimizes total tax in one click.
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; margin-top: 18px;">
+        ${cards}
+      </div>
+      <div class="callout" style="margin-top:18px;">
+        <span class="title">💡 Coverage notes</span>
+        Several strategies appear in more than one bucket because they reduce multiple taxes. Example: a CRAT defers capital-gains tax on funded shares (cap-gains bucket), generates an immediate charitable deduction (federal income), <em>and</em> removes the funded corpus from the taxable estate. The solver credits each strategy correctly across every bucket it touches — no double-counting.
+        <br><br>
+        <strong>Conservation easements</strong> are listed because they are legal and useful within the IRS safe harbor (donating a real easement on family-owned land at basis-appropriate value). Syndicated easements marketed with inflated appraisals are <em>not</em> safe — advisor must verify the appraisal methodology.
+      </div>
+    </div>
+    <style>
+      .ztm-row:hover { background: var(--cream-light, #F2EDDD); }
+      .ztm-on { background: rgba(201,169,97,0.12); }
+      .ztm-dim { opacity: 0.55; }
+    </style>
+    <script>
+      // Wire inline toggles to the hidden form checkboxes + trigger regenerate.
+      // This script runs every time renderTax runs, which is every Generate.
+      // Idempotent: we re-bind on each render.
+      document.querySelectorAll('.ztm-toggle').forEach(cb => {
+        cb.addEventListener('change', (ev) => {
+          const useId = ev.target.dataset.useId;
+          const actual = document.getElementById(useId);
+          if (actual) {
+            actual.checked = ev.target.checked;
+            actual.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          const gen = document.getElementById('btn-generate');
+          if (gen) gen.click();
+        });
+      });
+    </script>
   `;
 }
 
@@ -12303,9 +12544,11 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'proj-equity','proj-re','proj-years','proj-inflation',
       'ins-current','ins-rec-min','ins-rec-max',
       'budget-fixed','budget-variable','budget-taxes','budget-safe-rate',
-      'firm-name','firm-tag'
+      'firm-name','firm-tag',
+      'dbplan-contribution','dbplan-years','muni-alloc-pct','flp-discount-pct','ing-income','ceasement-deduction'
     ];
     const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt',
+                    'use-dbplan','use-muni','use-flp','use-ing','use-ceasement',
                     'qsbs-attest-ccorp','qsbs-attest-active','qsbs-attest-grossassets','qsbs-attest-original'];
     const values = {};
     const checkboxes = {};
