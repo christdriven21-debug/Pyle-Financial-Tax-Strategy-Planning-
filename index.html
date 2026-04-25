@@ -8906,6 +8906,11 @@ function solverScore(d, useSet) {
   const override = JSON.parse(JSON.stringify(d));
   override.use = {};
   SOLVER_STRATEGIES.forEach(s => { override.use[s.key] = useSet.has(s.key); });
+  // Skip Monte Carlo while the solver runs — saves ~100ms per evaluation.
+  // Goal analysis still works (it just sees a stub MC result) and the
+  // solver's scoring doesn't read monteCarlo output anyway.
+  const prevSkip = window.__SKIP_MC__;
+  window.__SKIP_MC__ = true;
   try {
     const p = computePlan(override);
     // Decompose savings by tax category so the solver can show which buckets
@@ -8938,6 +8943,9 @@ function solverScore(d, useSet) {
     };
   } catch (e) {
     return { score: -Infinity, fedIncome: 0, capGains: 0, stateLocal: 0, estate: 0, total: 0, totalImmediate: 0, totalEstateSave: 0, familyNW: 0 };
+  } finally {
+    // Always restore prior MC flag so other code paths run normally.
+    window.__SKIP_MC__ = prevSkip;
   }
 }
 
@@ -11550,6 +11558,22 @@ function _boxMuller() {
 }
 
 function runMonteCarlo(p, d, opts = {}) {
+  // Solver fast-path: when running the Auto-Solver greedy search, we
+  // call computePlan ~190 times. Each Monte Carlo run with 1000
+  // iterations takes ~100ms, so the full search blocks for 30+ seconds.
+  // The solver's scoring function doesn't read monteCarlo output —
+  // only totalImmediate, totalEstateSave, familyTotalNW. Skip MC
+  // entirely when the global flag is set; return a stub.
+  if (window.__SKIP_MC__) {
+    const startBalance = (p.withPlanningTotal || p.nwWithout_total || 0);
+    return {
+      successRate: 1, exhaustRate: 0, p10: [], p50: [], p90: [],
+      finalP10: startBalance, finalP50: startBalance, finalP90: startBalance,
+      iterations: 0, years: d.proj.years || 30, primaryAge: d.client.primaryAge || 55,
+      spouseAge: d.client.spouseAge || 0, mean: 0, vol: 0, drawNominal: 0,
+      _fastMode: true,
+    };
+  }
   const iterations = opts.iterations || 1000;
   const startBalance = (p.withPlanningTotal || p.nwWithout_total || 0);
   const primaryAge = d.client.primaryAge || 55;
