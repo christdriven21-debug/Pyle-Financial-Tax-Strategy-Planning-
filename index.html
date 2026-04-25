@@ -8951,7 +8951,10 @@ function solverScore(d, useSet) {
 
 // Greedy search — adds one strategy at a time, keeps whichever delivers
 // the biggest marginal lift. Stops when no remaining strategy helps.
-// Yields between candidates so the UI stays responsive.
+// Now fast enough (~15-50ms total on realistic plans) that we don't need
+// to yield for UI responsiveness — a blocking sync loop beats the
+// setTimeout-throttled yields we used before, which hung when the tab
+// was backgrounded.
 async function runAutoSolver(progressCb) {
   const d = readForm();
   const active = new Set();
@@ -8976,8 +8979,6 @@ async function runAutoSolver(progressCb) {
       }
       attempt++;
       if (progressCb) progressCb(attempt, total * total);
-      // Yield occasionally so UI stays responsive
-      if (attempt % 5 === 0) await new Promise(r => setTimeout(r, 0));
     }
     if (bestAdd && bestOut) {
       active.add(bestAdd.key);
