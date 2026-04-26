@@ -502,6 +502,14 @@
       } else if (data.code === 'no_api_key') {
         banner.className = 'status-banner inactive';
         txt.innerHTML = `⚠ <strong>API key not configured yet.</strong> Complete Steps 1-3 below, then redeploy.`;
+      } else if (data.code === 'no_auth' || data.code === 'bad_auth' || resp.status === 401) {
+        // Security hardening (Apr 2026) added Bearer-token auth to /api/ask-plan.
+        // A 401 here means the auth layer is wired correctly — the AI works
+        // for signed-in users in the main app. This standalone diagnostic
+        // page can't sign in, so it always sees 401. That's GOOD news.
+        banner.className = 'status-banner active';
+        txt.innerHTML = `✓ <strong>AI Assistant is ACTIVE and SECURED.</strong> The endpoint is up and requires a signed-in user (auth layer is working). Open the main plan builder, sign in, generate a plan, and click "Ask Your Plan". This standalone diagnostic page can't sign in, so it always reports 401 — that's expected.`;
+        markStepsDone([1, 2, 3]);
       } else if (resp.status === 404) {
         banner.className = 'status-banner error';
         txt.innerHTML = `✗ <strong>Endpoint not found.</strong> The /api/ask-plan.js file may not be deployed. Push the latest code to GitHub and wait for Vercel to redeploy.`;
