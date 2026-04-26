@@ -3452,12 +3452,26 @@
       <input type="checkbox" id="use-flp">         <!-- Family Limited Partnership valuation discount -->
       <input type="checkbox" id="use-ing">         <!-- Incomplete Non-Grantor Trust (state tax) -->
       <input type="checkbox" id="use-ceasement">   <!-- Conservation Easement (within safe harbor) -->
+      <!-- Concentrated Stock Hedging strategies (tech execs, IPO recipients) -->
+      <input type="checkbox" id="use-collar">       <!-- Cashless Collar — bracket downside via puts + calls -->
+      <input type="checkbox" id="use-pvf">          <!-- Prepaid Variable Forward — defer tax 3-5 yrs while monetizing -->
+      <input type="checkbox" id="use-exchfund">     <!-- Exchange Fund — diversify single-stock w/o triggering tax -->
       <input type="hidden" id="dbplan-contribution" value="300000">
       <input type="hidden" id="dbplan-years" value="15">
       <input type="hidden" id="muni-alloc-pct" value="20">
       <input type="hidden" id="flp-discount-pct" value="25">
       <input type="hidden" id="ing-income" value="500000">
       <input type="hidden" id="ceasement-deduction" value="0">
+      <!-- Hedging parameters (defaults sized for typical $5-25M concentrated position) -->
+      <input type="hidden" id="collar-notional" value="5000000">
+      <input type="hidden" id="collar-floor-pct" value="90">     <!-- floor strike as % of current price -->
+      <input type="hidden" id="collar-cap-pct" value="115">      <!-- cap strike as % of current price -->
+      <input type="hidden" id="collar-term-months" value="12">
+      <input type="hidden" id="pvf-notional" value="5000000">
+      <input type="hidden" id="pvf-advance-pct" value="85">      <!-- cash advance as % of stock value -->
+      <input type="hidden" id="pvf-term-years" value="3">
+      <input type="hidden" id="exchfund-notional" value="3000000">
+      <input type="hidden" id="exchfund-lockup-years" value="7">
     </div>
   </section>
 
@@ -4660,6 +4674,7 @@ function readForm() {
       qprt: c('use-qprt'), crut: c('use-crut'), clt: c('use-clt'),
       dbplan: c('use-dbplan'), muni: c('use-muni'), flp: c('use-flp'),
       ing: c('use-ing'), ceasement: c('use-ceasement'),
+      collar: c('use-collar'), pvf: c('use-pvf'), exchfund: c('use-exchfund'),
     },
     dynasty: {
       funding: n('dt-funding'),
@@ -4718,6 +4733,22 @@ function readForm() {
     flp:       { discountPct: (n('flp-discount-pct') || 25) / 100 },
     ing:       { income: n('ing-income') },
     ceasement: { deduction: n('ceasement-deduction') },
+    // Concentrated stock hedging
+    collar:    {
+      notional:    n('collar-notional'),
+      floorPct:    (n('collar-floor-pct') || 90) / 100,
+      capPct:      (n('collar-cap-pct') || 115) / 100,
+      termMonths:  n('collar-term-months') || 12,
+    },
+    pvf:       {
+      notional:   n('pvf-notional'),
+      advancePct: (n('pvf-advance-pct') || 85) / 100,
+      termYears:  n('pvf-term-years') || 3,
+    },
+    exchfund:  {
+      notional:     n('exchfund-notional'),
+      lockupYears:  n('exchfund-lockup-years') || 7,
+    },
     clientState: t('client-state'),
     tax: {
       fed: n('tax-fed') / 100, state: n('tax-state') / 100,
@@ -5524,10 +5555,66 @@ function computePlan(d) {
   // credit basis-appropriate charitable donations.)
   const ceasementSaving = d.use.ceasement ? ((d.ceasement?.deduction || 0) * d.tax.marginal) : 0;
 
+  // ───────────────────────────────────────────────────────────────────────
+  // CONCENTRATED STOCK HEDGING — for tech execs / IPO recipients with a
+  // large single-stock position they can't or shouldn't sell outright.
+  //
+  // Note: these are CAPITAL-GAINS DEFERRAL / RISK-MANAGEMENT instruments,
+  // not pure tax-savings tools. The "saving" math here represents:
+  //   - PVF: NPV value of deferring gain N years instead of selling today
+  //   - Collar: avoided downside loss × probability adjustment (very
+  //     conservative — actual depends on stock volatility)
+  //   - Exchange Fund: deferred + diversification benefit (~5-7% of
+  //     unrealized gain, the difference between exiting tax-free in 7 yrs
+  //     vs. selling-and-rebuying today after CG tax + expected portfolio
+  //     drift over 7 yrs)
+  // All numbers are directional; advisor verifies actual product economics.
+  // ───────────────────────────────────────────────────────────────────────
+
+  const cncValue = d.client?.concentratedValue || 0;
+  const cncBasis = d.client?.concentratedBasis || 0;
+  const cncGain  = Math.max(0, cncValue - cncBasis);
+
+  // Cashless Collar — caps upside in exchange for downside protection.
+  // We score the collar by avoided worst-case loss: if stock fell to floor%
+  // of current value, the put protects the difference. Multiply by a 25%
+  // "risk-adjusted realization factor" to be conservative (collar value is
+  // mostly insurance — not realized as savings most years).
+  const collarNotional = d.use.collar ? Math.min(d.collar?.notional || 0, cncValue || d.collar?.notional || 0) : 0;
+  const collarFloorPct = d.collar?.floorPct ?? 0.90;
+  const collarDownsideProtection = collarNotional * (1 - collarFloorPct);
+  const collarRiskAdjValue = collarDownsideProtection * 0.25;
+  const collarSaving = d.use.collar ? collarRiskAdjValue : 0;
+
+  // Prepaid Variable Forward — get cash today (advance %) for variable
+  // share delivery in N years. Defers gain recognition. NPV of deferral:
+  //   cncGain × CG_rate × (1 - 1/(1+r)^N) where r = client's discount rate.
+  const pvfNotional   = d.use.pvf ? Math.min(d.pvf?.notional || 0, cncValue || d.pvf?.notional || 0) : 0;
+  const pvfTermYears  = d.pvf?.termYears || 3;
+  const pvfPropGain   = cncValue > 0 ? (pvfNotional / cncValue) * cncGain : 0;
+  const cgRate        = d.tax.fed + d.tax.state + d.tax.medicare;
+  const discountRate  = d.proj.equity || 0.075;
+  const pvfDeferralNPV = pvfPropGain * cgRate * (1 - Math.pow(1 + discountRate, -pvfTermYears));
+  const pvfSaving = d.use.pvf ? pvfDeferralNPV : 0;
+
+  // Exchange Fund — contribute appreciated stock to a 7-yr partnership
+  // that holds 30+ stocks. After lockup, exit with diversified pool at
+  // your original basis (deferred until you sell the partnership shares).
+  // Value vs. selling today = avoided immediate CG tax + diversification
+  // (estimated as 1.5%/yr return drag avoided × 7 yrs ≈ 10%). Conservative
+  // realization: 60% of avoided immediate tax (the diversification benefit
+  // can't be cleanly attributed without a full simulation).
+  const exchfundNotional = d.use.exchfund ? Math.min(d.exchfund?.notional || 0, cncValue || d.exchfund?.notional || 0) : 0;
+  const exchfundPropGain = cncValue > 0 ? (exchfundNotional / cncValue) * cncGain : 0;
+  const exchfundDeferralValue = exchfundPropGain * cgRate * 0.60;
+  const exchfundSaving = d.use.exchfund ? exchfundDeferralValue : 0;
+
   // Bucket the new strategy savings by tax category for the solver UI.
   const phase1FedIncomeSaving = dbplanAnnualSaving + muniSaving + ceasementSaving;
   const phase1StateSaving     = ingAnnualSaving;
   const phase1EstateSaving    = flpSaving;
+  // Hedging is mostly cap-gains deferral
+  const hedgingCGSaving       = pvfSaving + exchfundSaving + collarSaving;
 
   // Total immediate tax savings
   const totalImmediate = cgTaxSavings + incomeTaxSavings + totalEstateSave + qsbsTotalSaving
@@ -5536,7 +5623,8 @@ function computePlan(d) {
                        + totalDiscountSavings
                        + dynastyStateArbitrage
                        + dynastyIncomeTaxGiftEstateSave
-                       + phase1FedIncomeSaving + phase1StateSaving + phase1EstateSaving;
+                       + phase1FedIncomeSaving + phase1StateSaving + phase1EstateSaving
+                       + hedgingCGSaving;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -5940,6 +6028,10 @@ function computePlan(d) {
     ingAnnualSaving, ingLifetimeSaving,
     ceasementSaving,
     phase1FedIncomeSaving, phase1StateSaving, phase1EstateSaving,
+    collarSaving, collarNotional, collarFloorPct, collarDownsideProtection,
+    pvfSaving, pvfNotional, pvfTermYears, pvfPropGain,
+    exchfundSaving, exchfundNotional, exchfundPropGain,
+    hedgingCGSaving,
     nwWithout_netProceeds, nwWithout_total,
     withPlanningProceeds, withPlanningTotal,
     familyTotalNW, familyTotalProceeds,
@@ -8991,6 +9083,10 @@ const SOLVER_STRATEGIES = [
   { key: 'flp',       label: 'FLP Valuation Discount', targets: ['estate'],           tip: 'Family Limited Partnership — 20-40% valuation discount on gifted interests (lack of marketability + minority)' },
   { key: 'ing',       label: 'ING Trust (NING / DING)', targets: ['state'],           tip: 'Incomplete Non-Grantor trust sited in NV or DE to avoid residence-state income tax on investment income' },
   { key: 'ceasement', label: 'Conservation Easement',  targets: ['fed-income','state'], tip: 'Charitable deduction for permanent conservation of land. Use only within IRS safe harbor — avoid syndicated easements.' },
+  // ──── Concentrated stock hedging (tech execs / IPO recipients) ────
+  { key: 'collar',    label: 'Cashless Collar',        targets: ['cap-gains'],        tip: 'Buy puts + sell calls to bracket downside on a single-stock concentration. Locks in floor + cap; net premium cost near zero. Risk management more than tax savings.' },
+  { key: 'pvf',       label: 'Prepaid Variable Forward', targets: ['cap-gains'],      tip: 'Get ~85% of stock value as cash today; deliver variable share count in 3-5 years. Defers capital gain recognition without selling. Rev. Rul. 2003-7 compliance required.' },
+  { key: 'exchfund',  label: 'Exchange Fund (7-yr)',   targets: ['cap-gains'],        tip: 'Contribute concentrated stock to a 30+ stock partnership; exit after 7-year lockup with diversified pool at original basis. §721(b) tax-deferred. Min usually $1M-5M.' },
 ];
 
 function solverScore(d, useSet) {
@@ -9017,7 +9113,8 @@ function solverScore(d, useSet) {
                      + (p.ceasementSaving || 0);
     const capGains   = ((p.cgTaxSavings || 0) * fedShareOfCG)
                      + (p.qsbsTotalSaving || 0)
-                     + (p.exch1031TaxDeferred || 0);
+                     + (p.exch1031TaxDeferred || 0)
+                     + (p.hedgingCGSaving || 0);
     const stateLocal = (p.cgTaxSavings || 0) * stateShareOfCG
                      + (p.ingAnnualSaving || 0)
                      + (p.dynastyStateArbitrage || 0);
@@ -9174,7 +9271,8 @@ const STRATEGY_USE_ID = Object.fromEntries(
   ].concat(
     // Default: use-<key>
     ['dynasty','crat','crut','daf','qoz','ilit','roth','grat','qsbs','qbi','slat','idgt','qprt','clt',
-     'dbplan','muni','flp','ing','ceasement'].map(k => [k, 'use-' + k])
+     'dbplan','muni','flp','ing','ceasement',
+     'collar','pvf','exchfund'].map(k => [k, 'use-' + k])
   )
 );
 
@@ -11010,6 +11108,104 @@ function renderInvestmentStrategy(p) {
       </div>
       <div style="margin-top: 14px; padding: 14px 16px; background: #FFF8F0; border-left: 3px solid var(--gold-dark); font-size: 12px; color: var(--ink-soft); line-height: 1.5;">
         <strong>Note:</strong> This analysis uses the portfolio values on hand (taxable + retirement accounts + trusts). Dynasty Trust / SLAT / IDGT balances have their own investment policy statements maintained by the trustees; allocation below aligns the personal portfolio only. For trust-level asset location, work with the trustee and trust protector on a separate investment-policy-statement schedule.
+      </div>
+    </div>
+
+    ${renderConcentratedHedging(p)}
+  `;
+}
+
+/* ============================================================
+   CONCENTRATED STOCK HEDGING — RENDER
+   For tech execs / IPO recipients with a large single-stock
+   position. Shows 3 strategies side-by-side with tax + risk
+   trade-offs. Only renders when concentrated-value > $1M.
+   ============================================================ */
+function renderConcentratedHedging(p) {
+  const d = p.input;
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+  const fmtPct = (n) => (n || 0).toFixed(1) + '%';
+
+  const cncValue = d.client?.concentratedValue || 0;
+  const cncBasis = d.client?.concentratedBasis || 0;
+  const cncTicker = d.client?.concentratedTicker || '';
+  const cncInsider = d.client?.concentratedInsider;
+  const cncGain = Math.max(0, cncValue - cncBasis);
+  const cgRate = d.tax.fed + d.tax.state + d.tax.medicare;
+  const taxIfSold = cncGain * cgRate;
+
+  // Hide if no concentrated position or below $1M
+  if (cncValue < 1_000_000) return '';
+
+  const collarOn = !!d.use.collar;
+  const pvfOn    = !!d.use.pvf;
+  const exchOn   = !!d.use.exchfund;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--crimson); margin-top: 22px;">
+      <div class="card-title">📈 Concentrated Stock Hedging Analysis ${cncTicker ? `<span style="background: var(--cream-light); padding: 2px 10px; border-radius: 12px; font-size: 11px; letter-spacing: 1px; color: var(--gold-dark); margin-left: 8px;">${esc(cncTicker)}</span>` : ''}</div>
+      <div class="card-sub">
+        ${esc(d.client.primary || 'Client')} holds <strong>${fmt$M(cncValue)}</strong> in a single stock position with <strong>${fmt$M(cncGain)}</strong> of unrealized gain (basis ${fmt$M(cncBasis)}). Selling outright triggers <strong>${fmt$M(taxIfSold)}</strong> in capital gains tax (${(cgRate*100).toFixed(1)}% combined federal + state + Medicare).
+        ${cncInsider ? '<br><br><strong style="color: var(--crimson);">⚠ Insider status:</strong> Rule 10b5-1 trading plan required. Window-period sales only. Section 16 reporting obligations.' : ''}
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 18px;">
+
+        <!-- ─── COLLAR ─── -->
+        <div class="card" style="border-top: 3px solid #2a5a7a; ${collarOn ? '' : 'opacity: 0.6;'}">
+          <div class="card-title" style="font-size: 14px;">🛡 Cashless Collar ${collarOn ? '<span style="font-size: 10px; background: #2a5a7a; color: #FFF; padding: 2px 8px; border-radius: 10px; vertical-align: middle; margin-left: 6px;">ACTIVE</span>' : ''}</div>
+          <div class="card-sub" style="font-size: 12px;">Buy puts at ${(d.collar?.floorPct*100 || 90).toFixed(0)}% strike + sell calls at ${(d.collar?.capPct*100 || 115).toFixed(0)}%. Net premium ≈ $0. Brackets ${esc(cncTicker || 'the stock')} between floor and cap for ${d.collar?.termMonths || 12} months.</div>
+          <table class="plan-table" style="margin-top: 10px; font-size: 12px;">
+            <tr><td>Notional protected</td><td class="num">${fmt$M(d.collar?.notional || 0)}</td></tr>
+            <tr><td>Downside protection</td><td class="num">${fmt$M(p.collarDownsideProtection || 0)}</td></tr>
+            <tr class="${collarOn ? 'highlight' : ''}"><td><strong>Risk-adjusted value</strong></td><td class="num"><strong>${fmt$(p.collarSaving || 0)}</strong></td></tr>
+          </table>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5;">
+            <strong>Tax:</strong> Constructive sale rules (§1259) — collars too tight (e.g. 95/105) can trigger immediate gain. Floor + cap ${(d.collar?.floorPct*100 || 90).toFixed(0)}/${(d.collar?.capPct*100 || 115).toFixed(0)} typically safe.<br>
+            <strong>Best for:</strong> Concentrated holders who can't / won't sell but need downside protection through a defined window (e.g., pre-IPO lockup expiry, vesting cliff).
+          </div>
+        </div>
+
+        <!-- ─── PVF ─── -->
+        <div class="card" style="border-top: 3px solid #5a2a7a; ${pvfOn ? '' : 'opacity: 0.6;'}">
+          <div class="card-title" style="font-size: 14px;">💰 Prepaid Variable Forward ${pvfOn ? '<span style="font-size: 10px; background: #5a2a7a; color: #FFF; padding: 2px 8px; border-radius: 10px; vertical-align: middle; margin-left: 6px;">ACTIVE</span>' : ''}</div>
+          <div class="card-sub" style="font-size: 12px;">Bank advances <strong>${(d.pvf?.advancePct*100 || 85).toFixed(0)}%</strong> of stock value as cash today; client delivers a variable share count in <strong>${d.pvf?.termYears || 3} years</strong> based on stock price at maturity. Defers cap-gains until delivery.</div>
+          <table class="plan-table" style="margin-top: 10px; font-size: 12px;">
+            <tr><td>Notional pledged</td><td class="num">${fmt$M(d.pvf?.notional || 0)}</td></tr>
+            <tr><td>Cash advance today</td><td class="num">${fmt$M((d.pvf?.notional || 0) * (d.pvf?.advancePct || 0.85))}</td></tr>
+            <tr><td>Gain deferred</td><td class="num">${fmt$M(p.pvfPropGain || 0)}</td></tr>
+            <tr class="${pvfOn ? 'highlight' : ''}"><td><strong>NPV of ${d.pvf?.termYears || 3}-yr deferral</strong></td><td class="num"><strong>${fmt$(p.pvfSaving || 0)}</strong></td></tr>
+          </table>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5;">
+            <strong>Tax:</strong> Rev. Rul. 2003-7 + §1058 require variable share-count formula tied to stock price at maturity. Otherwise IRS treats as constructive sale and accelerates gain.<br>
+            <strong>Best for:</strong> Client wants liquidity now without giving up shares or recognizing gain. Common pre-IPO lock-up workaround for tech execs.
+          </div>
+        </div>
+
+        <!-- ─── EXCHANGE FUND ─── -->
+        <div class="card" style="border-top: 3px solid #2c8a3e; ${exchOn ? '' : 'opacity: 0.6;'}">
+          <div class="card-title" style="font-size: 14px;">🌐 Exchange Fund ${exchOn ? '<span style="font-size: 10px; background: #2c8a3e; color: #FFF; padding: 2px 8px; border-radius: 10px; vertical-align: middle; margin-left: 6px;">ACTIVE</span>' : ''}</div>
+          <div class="card-sub" style="font-size: 12px;">Contribute appreciated stock to a 7-year limited partnership holding 30+ qualifying stocks. After lockup, exit with diversified pool at original basis. <strong>§721(b) tax-deferred contribution.</strong></div>
+          <table class="plan-table" style="margin-top: 10px; font-size: 12px;">
+            <tr><td>Stock contributed</td><td class="num">${fmt$M(d.exchfund?.notional || 0)}</td></tr>
+            <tr><td>Lockup</td><td class="num">${d.exchfund?.lockupYears || 7} years</td></tr>
+            <tr><td>Gain deferred</td><td class="num">${fmt$M(p.exchfundPropGain || 0)}</td></tr>
+            <tr class="${exchOn ? 'highlight' : ''}"><td><strong>Diversification + deferral value</strong></td><td class="num"><strong>${fmt$(p.exchfundSaving || 0)}</strong></td></tr>
+          </table>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5;">
+            <strong>Tax:</strong> §721(b) contribution is non-recognition. Funds typically require ≥20% real-estate or other non-§721(b) blocker assets to qualify. Min $1-5M. Eaton Vance, Goldman, Morgan Stanley all offer.<br>
+            <strong>Best for:</strong> Long-term diversification. Not for clients needing the cash within 7 years.
+          </div>
+        </div>
+
+      </div>
+
+      <div class="callout" style="margin-top: 18px;">
+        <span class="title">🧭 How to choose</span>
+        <strong>Collar</strong> when you need downside protection through a known event (lockup expiry, IPO post-period). <strong>PVF</strong> when you need cash today but can't sell. <strong>Exchange Fund</strong> when long-term diversification matters more than cash. Stacks: collar + PVF together (insure the deferred shares); PVF + exchange fund (different tranches of the position).
+        <br><br>
+        <strong>${cncInsider ? 'Insider-required:' : 'Best-practice:'}</strong> ${cncInsider ? 'Rule 10b5-1 plan filed in advance, 30-90 day cooling off, blackout window awareness.' : '10b5-1 plan recommended for predictable execution even for non-insiders. Avoids wash-sale and short-swing concerns.'}
       </div>
     </div>
   `;
@@ -12862,10 +13058,14 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'ins-current','ins-rec-min','ins-rec-max',
       'budget-fixed','budget-variable','budget-taxes','budget-safe-rate',
       'firm-name','firm-tag',
-      'dbplan-contribution','dbplan-years','muni-alloc-pct','flp-discount-pct','ing-income','ceasement-deduction'
+      'dbplan-contribution','dbplan-years','muni-alloc-pct','flp-discount-pct','ing-income','ceasement-deduction',
+      'collar-notional','collar-floor-pct','collar-cap-pct','collar-term-months',
+      'pvf-notional','pvf-advance-pct','pvf-term-years',
+      'exchfund-notional','exchfund-lockup-years'
     ];
     const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt',
                     'use-dbplan','use-muni','use-flp','use-ing','use-ceasement',
+                    'use-collar','use-pvf','use-exchfund',
                     'qsbs-attest-ccorp','qsbs-attest-active','qsbs-attest-grossassets','qsbs-attest-original'];
     const values = {};
     const checkboxes = {};
