@@ -14871,8 +14871,13 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     };
 
     try {
-      const resp = await authedFetch('/api/ask-plan', {
+      // Use the window-exposed authedFetch — this code runs inside its own
+      // IIFE that doesn't share scope with the main app where authedFetch
+      // is declared. Falling back to plain fetch would 401.
+      const fetchWithAuth = window.__authedFetch || fetch;
+      const resp = await fetchWithAuth('/api/ask-plan', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await resp.json();
