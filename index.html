@@ -2320,9 +2320,24 @@
   .print-layout img,
   .print-layout .chart-container,
   .print-layout table,
-  .print-layout .callout {
+  .print-layout .callout,
+  .print-layout .solver-summary {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+  /* Don't orphan a heading at the bottom of a page from its content. */
+  .print-layout h1,
+  .print-layout h2,
+  .print-layout h3,
+  .print-layout .card-title,
+  .print-layout .section-title {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+  /* Add a little visual padding at the bottom of cards in print so the
+     "blank space below" feels intentional, not jarring. */
+  .print-layout .card {
+    margin-bottom: 18px !important;
   }
   /* Allow long content cards (multi-strategy explanation lists) to break
      if they're truly larger than a page — without this they could overflow. */
@@ -12181,7 +12196,18 @@ document.getElementById('btn-email-plan').addEventListener('click', async () => 
       image: { type: 'jpeg', quality: 0.96 },
       html2canvas: { scale: 2, useCORS: true, logging: false },
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
+      pagebreak: {
+        // 'avoid-all' is the strictest mode — html2pdf scans every element
+        // and inserts a page break BEFORE any element that would otherwise
+        // straddle a page boundary, leaving whitespace at the bottom of
+        // the previous page. This matches the advisor's preference: keep
+        // each card/section together, even at the cost of blank space below.
+        mode: ['avoid-all', 'css', 'legacy'],
+        // Always start the Monte Carlo card, the Multi-Year Tax Forecast
+        // table, the Zero-Tax Tool Menu, and the Universal Scenario
+        // Planner on a fresh page — they're large enough to deserve it.
+        before: ['.kpi-grid', '.solver-summary'],
+      }
     }).outputPdf('blob');
 
     // Preferred: native share sheet with file attachment (Safari/mobile)
@@ -12500,7 +12526,18 @@ async function generatePdf(kind) {
         backgroundColor: '#F5F1E8',
       },
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
+      pagebreak: {
+        // 'avoid-all' is the strictest mode — html2pdf scans every element
+        // and inserts a page break BEFORE any element that would otherwise
+        // straddle a page boundary, leaving whitespace at the bottom of
+        // the previous page. This matches the advisor's preference: keep
+        // each card/section together, even at the cost of blank space below.
+        mode: ['avoid-all', 'css', 'legacy'],
+        // Always start the Monte Carlo card, the Multi-Year Tax Forecast
+        // table, the Zero-Tax Tool Menu, and the Universal Scenario
+        // Planner on a fresh page — they're large enough to deserve it.
+        before: ['.kpi-grid', '.solver-summary'],
+      }
     }).save();
     if (typeof window.__AUDIT__ === 'function') {
       window.__AUDIT__('export.pdf', { entityType: 'plan', metadata: { suffix, fileName } });
