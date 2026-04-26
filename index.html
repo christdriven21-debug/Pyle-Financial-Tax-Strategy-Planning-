@@ -5590,16 +5590,42 @@ function computePlan(d) {
   let qsbsEligible = false;
   let qsbsExclPct = 0;
   let qsbsHoldStatus = '';
+  // §1202(e)(3) excludes specific industries regardless of attestation.
+  // The advisor's "qualified active business" checkbox cannot override
+  // the statute — if the company is in an excluded industry, no §1202.
+  // §1202(e)(3): health, law, engineering, architecture, accounting,
+  // actuarial, performing arts, consulting, athletics, financial services,
+  // brokerage, banking, insurance, financing, leasing, investing, farming,
+  // percentage-depletion (oil/gas), hotel/motel/restaurant, reputation/skill.
+  const QSBS_EXCLUDED_INDUSTRIES = new Set([
+    // Service-business SSTBs (§1202(e)(3)(A))
+    'health','law','accounting','actuarial','consulting','athletics','performing_arts','reputation_skill',
+    // Engineering & architecture excluded under §1202 (note: §199A carves these out)
+    'architecture','engineering',
+    // Financial-services SSTBs (§1202(e)(3)(A) + (B))
+    'financial_services','brokerage','investment_advisor','insurance',
+    // §1202(e)(3)(C) farming
+    'agriculture',
+    // §1202(e)(3)(D) percentage-depletion natural resources
+    'energy',
+    // §1202(e)(3)(E) hotel/motel/restaurant
+    'hotels','restaurants',
+    // §1202(e)(7) real estate not used in active business
+    'real_estate_op','real_estate_passive',
+  ]);
+  const qsbsIndustryExcluded = QSBS_EXCLUDED_INDUSTRIES.has(d.deal?.industry);
   const qsbsAttestationsComplete = d.use.qsbs
     && d.qsbs.attestCCorp
     && d.qsbs.attestActive
     && d.qsbs.attestGrossAssets
-    && d.qsbs.attestOriginal;
+    && d.qsbs.attestOriginal
+    && !qsbsIndustryExcluded;
   const qsbsMissingAttestations = d.use.qsbs && !qsbsAttestationsComplete ? [
     !d.qsbs.attestCCorp       && 'C-Corp throughout holding period (§1202(c)(1))',
     !d.qsbs.attestActive      && 'Qualified active business (§1202(e)(3))',
     !d.qsbs.attestGrossAssets && 'Gross-asset test at issuance (§1202(d))',
     !d.qsbs.attestOriginal    && 'Original issuance requirement (§1202(c)(1)(B))',
+    qsbsIndustryExcluded      && 'Industry excluded by §1202(e)(3) statute (cannot be cured by attestation)',
   ].filter(Boolean) : [];
 
   if (d.use.qsbs && qsbsAttestationsComplete) {
@@ -6306,7 +6332,7 @@ function computePlan(d) {
     rothIncomeTax, rothEstateSave, rothNetEstateSave, rothFutureValue, rothGrowthBenefit,
     gratRemainder, gratEstateSave, gratAnnuity,
     qsbsEligible, qsbsMaxExcl, qsbsActualExcl, qsbsExclPct, qsbsHoldStatus, qsbsIsPostOBBBA,
-    qsbsAttestationsComplete, qsbsMissingAttestations,
+    qsbsAttestationsComplete, qsbsMissingAttestations, qsbsIndustryExcluded,
     qsbsFederalSaved, qsbsMedicareSaved, qsbsStateSaved, qsbsTotalSaving,
     exch1031Gain, exch1031Deferred, exch1031Boot, exch1031TaxDeferred,
     qbiDeduction, qbiSavings, qbiPhaseOutPct, qbiFullyPhasedOut,
@@ -6925,9 +6951,19 @@ function renderTechnicalAppendix(p) {
         (e)(3): Corporation must be engaged in a qualified trade or business (excludes banking, insurance, financing, farming, most SSTBs, hotels/motels).
       </div>
 
+      ${p.qsbsIndustryExcluded ? `
+      <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin: 14px 0;">
+        <span class="title" style="color: var(--crimson);">⛔ Industry Excluded by §1202(e)(3) Statute</span>
+        The selected industry (<strong>${esc(d.deal.industry)}</strong> in Section 2 → Deal Architecture) is one of the trade-or-business categories <strong>statutorily excluded</strong> from QSBS eligibility under IRC §1202(e)(3). The advisor's "Qualified active business" attestation cannot cure a statutory exclusion — the company must be in a different qualified industry to claim §1202.
+        <br><br>
+        <strong>§1202(e)(3) excluded categories:</strong> health, law, engineering, architecture, accounting, actuarial, performing arts, consulting, athletics, financial services, brokerage, banking, insurance, financing, leasing, investing; farming; oil/gas/percentage-depletion industries; hotels, motels, restaurants; reputation/skill businesses; and businesses whose principal asset is real estate not used in an active trade.
+        <br><br>
+        <strong>QSBS exclusion set to $0 in this plan.</strong> Either (a) the company genuinely fits a non-excluded category and Section 2 should be updated, or (b) consider alternative gain-deferral strategies (QOZ if buyer is unrelated, §1042 ESOP if C-corp + 30% ESOP feasible, CRT for charitable + income, opportunity zone fund).
+      </div>
+      ` : ''}
       <div class="appendix-finding ${p.qsbsAttestationsComplete ? 'pass' : 'fail'}">
         <span class="finding-label">Attestation Status:</span>
-        ${p.qsbsAttestationsComplete ? 'COMPLETE — all four §1202 tests confirmed by advisor' : 'INCOMPLETE — ' + (p.qsbsMissingAttestations || []).length + ' test(s) missing'}
+        ${p.qsbsAttestationsComplete ? 'COMPLETE — all four §1202 tests confirmed by advisor + industry not statutorily excluded' : 'INCOMPLETE — ' + (p.qsbsMissingAttestations || []).length + ' test(s) missing'}
         ${!p.qsbsAttestationsComplete && p.qsbsMissingAttestations && p.qsbsMissingAttestations.length ? `<br><strong>Missing:</strong> ${p.qsbsMissingAttestations.map(m => '<br>  • ' + m).join('')}` : ''}
       </div>
 
