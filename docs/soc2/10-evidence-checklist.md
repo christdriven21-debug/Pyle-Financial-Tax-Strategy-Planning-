@@ -79,7 +79,7 @@ vendor dashboards in screenshots or PDFs. The readiness vendor
 - [ ] `05-data-retention-policy.md`
 - [ ] `06-business-continuity-plan.md`
 - [ ] `07-change-management-policy.md`
-- [ ] `08-employee-onboarding-offboarding.md`
+- [ ] `08-employee-onboarding-offboarding.md` (TBD)
 - [ ] `09-system-description.md`
 - [ ] `10-evidence-checklist.md` (this file)
 

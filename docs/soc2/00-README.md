@@ -17,7 +17,7 @@ maturity to regulators.
 
 | Trust Service Criterion | Status |
 |---|---|
-| **Security** (CC1-CC9) | Designed — see 02-access-control + 03-incident-response + 08-onboarding |
+| **Security** (CC1-CC9) | Mostly designed — see 02-access-control + 03-incident-response |
 | **Availability** (A1) | Designed via Vercel + Supabase PITR — see 06-business-continuity |
 | **Confidentiality** (C1) | Designed via Supabase RLS + JWT auth + DOMPurify — see 02-access-control |
 | **Processing Integrity** (PI1) | Designed via append-only audit log + DB triggers — see 09-system-description |

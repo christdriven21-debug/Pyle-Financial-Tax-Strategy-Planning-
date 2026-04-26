@@ -8,7 +8,7 @@ in this platform.
 | **CC1.1** | Demonstrates commitment to integrity & ethical values | RIA Code of Ethics; SEC Form ADV Part 2A & 2B on file | Firm compliance binder |
 | **CC1.2** | Board oversight | Single-advisor practice; ownership documented in ADV | ADV Part 1A |
 | **CC1.3** | Org structure | Roles documented in `08-employee-onboarding-offboarding.md` | This package |
-| **CC1.4** | Competence + background checks | CFP / Series 65 / state RIA license; CE log; pre-hire vetting per `08-employee-onboarding-offboarding.md` | License certificates; personnel binder |
+| **CC1.4** | Competence | CFP / Series 65 / state RIA license; CE log | License certificates |
 | **CC1.5** | Accountability | Audit log captures every plan change with actor + timestamp | Live: `audit_log` table; UI panel |
 | **CC2.1** | Quality information communicated internally | Plan changes auto-logged; advisor reviews via Audit Log panel | Live UI |
 | **CC2.2** | Information communicated externally | Magic-link emails, plan deliverable PDFs, scheduled reviews | `branded magic-link.html`; PDF exports |
@@ -17,10 +17,10 @@ in this platform.
 | **CC4.1-CC4.2** | Monitoring activities | Sentry error monitoring + status page (`/status.html`) | Sentry dashboard |
 | **CC5.1-CC5.3** | Control activities | RLS policies, JWT auth, append-only audit, DOMPurify | `supabase/*.sql`; `index.html` |
 | **CC6.1** | Logical access controls | Supabase Auth (magic-link) + JWT verification on every API call | `api/_lib/auth.js` |
-| **CC6.2** | Authentication, user identification, provisioning | Magic-link via verified email; team-membership table; onboarding checklist gates access | `add_auth.sql`, `security_hardening_2.sql`, `08-employee-onboarding-offboarding.md` |
+| **CC6.2** | Authentication & user identification | Magic-link via verified email; team-membership table | `add_auth.sql`, `security_hardening_2.sql` |
 | **CC6.3** | Authorization to access information assets | Row-level security (RLS) on every Supabase table | `supabase/*.sql` |
 | **CC6.4** | Restricting access during sessions | 30-min idle timeout in app + 24-hr Supabase JWT TTL | `index.html` (idle timer); Supabase Auth settings |
-| **CC6.5** | Removing access for terminated users | `team_members` table; instant revocation by deleting row; offboarding checklist runs within 1 hour | `security_hardening_2.sql`, `08-employee-onboarding-offboarding.md` |
+| **CC6.5** | Removing access for terminated users | `team_members` table; instant revocation by deleting row | `security_hardening_2.sql` |
 | **CC6.6** | Protecting against malicious code | CSP, SRI on all CDN scripts, DOMPurify on AI HTML | `vercel.json`, `index.html` |
 | **CC6.7** | Restricting movement of information | Origin allowlist on /api/*, no public endpoints | `api/_lib/auth.js` |
 | **CC6.8** | Detecting unauthorized access | Audit log captures every plan/document mutation | `audit_log` table |
