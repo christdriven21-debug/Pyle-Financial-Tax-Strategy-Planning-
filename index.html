@@ -12340,45 +12340,68 @@ async function generatePdf(kind) {
                : 'Full Plan';
   const fileName = `Pyle Plan — ${primary} — ${d.client.year} — ${suffix}.pdf`.replace(/[/\\:*?"<>|]/g, '-');
 
+  // Capture the LIVE #plan-view element instead of an off-screen clone.
+  // The clone approach was producing blank PDFs because some active-tab CSS
+  // and computed sizes don't transfer reliably across cloneNode + off-screen
+  // positioning. Mutating the live DOM briefly is uglier but reliable —
+  // we save/restore state in the finally block.
   const planView = document.getElementById('plan-view');
-  const captureRoot = planView.cloneNode(true);
-  captureRoot.classList.add('print-layout');
-  captureRoot.style.cssText = 'position:fixed; left:-99999px; top:0; width:900px; background:#F5F1E8;';
-  captureRoot.querySelectorAll('.plan-actions, .plan-tabs').forEach(el => el.remove());
+  if (!planView) { alert('Plan view not found. Click Generate Plan first.'); return; }
 
-  // Include-set per tier. Header (brand + title) always stays.
+  // Snapshot the existing display state of every tab panel so we can restore.
+  const panels = Array.from(planView.querySelectorAll('.tab-panel'));
+  const prevPanelState = panels.map(p => ({ el: p, classList: p.className, display: p.style.display, pageBreak: p.style.pageBreakAfter }));
+  const planActions = planView.querySelector('.plan-actions');
+  const planTabs    = planView.querySelector('.plan-tabs');
+  const prevActionsDisplay = planActions ? planActions.style.display : null;
+  const prevTabsDisplay    = planTabs ? planTabs.style.display : null;
+  const prevPlanViewClass  = planView.className;
+
+  // Determine which tabs to include
   const includeTabs = kind === 'client'   ? ['portrait']
                    : kind === 'appendix'  ? ['appendix']
-                   : null;  // null = all
+                   : null;
 
-  captureRoot.querySelectorAll('.tab-panel').forEach(panel => {
-    const id = (panel.id || '').replace('panel-', '');
+  // Mutate live DOM: hide chrome, show all (or selected) panels stacked.
+  planView.classList.add('print-layout');
+  if (planActions) planActions.style.display = 'none';
+  if (planTabs)    planTabs.style.display = 'none';
+
+  panels.forEach(p => {
+    const id = (p.id || '').replace('panel-', '');
     const include = !includeTabs || includeTabs.includes(id);
     if (include) {
-      panel.classList.add('active');
-      panel.style.display = 'block';
-      panel.style.pageBreakAfter = 'always';
+      p.classList.add('active');
+      p.style.display = 'block';
+      p.style.pageBreakAfter = 'always';
     } else {
-      panel.remove();   // drop non-selected panels entirely
+      p.style.display = 'none';
     }
   });
 
-  // For the Client PDF, drop the "View Full Plan Details" button (it's a
-  // UI affordance, not part of the printed deliverable) and also drop
-  // any review-panel or welcome banner that's not relevant to the
-  // standalone PDF.
+  // For Client PDF, hide review/welcome chrome
+  let hiddenForClient = [];
   if (kind === 'client') {
-    captureRoot.querySelectorAll('.portrait-full-details, .review-panel, .client-welcome').forEach(el => el.remove());
+    hiddenForClient = Array.from(planView.querySelectorAll('.portrait-full-details, .review-panel, .client-welcome'));
+    hiddenForClient.forEach(el => { el.dataset.prevDisplay = el.style.display; el.style.display = 'none'; });
   }
 
-  document.body.appendChild(captureRoot);
+  // Wait one paint cycle so the layout settles before capture
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   try {
-    await html2pdf().from(captureRoot).set({
+    await html2pdf().from(planView).set({
       margin: [12, 12, 14, 12],
       filename: fileName,
       image: { type: 'jpeg', quality: 0.96 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: planView.scrollWidth,
+        windowHeight: planView.scrollHeight,
+        backgroundColor: '#F5F1E8',
+      },
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
       pagebreak: { mode: ['css', 'legacy'] }
     }).save();
@@ -12387,8 +12410,21 @@ async function generatePdf(kind) {
     }
   } catch (err) {
     alert(suffix + ' PDF generation failed: ' + err.message);
+    console.error('PDF generation failed:', err);
   } finally {
-    captureRoot.remove();
+    // Restore DOM state
+    planView.className = prevPlanViewClass;
+    if (planActions) planActions.style.display = prevActionsDisplay || '';
+    if (planTabs)    planTabs.style.display = prevTabsDisplay || '';
+    prevPanelState.forEach(s => {
+      s.el.className = s.classList;
+      s.el.style.display = s.display;
+      s.el.style.pageBreakAfter = s.pageBreak;
+    });
+    hiddenForClient.forEach(el => {
+      el.style.display = el.dataset.prevDisplay || '';
+      delete el.dataset.prevDisplay;
+    });
   }
 }
 
