@@ -12389,6 +12389,83 @@ async function generatePdf(kind) {
   // Wait one paint cycle so the layout settles before capture
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+  // CHART RENDERING WORKAROUND: html2canvas can't reliably capture
+  // <canvas> (Chart.js) or <svg> with gradients/foreignObject (Monte
+  // Carlo cone). Snapshot each into an <img> via toDataURL or via
+  // SVG serialization just before capture; restore afterward.
+  const canvasSwaps = [];
+
+  // 1. CANVAS → img (Chart.js: allocation, income, projection, estate growth)
+  planView.querySelectorAll('canvas').forEach(canvas => {
+    if (!canvas.width || !canvas.height) return;
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.style.cssText = `display:block; width:${canvas.style.width || canvas.width + 'px'}; height:${canvas.style.height || canvas.height + 'px'}; max-width:100%;`;
+      img.alt = canvas.id || 'chart';
+      canvas.parentNode.insertBefore(img, canvas);
+      canvas.style.display = 'none';
+      canvasSwaps.push({ orig: canvas, img });
+    } catch (e) {
+      console.warn('Could not snapshot canvas', canvas.id, e.message);
+    }
+  });
+
+  // 2. SVG → img (Monte Carlo cone, ring, timeline). Rasterize via an
+  //    off-screen canvas so html2canvas just sees an image. We serialize
+  //    the SVG, encode as data URL, draw to canvas, then export to PNG.
+  const svgPromises = [];
+  planView.querySelectorAll('svg').forEach(svg => {
+    // Compute the rendered size from getBoundingClientRect (handles
+    // viewBox-only SVGs that have no explicit width/height attrs).
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const w = Math.ceil(rect.width);
+    const h = Math.ceil(rect.height);
+    const promise = new Promise((resolve) => {
+      try {
+        // Clone + ensure xmlns + explicit dimensions so the rasterizer
+        // doesn't have to guess.
+        const clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        if (!clone.getAttribute('width'))  clone.setAttribute('width',  w);
+        if (!clone.getAttribute('height')) clone.setAttribute('height', h);
+        const xml = new XMLSerializer().serializeToString(clone);
+        const svg64 = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+        const tmpImg = new Image();
+        tmpImg.onload = () => {
+          try {
+            const cv = document.createElement('canvas');
+            cv.width  = Math.max(w * 2, 100);
+            cv.height = Math.max(h * 2, 100);
+            const ctx = cv.getContext('2d');
+            ctx.drawImage(tmpImg, 0, 0, cv.width, cv.height);
+            const dataUrl = cv.toDataURL('image/png');
+            const finalImg = document.createElement('img');
+            finalImg.src = dataUrl;
+            finalImg.style.cssText = `display:block; width:${w}px; height:${h}px; max-width:100%;`;
+            finalImg.alt = 'chart';
+            svg.parentNode.insertBefore(finalImg, svg);
+            svg.style.display = 'none';
+            canvasSwaps.push({ orig: svg, img: finalImg });
+          } catch (e) {
+            console.warn('SVG rasterize failed', e.message);
+          }
+          resolve();
+        };
+        tmpImg.onerror = () => { console.warn('SVG image load failed'); resolve(); };
+        tmpImg.src = svg64;
+      } catch (e) {
+        console.warn('SVG snapshot failed:', e.message);
+        resolve();
+      }
+    });
+    svgPromises.push(promise);
+  });
+  // Wait for all SVG rasterization to finish before kicking off PDF
+  await Promise.all(svgPromises);
+
   try {
     await html2pdf().from(planView).set({
       margin: [12, 12, 14, 12],
@@ -12424,6 +12501,11 @@ async function generatePdf(kind) {
     hiddenForClient.forEach(el => {
       el.style.display = el.dataset.prevDisplay || '';
       delete el.dataset.prevDisplay;
+    });
+    // Remove the snapshot images and bring the live canvases / SVGs back
+    canvasSwaps.forEach(({ orig, img }) => {
+      if (img && img.parentNode) img.parentNode.removeChild(img);
+      if (orig) orig.style.display = '';
     });
   }
 }
