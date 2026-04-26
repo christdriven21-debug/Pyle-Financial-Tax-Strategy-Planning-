@@ -13485,6 +13485,13 @@ const SOLVER_STRATEGIES = [
   { key: 'pplife',    label: 'Private Placement Life Insurance', targets: ['fed-income','estate'], tip: 'Variable life policy with hedge-fund / PE wrappers. Tax-free internal growth (§7702) + DB exclusion (§101). Accredited investor only.' },
   { key: 'crossPs',   label: 'Cross-Tested Profit-Sharing', targets: ['fed-income'],  tip: 'New comparability allocation favors owner. Stacks with DB plan + 401(k) for $400k+ owner deduction. Older owner / younger workforce optimal.' },
   { key: 'hsa',       label: 'Health Savings Account §223', targets: ['fed-income'],  tip: 'Triple-tax-advantaged: deductible contribution + tax-free growth + tax-free qualified-medical withdrawal. 2024: $4,150/$8,300 + $1,000 catchup at 55+.' },
+  // ──── Phase 4 strategies ────
+  { key: 'buysell',           label: 'Buy-Sell Agreement (§2703)', targets: ['estate'],          tip: 'Cross-purchase preferred post-Connelly v. U.S. (2024). §2703 valuation lock-in if arms-length compliant; entity redemption + COLI now inflates FMV.' },
+  { key: 'familyLlc',         label: 'Family LLC',                 targets: ['estate'],          tip: 'Pass-through tax + 25-40% valuation discount + charging-order protection. Strongest in DE/NV/WY. §2036 retained-control caveats apply.' },
+  { key: 'intraLoan',         label: 'Intra-Family Loan (AFR)',    targets: ['estate'],          tip: 'Loan at AFR transfers all asset appreciation above AFR gift-tax-free. Pair with IDGT for installment sale to grantor trust.' },
+  { key: 'privateFoundation', label: 'Private Foundation',         targets: ['fed-income','estate'], tip: 'Donor-controlled grantmaking entity. 30% AGI limit + 5% min distribution + 1.39% excise tax. For $10M+ annual giving budgets.' },
+  { key: 'serp',              label: 'Funded SERP §409A',          targets: ['fed-income'],      tip: 'Top-Hat non-qualified deferred comp. No §415 limits. COLI/annuity/Rabbi Trust funding. §409A timing rules apply.' },
+  { key: 'ing',               label: 'ING Trust (DING/NING)',      targets: ['state'],           tip: 'Self-settled non-grantor trust in DE/NV/SD shifts state-tax to no-tax jurisdiction. CA aggressively challenges via R&T §17745 throwback.' },
 ];
 
 function solverScore(d, useSet) {
@@ -13514,7 +13521,12 @@ function solverScore(d, useSet) {
                      + (p.captiveAnnualSaving || 0)
                      + (p.crossPsAnnualSaving || 0)
                      + (p.hsaAnnualSaving || 0)
-                     + (p.ppliTaxSavings || 0);
+                     + (p.ppliTaxSavings || 0)
+                     // Phase 4 income-tax-bucket strategies
+                     + (p.pfYear1Saving || 0)
+                     + (p.serpAnnualSaving || 0)
+                     // Corporate tax profile
+                     + (p.s250TaxSaving || 0) + (p.s41Credit || 0) + (p.s172TaxSaving || 0);
     const capGains   = ((p.cgTaxSavings || 0) * fedShareOfCG)
                      + (p.qsbsTotalSaving || 0)
                      + (p.exch1031TaxDeferred || 0)
@@ -13535,7 +13547,10 @@ function solverScore(d, useSet) {
                      + (p.daptEstateSaving || 0)
                      + (p.scinEstateSaving || 0)
                      + (p.ppliEstateSaving || 0)
-                     + (p.ceasement2031cDiscount || 0);
+                     + (p.ceasement2031cDiscount || 0)
+                     // Phase 4 estate-bucket strategies
+                     + (p.familyLlcEstateSaving || 0)
+                     + (p.intraLoanEstateSaving || 0);
     const total      = fedIncome + capGains + stateLocal + estate;
 
     return {
@@ -19777,6 +19792,13 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (d.use.pplife)   strats.push(`PPLI ${fmt$M(d.pplife.premium)} premium over ${d.pplife.payYears} yrs at ${fmtPct(d.pplife.ret*100)}; ${d.pplife.years}-yr balance ${fmt$M(p.ppliFutureValue)}; income tax saved ${fmt$M(p.ppliTaxSavings)} + estate saved ${fmt$M(p.ppliEstateSaving)} (${p.ppliCompliant ? '§817(h) compliant' : 'NON-COMPLIANT'})`);
     if (d.use.crossPs)  strats.push(`Cross-Tested Profit-Sharing ${fmt$(p.crossPsOwnerCapped)}/yr owner allocation × ${d.crossPs.years} yrs → ${fmt$M(p.crossPsLifetimeSaving)} lifetime saving; ${d.crossPs.employees} employees @ ${fmtPct(d.crossPs.empPct*100)}`);
     if (d.use.hsa)      strats.push(`HSA ${fmt$(p.hsaAnnualLimit)}/yr (${d.hsa.coverage} coverage; ${d.hsa.age >= 55 ? 'with catchup' : 'no catchup yet'}); ${d.hsa.years}-yr projected balance ${fmt$M(p.hsaProjectedBalance)} (${d.hsa.strategy === 'invest' ? 'invest + pay OOP' : 'use for current medical'})`);
+    // Phase 4 strategies
+    if (d.use.buysell)           strats.push(`Buy-Sell Agreement ${fmt$M(d.buysell.value)} (${d.buysell.structure}; ${d.buysell.compliant2703 ? '§2703 compliant' : 'NOT §2703 compliant'}; ${p.buysellConnellyRisk ? 'CONNELLY RISK' : 'Connelly-safe'})`);
+    if (d.use.familyLlc)         strats.push(`Family LLC ${fmt$M(d.familyLlc.funding)} in ${d.familyLlc.state} at ${(d.familyLlc.discount*100).toFixed(0)}% discount; ${(d.familyLlc.gifted*100).toFixed(0)}% gifted → ${fmt$(p.familyLlcEstateSaving)} estate saving`);
+    if (d.use.intraLoan)         strats.push(`Intra-Family Loan ${fmt$M(d.intraLoan.amount)} for ${d.intraLoan.term}yr at ${(d.intraLoan.afr*100).toFixed(2)}% AFR; appreciation transferred ${fmt$M(p.intraLoanTransfer)} → ${fmt$(p.intraLoanEstateSaving)} estate saving`);
+    if (d.use.privateFoundation) strats.push(`Private Foundation ${fmt$M(d.privateFoundation.funding)} (${d.privateFoundation.asset}); ${fmt$(p.pfYear1Saving)} Y1 tax saving${p.pfRequiresAGISpread ? '; CARRYFORWARD NEEDED' : ''}; ${fmt$(p.pfMinDistribution)}/yr min distribution`);
+    if (d.use.serp)              strats.push(`Funded SERP ${fmt$(d.serp.contribution)}/yr × ${d.serp.years}yr at ${(d.serp.rate*100).toFixed(1)}% (${d.serp.vehicle}); ${fmt$(p.serpAnnualSaving)} annual tax saved; FV ${fmt$M(p.serpFutureValue)}`);
+    if (d.use.ing)               strats.push(`ING Trust ${fmt$(d.ingTrust.income)}/yr investment income shifted to ${d.ingTrust.situs}; ${fmt$(p.ingAnnualSaving)} annual state-tax savings × ${d.ingTrust.years}yr = ${fmt$M(p.ingLifetimeSaving)}`);
     lines.push(strats.length ? strats.map(s => '• ' + s).join('\n') : '(none enabled)');
 
     lines.push(`\n=== HEADLINE SAVINGS ===`);
@@ -19802,6 +19824,13 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (d.use.pplife && (p.ppliTaxSavings + p.ppliEstateSaving) > 0) lines.push(`PPLI tax-free internal growth saved ${fmt$M(p.ppliTaxSavings)} income tax + ${fmt$M(p.ppliEstateSaving)} estate (${d.pplife.years}-yr balance ${fmt$M(p.ppliFutureValue)})`);
     if (d.use.crossPs && p.crossPsLifetimeSaving > 0)    lines.push(`Cross-Tested Profit-Sharing lifetime saving: ${fmt$M(p.crossPsLifetimeSaving)} (net of employee cost: ${fmt$(p.crossPsNetSaving)}/yr)`);
     if (d.use.hsa && p.hsaAnnualSaving > 0)              lines.push(`HSA annual tax saving ${fmt$(p.hsaAnnualSaving)}; ${d.hsa.years}-yr projected balance ${fmt$M(p.hsaProjectedBalance)}`);
+    // Phase 4 headline savings
+    if (d.use.buysell)                                   lines.push(`Buy-Sell valuation lock-in: ${fmt$M(p.buysellValuationLocked)}${p.buysellConnellyRisk ? ' — but CONNELLY RISK on entity-redemption COLI' : ''}`);
+    if (d.use.familyLlc && p.familyLlcEstateSaving > 0)  lines.push(`Family LLC estate saving on gifted portion: ${fmt$M(p.familyLlcEstateSaving)} (${(d.familyLlc.discount*100).toFixed(0)}% valuation discount on ${(d.familyLlc.gifted*100).toFixed(0)}% gifted)`);
+    if (d.use.intraLoan && p.intraLoanEstateSaving > 0)  lines.push(`Intra-Family Loan estate saving: ${fmt$M(p.intraLoanEstateSaving)} (transferred ${fmt$M(p.intraLoanTransfer)} above ${(d.intraLoan.afr*100).toFixed(2)}% AFR)`);
+    if (d.use.privateFoundation && p.pfYear1Saving > 0)  lines.push(`Private Foundation Y1 tax saving: ${fmt$(p.pfYear1Saving)}${p.pfRequiresAGISpread ? '; carries forward 5 yrs' : ''}; 1.39% excise ${fmt$(p.pfExciseTaxAnnual)}/yr`);
+    if (d.use.serp && p.serpAnnualSaving > 0)            lines.push(`Funded SERP annual deferral saving: ${fmt$(p.serpAnnualSaving)}; lifetime ${fmt$M(p.serpLifetimeSaving)}; projected FV ${fmt$M(p.serpFutureValue)}`);
+    if (d.use.ing && p.ingAnnualSaving > 0)              lines.push(`ING Trust annual state-tax saving: ${fmt$(p.ingAnnualSaving)}; lifetime ${fmt$M(p.ingLifetimeSaving)} (${d.ingTrust.situs} situs)`);
 
     // Corporate Financials context (operating company P&L + balance sheet + workforce)
     if (d.corp && (d.corp.revenue > 0 || d.corp.ebitda > 0)) {
