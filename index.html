@@ -3676,6 +3676,113 @@
       </div>
     </div>
 
+    <div class="strategy-block hidden" id="block-dbplan">
+      <h4>Defined Benefit / Cash Balance Plan — §401(a) Qualified Retirement Plan</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Owner-friendly qualified plan with much higher contribution limits than 401(k). 2026 §415(b) max benefit ≈ $280K/yr at age 62; that translates to roughly <strong>$285K-$320K of annual deductible contribution</strong> for an owner age 50-60. Contributions are <strong>mandatory</strong> once the plan is in place (vs discretionary for profit-sharing) — actuary determines the required amount each year. Stacks on top of a separate 401(k) Profit-Sharing plan for combined $400K+/yr deduction. PBGC coverage exemption available for &lt;25 active participants. Plan termination at sale: roll the balance to an IRA tax-free.
+      </p>
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>Annual Contribution Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dbplan-contribution" value="285000"></div>
+        </div>
+        <div class="field">
+          <label>Owner Age <span class="hint">(drives §415 max)</span></label>
+          <input type="number" id="dbplan-owner-age" value="55" min="40" max="75">
+        </div>
+        <div class="field">
+          <label>Funding Years <span class="hint">(typical 5-15)</span></label>
+          <input type="number" id="dbplan-years" value="10" min="3" max="20">
+        </div>
+        <div class="field">
+          <label>Plan Type</label>
+          <select id="dbplan-type">
+            <option value="cash_balance" selected>Cash Balance — hypothetical accounts (most common)</option>
+            <option value="traditional_db">Traditional Defined Benefit — promised benefit</option>
+            <option value="combo">Combo — DB + 401(k) Profit-Sharing stacked</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Eligible Non-Owner Employees <span class="hint">(0 if solo practice)</span></label>
+          <input type="number" id="dbplan-employees" value="0" min="0" max="500">
+        </div>
+        <div class="field">
+          <label>Vesting Schedule</label>
+          <select id="dbplan-vesting">
+            <option value="3yr_cliff" selected>3-year cliff (DB plans)</option>
+            <option value="6yr_graded">6-year graded (Cash Balance)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Expected Annual Return <span class="hint">(plan investment growth)</span></label>
+          <div class="suffix-pct"><input type="number" id="dbplan-return" value="5" step="0.5"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-ceasement">
+      <h4>Conservation Easement — §170(h) Charitable Deduction</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Donating a perpetual easement (development rights restriction) on land to a qualified land trust generates a <strong>charitable deduction</strong> equal to the FMV reduction from the restriction. Subject to <strong>50% of AGI</strong> limit for individuals (per §170(b)(1)(E) for qualified conservation contributions), 15-year carryforward. The land must have <strong>genuine conservation value</strong> per §170(h)(4). Plus §2031(c) estate-tax discount up to 40% (max $500K per estate) on the post-easement land remaining in the estate. <strong>Avoid syndicated structures</strong>: §170(h)(7) caps the deduction at 2.5× basis × pro-rata share for partnership-structured easements (Disaster Tax Relief Act of 2024 codified the prior IRS position from Notice 2017-10), and syndicated easements remain <strong>listed transactions</strong> with disclosure + 200% accuracy-related penalty exposure.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Land FMV Before Easement</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-fmv-before" value="5000000"></div>
+        </div>
+        <div class="field">
+          <label>Land FMV After Easement <span class="hint">(post-restriction)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-fmv-after" value="1500000"></div>
+        </div>
+        <div class="field">
+          <label>Land Cost Basis <span class="hint">(triggers §170(h)(7) cap if syndicated)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-basis" value="800000"></div>
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Easement Structure</label>
+          <select id="ceasement-structure">
+            <option value="non_syndicated" selected>Non-syndicated — donor partners directly with land trust (eligible for full FMV deduction)</option>
+            <option value="syndicated">Syndicated partnership — §170(h)(7) caps deduction at 2.5× basis, listed transaction</option>
+            <option value="land_trust_purchase">Bargain sale to land trust — only the donative portion deductible</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Conservation Purpose <span class="hint">(§170(h)(4))</span></label>
+          <select id="ceasement-purpose">
+            <option value="open_space" selected>Open Space / Scenic Enjoyment</option>
+            <option value="habitat">Wildlife Habitat / Ecosystem</option>
+            <option value="historic">Historic Preservation</option>
+            <option value="agricultural">Working Farm / Ranch</option>
+            <option value="recreation">Public Recreation</option>
+            <option value="forestry">Sustainable Forestry</option>
+            <option value="watershed">Watershed Protection</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Donee — Qualified Land Trust <span class="hint">(must be §170(h)(3) qualified org)</span></label>
+          <input type="text" id="ceasement-donee" value="" placeholder="e.g., The Nature Conservancy">
+        </div>
+      </div>
+      <div class="form-grid cols-2" style="margin-top: 14px;">
+        <div class="field">
+          <label>Owner AGI <span class="hint">(50% limit per year, 15-yr carryforward)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-agi" value="2000000"></div>
+        </div>
+        <div class="field">
+          <label>Qualified Appraisal On File? <span class="hint">(§170(f)(11) requires)</span></label>
+          <select id="ceasement-appraisal">
+            <option value="yes" selected>Yes — qualified appraiser w/ Form 8283 Section B</option>
+            <option value="planned">Planned — engaged before filing</option>
+            <option value="no">No — DEDUCTION DENIED until obtained</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <!-- Hidden checkboxes preserve existing JS wiring (strategyMap in mode-switch code) -->
     <div style="display:none" aria-hidden="true">
       <input type="checkbox" id="use-dynasty" checked>
@@ -3705,12 +3812,11 @@
       <input type="checkbox" id="use-collar">       <!-- Cashless Collar — bracket downside via puts + calls -->
       <input type="checkbox" id="use-pvf">          <!-- Prepaid Variable Forward — defer tax 3-5 yrs while monetizing -->
       <input type="checkbox" id="use-exchfund">     <!-- Exchange Fund — diversify single-stock w/o triggering tax -->
-      <input type="hidden" id="dbplan-contribution" value="300000">
-      <input type="hidden" id="dbplan-years" value="15">
+      <!-- dbplan-contribution + dbplan-years promoted to visible block-dbplan -->
+      <!-- ceasement-* promoted to visible block-ceasement -->
       <input type="hidden" id="muni-alloc-pct" value="20">
       <input type="hidden" id="flp-discount-pct" value="25">
       <input type="hidden" id="ing-income" value="500000">
-      <input type="hidden" id="ceasement-deduction" value="0">
       <!-- Hedging parameters (defaults sized for typical $5-25M concentrated position) -->
       <input type="hidden" id="collar-notional" value="5000000">
       <input type="hidden" id="collar-floor-pct" value="90">     <!-- floor strike as % of current price -->
@@ -4523,6 +4629,20 @@ const STRATEGIES = [
     useId: 'use-oilgas', blockId: 'block-oilgas',
   },
   {
+    id: 'dbplan', name: 'Defined Benefit / Cash Balance Plan',
+    category: 'income',
+    tags: ['reduces_income_tax'],
+    desc: 'High-contribution-limit qualified retirement plan for owners 45+ — up to ~$300k/yr deductible, stacks with 401(k)/profit-sharing for $400k+ total shelter',
+    useId: 'use-dbplan', blockId: 'block-dbplan',
+  },
+  {
+    id: 'ceasement', name: 'Conservation Easement (§170(h))',
+    category: 'giving',
+    tags: ['reduces_income_tax', 'reduces_estate_tax', 'charitable'],
+    desc: 'Charitable deduction = FMV reduction from donating development rights on land to a qualified land trust. Use only non-syndicated programs to avoid §170(h)(7) 2.5× basis cap + listed-transaction risk',
+    useId: 'use-ceasement', blockId: 'block-ceasement',
+  },
+  {
     id: 'qbi-199a', name: '§199A QBI Deduction',
     category: 'income',
     tags: ['reduces_income_tax'],
@@ -5075,11 +5195,28 @@ function readForm() {
     clt:  { amount: n('clt-amount'), payout: n('clt-payout'), term: n('clt-term'),
             hurdle: n('clt-7520') / 100, growth: n('clt-growth') / 100 },
     // Phase-1 "zero-tax menu" strategy inputs. Defaults are advisor-typical.
-    dbplan:    { contribution: n('dbplan-contribution'), years: n('dbplan-years') || 15 },
+    dbplan: {
+      contribution: n('dbplan-contribution'),
+      years:        n('dbplan-years') || 10,
+      ownerAge:     n('dbplan-owner-age') || 55,
+      type:         t('dbplan-type') || 'cash_balance',
+      employees:    n('dbplan-employees') || 0,
+      vesting:      t('dbplan-vesting') || '3yr_cliff',
+      ret:          (n('dbplan-return') || 5) / 100,
+    },
     muni:      { allocPct: (n('muni-alloc-pct') || 20) / 100 },
     flp:       { discountPct: (n('flp-discount-pct') || 25) / 100 },
     ing:       { income: n('ing-income') },
-    ceasement: { deduction: n('ceasement-deduction') },
+    ceasement: {
+      fmvBefore: n('ceasement-fmv-before'),
+      fmvAfter:  n('ceasement-fmv-after'),
+      basis:     n('ceasement-basis'),
+      structure: t('ceasement-structure') || 'non_syndicated',
+      purpose:   t('ceasement-purpose')   || 'open_space',
+      donee:     t('ceasement-donee')     || '',
+      agi:       n('ceasement-agi'),
+      appraisal: t('ceasement-appraisal') || 'yes',
+    },
     // Concentrated stock hedging
     collar:    {
       notional:    n('collar-notional'),
@@ -6005,13 +6142,46 @@ function computePlan(d) {
   // PHASE-1 "ZERO-TAX MENU" STRATEGIES — ordinary-income + state + estate
   // ───────────────────────────────────────────────────────────────────────
 
-  // Defined Benefit / Cash Balance Plan: up to ~$300k/yr tax-deductible
-  // contribution for a high-earning owner age 45+. For a 15-year window,
-  // total savings = contribution × marginal × years; present-valued roughly.
-  const dbplanAnnualSaving  = d.use.dbplan ? (d.dbplan.contribution || 0) * d.tax.marginal : 0;
+  // ──────────────────────────────────────────────────────────────────────
+  // Defined Benefit / Cash Balance Plan — §401(a) qualified plan
+  //
+  //   Contribution is mandatory once plan is in place — actuary determines
+  //   each year. §415(b) caps benefit at ~$280K/yr at age 62 (indexed).
+  //   At age 50-55 the actuarially-equivalent contribution is roughly
+  //   $200-285K; age 55-65 jumps to $250-320K.
+  //
+  //   §404(o) deduction limit: contributions are fully deductible up to
+  //   minimum funding under §430. Combined plan deduction with
+  //   401(k)+PS limited under §404(a)(7) to 25% of compensation.
+  //
+  //   Plan-cost estimate: ~$8K/yr admin + actuarial for solo, more if
+  //   nondiscrimination testing required.
+  // ──────────────────────────────────────────────────────────────────────
+  // §415 max benefit cap: roughly $280K/yr × age-factor at age 62
+  // For modeling, cap contribution at indexed §415 actuarial equivalent
+  const dbplanAge = d.dbplan?.ownerAge || 55;
+  const dbplan415Cap = dbplanAge < 50 ? 200_000
+                     : dbplanAge < 55 ? 250_000
+                     : dbplanAge < 60 ? 285_000
+                     : dbplanAge < 65 ? 320_000
+                     : 350_000;
+  const dbplanContribCapped = Math.min(d.dbplan?.contribution || 0, dbplan415Cap);
+  const dbplanContribOverCap = (d.dbplan?.contribution || 0) > dbplan415Cap;
+  const dbplanAnnualSaving  = d.use.dbplan ? dbplanContribCapped * d.tax.marginal : 0;
   const dbplanLifetimeSaving = d.use.dbplan
-    ? dbplanAnnualSaving * Math.min(d.dbplan.years || 15, d.proj.years || 20)
+    ? dbplanAnnualSaving * Math.min(d.dbplan.years || 10, d.proj.years || 20)
     : 0;
+  // Projected balance at end of funding period
+  const dbplanRet = d.dbplan?.ret ?? 0.05;
+  const dbplanFundingYears = d.dbplan?.years || 10;
+  const dbplanProjectedBalance = d.use.dbplan && dbplanRet > 0
+    ? dbplanContribCapped * ((Math.pow(1 + dbplanRet, dbplanFundingYears) - 1) / dbplanRet)
+    : (d.use.dbplan ? dbplanContribCapped * dbplanFundingYears : 0);
+  // Plan admin cost estimate (informational)
+  const dbplanAdminCost = d.use.dbplan
+    ? ((d.dbplan.employees || 0) > 0 ? 12_000 + (d.dbplan.employees * 200) : 8_000)
+    : 0;
+  const dbplanNeedsNondiscriminationTesting = d.use.dbplan && (d.dbplan.employees || 0) > 0;
 
   // Muni bond allocation: tax-free federal yield on portion of portfolio.
   // Savings ≈ (portfolio × alloc × yield differential × marginal) × horizon.
@@ -6033,11 +6203,58 @@ function computePlan(d) {
   const ingAnnualSaving = d.use.ing ? ((d.ing?.income || 0) * d.tax.state) : 0;
   const ingLifetimeSaving = ingAnnualSaving * Math.min(d.proj.years || 10, 20);
 
-  // Conservation Easement: charitable deduction of the easement value.
-  // Advisor enters a conservative deduction figure. Savings = deduction
-  // × marginal. (Aggressive syndicated easements are disallowed — we only
-  // credit basis-appropriate charitable donations.)
-  const ceasementSaving = d.use.ceasement ? ((d.ceasement?.deduction || 0) * d.tax.marginal) : 0;
+  // ──────────────────────────────────────────────────────────────────────
+  // Conservation Easement — §170(h) charitable deduction
+  //
+  //   Deduction = FMV before − FMV after (the value of the development
+  //     rights surrendered).
+  //   §170(b)(1)(E): individual deduction limit is 50% of AGI/yr for
+  //     qualified conservation contributions, with 15-yr carryforward.
+  //   §170(h)(7) (codified by Disaster Tax Relief Act 2024 + OBBBA):
+  //     Deduction for a partnership easement is CAPPED at 2.5× allocable
+  //     basis × pro-rata share. Effectively kills syndicated easements.
+  //   Notice 2017-10: syndicated conservation easements are LISTED
+  //     transactions — disclosure required, 200% accuracy-related
+  //     penalty exposure on under-reported deduction.
+  //   §170(f)(11): qualified appraisal required (Form 8283 Section B)
+  //     — failure = full disallowance.
+  //   §2031(c): up to 40% / max $500K estate-tax discount on the
+  //     post-easement land remaining in the estate.
+  // ──────────────────────────────────────────────────────────────────────
+  const ceasementValue = d.use.ceasement
+    ? Math.max(0, (d.ceasement.fmvBefore || 0) - (d.ceasement.fmvAfter || 0))
+    : 0;
+  const ceasementSyndicated = d.ceasement?.structure === 'syndicated';
+  const ceasementBargainSale = d.ceasement?.structure === 'land_trust_purchase';
+  // §170(h)(7) 2.5× basis cap for syndicated structures
+  const ceasement_2_5x_cap = (d.ceasement?.basis || 0) * 2.5;
+  const ceasementSyndicatedCapped = ceasementSyndicated && ceasementValue > ceasement_2_5x_cap;
+  const ceasementGrossDeduction = ceasementSyndicatedCapped
+    ? ceasement_2_5x_cap
+    : ceasementValue;
+  // Appraisal check — no qualified appraisal = full disallowance
+  const ceasementAppraisalOK = d.ceasement?.appraisal === 'yes' || d.ceasement?.appraisal === 'planned';
+  const ceasementNoAppraisal = d.use.ceasement && d.ceasement.appraisal === 'no';
+  const ceasementYear1Limit = (d.ceasement?.agi || 0) * 0.50;
+  const ceasementYear1Deduction = (d.use.ceasement && ceasementAppraisalOK)
+    ? Math.min(ceasementGrossDeduction, ceasementYear1Limit)
+    : 0;
+  // Year-1 + carryforward (15-yr window) — assumes same AGI in subsequent years
+  const ceasementCarryforwardCapacity = ceasementYear1Limit * 15;
+  const ceasementTotalDeductible = (d.use.ceasement && ceasementAppraisalOK)
+    ? Math.min(ceasementGrossDeduction, ceasementCarryforwardCapacity)
+    : 0;
+  const ceasementYearsToFullyUse = ceasementYear1Limit > 0
+    ? Math.ceil(ceasementTotalDeductible / ceasementYear1Limit)
+    : 0;
+  // §2031(c) estate-tax discount: lesser of 40% of post-easement land
+  // FMV or $500K, on the land remaining in the estate
+  const ceasement2031cDiscount = d.use.ceasement
+    ? Math.min((d.ceasement.fmvAfter || 0) * 0.40, 500_000) * d.tax.estate
+    : 0;
+  // Tax savings — first-year + carryforward over the AGI ceiling
+  const ceasementSaving = ceasementTotalDeductible * d.tax.marginal;
+  const ceasementYear1Saving = ceasementYear1Deduction * d.tax.marginal;
 
   // ───────────────────────────────────────────────────────────────────────
   // CONCENTRATED STOCK HEDGING — for tech execs / IPO recipients with a
@@ -6109,7 +6326,8 @@ function computePlan(d) {
                        + dynastyIncomeTaxGiftEstateSave
                        + phase1FedIncomeSaving + phase1StateSaving + phase1EstateSaving
                        + hedgingCGSaving
-                       + oilgasYear1Saving;
+                       + oilgasYear1Saving
+                       + ceasement2031cDiscount;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -6512,10 +6730,15 @@ function computePlan(d) {
     saleIsAsset, recaptureAmount, recaptureOrdinaryTax, recaptureCGTaxIfStock, assetVsStockPenalty,
     dynasty20yr, dynastyGrowth, dynastyYears, dynastyUsesJointLE,
     cgTaxSavings, totalImmediate,
-    dbplanAnnualSaving, dbplanLifetimeSaving,
+    dbplanAnnualSaving, dbplanLifetimeSaving, dbplan415Cap, dbplanContribCapped,
+    dbplanContribOverCap, dbplanProjectedBalance, dbplanAdminCost,
+    dbplanNeedsNondiscriminationTesting,
     muniSaving, flpSaving,
     ingAnnualSaving, ingLifetimeSaving,
-    ceasementSaving,
+    ceasementSaving, ceasementValue, ceasementGrossDeduction, ceasementYear1Deduction,
+    ceasementYear1Saving, ceasementYear1Limit, ceasementTotalDeductible, ceasementYearsToFullyUse,
+    ceasementSyndicated, ceasementBargainSale, ceasementSyndicatedCapped,
+    ceasementNoAppraisal, ceasement2031cDiscount,
     phase1FedIncomeSaving, phase1StateSaving, phase1EstateSaving,
     collarSaving, collarNotional, collarFloorPct, collarDownsideProtection,
     pvfSaving, pvfNotional, pvfTermYears, pvfPropGain,
@@ -6615,6 +6838,8 @@ function renderClientPortrait(p) {
   if (d.use.qprt) strategyDescriptions.push({ icon: '🏡', text: `QPRT on ${d.qprt.type === 'secondary' ? 'your vacation home' : 'your primary residence'} — discounted gift today, full value passes to your children after ${d.qprt.term} years.` });
   if (d.use.exch1031) strategyDescriptions.push({ icon: '🏢', text: `§1031 real-estate exchange: <strong>${fmt$M(d.exch1031.sale)}</strong> reinvested into replacement property with full tax deferral.` });
   if (d.use.oilgas && p.oilgasYear1Saving > 0) strategyDescriptions.push({ icon: '⛽', text: `Direct working-interest oil &amp; gas investment: <strong>${fmt$M(p.oilgasIdcDeduction)}</strong> Year-1 IDC deduction (§263(c)) saving <strong>${fmt$(p.oilgasYear1Saving)}</strong> against ordinary income via §469(c)(3) active-loss treatment.` });
+  if (d.use.dbplan && p.dbplanAnnualSaving > 0) strategyDescriptions.push({ icon: '🏦', text: `Cash Balance / Defined Benefit plan: <strong>${fmt$(p.dbplanContribCapped)}</strong>/yr deduction at age ${d.dbplan.ownerAge} → <strong>${fmt$M(p.dbplanLifetimeSaving)}</strong> lifetime tax savings, ${fmt$M(p.dbplanProjectedBalance)} projected plan balance at termination.` });
+  if (d.use.ceasement && p.ceasementSaving > 0) strategyDescriptions.push({ icon: '🌲', text: `Conservation easement on land worth ${fmt$M(d.ceasement.fmvBefore)} → <strong>${fmt$M(p.ceasementValue)}</strong> charitable deduction (§170(h)) saving <strong>${fmt$(p.ceasementSaving)}</strong> in income tax + ${fmt$(p.ceasement2031cDiscount)} estate-tax discount via §2031(c).` });
   // Limit to top 6 for readability
   const topStrategies = strategyDescriptions.slice(0, 6);
 
@@ -7030,6 +7255,8 @@ function renderTechnicalAppendix(p) {
   if (d.use.exch1031) strategiesInUse.push('§1031 Like-Kind Exchange');
   if (d.use.qbi)      strategiesInUse.push('§199A QBI');
   if (d.use.oilgas)   strategiesInUse.push('Oil & Gas WI §263(c)');
+  if (d.use.dbplan)   strategiesInUse.push('Cash Balance / DB §401(a)');
+  if (d.use.ceasement) strategiesInUse.push('Conservation Easement §170(h)');
 
   return `
     <!-- COVER PAGE -->
@@ -7632,6 +7859,111 @@ function renderSummary(p) {
         <strong>§168(e)(3)(C)</strong> — TDC is 7-yr MACRS property. ·
         <strong>§1411(c)(1)(A)(i)</strong> — NIIT carve-out for trade-or-business income (working interest qualifies). ·
         <strong>§57(a)(2)</strong> — excess IDC AMT preference (rarely binding post-TCJA).
+      </div>
+    </div>` : ''}
+
+    ${d.use.dbplan ? `
+    <div class="card" ${p.dbplanContribOverCap ? 'style="border-left: 4px solid var(--gold-dark);"' : ''}>
+      <div class="card-title">Defined Benefit / Cash Balance Plan — §401(a) Qualified Retirement Plan</div>
+
+      ${p.dbplanContribOverCap ? `
+        <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Contribution Exceeds §415 Actuarial Equivalent at Age ${d.dbplan.ownerAge}</span>
+          The §415(b) annual benefit limit at age ${d.dbplan.ownerAge} translates to roughly <strong>${fmt$(p.dbplan415Cap)}</strong> of deductible contribution for a Cash Balance / DB plan. The entered ${fmt$(d.dbplan.contribution)} is above this cap — actuary will reduce the contribution to the §415-allowed amount. Plan modeled at <strong>${fmt$(p.dbplanContribCapped)}</strong>.
+        </div>` : ''}
+
+      ${p.dbplanNeedsNondiscriminationTesting ? `
+        <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Nondiscrimination Testing Required (${d.dbplan.employees} non-owner employees)</span>
+          §401(a)(4) requires the plan to provide non-discriminatory benefits. With ${d.dbplan.employees} eligible non-owner employees, the plan will need annual coverage + nondiscrimination testing (general test or safe-harbor design). Typical solution: cross-tested cash-balance design giving owners a high credit rate and staff a low credit rate plus a Safe Harbor 401(k). Coordinate with TPA/actuary before finalizing contribution.
+        </div>` : ''}
+
+      <div class="card-sub">${d.dbplan.type === 'cash_balance' ? 'Cash Balance plan' : d.dbplan.type === 'combo' ? 'Combo (DB + 401(k) Profit-Sharing) plan' : 'Traditional Defined Benefit plan'} for an owner age ${d.dbplan.ownerAge}. ${fmt$(p.dbplanContribCapped)}/yr deductible contribution against ordinary income at ${fmtPct(d.tax.marginal*100)} marginal — produces <strong>${fmt$(p.dbplanAnnualSaving)}</strong> annual tax saving. Mandatory funding once plan is in place; balance rolls to IRA tax-free at termination (typical: at business sale or full retirement).</div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Annual Contribution</div><div class="value">${fmt$(p.dbplanContribCapped)}</div></div>
+        <div class="kpi success"><div class="label">Annual Tax Saved</div><div class="value">${fmt$(p.dbplanAnnualSaving)}</div></div>
+        <div class="kpi gold"><div class="label">Lifetime Tax Saving (${d.dbplan.years} yrs)</div><div class="value">${fmt$(p.dbplanLifetimeSaving)}</div></div>
+        <div class="kpi"><div class="label">Projected Plan Balance @ Termination</div><div class="value">${fmt$(p.dbplanProjectedBalance)}</div></div>
+        <div class="kpi"><div class="label">§415 Cap @ Age ${d.dbplan.ownerAge}</div><div class="value">${fmt$(p.dbplan415Cap)}</div></div>
+        <div class="kpi"><div class="label">Est. Annual Admin Cost</div><div class="value">${fmt$(p.dbplanAdminCost)}</div></div>
+      </div>
+
+      <div class="callout">
+        <span class="title">Strategic Benefit — Highest-Capacity Tax Shelter for Owners 50+</span>
+        Far higher contribution capacity than 401(k) ($23,500 in 2026) or SEP-IRA (25% of comp, capped). For an owner age ${d.dbplan.ownerAge} earning at the high-bracket level, the Cash Balance plan deduction stacks with a 401(k) Profit-Sharing for combined ${fmt$(p.dbplanContribCapped + 70_000)}+/yr deduction. Funding the plan over ${d.dbplan.years} years saves <strong>${fmt$(p.dbplanLifetimeSaving)}</strong> in current ordinary tax. Balance grows tax-deferred at ${fmtPct(d.dbplan.ret*100)}/yr; at sale/retirement, roll to IRA and draw down at retirement-bracket rates (typically 10-22% lower than current 37%).
+      </div>
+
+      <div class="callout" style="margin-top: 12px; background: #FFFAEB; border-left: 3px solid var(--gold-dark);">
+        <span class="title" style="color: var(--gold-dark);">⚠ Risks &amp; Operational Burdens</span>
+        <strong>Mandatory funding</strong> — once the plan is established, contributions are required each year regardless of business cash flow (unlike profit-sharing which is discretionary). Underfunding triggers §4971 excise tax. <strong>5-year vesting</strong> — employees must vest in their accounts (3-yr cliff DB / 6-yr graded CB). <strong>PBGC coverage exemption</strong> — &lt;25 active participants and certain professional firms exempt from PBGC premiums; otherwise ${fmt$(80)}/participant/yr. <strong>Premature termination</strong> — plan must be in place for &ldquo;permanent&rdquo; period (typically 5+ years); IRS will recharacterize if terminated too soon. <strong>Plan investment risk</strong> — actuarially-required return must be met or the next year's contribution rises to make up the shortfall.
+      </div>
+
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§401(a)</strong> — qualified plan requirements (vesting, nondiscrimination, funding). ·
+        <strong>§415(b)</strong> — annual benefit limit (≈$280K @ age 62, indexed). ·
+        <strong>§404(o)</strong> — deduction limit for DB plans (minimum funding through §430 limit). ·
+        <strong>§404(a)(7)</strong> — combined plan deduction limit (25% of compensation). ·
+        <strong>§412</strong> — minimum funding standards. ·
+        <strong>§430</strong> — funding rules for single-employer DB plans. ·
+        <strong>§4971</strong> — excise tax on accumulated funding deficiency. ·
+        <strong>§4980</strong> — 50% excise tax on reversion of excess to employer. ·
+        <strong>§4006(a)(3)(E) ERISA</strong> — variable PBGC premium structure.
+      </div>
+    </div>` : ''}
+
+    ${d.use.ceasement ? `
+    <div class="card" ${p.ceasementSyndicatedCapped || p.ceasementNoAppraisal ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
+      <div class="card-title">Conservation Easement — §170(h) Charitable Deduction</div>
+
+      ${p.ceasementNoAppraisal ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ Qualified Appraisal Required — §170(f)(11)</span>
+          A donee charitable contribution &gt;$5,000 of property requires a <strong>qualified appraisal</strong> from a qualified appraiser, attached as Form 8283 Section B to the return. Without it, the IRS denies the entire deduction (Reg §1.170A-13(c)(2)). Engage a USPAP-credentialed appraiser experienced in conservation easements before filing. <strong>Deduction set to $0 in this plan</strong> until appraisal is secured.
+        </div>` : ''}
+
+      ${p.ceasementSyndicated ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ Syndicated Easement — §170(h)(7) 2.5× Basis Cap + Listed Transaction</span>
+          Syndicated conservation easements remain <strong>listed transactions</strong> under Notice 2017-10 + Disaster Tax Relief Act of 2024 codification. The deduction is statutorily capped at <strong>2.5× the partnership's allocable basis</strong> in the property under §170(h)(7) — far below the appraised easement value in most syndicated structures. Listed-transaction status requires Form 8886 disclosure; participants face <strong>200% accuracy-related penalties</strong> on under-reported deductions and three-year SOL extension. Most syndicated programs are now uneconomic post-OBBBA. <strong>Strongly recommend converting to a non-syndicated structure</strong> with the donor partnering directly with a qualified land trust.
+          ${p.ceasementSyndicatedCapped ? `
+          <br><br>
+          <strong>Cap binding in this plan:</strong> Easement value ${fmt$(p.ceasementValue)} exceeds 2.5× basis (${fmt$(d.ceasement.basis * 2.5)}). Deduction reduced to ${fmt$(p.ceasementGrossDeduction)}.
+          ` : ''}
+        </div>` : ''}
+
+      <div class="card-sub">${esc(d.ceasement.donee || 'Qualified land trust')} — ${d.ceasement.purpose === 'open_space' ? 'open space / scenic enjoyment' : d.ceasement.purpose === 'habitat' ? 'wildlife habitat' : d.ceasement.purpose === 'historic' ? 'historic preservation' : d.ceasement.purpose === 'agricultural' ? 'working farm/ranch' : d.ceasement.purpose === 'recreation' ? 'public recreation' : d.ceasement.purpose === 'forestry' ? 'sustainable forestry' : 'watershed protection'} purpose under §170(h)(4). FMV reduction from the easement: <strong>${fmt$(p.ceasementValue)}</strong> (before-easement ${fmt$(d.ceasement.fmvBefore)} − post-easement ${fmt$(d.ceasement.fmvAfter)}).</div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Easement Value (FMV reduction)</div><div class="value">${fmt$(p.ceasementValue)}</div></div>
+        <div class="kpi gold"><div class="label">Year-1 Deductible (50% AGI cap)</div><div class="value">${fmt$(p.ceasementYear1Deduction)}</div></div>
+        <div class="kpi success"><div class="label">Year-1 Tax Saved</div><div class="value">${fmt$(p.ceasementYear1Saving)}</div></div>
+        <div class="kpi success"><div class="label">Total Income Tax Saved (over ${p.ceasementYearsToFullyUse} yrs)</div><div class="value">${fmt$(p.ceasementSaving)}</div></div>
+        <div class="kpi gold"><div class="label">§2031(c) Estate-Tax Discount</div><div class="value">${fmt$(p.ceasement2031cDiscount)}</div></div>
+        <div class="kpi"><div class="label">Total Deductible (15-yr window)</div><div class="value">${fmt$(p.ceasementTotalDeductible)}</div></div>
+      </div>
+
+      <div class="callout">
+        <span class="title">Strategic Benefit — Charitable + Estate + Land Stewardship</span>
+        Donating a perpetual easement on land worth ${fmt$(d.ceasement.fmvBefore)} reduces its development potential — locking in a <strong>${fmt$(p.ceasementValue)}</strong> charitable deduction at FMV. At 50% AGI/yr (${fmt$(p.ceasementYear1Limit)}/yr at ${fmt$(d.ceasement.agi)} AGI) the full deduction is utilized over <strong>${p.ceasementYearsToFullyUse} years</strong> with 15-yr carryforward, saving <strong>${fmt$(p.ceasementSaving)}</strong> in cumulative income tax. Plus the §2031(c) post-mortem election removes up to 40% (max $500K) of the post-easement land value from the taxable estate — adds <strong>${fmt$(p.ceasement2031cDiscount)}</strong> in estate-tax savings. Family retains ownership of the land for personal use / sale — only the development rights are restricted.
+      </div>
+
+      <div class="callout" style="margin-top: 12px; background: #FFFAEB; border-left: 3px solid var(--gold-dark);">
+        <span class="title" style="color: var(--gold-dark);">⚠ Audit-Risk Disclosures</span>
+        <strong>Conservation easements are an IRS focus area.</strong> Beyond §170(h)(7) syndication concerns: the IRS routinely challenges (a) <em>appraisal quality</em> — overstated FMV reductions are the #1 audit issue, (b) <em>perpetuity requirement</em> — easement must be enforceable in perpetuity (§170(h)(2)(C)); amendment / extinguishment clauses can disqualify, (c) <em>conservation purpose</em> — the IRS scrutinizes "open space" claims when public benefit is minimal, (d) <em>baseline documentation</em> — current condition of the property must be documented at donation. Use a well-established land trust, USPAP appraisal, and detailed baseline report. Consider a private letter ruling for non-routine fact patterns.
+      </div>
+
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§170(h)</strong> — qualified conservation contribution definition + perpetuity requirement. ·
+        <strong>§170(h)(4)</strong> — conservation purposes (preservation of land, habitat, open space, historic). ·
+        <strong>§170(h)(7)</strong> — 2.5× basis cap on partnership easements (codified by Disaster Tax Relief Act of 2024). ·
+        <strong>§170(b)(1)(E)</strong> — 50% AGI limit + 15-yr carryforward. ·
+        <strong>§170(f)(11)</strong> — qualified appraisal requirement. ·
+        <strong>§2031(c)</strong> — post-mortem election: up to 40% / max $500K estate-tax exclusion on land subject to easement. ·
+        <strong>Notice 2017-10</strong> — syndicated conservation easements as listed transactions. ·
+        <strong>Reg §1.170A-14</strong> — implementing regulations.
       </div>
     </div>` : ''}
 
@@ -9556,7 +9888,7 @@ function renderCompare(p) {
     };
   }
 
-  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false, oilgas: false };
+  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false, oilgas: false, dbplan: false, ceasement: false };
 
   const scenarios = [
     variant('No Planning', allOff),
@@ -13762,7 +14094,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'ins-current','ins-rec-min','ins-rec-max',
       'budget-fixed','budget-variable','budget-taxes','budget-safe-rate',
       'firm-name','firm-tag',
-      'dbplan-contribution','dbplan-years','muni-alloc-pct','flp-discount-pct','ing-income','ceasement-deduction',
+      'dbplan-contribution','dbplan-years','dbplan-owner-age','dbplan-type','dbplan-employees','dbplan-vesting','dbplan-return',
+      'muni-alloc-pct','flp-discount-pct','ing-income',
+      'ceasement-fmv-before','ceasement-fmv-after','ceasement-basis','ceasement-structure','ceasement-purpose','ceasement-donee','ceasement-agi','ceasement-appraisal',
       'collar-notional','collar-floor-pct','collar-cap-pct','collar-term-months',
       'pvf-notional','pvf-advance-pct','pvf-term-years',
       'exchfund-notional','exchfund-lockup-years'
