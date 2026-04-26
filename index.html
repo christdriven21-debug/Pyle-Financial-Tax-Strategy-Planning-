@@ -3089,6 +3089,60 @@
           </select>
         </div>
       </div>
+      <h5 style="margin-top: 22px; margin-bottom: 8px; color: var(--ink); font-size: 14px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
+        Source-Side Checks <span style="font-weight: 400; color: var(--muted); font-size: 12px;">— does the sale itself generate QOZ-eligible gain?</span>
+      </h5>
+      <p style="font-size: 11px; color: var(--muted); font-style: italic; margin-bottom: 12px; line-height: 1.5;">
+        §1400Z-2(a) defers gain only if it (a) is recognized capital gain on a sale to an <strong>unrelated party</strong> per §1400Z-2(e)(2), (b) is not displaced by a competing nonrecognition election (§1031 / §1045 / §1042 / §351 / §721), and (c) the QOF investment occurs within <strong>180 days of recognition</strong>. Installment sales, earnouts, and contingent consideration each create their own 180-day clock.
+      </p>
+      <div class="form-grid cols-2" style="margin-top: 8px;">
+        <div class="field">
+          <label>Buyer Relationship <span class="hint">(§1400Z-2(e)(2) related-party rule)</span></label>
+          <select id="qoz-buyer-relationship">
+            <option value="unrelated" selected>Unrelated third party — eligible</option>
+            <option value="related_20">Related party (&gt;20% common ownership) — DISQUALIFIES</option>
+            <option value="family">Family member (&gt;20% via §267(b)/§707(b)) — DISQUALIFIES</option>
+            <option value="mbo">Internal MBO / management buyout — review related-party</option>
+            <option value="esop">ESOP transaction — eligible (consider §1042 alternative)</option>
+            <option value="trust_to_trust">Trust-to-trust restructure — likely DISQUALIFIES</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Competing Nonrecognition Election <span class="hint">(overrides QOZ if elected)</span></label>
+          <select id="qoz-conflicting-election">
+            <option value="none" selected>None — full gain available for QOZ deferral</option>
+            <option value="1031">§1031 like-kind exchange (real estate) — no recognized gain to defer</option>
+            <option value="1045">§1045 QSBS rollover — no recognized gain (use QSBS §1202 exclusion instead)</option>
+            <option value="1042">§1042 ESOP rollover — no recognized gain (10-yr basis carryover)</option>
+            <option value="351">§351 contribution to controlled C-corp — no recognized gain</option>
+            <option value="721">§721 contribution to partnership/LLC — no recognized gain</option>
+            <option value="368">§368 tax-free reorg / merger — no recognized gain on stock-for-stock</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid cols-2" style="margin-top: 14px;">
+        <div class="field">
+          <label>Sale Structure <span class="hint">(determines 180-day-clock starts)</span></label>
+          <select id="qoz-sale-structure">
+            <option value="lump_sum" selected>Lump-sum cash close — single 180-day clock</option>
+            <option value="installment">Installment sale (§453) — each payment starts its own 180-day clock</option>
+            <option value="earnout">Earnout / contingent consideration — clock per recognition event</option>
+            <option value="stock_for_stock_boot">Stock-for-stock + cash boot — only boot creates eligible gain</option>
+            <option value="promissory_note">Cash + promissory note — clock starts per principal payment</option>
+            <option value="escrow_holdback">Cash with escrow holdback — escrow recognized when released</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Personal vs Entity Recognition <span class="hint">(who recognizes the gain?)</span></label>
+          <select id="qoz-recognition-vehicle">
+            <option value="individual" selected>Individual / flow-through (S-corp, LLC, partnership) — owner elects QOZ</option>
+            <option value="c_corp">C-corp asset sale — corp recognizes; owner gets after-tax distribution</option>
+            <option value="partnership_entity">Partnership entity-level election — partnership invests in QOF</option>
+            <option value="partner_level">Partnership partner-level election — partners individually invest</option>
+            <option value="trust">Non-grantor trust recognizes gain — trust elects QOZ</option>
+          </select>
+        </div>
+      </div>
       <div class="form-grid cols-2" style="margin-top: 14px;">
         <div class="field">
           <label>QOF Investment Type <span class="hint">(determines §1400Z-2 eligibility)</span></label>
@@ -4845,6 +4899,12 @@ function readForm() {
       // deferrable. Default 100% for stock sales / real estate.
       cgEligiblePct: (n('qoz-cg-eligible-pct') !== 0 ? n('qoz-cg-eligible-pct') : 100) / 100,
       allocationType: t('qoz-allocation-type') || 'stock_sale',
+      // Source-side eligibility checks — does the SALE itself generate
+      // QOZ-eligible gain under §1400Z-2(a) and (e)(2)?
+      buyerRelationship:    t('qoz-buyer-relationship')    || 'unrelated',
+      conflictingElection:  t('qoz-conflicting-election')  || 'none',
+      saleStructure:        t('qoz-sale-structure')        || 'lump_sum',
+      recognitionVehicle:   t('qoz-recognition-vehicle')   || 'individual',
     },
     ilit: {
       coverage: n('ilit-coverage'),
@@ -5097,7 +5157,25 @@ function computePlan(d) {
     const qozTier = (typeof QOZ_BUSINESS !== 'undefined' && QOZ_BUSINESS[d.qoz?.businessType]?.tier) || 'green';
     const qozTypeDisqualified = qozTier === 'sin' || qozTier === 'red' || qozTier === 'orange';
     const qozImprovementMissing = d.qoz?.improvement === 'no';
-    const qozEligible = !qozTypeDisqualified && !qozImprovementMissing;
+    // Source-side checks — does the SALE itself generate eligible gain?
+    // §1400Z-2(e)(2) related-party rule: gain from a sale to a >20%
+    // related party is NOT eligible. Family >20% per §267(b)/§707(b)
+    // and trust-to-trust restructures fail the same test.
+    const qozBuyerDisqualified = ['related_20','family','trust_to_trust'].includes(d.qoz?.buyerRelationship);
+    // Competing nonrecognition election — if §1031, §1045, §1042, §351,
+    // §721, or §368 applies, the gain is NOT recognized in this sale, so
+    // there is nothing to defer into a QOF.
+    const qozConflictingElection = d.qoz?.conflictingElection && d.qoz.conflictingElection !== 'none';
+    // State conformity: California, North Carolina, Mississippi, and
+    // Pennsylvania do NOT conform to §1400Z-2 — state CG tax is owed at
+    // sale even if federal is deferred. Massachusetts has rolling
+    // conformity with carve-outs.
+    const qozStateNonConforming = ['CA','NC','MS','PA'].includes(d.clientState);
+    const qozStatePartialConforming = ['MA'].includes(d.clientState);
+    const qozEligible = !qozTypeDisqualified
+                     && !qozImprovementMissing
+                     && !qozBuyerDisqualified
+                     && !qozConflictingElection;
     // Cap-gain eligibility: only the CAPITAL portion of the gain qualifies
     // for §1400Z-2 deferral. Ordinary components (§1245/§1250 recapture,
     // §751 hot assets, customer lists, workforce, A/R) do NOT qualify.
@@ -5130,6 +5208,11 @@ function computePlan(d) {
       qozOrdinaryPortion,
       qozMaxDeferrable,
       qozTier,
+      // Source-side flags
+      qozBuyerDisqualified,
+      qozConflictingElection,
+      qozStateNonConforming,
+      qozStatePartialConforming,
     };
   })();
 
@@ -7097,7 +7180,7 @@ function renderSummary(p) {
     </div>
 
     ${d.use.qoz ? `
-    <div class="card sale-only" ${p.scenarios.scenAll.qozTypeDisqualified || p.scenarios.scenAll.qozImprovementMissing ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
+    <div class="card sale-only" ${p.scenarios.scenAll.qozTypeDisqualified || p.scenarios.scenAll.qozImprovementMissing || p.scenarios.scenAll.qozBuyerDisqualified || p.scenarios.scenAll.qozConflictingElection ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
       <div class="card-title">Qualified Opportunity Zone (QOZ) Strategy</div>
       ${p.scenarios.scenAll.qozTypeDisqualified ? (() => {
         const tier = p.scenarios.scenAll.qozTier;
@@ -7123,6 +7206,96 @@ function renderSummary(p) {
           <span class="title" style="color: var(--gold-dark);">⚠ Substantial Improvement Test Failed</span>
           §1400Z-2(d)(2)(D)(ii): a QOZ business that purchases existing property must <strong>substantially improve</strong> it — additions to basis must exceed the original basis (excluding land) within 30 months. Without a documented improvement plan, the property does not qualify and gain is not deferred. Either confirm an improvement plan, switch to ground-up new construction, or remove QOZ.
         </div>` : ''}
+      ${p.scenarios.scenAll.qozBuyerDisqualified ? (() => {
+        const rel = d.qoz.buyerRelationship;
+        const relLabel = rel === 'related_20'    ? 'a related party (>20% common ownership)'
+                       : rel === 'family'        ? 'a family member meeting §267(b)/§707(b) attribution'
+                       : rel === 'trust_to_trust' ? 'a trust-to-trust restructure (related under §267(b)(6))'
+                       : 'a related party';
+        return `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ Source-Side DISQUALIFIED — §1400Z-2(e)(2) Related-Party Rule</span>
+          The buyer is ${relLabel}. §1400Z-2(e)(2) cross-references §267(b) (with the 20% threshold substituted for 50%) and §707(b)(1) — gain on a sale to a related party is <strong>not eligible gain</strong> under §1400Z-2(a)(1).
+          <br><br>
+          <strong>Practical fixes:</strong>
+          <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
+            <li>Restructure to a sale to a genuinely unrelated party</li>
+            <li>If MBO with non-family management, document &lt;20% common ownership at signing</li>
+            <li>For family transfers, use intentionally defective grantor trust (IDGT) or installment sale to grantor trust at AFR — different statutory regime, no QOZ benefit but achieves transfer goals</li>
+          </ul>
+          <strong>QOZ deferral set to $0 in this plan.</strong>
+        </div>`;
+      })() : ''}
+      ${(!p.scenarios.scenAll.qozBuyerDisqualified && d.qoz.buyerRelationship === 'mbo') ? `
+        <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ MBO — Verify Related-Party Test</span>
+          Internal MBOs frequently fail §1400Z-2(e)(2) when seller-rollover equity, seller-financing, or pre-existing shared ownership pushes related-party percentages above 20%. Document the post-close cap table and any seller continuing-equity carefully before claiming QOZ deferral. Consider a §1042 ESOP rollover instead — same rollover-style benefit without the related-party trap.
+        </div>` : ''}
+      ${p.scenarios.scenAll.qozConflictingElection ? (() => {
+        const elec = d.qoz.conflictingElection;
+        const elecLabel = elec === '1031' ? '§1031 like-kind exchange'
+                        : elec === '1045' ? '§1045 QSBS rollover'
+                        : elec === '1042' ? '§1042 ESOP rollover'
+                        : elec === '351'  ? '§351 contribution to controlled C-corp'
+                        : elec === '721'  ? '§721 contribution to partnership/LLC'
+                        : elec === '368'  ? '§368 tax-free reorganization'
+                        : 'a competing nonrecognition election';
+        const altGuidance = elec === '1031' ? 'Real estate that gets §1031\'d carries a substituted basis — there is no recognized gain to defer into a QOF.'
+                          : elec === '1045' ? '§1045 rolls QSBS proceeds into new QSBS within 60 days — the §1202 exclusion (up to $10M or 10× basis, generally 100%) typically beats QOZ economics for QSBS-eligible stock.'
+                          : elec === '1042' ? '§1042 lets the seller roll proceeds into qualified replacement property within 12 months with full basis carryover. Better than QOZ for ESOP transactions.'
+                          : elec === '351' || elec === '721' ? 'Contribution to a controlled corporation or partnership is non-recognition under §351/§721 — no recognized gain to defer.'
+                          : elec === '368' ? 'A qualifying tax-free reorganization defers gain via substituted basis on the stock received — no recognized gain at the deal date.'
+                          : 'No recognized gain occurs in this transaction.';
+        return `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ Competing Election Overrides QOZ — ${elecLabel}</span>
+          ${altGuidance}
+          <br><br>
+          <strong>QOZ deferral does not apply to this transaction.</strong> If you intend to QOZ-defer, you must structure the deal as a <em>recognition event</em> (taxable sale) and <em>not</em> elect ${elecLabel}. Compare the math both ways before committing — for QSBS-qualified stock the §1202 exclusion almost always wins; for ESOP-feasible companies §1042 typically wins for the seller economics.
+        </div>`;
+      })() : ''}
+      ${(!p.scenarios.scenAll.qozBuyerDisqualified && !p.scenarios.scenAll.qozConflictingElection && d.qoz.saleStructure !== 'lump_sum') ? (() => {
+        const struct = d.qoz.saleStructure;
+        const structLabel = struct === 'installment' ? '§453 installment sale'
+                          : struct === 'earnout' ? 'earnout / contingent consideration'
+                          : struct === 'stock_for_stock_boot' ? 'stock-for-stock with cash boot'
+                          : struct === 'promissory_note' ? 'cash + promissory note'
+                          : struct === 'escrow_holdback' ? 'cash with escrow holdback'
+                          : 'multi-payment structure';
+        const guidance = struct === 'installment' ? 'Each principal payment recognizes gain pro-rata under §453. The taxpayer can elect to start the 180-day clock from the date of the original sale OR from the last day of the taxable year in which payment is received (Reg §1.1400Z-2(a)-1(b)(1)). Track each payment and its individual deferral window.'
+                       : struct === 'earnout' ? 'Earnout payments recognize gain when the contingency resolves and the amount is fixed. Each recognition event starts its own 180-day window. Reserve enough QOF capacity for the maximum earnout scenario.'
+                       : struct === 'stock_for_stock_boot' ? 'Only the cash boot creates eligible gain — the stock-for-stock portion is §368 nonrecognition. Compute QOZ capacity from boot alone.'
+                       : struct === 'promissory_note' ? 'If the note is treated as installment under §453, each principal payment starts its own clock. If imputed interest applies, that portion is ordinary and not deferrable.'
+                       : struct === 'escrow_holdback' ? 'Escrow released to the seller is recognized when released (assuming meaningful conditions). Each release starts a separate 180-day clock.'
+                       : 'Verify each recognition event\'s 180-day window with counsel.';
+        return `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Multi-Payment Structure — ${structLabel}</span>
+          ${guidance}
+          <br><br>
+          <strong>Operational implication:</strong> the QOZ deferral amount shown in this plan may need to be staged across multiple QOF investments matching the recognition timeline. File Form 8949 + 8997 reflecting the elected treatment, and document each 180-day clock in the deal binder.
+        </div>`;
+      })() : ''}
+      ${(p.scenarios.scenAll.qozStateNonConforming && p.scenarios.scenAll.qozEligible) ? (() => {
+        const stateName = (typeof STATE_TAX_TABLE !== 'undefined' && STATE_TAX_TABLE[d.clientState]) ? STATE_TAX_TABLE[d.clientState].name : d.clientState;
+        const stateRate = (d.tax.state * 100).toFixed(2);
+        const stateTaxOwed = p.scenarios.scenAll.qozInvestment * d.tax.state;
+        return `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ State Nonconformity — ${esc(stateName)} Does Not Defer Gain</span>
+          ${esc(stateName)} does not conform to IRC §1400Z-2. Even though federal capital gains are deferred via QOF investment, ${esc(stateName)} taxes the full gain at <strong>${stateRate}%</strong> in the year of sale — approximately <strong>${fmt$(stateTaxOwed)}</strong> in state tax due immediately on the QOZ-deferred portion.
+          <br><br>
+          <strong>Plan accordingly:</strong> reserve liquidity for the state tax bill at the federal recognition date. The state tax is permanent (no §1400Z-2 step-up at year 10 for state purposes). If the client is also considering QSBS or §1042, those <em>do</em> conform in some non-conforming states (CA recognizes neither; check your state).
+        </div>`;
+      })() : ''}
+      ${(p.scenarios.scenAll.qozStatePartialConforming && p.scenarios.scenAll.qozEligible) ? (() => {
+        const stateName = (typeof STATE_TAX_TABLE !== 'undefined' && STATE_TAX_TABLE[d.clientState]) ? STATE_TAX_TABLE[d.clientState].name : d.clientState;
+        return `
+        <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ State Conformity Caveat — ${esc(stateName)}</span>
+          ${esc(stateName)} has rolling conformity with carve-outs around §1400Z-2 timing. Confirm with the client's state CPA whether the deferral flows through for ${esc(stateName)} purposes in the year of the federal recognition or at the year-10 step-up. Document the position taken on the state return.
+        </div>`;
+      })() : ''}
       ${(p.scenarios.scenAll.qozTier === 'yellow' && !p.scenarios.scenAll.qozTypeDisqualified) ? (() => {
         const bizMeta = (typeof QOZ_BUSINESS !== 'undefined') ? QOZ_BUSINESS[d.qoz.businessType] : null;
         return `
