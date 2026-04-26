@@ -2667,6 +2667,7 @@
         <select id="plan-type" style="font-size: 14px; font-weight: 600;">
           <option value="sale" selected>Business Sale &mdash; pre-transaction + post-transaction planning</option>
           <option value="annual">Annual Planning &mdash; established client, no liquidity event</option>
+          <option value="business_owner">Business Owner &mdash; corporate &amp; personal tax efficiency + max charitable giving</option>
         </select>
       </div>
     </div>
@@ -5919,7 +5920,12 @@ function renderClientPortrait(p) {
   // Narrative auto-generation — plain-English summary of enabled strategies
   const narrativeParts = [];
   const isAnnual = d.planType === 'annual';
-  if (isAnnual) {
+  const isBusinessOwner = d.planType === 'business_owner';
+  // Both annual and business_owner share the "no liquidity event" rendering path.
+  const isNoSale = isAnnual || isBusinessOwner;
+  if (isBusinessOwner) {
+    narrativeParts.push(`This plan optimizes ${coupleName}'s operating business simultaneously at <strong>three levels</strong>: corporate tax efficiency (entity structure, retained earnings, owner compensation split), personal tax efficiency (§199A QBI, retirement plan stack, muni allocation), and maximum charitable impact (DAF, CLT, qualified appreciated stock gifts).`);
+  } else if (isAnnual) {
     narrativeParts.push(`This is your annual wealth plan — a coordinated framework covering taxes, estate, insurance, and retirement that we review together each year.`);
   } else if (d.biz.sale > 0) {
     narrativeParts.push(`This plan guides ${coupleName} through the sale of ${d.biz.name || 'your business'} — ${fmt$M(d.biz.sale)} of lifetime work — and the decades of wealth stewardship that follow.`);
@@ -6372,7 +6378,7 @@ function renderTechnicalAppendix(p) {
       </div>
       <dl class="cover-meta">
         <dt>Plan Year</dt><dd>${d.client.year || new Date().getFullYear()}</dd>
-        <dt>Plan Type</dt><dd>${d.planType === 'annual' ? 'Annual Wealth Optimization' : 'Business Sale &amp; Wealth Transition'}</dd>
+        <dt>Plan Type</dt><dd>${d.planType === 'annual' ? 'Annual Wealth Optimization' : d.planType === 'business_owner' ? 'Business Owner — Corporate &amp; Personal Tax Efficiency' : 'Business Sale &amp; Wealth Transition'}</dd>
         <dt>Jurisdiction</dt><dd>${d.client.location || '—'} (Federal + ${(d.clientState || '').toUpperCase() || 'N/A'} state)</dd>
         <dt>Strategies</dt><dd>${strategiesInUse.length ? strategiesInUse.join(' · ') : 'None enabled'}</dd>
         <dt>Prepared by</dt><dd>${d.firm?.name || 'Pyle Financial Services'}</dd>
@@ -6657,7 +6663,8 @@ function renderTechnicalAppendix(p) {
 
 function renderSummary(p) {
   const d = p.input;
-  const isAnnual = d.planType === 'annual';
+  // Treat both annual and business_owner as "no sale" plans
+  const isAnnual = d.planType === 'annual' || d.planType === 'business_owner';
 
   // "Today" card — anchors the narrative before any KPI or strategy talk.
   const primaryAge = d.client.primaryAge || 0;
@@ -6975,12 +6982,15 @@ function renderTransaction(p) {
   // body.plan-type-annual .tab-panel#panel-transaction), but PDF export
   // force-shows all panels — so we still need the content to make sense.
   // Return a reframed card that documents the annual-mode context.
-  if (d.planType === 'annual') {
+  if (d.planType === 'annual' || d.planType === 'business_owner') {
+    const isBO = d.planType === 'business_owner';
     return `
       <div class="card" style="border-left: 4px solid var(--gold);">
-        <div class="card-title">Transaction Strategy — Not Applicable (Annual Plan)</div>
+        <div class="card-title">Transaction Strategy — ${isBO ? 'Not Applicable (Business Owner)' : 'Not Applicable (Annual Plan)'}</div>
         <div class="card-sub">
-          This is an <strong>annual planning</strong> engagement with no liquidity event. The Transaction Strategy tab is only relevant for business-sale clients with a pre-transaction + post-transaction playbook. See <strong>Tax Optimization → Annual Planning Playbook</strong> for the year-over-year action items that replace the transaction timeline.
+          ${isBO
+            ? `This is a <strong>Business Owner</strong> engagement focused on running the business tax-efficiently — corporate structure, owner compensation split, retained earnings, and maximum charitable impact at both corporate and personal level. The Transaction Strategy tab is only relevant for business-sale clients. See <strong>Tax Optimization → Zero-Tax Tool Menu</strong> for the corporate + personal + charitable strategy stack.`
+            : `This is an <strong>annual planning</strong> engagement with no liquidity event. The Transaction Strategy tab is only relevant for business-sale clients with a pre-transaction + post-transaction playbook. See <strong>Tax Optimization → Annual Planning Playbook</strong> for the year-over-year action items that replace the transaction timeline.`}
         </div>
       </div>
     `;
@@ -7546,7 +7556,8 @@ function renderBalanceSheet(p) {
   const d = p.input;
   const fmt$ = formatMoney;
   const fmt$M = formatMoneyShort;
-  const isAnnual = d.planType === 'annual';
+  // Treat business_owner like annual (no sale proceeds)
+  const isAnnual = d.planType === 'annual' || d.planType === 'business_owner';
 
   // Assets — categorized
   const liquid    = (isAnnual ? 0 : (p.withPlanningProceeds || 0));
@@ -14503,7 +14514,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     lines.push(`Names: ${d.client.primary || '(unspecified)'}${d.client.spouse ? ' & ' + d.client.spouse : ''}`);
     lines.push(`Ages: ${d.client.primaryAge || '?'}${d.client.spouseAge ? '/' + d.client.spouseAge : ''}`);
     lines.push(`Location: ${d.client.location || '—'} (${(d.clientState || '—').toUpperCase()})`);
-    lines.push(`Plan type: ${d.planType === 'annual' ? 'Annual wealth optimization (no sale)' : 'Business sale + wealth transition'}`);
+    lines.push(`Plan type: ${d.planType === 'annual' ? 'Annual wealth optimization (no sale)' : d.planType === 'business_owner' ? 'Business Owner — operating company; corporate + personal tax efficiency + maximum charitable giving' : 'Business sale + wealth transition'}`);
     if (d.biz.sale > 0) {
       lines.push(`Business sale: ${fmt$M(d.biz.sale)} of ${d.biz.name || 'business'} (${d.biz.type || '?'} entity, ${d.biz.saleType || 'stock'} sale) at ${d.biz.date || 'TBD'}; basis ${fmt$M(d.biz.basis)}`);
     }

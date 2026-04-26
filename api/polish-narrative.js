@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 
 PLAN FACTS:
 - Clients: ${coupleName} in ${client.location || 'their home state'}
-- Plan type: ${planType === 'annual' ? 'Annual wealth optimization (no liquidity event)' : 'Business sale + wealth transition'}
+- Plan type: ${planType === 'annual' ? 'Annual wealth optimization (no liquidity event)' : planType === 'business_owner' ? 'Operating business owner — corporate + personal tax efficiency + maximum charitable giving' : 'Business sale + wealth transition'}
 ${bizSale > 0 ? `- Business sale: ${fmt$M(bizSale)}` : ''}
 - Strategies active: ${(strategies || []).join(', ') || 'none'}
 - Total tax saved: ${fmt$M(kpis.totalTaxSaved)}
