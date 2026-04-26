@@ -4026,6 +4026,224 @@
       </div>
     </div>
 
+    <div class="strategy-block hidden sale-only" id="block-esop-1042">
+      <h4>§1042 ESOP Rollover — C-Corp Owner Capital-Gain Deferral</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        C-Corp owner sells stock to an ESOP and defers <strong>100% of capital gain</strong> by reinvesting proceeds into <strong>Qualified Replacement Property (QRP)</strong> within 12 months (§1042(c)(4)). Requires the ESOP to own ≥30% of the company post-sale (§1042(b)(2)). Carryover basis from sold stock to QRP — gain recognized when QRP sold (or stepped up at death). §409(n) prohibits seller from participating in ESOP allocations for 10 years. Pair with §1042 + IDGT for "double rollover" / permanent deferral.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Stock Sale to ESOP</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="esop-1042-amount" value="20000000"></div>
+        </div>
+        <div class="field">
+          <label>Adjusted Stock Basis</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="esop-1042-basis" value="100000"></div>
+        </div>
+        <div class="field">
+          <label>ESOP Stake Post-Sale <span class="hint">(must be ≥ 30%)</span></label>
+          <div class="suffix-pct"><input type="number" id="esop-1042-stake" value="30" min="0" max="100"></div>
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>QRP Reinvestment Amount <span class="hint">(must equal proceeds for full deferral)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="esop-1042-qrp" value="20000000"></div>
+        </div>
+        <div class="field">
+          <label>Plan to Hold QRP Until Death? <span class="hint">(step-up = permanent deferral)</span></label>
+          <select id="esop-1042-step-up">
+            <option value="yes" selected>Yes — basis steps up at death (permanent exclusion)</option>
+            <option value="no">No — gain recognized when QRP sold</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>C-Corp Confirmation</label>
+          <select id="esop-1042-ccorp">
+            <option value="yes" selected>Yes — entity is a C-Corp</option>
+            <option value="no">No — DISQUALIFIES §1042 (S-Corps use §1042 only after C-conversion + 5-yr wait)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden sale-only" id="block-mon-install">
+      <h4>Monetized Installment Sale — §453 Note Plus Upfront Loan</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Sell appreciated property on a 30-year installment note (§453), then borrow against the note for ~93-95% of the proceeds upfront. Capital gain is deferred until the note matures; interest income on note ≈ interest expense on monetization loan, so cash-flow neutral during the term. <strong>IRS focus area:</strong> Notice 2023-34 + 2023-65 designate certain monetized installment structures as "transactions of interest" — high audit-disclosure burden. Use only with reputable structurers using arms-length terms.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Sale Price (Property → Note)</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="mon-install-amount" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Property Adjusted Basis</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="mon-install-basis" value="500000"></div>
+        </div>
+        <div class="field">
+          <label>Note Term (Years) <span class="hint">(typically 30)</span></label>
+          <input type="number" id="mon-install-term" value="30" min="5" max="40">
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>AFR / Note Rate <span class="hint">(long-term AFR)</span></label>
+          <div class="suffix-pct"><input type="number" id="mon-install-rate" value="4.5" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Monetization Loan % <span class="hint">(typically 93-95% of sale)</span></label>
+          <div class="suffix-pct"><input type="number" id="mon-install-loan-pct" value="93" min="50" max="95"></div>
+        </div>
+        <div class="field">
+          <label>Loan Interest Rate <span class="hint">(typically ≈ note rate)</span></label>
+          <div class="suffix-pct"><input type="number" id="mon-install-loan-rate" value="4.6" step="0.1"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-captive">
+      <h4>Domestic Captive Insurance — §831(b) Micro-Captive</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Owner forms a separate insurance company that insures specific risks of the operating business. Premiums are <strong>deductible to the operating co</strong> (up to insurable risk). The captive elects §831(b): premiums up to <strong>$2.65M (2024 indexed)</strong> are <strong>tax-free</strong> at the captive level. Capital accumulates inside the captive at corporate (or 0%) tax. <strong>IRS focus area:</strong> Notice 2016-66 + Avrahami v. Comm'r — micro-captives are listed transactions; require real risk transfer, arms-length pricing, diversified risk pool, qualified actuary, and audited financials.
+      </p>
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>Annual Premium to Captive</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="captive-premium" value="1500000"></div>
+        </div>
+        <div class="field">
+          <label>Years Funded</label>
+          <input type="number" id="captive-years" value="10" min="3" max="30">
+        </div>
+        <div class="field">
+          <label>§831(b) Election Made? <span class="hint">(required for $2.65M cap)</span></label>
+          <select id="captive-831b">
+            <option value="yes" selected>Yes — §831(b) micro-captive</option>
+            <option value="no">No — taxable at corporate rate</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Risk Pool Diversification <span class="hint">(safe-harbor protection)</span></label>
+          <select id="captive-pool">
+            <option value="yes" selected>Yes — &lt;50% premiums from any one insured</option>
+            <option value="no">No — concentrated risk (Avrahami exposure)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-pf">
+      <h4>Premium Finance — Bank-Funded Life Insurance</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Bank loans the annual premiums on a large permanent life policy, secured by the policy's cash value plus collateral. Death benefit pays off the loan and leaves net to family. Economics work only when <strong>policy crediting rate &gt; loan interest rate</strong> by enough margin to cover collateral costs. Highly rate-sensitive; 2024-2026 SOFR+ environment squeezes the spread on indexed-UL policies. §264 limits interest deduction; usually held in ILIT for estate-tax exclusion.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Total Death Benefit</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="pf-db" value="20000000"></div>
+        </div>
+        <div class="field">
+          <label>Annual Premium</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="pf-premium" value="500000"></div>
+        </div>
+        <div class="field">
+          <label>Premium Years <span class="hint">(typically 7-10)</span></label>
+          <input type="number" id="pf-years" value="10" min="3" max="20">
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Loan Interest Rate <span class="hint">(SOFR + spread)</span></label>
+          <div class="suffix-pct"><input type="number" id="pf-loan-rate" value="6.5" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Policy Crediting Rate <span class="hint">(expected indexed-UL or whole-life)</span></label>
+          <div class="suffix-pct"><input type="number" id="pf-credit-rate" value="6.0" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Held in ILIT? <span class="hint">(estate exclusion)</span></label>
+          <select id="pf-ilit">
+            <option value="yes" selected>Yes — ILIT-owned</option>
+            <option value="no">No — personally owned (in estate)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-nimcrut">
+      <h4>NIMCRUT — Net Income with Make-up Charitable Remainder Unitrust §664(d)(3)</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Hybrid CRUT: annual distribution = <strong>lesser of</strong> (a) the unitrust amount or (b) the trust's actual income. Shortfall years carry forward as a "make-up" liability paid in later high-income years. Powerful when funded with non-income-producing assets (closely-held stock, raw land) — pre-sale years distribute little, post-sale year (when stock sells) distributes large catch-up. Used for income-deferral + estate-removal + charitable deduction in a single structure.
+      </p>
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>Contribution Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="nimcrut-amount" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Unitrust Rate <span class="hint">(5–50%)</span></label>
+          <div class="suffix-pct"><input type="number" id="nimcrut-rate" value="6" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Year of Asset Sale <span class="hint">(income spike year)</span></label>
+          <input type="number" id="nimcrut-sale-year" value="3" min="1" max="20">
+        </div>
+        <div class="field">
+          <label>Trust Term (Years) <span class="hint">(or life)</span></label>
+          <input type="number" id="nimcrut-term" value="20" min="5" max="40">
+        </div>
+      </div>
+      <div class="form-grid cols-2" style="margin-top: 14px;">
+        <div class="field">
+          <label>Pre-Sale Annual Income % <span class="hint">(low — non-income asset)</span></label>
+          <div class="suffix-pct"><input type="number" id="nimcrut-pre-income" value="1" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Charitable Deduction Factor <span class="hint">(PV of remainder, ~30-40%)</span></label>
+          <div class="suffix-pct"><input type="number" id="nimcrut-ded-factor" value="35"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-walton-grat">
+      <h4>Walton (Zeroed-Out) GRAT — Estate Freeze with Near-Zero Gift Tax</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Variant of standard GRAT structured so the annuity factor produces a taxable gift of <strong>$0</strong> (per Walton v. Comm'r 115 T.C. 589). All asset appreciation above the §7520 hurdle rate passes to heirs <strong>gift-tax-free</strong>. Short term (2-3 years) for volatile assets; multiple "rolling" Walton GRATs to compound success. Mortality risk: if grantor dies during term, asset returns to estate (loss of opportunity, not loss of capital).
+      </p>
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>Funding Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="walton-amount" value="5000000"></div>
+        </div>
+        <div class="field">
+          <label>GRAT Term (Years) <span class="hint">(2-5 typical for Walton)</span></label>
+          <input type="number" id="walton-term" value="2" min="2" max="10">
+        </div>
+        <div class="field">
+          <label>§7520 Rate <span class="hint">(IRS monthly rate)</span></label>
+          <div class="suffix-pct"><input type="number" id="walton-7520" value="5" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Expected Annual Return <span class="hint">(asset growth)</span></label>
+          <div class="suffix-pct"><input type="number" id="walton-return" value="12" step="0.5"></div>
+        </div>
+      </div>
+      <div class="form-grid cols-2" style="margin-top: 14px;">
+        <div class="field">
+          <label>Grantor Age <span class="hint">(mortality during term reverts asset to estate)</span></label>
+          <input type="number" id="walton-age" value="55" min="30" max="90">
+        </div>
+        <div class="field">
+          <label>Plan to Roll Successive GRATs? <span class="hint">(compound the win on volatile assets)</span></label>
+          <select id="walton-roll">
+            <option value="yes" selected>Yes — rolling Walton ladder</option>
+            <option value="no">No — single GRAT only</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <!-- Hidden checkboxes preserve existing JS wiring (strategyMap in mode-switch code) -->
     <div style="display:none" aria-hidden="true">
       <input type="checkbox" id="use-dynasty" checked>
@@ -4044,6 +4262,12 @@
       <input type="checkbox" id="use-crut">
       <input type="checkbox" id="use-clt">
       <input type="checkbox" id="use-oilgas">      <!-- Oil &amp; Gas Working Interest (§263(c) IDC + §469(c)(3) active-loss exception) -->
+      <input type="checkbox" id="use-esop-1042">   <!-- §1042 ESOP rollover (C-corp owner CG deferral) -->
+      <input type="checkbox" id="use-mon-install"> <!-- Monetized Installment Sale (§453 + monetization loan) -->
+      <input type="checkbox" id="use-captive">     <!-- Domestic Captive Insurance (§831(b) micro-captive) -->
+      <input type="checkbox" id="use-pf">          <!-- Premium Finance life insurance -->
+      <input type="checkbox" id="use-nimcrut">     <!-- NIMCRUT (§664(d)(3) net-income with make-up CRUT) -->
+      <input type="checkbox" id="use-walton-grat"> <!-- Walton zeroed-out GRAT -->
       <!-- New Phase-1 strategies (hidden toggles; real inputs in dedicated
            sections elsewhere when implemented). Solver uses these directly. -->
       <input type="checkbox" id="use-dbplan">      <!-- Defined Benefit / Cash Balance Plan -->
@@ -4911,6 +5135,48 @@ const STRATEGIES = [
     useId: 'use-ceasement', blockId: 'block-ceasement',
   },
   {
+    id: 'esop-1042', name: '§1042 ESOP Rollover',
+    category: 'capgains',
+    tags: ['reduces_capgains_tax', 'requires_liquidity_event'],
+    desc: 'C-Corp owner sells ≥30% to ESOP and defers 100% of CG by reinvesting proceeds in Qualified Replacement Property within 12 months. Carryover basis to QRP; permanent exclusion if held to death.',
+    useId: 'use-esop-1042', blockId: 'block-esop-1042',
+  },
+  {
+    id: 'mon-install', name: 'Monetized Installment Sale',
+    category: 'capgains',
+    tags: ['reduces_capgains_tax', 'requires_liquidity_event'],
+    desc: 'Sale on 30-year §453 installment note + ~93% upfront monetization loan. Defers gain to year-30; cash-flow neutral during term. IRS focus area — Notice 2023-34 disclosure required.',
+    useId: 'use-mon-install', blockId: 'block-mon-install',
+  },
+  {
+    id: 'captive', name: 'Domestic Captive Insurance §831(b)',
+    category: 'income',
+    tags: ['reduces_income_tax'],
+    desc: 'Owner-controlled insurance company insures specific business risks. Premiums (up to $2.65M/yr in 2024) deductible to operating co + tax-free at captive. Real risk transfer + diversified pool required.',
+    useId: 'use-captive', blockId: 'block-captive',
+  },
+  {
+    id: 'premium-finance', name: 'Premium Finance Life Insurance',
+    category: 'estate',
+    tags: ['reduces_estate_tax'],
+    desc: 'Bank loans premium payments on large permanent life policy. Death benefit pays loan + leaves net to family. Economics work only when crediting rate > loan rate. Hold in ILIT for estate exclusion.',
+    useId: 'use-pf', blockId: 'block-pf',
+  },
+  {
+    id: 'nimcrut-built', name: 'NIMCRUT — Net Income w/ Make-up CRUT',
+    category: 'giving',
+    tags: ['reduces_capgains_tax', 'reduces_estate_tax', 'charitable', 'generates_income', 'requires_irrevocable'],
+    desc: 'CRUT variant: distribution = lesser of unitrust amount or actual income. Pre-sale years distribute little; post-sale catches up. Ideal for closely-held stock contributions.',
+    useId: 'use-nimcrut', blockId: 'block-nimcrut',
+  },
+  {
+    id: 'walton-grat-built', name: 'Walton GRAT (Zeroed-Out)',
+    category: 'estate',
+    tags: ['reduces_estate_tax'],
+    desc: 'Zeroed-out GRAT — taxable gift = $0. All appreciation above §7520 rate passes to heirs gift-tax-free. Short term (2-3yr) for volatile assets; rolling Walton ladder to compound wins.',
+    useId: 'use-walton-grat', blockId: 'block-walton-grat',
+  },
+  {
     id: 'qbi-199a', name: '§199A QBI Deduction',
     category: 'income',
     tags: ['reduces_income_tax'],
@@ -5065,7 +5331,7 @@ const STRATEGY_CATALOG = [
   { id: 'ignit',         table: 'personal', section: 'charitable', name: 'IGNIT Plan™', status: 'consideration', definition: 'Integrated Generational Non-grantor IDGT — combines IDGT installment-sale leverage with non-grantor income shifting.', whenToUse: 'Sale of business to dynasty trust where state-tax arbitrage adds material value', statutes: ['§671 (grantor rules)','§267'] },
   { id: 'bargain_sale',  table: 'personal', section: 'charitable', name: 'Bargain Sale to Charity', status: 'consideration', definition: 'Donor sells appreciated asset to charity below FMV. Capital gain only on the sale portion; deduction on the gift portion.', whenToUse: 'Donor wants liquidity but also charitable benefit; works for low-basis property', statutes: ['§1011(b)','§170'] },
   { id: 'gift_annuity',  table: 'personal', section: 'charitable', name: 'Charitable Gift Annuity', status: 'consideration', definition: 'Donor gives cash/property to charity in exchange for fixed lifetime annuity from the charity\'s general fund.', whenToUse: 'Smaller gifts ($25K+) where donor wants simple lifetime income + charity', statutes: ['§170','§501(m)','ACGA rate tables'] },
-  { id: 'nimcrut',       table: 'personal', section: 'charitable', name: 'NIMCRUT', status: 'consideration', definition: 'Net Income with Make-up CRUT. Income limited to actual trust earnings, with deficit make-up in later high-earning years.', whenToUse: 'Holding non-income-producing asset (e.g., closely-held stock) where donor wants flexibility', statutes: ['§664(d)(3)'] },
+  { id: 'nimcrut',       table: 'personal', section: 'charitable', name: 'NIMCRUT', status: 'built', useId: 'use-nimcrut', blockId: 'block-nimcrut', definition: 'Net Income with Make-up CRUT. Income limited to actual trust earnings, with deficit make-up in later high-earning years.', whenToUse: 'Holding non-income-producing asset (e.g., closely-held stock) where donor wants flexibility', statutes: ['§664(d)(3)','Reg §1.664-3(a)(1)(i)(b)','Reg §1.664-3(a)(1)(i)(c) FLIP'], pros: ['Income deferred until asset sale','Eliminates CG on contributed asset','Estate removal'], cons: ['Irrevocable','Make-up administration complex','5% annual remainder test'] },
   { id: 'flipcrut',      table: 'personal', section: 'charitable', name: 'FLIPCRUT', status: 'consideration', definition: 'NIMCRUT that "flips" to standard CRUT upon a triggering event (typically sale of contributed asset).', whenToUse: 'Funding CRT with hard-to-value asset that will be sold mid-term', statutes: ['§664(d)(3)','Reg §1.664-3(a)(1)(i)(c)'] },
   { id: 'balloon_clat',  table: 'personal', section: 'charitable', name: 'Balloon CLAT', status: 'consideration', definition: 'CLAT with backloaded annuity payments. Heavy upfront wealth retention then accelerated charitable payout.', whenToUse: 'Maximum heir transfer leverage when §7520 rate is low', statutes: ['§170(f)(2)(B)','§7520','Rev. Rul. 2012-3'] },
   { id: 'clt',           table: 'personal', section: 'charitable', name: 'Charitable Lead Trust', status: 'built', useId: 'use-clt', blockId: 'block-clt', definition: 'Inverse of CRT — charity receives income for term, remainder passes to heirs gift-tax-free. Huge estate-tax leverage when §7520 rate is low.', whenToUse: 'High-§7520 era estate planning OR low-rate era for max heir leverage', statutes: ['§170(f)(2)(B)','§2522(c)(2)(B)','§2055(e)'], pros: ['Massive heir leverage','Charitable deduction'], cons: ['Irrevocable','Complex GST issues'] },
@@ -5074,13 +5340,13 @@ const STRATEGY_CATALOG = [
   // Personal Planning Tools (sage forest)
   { id: 'young_pif',     table: 'personal', section: 'personal', name: 'Young Pooled Income Fund', status: 'consideration', definition: 'Charity-managed pooled income fund for younger donors — provides higher charitable deduction due to long term.', whenToUse: 'Donors under 50 wanting modest income + max deduction', statutes: ['§642(c)(5)','§170(f)(2)(A)'] },
   { id: 'rent_to_own',   table: 'personal', section: 'personal', name: 'Rent To Own', status: 'consideration', definition: 'Wealth-transfer technique: family member rents at FMV with option to purchase at predetermined price.', whenToUse: 'Transferring residence or business property to next generation gradually', statutes: ['§2702','§7872 (interest imputation)'] },
-  { id: 'grat_walton',   table: 'personal', section: 'personal', name: 'Walton GRAT', status: 'consideration', definition: 'Zeroed-out GRAT structure — taxable gift = $0, all upside above §7520 rate passes to heirs gift-tax-free.', whenToUse: 'Volatile asset with expected outsized appreciation; 2-3 year terms', statutes: ['§2702','Rev. Rul. 77-454','Walton v. Comm\'r 115 T.C. 589'] },
+  { id: 'grat_walton',   table: 'personal', section: 'personal', name: 'Walton GRAT', status: 'built', useId: 'use-walton-grat', blockId: 'block-walton-grat', definition: 'Zeroed-out GRAT structure — taxable gift = $0, all upside above §7520 rate passes to heirs gift-tax-free.', whenToUse: 'Volatile asset with expected outsized appreciation; 2-3 year terms', statutes: ['§2702(b)','§7520','Walton v. Comm\'r 115 T.C. 589 (2000)','Reg §25.2702-3'], pros: ['Zero taxable gift','Heads-I-win-tails-even','Rolling ladder compounds'], cons: ['Mortality risk during term','Short term limits compounding','Asset must outperform §7520'] },
   { id: 'rev_living_trust', table: 'personal', section: 'personal', name: 'Revocable Living Trust + DPA', status: 'consideration', definition: 'Probate-avoidance vehicle + Durable Power of Attorney for incapacity. Foundational document set.', whenToUse: 'Every plan — basic estate-planning hygiene', statutes: ['State probate code','§676'] },
   { id: 'preferred_lp',  table: 'personal', section: 'personal', name: 'Preferred Limited Partnership', status: 'consideration', definition: 'FLP variant with frozen-value preferred + appreciating common interests held by next generation.', whenToUse: 'Estate freeze on actively-managed family business or real estate', statutes: ['§2701','Rev. Rul. 83-120'] },
   { id: 'jurisdictional_trust', table: 'personal', section: 'personal', name: 'Jurisdictional Trust', status: 'consideration', definition: 'Trust sited in favorable state (DE, NV, SD, AK) for tax, asset-protection, or perpetuities benefits.', whenToUse: 'High-tax state residents seeking situs arbitrage', statutes: ['Rev. Rul. 2008-22','State trust statutes'] },
   { id: 'succession_planning', table: 'personal', section: 'personal', name: 'Succession Planning', status: 'consideration', definition: 'Multi-year process: leadership transition, ownership transfer, estate plan, governance.', whenToUse: 'Family business owners 5-10 years from desired exit', statutes: ['§2032A (special-use)','§303 (redemption)'] },
   { id: 'flp',           table: 'personal', section: 'personal', name: 'Family Limited Partnership', status: 'available', useId: 'use-flp', definition: 'Valuation-discount vehicle for transferring partnership interests to family at lack-of-marketability + minority discount.', whenToUse: 'Real estate or business assets; wants 25-40% valuation discount on gifts', statutes: ['§2036','§2701','Estate of Strangi','Estate of Bongard','Bongard v. Comm\'r 124 T.C. 95'], pros: ['25-40% valuation discount','Centralized management'], cons: ['§2036 retained-control risk','Bongard substance test'] },
-  { id: 'monetized_install_sale', table: 'personal', section: 'personal', name: 'Monetized Installment Sale', status: 'consideration', definition: 'Sale on 30-yr installment note + upfront monetization loan against the note. Defers gain while providing liquidity.', whenToUse: 'Sale of low-basis property where §1031 unavailable; client needs liquidity now', statutes: ['§453','§453A interest charge','Burnett v. Logan'] },
+  { id: 'monetized_install_sale', table: 'personal', section: 'personal', name: 'Monetized Installment Sale', status: 'built', useId: 'use-mon-install', blockId: 'block-mon-install', definition: 'Sale on 30-yr installment note + upfront monetization loan against the note. Defers gain while providing liquidity.', whenToUse: 'Sale of low-basis property where §1031 unavailable; client needs liquidity now', statutes: ['§453','§453A interest charge','Notice 2023-34 / 2023-65 — listed transaction','Burnett v. Logan'], pros: ['~93% upfront liquidity','Gain deferred 30 years','Cash-flow neutral during term'], cons: ['IRS focus area — Form 8886 disclosure','Note default risk','Counterparty (structurer) risk'] },
   { id: 'slat',          table: 'personal', section: 'personal', name: 'SLAT', status: 'built', useId: 'use-slat', blockId: 'block-slat', definition: 'Spousal Lifetime Access Trust — irrevocable trust for benefit of spouse + descendants. Uses lifetime exemption while preserving indirect access.', whenToUse: 'Use exemption now (esp. before sunset) without losing access to assets', statutes: ['§2503','§2511','Reciprocal Trust Doctrine'], pros: ['Uses exemption','Spouse retains beneficial access'], cons: ['Reciprocal trust risk if both spouses fund','Divorce/death of spouse cuts off access'] },
   { id: 'gifting',       table: 'personal', section: 'personal', name: 'Annual Gifting', status: 'consideration', definition: 'Annual exclusion gifts ($18K/recipient/year in 2024 — indexed). 529 5-year accelerated gifts.', whenToUse: 'Every plan with significant net worth + family', statutes: ['§2503(b)','§529(c)(2)(B)'] },
   { id: 'family_llc',    table: 'personal', section: 'personal', name: 'Family LLC', status: 'consideration', definition: 'LLC variant of FLP — pass-through taxation, governance flexibility, valuation discounts on gifted membership interests.', whenToUse: 'Same use cases as FLP but with charging-order protection in DE/NV/WY', statutes: ['§2036','§2701','State LLC charging-order statutes'] },
@@ -5091,7 +5357,7 @@ const STRATEGY_CATALOG = [
   { id: 'annuity_withdrawal', table: 'personal', section: 'personal', name: 'Annuity Withdrawal Strategy', status: 'consideration', definition: 'Strategic withdrawal sequencing from non-qualified annuities to manage tax-deferred buildup vs. distribution timing.', whenToUse: 'Pre-retirement clients with significant deferred-annuity balances', statutes: ['§72(e)','§72(q)'] },
   { id: 'dynasty',       table: 'personal', section: 'personal', name: 'Dynasty Trust', status: 'built', useId: 'use-dynasty', blockId: 'block-dynasty', definition: 'Multi-generational trust that escapes estate + GST tax for generations. Funded with lifetime exemption + GST exemption.', whenToUse: 'Family with sufficient assets to leave material wealth to grandchildren+', statutes: ['§2631 (GST exemption)','State perpetuities statutes (DE/SD/AK)'], pros: ['Multi-generational tax-free wealth','GST exemption leverage'], cons: ['Irrevocable','State situs choice critical'] },
   { id: 'corp_recap',    table: 'personal', section: 'personal', name: 'Corporate Recapitalization', status: 'consideration', definition: 'Restructure corp into voting + non-voting (or preferred + common) classes for valuation-discount gifting.', whenToUse: 'Owner wants to gift discounted non-voting shares while retaining control', statutes: ['§2701','§368(a)(1)(E)','Rev. Rul. 83-120'] },
-  { id: 'premium_finance', table: 'personal', section: 'personal', name: 'Premium Finance', status: 'consideration', definition: 'Bank loan funds life-insurance premiums. Death benefit pays off loan + leaves net to family. Highly rate-sensitive.', whenToUse: 'Need large death benefit but reluctant to commit cash to premiums; rate < expected policy IRR', statutes: ['§7702','§264 (interest deduction limits)'] },
+  { id: 'premium_finance', table: 'personal', section: 'personal', name: 'Premium Finance', status: 'built', useId: 'use-pf', blockId: 'block-pf', definition: 'Bank loan funds life-insurance premiums. Death benefit pays off loan + leaves net to family. Highly rate-sensitive.', whenToUse: 'Need large death benefit but reluctant to commit cash to premiums; rate < expected policy IRR', statutes: ['§7702','§264 — interest deduction limits','§101 — DB exclusion'], pros: ['Leverage premium payments','Large net DB without big out-of-pocket','ILIT excludes from estate'], cons: ['Rate-sensitive — squeezed at SOFR+','Collateral calls if cash value drops','§264 caps interest deduction'] },
   { id: 'buy_sell',      table: 'personal', section: 'personal', name: 'Buy-Sell Agreement', status: 'consideration', definition: 'Contractual obligation to buy/sell business interest at death/disability/departure. Often funded by life insurance.', whenToUse: 'Closely-held business with multiple owners', statutes: ['§2703','Connelly v. U.S. (2024) — life insurance proceeds in valuation'] },
   { id: 'ilit',          table: 'personal', section: 'personal', name: 'ILIT', status: 'built', useId: 'use-ilit', blockId: 'block-ilit', definition: 'Irrevocable Life Insurance Trust — owns the policy outside the estate, providing tax-free death benefit liquidity.', whenToUse: 'Estate-tax exposure + need for death-benefit liquidity', statutes: ['§2042','§2035 (3-yr lookback)','§677','§7702'], pros: ['Tax-free death benefit','Estate exclusion'], cons: ['Irrevocable','§2035 3-yr lookback if existing policy transferred'] },
   { id: 'ing_trust',     table: 'personal', section: 'personal', name: 'Intentional Non-Grantor Trust (ING)', status: 'consideration', definition: 'Self-settled trust in DE/NV that is non-grantor for income tax — shifts income off donor\'s state return to no-tax jurisdiction.', whenToUse: 'High-state-tax residents with significant investment income', statutes: ['§672(f)','State trust statutes'] },
@@ -5106,7 +5372,7 @@ const STRATEGY_CATALOG = [
 
   // Qualified Planning Tools (warm bronze)
   { id: 'qualified_plan_xfer', table: 'personal', section: 'qualified', name: 'Qualified Plan Transfer', status: 'consideration', definition: 'Strategic transfer of qualified-plan assets via trustee-to-trustee rollover, in-service distribution, or NUA election.', whenToUse: 'Pre-retirement employer-stock holders; managing RMDs', statutes: ['§402(e)(4)','§401(a)(31)','§408(d)(3)'] },
-  { id: 'esop_planning', table: 'personal', section: 'qualified', name: 'ESOP Planning', status: 'consideration', definition: 'Sale of C-corp stock to ESOP triggers §1042 deferred-gain rollover into qualified replacement property.', whenToUse: 'C-corp owner age 50+; willing to sell ≥30% to employees', statutes: ['§1042','§4975(d)(13)','§409'] },
+  { id: 'esop_planning', table: 'personal', section: 'qualified', name: 'ESOP Planning (§1042 Rollover)', status: 'built', useId: 'use-esop-1042', blockId: 'block-esop-1042', definition: 'Sale of C-corp stock to ESOP triggers §1042 deferred-gain rollover into qualified replacement property.', whenToUse: 'C-corp owner age 50+; willing to sell ≥30% to employees', statutes: ['§1042','§1042(b)(2) — 30% requirement','§1042(c)(4) — QRP','§409(n)','§4975(d)(13)','§1014 step-up'], pros: ['100% CG deferral on sale','Permanent exclusion if QRP held to death','Employee continuity'], cons: ['§409(n) blocks seller from ESOP allocations 10yr','QRP definition restrictive (no mutual funds)','Repurchase obligation on company'] },
   { id: 'pension_rescue', table: 'personal', section: 'qualified', name: 'Pension Rescue', status: 'consideration', definition: 'Strategic redesign of underperforming/over-funded DB plan to release excess assets for owner retirement.', whenToUse: 'Owner-only DB plan with excess assets nearing termination', statutes: ['§412','§4980 (50% reversion excise)','§4972'] },
   { id: 'db_plan',       table: 'personal', section: 'qualified', name: 'Defined Benefit / Cash Balance Plan', status: 'built', useId: 'use-dbplan', blockId: 'block-dbplan', definition: 'High-contribution-limit qualified plan for owners 45+ — up to ~$300k/yr deductible, stacks with 401(k)/profit-sharing.', whenToUse: 'High-earning solo or small-firm owner age 50+ with 5+ year horizon', statutes: ['§401(a)','§415(b)','§404(o)','§412'], pros: ['$285K+ annual deduction','Stacks with 401(k)+PS','Tax-deferred growth'], cons: ['Mandatory funding','Nondiscrimination testing if employees'] },
   { id: 'profit_sharing', table: 'personal', section: 'qualified', name: 'Profit-Sharing Plan', status: 'consideration', definition: 'Discretionary employer-funded retirement plan; new comparability designs allow owner to receive most of contribution.', whenToUse: 'Owner wants flexible (vs mandatory) annual contribution; new comparability for owner-favored allocation', statutes: ['§401(a)','§401(a)(4)','§415(c)'] },
@@ -5150,7 +5416,7 @@ const STRATEGY_CATALOG = [
 
   // Tax & wealth transfer planning (slate teal)
   { id: 'flp_biz',       table: 'business', section: 'tax-wealth', name: 'Family Limited Partnership', status: 'available', useId: 'use-flp', definition: 'Operating-business or real-estate FLP for valuation-discount intra-family transfers.', whenToUse: 'Owner gifting business interests to next gen', statutes: ['§2036','§2701','Bongard'] },
-  { id: 'domestic_captive', table: 'business', section: 'tax-wealth', name: 'Domestic Captive Insurance', status: 'consideration', definition: 'Owner-formed insurance company insures specific business risks. Premiums deductible to operating co; captive defers/excludes income via §831(b) micro-captive election.', whenToUse: 'Operating business with $500k-$2.5M in insurable risks', statutes: ['§831(b)','§953(d)','Avrahami v. Comm\'r'] },
+  { id: 'domestic_captive', table: 'business', section: 'tax-wealth', name: 'Domestic Captive Insurance', status: 'built', useId: 'use-captive', blockId: 'block-captive', definition: 'Owner-formed insurance company insures specific business risks. Premiums deductible to operating co; captive defers/excludes income via §831(b) micro-captive election.', whenToUse: 'Operating business with $500k-$2.5M in insurable risks', statutes: ['§831(b)','§953(d)','Avrahami v. Comm\'r 149 T.C. 7','Reserve Mechanical T.C. Memo 2018-86','Notice 2016-66'], pros: ['Operating co premium deduction','Captive reserves grow tax-free up to $2.65M','Risk-management formalization'], cons: ['IRS focus area — listed transaction','Real risk transfer required','Diversified pool required'] },
   { id: 'crt_c_corp',    table: 'business', section: 'tax-wealth', name: 'CRT with C-Corp Stock', status: 'consideration', definition: 'Contribute appreciated C-corp stock to CRT before sale → eliminates CG on sale, generates charitable deduction, provides annuity to donor.', whenToUse: 'C-corp owner wanting charitable + income; pre-sale planning', statutes: ['§664','§170','§4940'] },
   { id: 'nimcrut_planning', table: 'business', section: 'tax-wealth', name: 'NIMCRUT Planning', status: 'consideration', definition: 'NIMCRUT funded with closely-held stock — distributions limited to actual income until sale of stock triggers make-up.', whenToUse: 'Pre-sale charitable + flexible-income strategy', statutes: ['§664(d)(3)'] },
   { id: 'intl_captive',  table: 'business', section: 'tax-wealth', name: 'International Captive Insurance', status: 'consideration', definition: 'Captive insurance company in offshore jurisdiction (Bermuda, Cayman) for premium deduction + tax-deferred reserves.', whenToUse: 'Larger insurable-risk profiles ($2M+ premiums); UHNW', statutes: ['§953(d)','§831(b)','§952','Subpart F'] },
@@ -5854,6 +6120,12 @@ function readForm() {
       ing: c('use-ing'), ceasement: c('use-ceasement'),
       collar: c('use-collar'), pvf: c('use-pvf'), exchfund: c('use-exchfund'),
       oilgas: c('use-oilgas'),
+      esop1042: c('use-esop-1042'),
+      monInstall: c('use-mon-install'),
+      captive: c('use-captive'),
+      pf: c('use-pf'),
+      nimcrut: c('use-nimcrut'),
+      waltonGrat: c('use-walton-grat'),
     },
     dynasty: {
       funding: n('dt-funding'),
@@ -5935,6 +6207,58 @@ function readForm() {
       production: n('oilgas-production'),
       prodYears:  n('oilgas-prod-years') || 8,
       risk:       t('oilgas-risk') || 'developmental',
+    },
+    // §1042 ESOP rollover — C-Corp CG deferral via QRP reinvestment
+    esop1042: {
+      amount: n('esop-1042-amount'),
+      basis:  n('esop-1042-basis'),
+      stake:  n('esop-1042-stake') / 100,
+      qrp:    n('esop-1042-qrp'),
+      stepUp: t('esop-1042-step-up') === 'yes',
+      cCorp:  t('esop-1042-ccorp') === 'yes',
+    },
+    // Monetized Installment Sale — §453 note + monetization loan
+    monInstall: {
+      amount:    n('mon-install-amount'),
+      basis:     n('mon-install-basis'),
+      term:      n('mon-install-term') || 30,
+      rate:     (n('mon-install-rate') || 4.5) / 100,
+      loanPct:  (n('mon-install-loan-pct') || 93) / 100,
+      loanRate:(n('mon-install-loan-rate') || 4.6) / 100,
+    },
+    // Domestic Captive Insurance — §831(b) micro-captive
+    captive: {
+      premium:   n('captive-premium'),
+      years:     n('captive-years') || 10,
+      election831b: t('captive-831b') === 'yes',
+      diversified:  t('captive-pool') === 'yes',
+    },
+    // Premium Finance — bank-funded life insurance
+    pf: {
+      deathBenefit: n('pf-db'),
+      premium:      n('pf-premium'),
+      years:        n('pf-years') || 10,
+      loanRate:    (n('pf-loan-rate') || 6.5) / 100,
+      creditRate:  (n('pf-credit-rate') || 6.0) / 100,
+      ilit:         t('pf-ilit') === 'yes',
+    },
+    // NIMCRUT — net-income with make-up CRUT (§664(d)(3))
+    nimcrut: {
+      amount:     n('nimcrut-amount'),
+      rate:      (n('nimcrut-rate') || 6) / 100,
+      saleYear:   n('nimcrut-sale-year') || 3,
+      term:       n('nimcrut-term') || 20,
+      preIncome: (n('nimcrut-pre-income') || 1) / 100,
+      dedFactor: (n('nimcrut-ded-factor') || 35) / 100,
+    },
+    // Walton zeroed-out GRAT
+    waltonGrat: {
+      amount:    n('walton-amount'),
+      term:      n('walton-term') || 2,
+      rate7520: (n('walton-7520') || 5) / 100,
+      ret:      (n('walton-return') || 12) / 100,
+      age:       n('walton-age') || 55,
+      rolling:   t('walton-roll') === 'yes',
     },
     slat: { funding: n('slat-funding'), growth: n('slat-growth') / 100, years: n('slat-years'), discount: n('slat-discount') / 100 },
     idgt: { amount: n('idgt-amount'), afr: n('idgt-afr') / 100, growth: n('idgt-growth') / 100, term: n('idgt-term'), discount: n('idgt-discount') / 100 },
@@ -6801,6 +7125,127 @@ function computePlan(d) {
   }
 
   // ──────────────────────────────────────────────────────────────────────
+  // §1042 ESOP Rollover — C-Corp owner CG deferral
+  //   Eligibility: ESOP must own ≥30% post-sale (§1042(b)(2)) AND C-Corp.
+  //   Defers gain by reinvesting in QRP (qualified replacement property)
+  //   within 12 months. Carryover basis to QRP — gain recognized when
+  //   QRP sold. If held to death, basis steps up = permanent exclusion.
+  // ──────────────────────────────────────────────────────────────────────
+  let esop1042Eligible = false, esop1042DeferredGain = 0, esop1042TaxDeferred = 0,
+      esop1042PermanentSavings = 0;
+  if (d.use.esop1042 && d.esop1042.amount > 0) {
+    esop1042Eligible = d.esop1042.cCorp && d.esop1042.stake >= 0.30;
+    if (esop1042Eligible) {
+      esop1042DeferredGain = Math.max(0, d.esop1042.amount - d.esop1042.basis);
+      esop1042TaxDeferred  = esop1042DeferredGain * combinedCGRate;
+      // If client plans to hold QRP until death, the deferred gain is
+      // PERMANENTLY excluded via §1014 step-up — full tax saving.
+      esop1042PermanentSavings = d.esop1042.stepUp ? esop1042TaxDeferred : 0;
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Monetized Installment Sale — §453 + monetization loan
+  //   Gain deferred until note matures. Cash-flow neutral during term:
+  //   note interest income ≈ monetization loan interest expense.
+  //   Year-1 cash = sale × loanPct.
+  // ──────────────────────────────────────────────────────────────────────
+  let monInstallGain = 0, monInstallTaxDeferred = 0, monInstallYear1Cash = 0,
+      monInstallTermNetSpread = 0;
+  if (d.use.monInstall && d.monInstall.amount > 0) {
+    monInstallGain        = Math.max(0, d.monInstall.amount - d.monInstall.basis);
+    monInstallTaxDeferred = monInstallGain * combinedCGRate;
+    monInstallYear1Cash   = d.monInstall.amount * d.monInstall.loanPct;
+    // Negative spread = annual carrying cost (loan rate > note rate)
+    const annualNoteIncome  = d.monInstall.amount * d.monInstall.rate;
+    const annualLoanExpense = monInstallYear1Cash * d.monInstall.loanRate;
+    monInstallTermNetSpread = (annualNoteIncome - annualLoanExpense) * d.monInstall.term;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Domestic Captive Insurance — §831(b) micro-captive
+  //   Operating-co premium deduction × marginal = annual income-tax saving.
+  //   §831(b) cap: $2.65M (2024 indexed); excess over cap is taxable as
+  //   ordinary insurance income to the captive.
+  //   Compliance gates: §831(b) elected + risk-pool diversified.
+  // ──────────────────────────────────────────────────────────────────────
+  const CAPTIVE_831B_CAP = 2_650_000;
+  let captiveAnnualPremium = 0, captiveAnnualSaving = 0,
+      captiveLifetimeSaving = 0, captiveCompliant = false,
+      captiveOverCap = false;
+  if (d.use.captive && d.captive.premium > 0) {
+    captiveCompliant = d.captive.election831b && d.captive.diversified;
+    captiveAnnualPremium  = Math.min(d.captive.premium, CAPTIVE_831B_CAP);
+    captiveOverCap        = d.captive.premium > CAPTIVE_831B_CAP;
+    captiveAnnualSaving   = captiveCompliant ? captiveAnnualPremium * d.tax.marginal : 0;
+    captiveLifetimeSaving = captiveAnnualSaving * d.captive.years;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Premium Finance — bank-funded life insurance
+  //   Net spread = (crediting rate − loan rate) × cumulative loan balance
+  //   over premium years. Net death benefit ≈ DB − cumulative loan + interest.
+  //   Estate exclusion only if ILIT-owned.
+  // ──────────────────────────────────────────────────────────────────────
+  let pfNetSpread = 0, pfTotalPremiums = 0, pfLoanBalanceEnd = 0,
+      pfNetDeathBenefit = 0, pfEstateSaving = 0, pfWorks = false;
+  if (d.use.pf && d.pf.premium > 0) {
+    const spread = d.pf.creditRate - d.pf.loanRate;
+    pfWorks         = spread > 0;
+    pfTotalPremiums = d.pf.premium * d.pf.years;
+    // Approximate avg loan balance = total/2; total interest accrued ≈ avg × rate × years
+    pfLoanBalanceEnd  = pfTotalPremiums * Math.pow(1 + d.pf.loanRate, d.pf.years / 2);
+    pfNetSpread       = spread * pfTotalPremiums * (d.pf.years / 2);
+    pfNetDeathBenefit = Math.max(0, d.pf.deathBenefit - pfLoanBalanceEnd);
+    pfEstateSaving    = d.pf.ilit ? pfNetDeathBenefit * d.tax.estate : 0;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // NIMCRUT — Net Income with Make-up CRUT
+  //   Charitable deduction = funding × dedFactor.
+  //   Estate removal of full contribution (like CRT).
+  //   Pre-sale years: distribution = funding × preIncome (low).
+  //   Sale year: contributed asset sold inside trust → CG eliminated.
+  //   Post-sale years: full unitrust amount + make-up of accumulated shortfall.
+  // ──────────────────────────────────────────────────────────────────────
+  let nimcrutDeduction = 0, nimcrutEstateSaving = 0, nimcrutCgEliminated = 0,
+      nimcrutMakeupBalance = 0;
+  if (d.use.nimcrut && d.nimcrut.amount > 0) {
+    nimcrutDeduction    = d.nimcrut.amount * d.nimcrut.dedFactor;
+    nimcrutEstateSaving = d.nimcrut.amount * d.tax.estate;
+    nimcrutCgEliminated = (d.nimcrut.amount - 0) * combinedCGRate; // assumes near-zero basis
+    // Make-up balance accumulated through sale year:
+    //   shortfall/yr = funding × (unitrustRate - preIncome)
+    const annualShortfall = d.nimcrut.amount * Math.max(0, d.nimcrut.rate - d.nimcrut.preIncome);
+    nimcrutMakeupBalance = annualShortfall * d.nimcrut.saleYear;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Walton (zeroed-out) GRAT
+  //   Gift = $0 by structuring annuity = funding × annuity-factor at §7520
+  //   Heir transfer = appreciation above §7520 over term:
+  //     transfer ≈ funding × ((1+ret)^term − (1+rate7520)^term)
+  //   Mortality probability of grantor death during term reverts to estate
+  //   (loss of opportunity, not loss of capital).
+  // ──────────────────────────────────────────────────────────────────────
+  let waltonTransfer = 0, waltonEstateSaving = 0, waltonMortalityRisk = 0,
+      waltonRollingMultiplier = 1;
+  if (d.use.waltonGrat && d.waltonGrat.amount > 0) {
+    const t = d.waltonGrat.term;
+    waltonTransfer = d.waltonGrat.amount * Math.max(0,
+      Math.pow(1 + d.waltonGrat.ret, t) - Math.pow(1 + d.waltonGrat.rate7520, t));
+    waltonEstateSaving = waltonTransfer * d.tax.estate;
+    // Mortality risk approximation: chance of death during term
+    // Rough: 0.5%/yr at 50, 1%/yr at 60, 2%/yr at 70
+    const ageRisk = d.waltonGrat.age < 55 ? 0.005 :
+                    d.waltonGrat.age < 65 ? 0.010 :
+                    d.waltonGrat.age < 75 ? 0.020 : 0.040;
+    waltonMortalityRisk = 1 - Math.pow(1 - ageRisk, t);
+    // Rolling Walton ladder: 5x compounding multiplier on transfer
+    if (d.waltonGrat.rolling) waltonRollingMultiplier = 5;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
   // SLAT — CORRECTED estate savings.
   //   Funding uses lifetime exemption (like Dynasty), so the base funding
   //   is a wash vs. what would have been shielded by exemption at death.
@@ -7131,7 +7576,13 @@ function computePlan(d) {
                        + phase1FedIncomeSaving + phase1StateSaving + phase1EstateSaving
                        + hedgingCGSaving
                        + oilgasYear1Saving
-                       + ceasement2031cDiscount;
+                       + ceasement2031cDiscount
+                       + esop1042PermanentSavings
+                       + monInstallTaxDeferred
+                       + captiveAnnualSaving
+                       + pfEstateSaving
+                       + nimcrutCgEliminated
+                       + waltonEstateSaving;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -7507,6 +7958,18 @@ function computePlan(d) {
     oilgasIdcDeduction, oilgasTdcAmount, oilgasFedSaving, oilgasStateSaving,
     oilgasNiitSaving, oilgasYear1Saving, oilgasAfterTaxCost, oilgasDepletionShelter,
     oilgasActiveLoss, oilgasStructureForfeited, oilgasStateLimited, oilgasStateNoneConforms,
+    // §1042 ESOP rollover
+    esop1042Eligible, esop1042DeferredGain, esop1042TaxDeferred, esop1042PermanentSavings,
+    // Monetized Installment Sale
+    monInstallGain, monInstallTaxDeferred, monInstallYear1Cash, monInstallTermNetSpread,
+    // Domestic Captive Insurance
+    captiveAnnualPremium, captiveAnnualSaving, captiveLifetimeSaving, captiveCompliant, captiveOverCap,
+    // Premium Finance
+    pfNetSpread, pfTotalPremiums, pfLoanBalanceEnd, pfNetDeathBenefit, pfEstateSaving, pfWorks,
+    // NIMCRUT
+    nimcrutDeduction, nimcrutEstateSaving, nimcrutCgEliminated, nimcrutMakeupBalance,
+    // Walton GRAT
+    waltonTransfer, waltonEstateSaving, waltonMortalityRisk, waltonRollingMultiplier,
     slatEstateSave, slatFutureValue, slatGrowth,
     idgtTransferred, idgtEstateSave,
     qprtRemainderFactor, qprtMortalityProb, qprtTaxableGift, qprtResidenceFutureValue, qprtEstateRemoved, qprtEstateSave,
@@ -8068,6 +8531,12 @@ function renderTechnicalAppendix(p) {
   if (d.use.oilgas)   strategiesInUse.push('Oil & Gas WI §263(c)');
   if (d.use.dbplan)   strategiesInUse.push('Cash Balance / DB §401(a)');
   if (d.use.ceasement) strategiesInUse.push('Conservation Easement §170(h)');
+  if (d.use.esop1042)  strategiesInUse.push('§1042 ESOP Rollover');
+  if (d.use.monInstall) strategiesInUse.push('Monetized Installment Sale §453');
+  if (d.use.captive)    strategiesInUse.push('Captive Insurance §831(b)');
+  if (d.use.pf)         strategiesInUse.push('Premium Finance Life Insurance');
+  if (d.use.nimcrut)    strategiesInUse.push('NIMCRUT §664(d)(3)');
+  if (d.use.waltonGrat) strategiesInUse.push('Walton GRAT (zeroed-out)');
 
   return `
     <!-- COVER PAGE -->
@@ -8775,6 +9244,151 @@ function renderSummary(p) {
         <strong>§2031(c)</strong> — post-mortem election: up to 40% / max $500K estate-tax exclusion on land subject to easement. ·
         <strong>Notice 2017-10</strong> — syndicated conservation easements as listed transactions. ·
         <strong>Reg §1.170A-14</strong> — implementing regulations.
+      </div>
+    </div>` : ''}
+
+    ${d.use.esop1042 ? `
+    <div class="card sale-only" ${!p.esop1042Eligible ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
+      <div class="card-title">§1042 ESOP Rollover — C-Corp Owner Capital-Gain Deferral</div>
+      ${!p.esop1042Eligible ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ §1042 Eligibility Failed</span>
+          ${!d.esop1042.cCorp ? '<strong>Not a C-Corp.</strong> §1042(c)(1)(A) requires the company to be a domestic C-Corporation. S-Corp owners must convert to C and wait 5 years before §1042 applies. ' : ''}
+          ${d.esop1042.stake < 0.30 ? '<strong>ESOP stake below 30%.</strong> §1042(b)(2) requires the ESOP to own at least 30% of all outstanding stock immediately after the sale. ' : ''}
+          Deferral set to $0 in this plan.
+        </div>` : ''}
+      <div class="card-sub">Sale of <strong>${fmt$M(d.esop1042.amount)}</strong> of C-Corp stock to ESOP at <strong>${(d.esop1042.stake*100).toFixed(0)}%</strong> post-sale stake. Reinvest <strong>${fmt$M(d.esop1042.qrp)}</strong> in QRP within 12 months → defers <strong>${fmt$(p.esop1042DeferredGain)}</strong> of capital gain.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Stock Sold to ESOP</div><div class="value">${fmt$M(d.esop1042.amount)}</div></div>
+        <div class="kpi gold"><div class="label">Deferred Gain</div><div class="value">${fmt$(p.esop1042DeferredGain)}</div></div>
+        <div class="kpi gold"><div class="label">CG Tax Deferred</div><div class="value">${fmt$(p.esop1042TaxDeferred)}</div></div>
+        <div class="kpi success"><div class="label">${d.esop1042.stepUp ? 'Permanent Savings (step-up at death)' : 'Recognized when QRP sold'}</div><div class="value">${fmt$(p.esop1042PermanentSavings)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit</span>
+        Reinvest sale proceeds in <strong>Qualified Replacement Property</strong> (stocks/bonds of US operating companies — no mutual funds, no foreign, no related-party stock) within 12 months. Carryover basis from sold stock to QRP. ${d.esop1042.stepUp ? 'Hold to death → §1014 step-up eliminates the deferred gain entirely. <strong>Permanent exclusion of ' + fmt$(p.esop1042TaxDeferred) + '.</strong>' : 'Gain recognized when QRP sold (or stepped-up at death). Pair with IDGT installment-sale-to-trust for double-rollover.'} §409(n) prohibits seller from receiving ESOP allocations for 10 years.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§1042(a)</strong> — election to defer gain. <strong>§1042(b)(2)</strong> — 30% ESOP stake requirement. <strong>§1042(c)(4)</strong> — Qualified Replacement Property definition. <strong>§409(n)</strong> — 10-yr seller-allocation prohibition. <strong>§1014</strong> — step-up at death.
+      </div>
+    </div>` : ''}
+
+    ${d.use.monInstall ? `
+    <div class="card sale-only" style="border-left: 4px solid var(--gold-dark);">
+      <div class="card-title">Monetized Installment Sale — §453 + Monetization Loan</div>
+      <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+        <span class="title" style="color: var(--gold-dark);">⚠ Listed Transaction of Interest — Notice 2023-34 + 2023-65</span>
+        Certain monetized installment-sale structures are designated <strong>transactions of interest</strong> requiring Form 8886 disclosure. Use only with established structurers and arms-length terms; document economic substance carefully. The IRS heightened scrutiny means this strategy is best paired with senior tax counsel.
+      </div>
+      <div class="card-sub">Sell ${fmt$M(d.monInstall.amount)} of property on a <strong>${d.monInstall.term}-yr</strong> §453 installment note at <strong>${(d.monInstall.rate*100).toFixed(2)}%</strong> AFR. Borrow <strong>${(d.monInstall.loanPct*100).toFixed(0)}%</strong> against the note for upfront liquidity at <strong>${(d.monInstall.loanRate*100).toFixed(2)}%</strong>. Gain deferred to year ${d.monInstall.term}.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Capital Gain Deferred</div><div class="value">${fmt$(p.monInstallGain)}</div></div>
+        <div class="kpi success"><div class="label">Year-1 Cash (loan proceeds)</div><div class="value">${fmt$(p.monInstallYear1Cash)}</div></div>
+        <div class="kpi gold"><div class="label">Tax Deferred ${d.monInstall.term} Years</div><div class="value">${fmt$(p.monInstallTaxDeferred)}</div></div>
+        <div class="kpi"><div class="label">Net ${d.monInstall.term}-Yr Carry Spread</div><div class="value">${fmt$(p.monInstallTermNetSpread)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit</span>
+        Defer <strong>${fmt$(p.monInstallTaxDeferred)}</strong> of capital-gains tax for <strong>${d.monInstall.term} years</strong> while still receiving <strong>${fmt$(p.monInstallYear1Cash)}</strong> in upfront liquidity (loan proceeds are not taxable). Note interest income (${(d.monInstall.rate*100).toFixed(2)}%) ≈ loan interest expense (${(d.monInstall.loanRate*100).toFixed(2)}%) — cash-flow neutral during the term. At year ${d.monInstall.term}, note matures + loan repaid; gain recognized and tax due. NPV benefit ≈ tax saving × time value of money.
+      </div>
+    </div>` : ''}
+
+    ${d.use.captive ? `
+    <div class="card" ${!p.captiveCompliant ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
+      <div class="card-title">Domestic Captive Insurance — §831(b) Micro-Captive</div>
+      ${!p.captiveCompliant ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ §831(b) Compliance Gap</span>
+          ${!d.captive.election831b ? '<strong>§831(b) election not made.</strong> Captive premiums are taxable at corporate rates. ' : ''}
+          ${!d.captive.diversified ? '<strong>Risk pool not diversified.</strong> Per Avrahami v. Comm\'r and Notice 2016-66, &lt;50% concentration is a safe-harbor — without it the captive risks listed-transaction status. ' : ''}
+          Tax saving zeroed in this plan until compliance gates pass.
+        </div>` : ''}
+      ${p.captiveOverCap ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Premium Exceeds §831(b) Cap</span>
+          The §831(b) cap for 2024 is <strong>$2,650,000</strong>. Excess premium (${fmt$M(d.captive.premium - 2_650_000)}) is taxable at corporate rates inside the captive. Modeled at the capped amount.
+        </div>` : ''}
+      <div class="card-sub">${fmt$M(d.captive.premium)}/yr premium for ${d.captive.years} years; deductible at operating co + tax-deferred inside captive (§831(b) elected).</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Annual Premium (capped)</div><div class="value">${fmt$(p.captiveAnnualPremium)}</div></div>
+        <div class="kpi success"><div class="label">Annual Tax Saving</div><div class="value">${fmt$(p.captiveAnnualSaving)}</div></div>
+        <div class="kpi gold"><div class="label">Lifetime Saving (${d.captive.years} yrs)</div><div class="value">${fmt$M(p.captiveLifetimeSaving)}</div></div>
+        <div class="kpi"><div class="label">Compliance Status</div><div class="value">${p.captiveCompliant ? '✓ Pass' : '⚠ Gap'}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit + Compliance Stack</span>
+        Operating co deducts ${fmt$M(p.captiveAnnualPremium)} of insurance premium annually → saves <strong>${fmt$(p.captiveAnnualSaving)}</strong> at marginal rate. Premiums up to $2.65M (2024 indexed) are tax-free at the §831(b) captive — reserves accumulate at zero tax for future claims or eventual liquidation. <strong>Compliance gates:</strong> §831(b) election, real risk transfer, arms-length pricing, diversified risk pool (&lt;50% from any one insured), qualified actuary, audited financials. IRS focus area — Avrahami, Reserve Mechanical, Notice 2016-66. Consult specialist counsel before formation.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§831(b)</strong> — small-insurer election. <strong>§501(c)(15)</strong> — small mutual-insurance exemption. <strong>§953(d)</strong> — domestic-election for offshore captives. <strong>Avrahami v. Comm'r 149 T.C. 7 (2017)</strong>. <strong>Notice 2016-66</strong> — listed-transaction designation. <strong>Reserve Mechanical Corp. v. Comm'r T.C. Memo 2018-86</strong>.
+      </div>
+    </div>` : ''}
+
+    ${d.use.pf ? `
+    <div class="card" ${!p.pfWorks ? 'style="border-left: 4px solid var(--gold-dark);"' : ''}>
+      <div class="card-title">Premium Finance — Bank-Funded Life Insurance</div>
+      ${!p.pfWorks ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Negative Spread — Strategy Uneconomic at Current Rates</span>
+          Loan rate (${(d.pf.loanRate*100).toFixed(1)}%) ≥ policy crediting rate (${(d.pf.creditRate*100).toFixed(1)}%). The leverage produces no positive spread; net result over the term is a net cost rather than benefit. <strong>Re-evaluate when rates change</strong> or consider self-funded ILIT instead.
+        </div>` : ''}
+      ${!d.pf.ilit ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Policy NOT Held in ILIT</span>
+          Personally-owned policy includes the death benefit in the taxable estate at <strong>${fmtPct(d.tax.estate*100)}</strong>. Recommend ILIT ownership from inception — saves ${fmt$(p.pfNetDeathBenefit * d.tax.estate)} in estate tax on the projected net death benefit.
+        </div>` : ''}
+      <div class="card-sub">${fmt$M(d.pf.deathBenefit)} death benefit financed by ${d.pf.years}-yr bank loans of ${fmt$(d.pf.premium)}/yr. Spread = <strong>${((d.pf.creditRate - d.pf.loanRate)*100).toFixed(2)}%</strong>${d.pf.ilit ? ', held in ILIT' : ''}.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Total Premiums Borrowed</div><div class="value">${fmt$M(p.pfTotalPremiums)}</div></div>
+        <div class="kpi"><div class="label">Loan Balance @ End of Term</div><div class="value">${fmt$M(p.pfLoanBalanceEnd)}</div></div>
+        <div class="kpi success"><div class="label">Net Death Benefit (after loan payoff)</div><div class="value">${fmt$M(p.pfNetDeathBenefit)}</div></div>
+        <div class="kpi gold"><div class="label">Estate Tax Saved (if ILIT)</div><div class="value">${fmt$(p.pfEstateSaving)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit + Risk Profile</span>
+        Bank loans the ${fmt$(d.pf.premium)}/yr × ${d.pf.years}yr = ${fmt$M(p.pfTotalPremiums)} in premiums, secured by policy cash value + collateral pledge. ${p.pfWorks ? `Spread is positive (crediting > loan), so policy IRR exceeds carrying cost. Net death benefit ≈ <strong>${fmt$M(p.pfNetDeathBenefit)}</strong> after loan payoff.` : 'Spread is negative — strategy currently produces no leverage.'} ${d.pf.ilit ? `ILIT ownership keeps the entire ${fmt$M(p.pfNetDeathBenefit)} out of the taxable estate.` : 'Hold in ILIT to exclude from estate.'} <strong>Risks:</strong> rate-environment shifts (loan rate floats), collateral calls if cash value underperforms, §264 interest deduction limits.
+      </div>
+    </div>` : ''}
+
+    ${d.use.nimcrut ? `
+    <div class="card">
+      <div class="card-title">NIMCRUT — Net Income with Make-up Charitable Remainder Unitrust</div>
+      <div class="card-sub">${fmt$M(d.nimcrut.amount)} contribution at ${fmtPct(d.nimcrut.rate*100)} unitrust. Pre-sale years distribute ${fmtPct(d.nimcrut.preIncome*100)} (low-income asset); year ${d.nimcrut.saleYear} asset sale triggers full unitrust + accumulated make-up.</div>
+      <div class="kpi-grid">
+        <div class="kpi gold"><div class="label">Charitable Deduction</div><div class="value">${fmt$M(p.nimcrutDeduction)}</div></div>
+        <div class="kpi success"><div class="label">Estate Removal</div><div class="value">${fmt$M(p.nimcrutEstateSaving)}</div></div>
+        <div class="kpi success"><div class="label">CG Eliminated on Asset Sale</div><div class="value">${fmt$(p.nimcrutCgEliminated)}</div></div>
+        <div class="kpi"><div class="label">Make-up Balance @ Year ${d.nimcrut.saleYear}</div><div class="value">${fmt$M(p.nimcrutMakeupBalance)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — Income Deferral + Charitable + Estate Removal</span>
+        Contribute ${fmt$M(d.nimcrut.amount)} of closely-held / low-yield asset to a NIMCRUT. Trust eliminates capital gain on the eventual asset sale (§664 grantor not subject to recognition). Pre-sale years pay only actual income (~${fmtPct(d.nimcrut.preIncome*100)}); accumulated shortfall (~${fmt$M(p.nimcrutMakeupBalance)} by year ${d.nimcrut.saleYear}) is paid out in the high-income year following sale. Charitable deduction <strong>${fmt$M(p.nimcrutDeduction)}</strong> reduces current AGI; full contribution removed from estate. Pair with FLIPCRUT trigger for cleaner mechanics.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§664(d)(3)</strong> — NIMCRUT income definition. <strong>Reg §1.664-3(a)(1)(i)(b)</strong> — make-up provision. <strong>Reg §1.664-3(a)(1)(i)(c)</strong> — FLIP-CRUT trigger. <strong>§170(f)(2)(A)</strong> — charitable deduction PV calc.
+      </div>
+    </div>` : ''}
+
+    ${d.use.waltonGrat ? `
+    <div class="card">
+      <div class="card-title">Walton GRAT — Zeroed-Out Grantor Retained Annuity Trust</div>
+      <div class="card-sub">${fmt$M(d.waltonGrat.amount)} funding, ${d.waltonGrat.term}-yr term, §7520 hurdle ${fmtPct(d.waltonGrat.rate7520*100)}, expected return ${fmtPct(d.waltonGrat.ret*100)}. Taxable gift = $0; all appreciation above hurdle passes to heirs gift-tax-free. ${d.waltonGrat.rolling ? 'Rolling Walton ladder × 5 compounding wins.' : ''}</div>
+      <div class="kpi-grid">
+        <div class="kpi gold"><div class="label">Heir Transfer (per GRAT)</div><div class="value">${fmt$M(p.waltonTransfer)}</div></div>
+        <div class="kpi success"><div class="label">Estate Tax Saved (per GRAT)</div><div class="value">${fmt$(p.waltonEstateSaving)}</div></div>
+        ${d.waltonGrat.rolling ? `<div class="kpi success"><div class="label">Rolling Ladder Total Estate Saved</div><div class="value">${fmt$M(p.waltonEstateSaving * p.waltonRollingMultiplier)}</div></div>` : ''}
+        <div class="kpi"><div class="label">Mortality Risk During Term</div><div class="value">${fmtPct(p.waltonMortalityRisk*100)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — Heads I Win, Tails Even</span>
+        Annuity = ${fmt$M(d.waltonGrat.amount)} × annuity-factor at ${fmtPct(d.waltonGrat.rate7520*100)} → taxable gift = $0 (zeroed-out per Walton v. Comm'r 115 T.C. 589 (2000)). If asset earns above ${fmtPct(d.waltonGrat.rate7520*100)}, the excess (<strong>${fmt$M(p.waltonTransfer)}</strong>) passes to heirs gift-tax-free. If asset underperforms, GRAT simply unwinds back to grantor — no gift-tax cost. Mortality risk: ${fmtPct(p.waltonMortalityRisk*100)} chance grantor dies during term → asset reverts to estate (loss of opportunity, not capital). ${d.waltonGrat.rolling ? '<strong>Rolling Walton ladder:</strong> reinvest annuity payments into successive 2-yr GRATs to compound the win on volatile assets — effective multiplier ~5x over a 10-yr horizon.' : ''}
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§2702(b)</strong> — qualified annuity exception. <strong>§7520</strong> — discount rate (IRS monthly). <strong>Walton v. Comm'r 115 T.C. 589 (2000)</strong> — zeroed-out GRAT validation. <strong>Reg §25.2702-3</strong> — annuity-factor calculation. <strong>Audrey J. Walton Estate</strong> — IRS acquiescence on revenue-procedure annuity tables.
       </div>
     </div>` : ''}
 
@@ -10757,7 +11371,7 @@ function renderCompare(p) {
     };
   }
 
-  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false, oilgas: false, dbplan: false, ceasement: false };
+  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false, oilgas: false, dbplan: false, ceasement: false, esop1042: false, monInstall: false, captive: false, pf: false, nimcrut: false, waltonGrat: false };
 
   const scenarios = [
     variant('No Planning', allOff),
@@ -14848,6 +15462,13 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'proceeds-earnout-max': d.proceeds.earnoutMax, 'proceeds-earnout-prob': d.proceeds.earnoutProb * 100, 'proceeds-earnout-years': d.proceeds.earnoutYears,
       'proceeds-escrow-amount': d.proceeds.escrowAmount, 'proceeds-escrow-years': d.proceeds.escrowYears, 'proceeds-escrow-release-prob': d.proceeds.escrowReleaseProb * 100,
       'proceeds-clawback-amount': d.proceeds.clawbackAmount, 'proceeds-clawback-prob': d.proceeds.clawbackProb * 100, 'proceeds-indemnity-cap': d.proceeds.indemnityCap,
+      // Phase 2 strategies
+      'esop-1042-amount': d.esop1042.amount, 'esop-1042-basis': d.esop1042.basis, 'esop-1042-stake': d.esop1042.stake * 100, 'esop-1042-qrp': d.esop1042.qrp,
+      'mon-install-amount': d.monInstall.amount, 'mon-install-basis': d.monInstall.basis, 'mon-install-term': d.monInstall.term, 'mon-install-rate': d.monInstall.rate * 100, 'mon-install-loan-pct': d.monInstall.loanPct * 100, 'mon-install-loan-rate': d.monInstall.loanRate * 100,
+      'captive-premium': d.captive.premium, 'captive-years': d.captive.years,
+      'pf-db': d.pf.deathBenefit, 'pf-premium': d.pf.premium, 'pf-years': d.pf.years, 'pf-loan-rate': d.pf.loanRate * 100, 'pf-credit-rate': d.pf.creditRate * 100,
+      'nimcrut-amount': d.nimcrut.amount, 'nimcrut-rate': d.nimcrut.rate * 100, 'nimcrut-sale-year': d.nimcrut.saleYear, 'nimcrut-term': d.nimcrut.term, 'nimcrut-pre-income': d.nimcrut.preIncome * 100, 'nimcrut-ded-factor': d.nimcrut.dedFactor * 100,
+      'walton-amount': d.waltonGrat.amount, 'walton-term': d.waltonGrat.term, 'walton-7520': d.waltonGrat.rate7520 * 100, 'walton-return': d.waltonGrat.ret * 100, 'walton-age': d.waltonGrat.age,
       // Oil &amp; Gas Working Interest
       'oilgas-amount': d.oilgas.amount, 'oilgas-idc-pct': d.oilgas.idcPct * 100, 'oilgas-year': d.oilgas.year, 'oilgas-state-conforms': d.oilgas.stateConforms, 'oilgas-structure': d.oilgas.structure, 'oilgas-operator': d.oilgas.operator, 'oilgas-production': d.oilgas.production, 'oilgas-prod-years': d.oilgas.prodYears, 'oilgas-risk': d.oilgas.risk,
       'tax-fed': d.tax.fed * 100, 'tax-state': d.tax.state * 100, 'tax-medicare': d.tax.medicare * 100,
@@ -14857,7 +15478,7 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'ins-current': d.ins.current, 'ins-rec-min': d.ins.recMin, 'ins-rec-max': d.ins.recMax,
       'firm-name': d.firm.name, 'firm-tag': d.firm.tag,
     },
-    checkboxes: { 'use-dynasty': d.use.dynasty, 'use-crat': d.use.crat, 'use-daf': d.use.daf, 'use-qoz': d.use.qoz, 'use-oilgas': d.use.oilgas },
+    checkboxes: { 'use-dynasty': d.use.dynasty, 'use-crat': d.use.crat, 'use-daf': d.use.daf, 'use-qoz': d.use.qoz, 'use-oilgas': d.use.oilgas, 'use-esop-1042': d.use.esop1042, 'use-mon-install': d.use.monInstall, 'use-captive': d.use.captive, 'use-pf': d.use.pf, 'use-nimcrut': d.use.nimcrut, 'use-walton-grat': d.use.waltonGrat },
     firmLogo: d.firm.logo || null,
   });
 
@@ -14978,6 +15599,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt',
                     'use-dbplan','use-muni','use-flp','use-ing','use-ceasement',
                     'use-collar','use-pvf','use-exchfund','use-oilgas',
+                    'use-esop-1042','use-mon-install','use-captive','use-pf','use-nimcrut','use-walton-grat',
                     'qsbs-attest-ccorp','qsbs-attest-active','qsbs-attest-grossassets','qsbs-attest-original'];
     const values = {};
     const checkboxes = {};
