@@ -3069,6 +3069,28 @@
       </div>
       <div class="form-grid cols-2" style="margin-top: 14px;">
         <div class="field">
+          <label>Capital-Gain Portion of the Sale <span class="hint">(only capital gain is QOZ-deferrable)</span></label>
+          <div class="suffix-pct"><input type="number" id="qoz-cg-eligible-pct" value="100" min="0" max="100" step="5"></div>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.4;">
+            §1400Z-2(a)(1) defers <strong>capital gain only</strong>. Ordinary-income components — §1245/§1250 depreciation recapture, §751 partnership hot assets, customer lists / §197 intangibles, workforce-in-place, accounts receivable, non-compete payments — are <strong>not</strong> deferrable. Service businesses sold as asset deals typically allocate 30-60% to ordinary classes per §1060.
+            <br><br>
+            <strong>Typical splits:</strong> Stock sale of C-corp = ~100% capital · Asset sale of partnership/LLC = 40-80% capital · Asset sale of service business with low basis = 30-60% capital · §1031 exchange of real estate = 100% capital.
+          </div>
+        </div>
+        <div class="field">
+          <label>Allocation Documentation <span class="hint">(supports the % above)</span></label>
+          <select id="qoz-allocation-type">
+            <option value="stock_sale" selected>Stock sale — entire gain is capital (no §1060 allocation)</option>
+            <option value="asset_sale_appraised">Asset sale — §1060 allocation by appraisal supports the %</option>
+            <option value="asset_sale_deal_terms">Asset sale — APA terms specify allocation</option>
+            <option value="partnership_751">Partnership interest — §751 "hot assets" carved out</option>
+            <option value="advisor_estimate">Advisor estimate (no formal allocation yet)</option>
+            <option value="rental_re">Real estate rental sale (capital portion only after §1245/§1250 recapture)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid cols-2" style="margin-top: 14px;">
+        <div class="field">
           <label>QOF Investment Type <span class="hint">(determines §1400Z-2 eligibility)</span></label>
           <select id="qoz-business-type">
             <optgroup label="✅ Eligible">
@@ -4753,6 +4775,12 @@ function readForm() {
       years:  n('qoz-years'),
       businessType: t('qoz-business-type') || 'real_estate',
       improvement: t('qoz-improvement') || 'yes',
+      // §1400Z-2 only defers CAPITAL gain. Service-business asset sales
+      // commonly allocate 30-60% of price to ordinary classes (customer
+      // lists, workforce, §1245 recapture, hot assets) which are NOT
+      // deferrable. Default 100% for stock sales / real estate.
+      cgEligiblePct: (n('qoz-cg-eligible-pct') !== 0 ? n('qoz-cg-eligible-pct') : 100) / 100,
+      allocationType: t('qoz-allocation-type') || 'stock_sale',
     },
     ilit: {
       coverage: n('ilit-coverage'),
@@ -5001,10 +5029,18 @@ function computePlan(d) {
     const qozTypeDisqualified = QOZ_DISQUALIFIED_TYPES.includes(d.qoz?.businessType);
     const qozImprovementMissing = d.qoz?.improvement === 'no';
     const qozEligible = !qozTypeDisqualified && !qozImprovementMissing;
+    // Cap-gain eligibility: only the CAPITAL portion of the gain qualifies
+    // for §1400Z-2 deferral. Ordinary components (§1245/§1250 recapture,
+    // §751 hot assets, customer lists, workforce, A/R) do NOT qualify.
+    const qozCgEligiblePct = Math.max(0, Math.min(1, d.qoz?.cgEligiblePct ?? 1));
+    const qozCapitalGainPortion = gain * qozCgEligiblePct;
+    const qozOrdinaryPortion    = gain - qozCapitalGainPortion;
+    // Maximum deferrable = capital portion of the gain
+    const qozMaxDeferrable = qozCapitalGainPortion;
     const qozInvest = (d.use.qoz && qozEligible)
-      ? Math.min(d.qoz.amount > 0 ? d.qoz.amount : baseTax, gain)
+      ? Math.min(d.qoz.amount > 0 ? d.qoz.amount : baseTax, qozMaxDeferrable)
       : 0;
-    const qozTaxDeferred = qozInvest * combinedCGRate;  // CG tax on the deferred gain
+    const qozTaxDeferred = qozInvest * combinedCGRate;
     return {
       name: 'Full Stack + QSBS',
       dynasty: dyAmt, crat: crAmt, daf: dafAmt, qoz: qozInvest,
@@ -5016,11 +5052,14 @@ function computePlan(d) {
       qozDeferred: qozTaxDeferred,
       qozInvestment: qozInvest,
       qoz10yrValue: qozInvest * Math.pow(1 + d.qoz.ret, d.qoz.years),
-      // Eligibility flags surfaced to the UI so the advisor sees WHY
-      // QOZ savings are 0 if the picked business type is disqualified.
+      // Eligibility flags + cap-gain breakdown for the UI.
       qozTypeDisqualified,
       qozImprovementMissing,
       qozEligible,
+      qozCgEligiblePct,
+      qozCapitalGainPortion,
+      qozOrdinaryPortion,
+      qozMaxDeferrable,
     };
   })();
 
@@ -6999,6 +7038,17 @@ function renderSummary(p) {
         <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
           <span class="title" style="color: var(--gold-dark);">⚠ Substantial Improvement Test Failed</span>
           §1400Z-2(d)(2)(D)(ii): a QOZ business that purchases existing property must <strong>substantially improve</strong> it — additions to basis must exceed the original basis (excluding land) within 30 months. Without a documented improvement plan, the property does not qualify and gain is not deferred. Either confirm an improvement plan, switch to ground-up new construction, or remove QOZ.
+        </div>` : ''}
+      ${(p.scenarios.scenAll.qozCgEligiblePct < 1 && !p.scenarios.scenAll.qozTypeDisqualified && !p.scenarios.scenAll.qozImprovementMissing) ? `
+        <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Only the Capital Portion of the Gain Qualifies</span>
+          §1400Z-2(a)(1) limits deferral to <strong>capital gain only</strong>. Of the ${fmt$(p.scenarios.scenAll.taxableGain)} taxable gain on this transaction:
+          <table class="plan-table" style="margin-top: 10px; font-size: 13px;">
+            <tr><td><strong>QOZ-eligible (capital gain)</strong></td><td class="num"><strong>${fmt$(p.scenarios.scenAll.qozCapitalGainPortion)}</strong> (${(p.scenarios.scenAll.qozCgEligiblePct*100).toFixed(0)}%)</td></tr>
+            <tr><td>Not QOZ-eligible (ordinary income — §1245/§1250 recapture, §751 hot assets, §197 intangibles, A/R, workforce, non-compete)</td><td class="num">${fmt$(p.scenarios.scenAll.qozOrdinaryPortion)} (${((1 - p.scenarios.scenAll.qozCgEligiblePct)*100).toFixed(0)}%)</td></tr>
+          </table>
+          <br>
+          <strong>Maximum deferrable into QOF: ${fmt$(p.scenarios.scenAll.qozMaxDeferrable)}.</strong> The ordinary portion remains taxable in the year of sale at the marginal rate (${(d.tax.marginal*100).toFixed(0)}%) — consider DAF or CRT to offset that ordinary income separately.
         </div>` : ''}
       <div class="card-sub">Defer ${fmt$(p.scenarios.scenAll.qozInvestment)} of eligible capital gain into a Qualified Opportunity Fund. Appreciation tax-free if held ${d.qoz.years}+ years. Investment type: <strong>${esc(QOZ_BUSINESS_LABELS[d.qoz.businessType] || d.qoz.businessType)}</strong>.</div>
 
@@ -13020,7 +13070,7 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'dt-funding': d.dynasty.funding, 'dt-exemption': d.dynasty.exemption, 'dt-years': d.dynasty.years,
       'crat-amount': d.crat.amount, 'crat-rate': d.crat.rate * 100, 'crat-ded': d.crat.dedPct * 100,
       'daf-amount': d.daf.amount,
-      'qoz-amount': d.qoz.amount, 'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years, 'qoz-business-type': d.qoz.businessType, 'qoz-improvement': d.qoz.improvement,
+      'qoz-amount': d.qoz.amount, 'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years, 'qoz-business-type': d.qoz.businessType, 'qoz-improvement': d.qoz.improvement, 'qoz-cg-eligible-pct': (d.qoz.cgEligiblePct || 1) * 100, 'qoz-allocation-type': d.qoz.allocationType,
       'tax-fed': d.tax.fed * 100, 'tax-state': d.tax.state * 100, 'tax-medicare': d.tax.medicare * 100,
       'tax-marginal': d.tax.marginal * 100, 'tax-estate': d.tax.estate * 100, 'tax-estate-exempt': d.tax.estateExempt,
       'proj-equity': d.proj.equity * 100, 'proj-re': d.proj.re * 100,
