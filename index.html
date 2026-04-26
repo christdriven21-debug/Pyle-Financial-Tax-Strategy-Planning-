@@ -894,6 +894,29 @@
   .cloud-bar .cb-status.err { color: var(--crimson); font-style: normal; }
   .cloud-bar .cb-group { display: flex; align-items: center; gap: 8px; }
 
+  /* Unsaved-changes indicator on the Save button — amber glow + dot */
+  #btn-cloud-save.is-dirty {
+    box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(201, 169, 97, 0.55);
+    animation: save-dirty-pulse 1.8s ease-in-out infinite;
+    position: relative;
+  }
+  #btn-cloud-save.is-dirty::after {
+    content: '•';
+    position: absolute;
+    top: -3px; right: -3px;
+    width: 12px; height: 12px;
+    background: var(--gold);
+    color: white;
+    border-radius: 50%;
+    font-size: 14px; line-height: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+  @keyframes save-dirty-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(201, 169, 97, 0.55); }
+    50%      { box-shadow: 0 0 0 2px var(--gold), 0 0 20px rgba(201, 169, 97, 0.85); }
+  }
+
   /* ===== REVIEW / COMMENTS PANEL ===== */
   .review-panel {
     background: var(--cream-panel);
@@ -15884,10 +15907,66 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     refreshReviews();
     if (typeof refreshDocuments === 'function') refreshDocuments();
     hydrateChecklist();
+    // Re-baseline the dirty-state tracker so the Save button glow clears
+    if (typeof rebaselineDirty === 'function') rebaselineDirty();
     // Fire-and-forget email notification. Silent failure — if Resend/domain
     // isn't set up yet, the endpoint returns 503 and we just skip.
     notify('plan_saved', currentId);
   }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // UNSAVED-CHANGES TRACKER
+  //
+  //   Snapshots the form state on load/save, then compares against the
+  //   live snapshot whenever a form input changes. Different = "dirty"
+  //   = amber glow + dot indicator on the Save button.
+  // ──────────────────────────────────────────────────────────────────────
+  let savedBaseline = null;
+  function computeBaseline() {
+    try { return JSON.stringify(snapshotForm()); } catch { return null; }
+  }
+  function rebaselineDirty() {
+    savedBaseline = computeBaseline();
+    setSaveDirty(false);
+  }
+  function setSaveDirty(isDirty) {
+    const btn = document.getElementById('btn-cloud-save');
+    if (!btn) return;
+    btn.classList.toggle('is-dirty', !!isDirty);
+    btn.title = isDirty
+      ? 'Unsaved changes — click to save to cloud'
+      : 'Save to cloud';
+  }
+  function checkDirty() {
+    if (savedBaseline == null) return;
+    const current = computeBaseline();
+    setSaveDirty(current !== savedBaseline);
+  }
+  // Debounced form-wide change listener. Uses bubbling so a single
+  // listener on document covers every input/select/textarea.
+  let dirtyTimer = null;
+  document.addEventListener('input', () => {
+    clearTimeout(dirtyTimer);
+    dirtyTimer = setTimeout(checkDirty, 250);
+  }, true);
+  document.addEventListener('change', () => {
+    clearTimeout(dirtyTimer);
+    dirtyTimer = setTimeout(checkDirty, 100);
+  }, true);
+  // Initial baseline once the form is constructed
+  setTimeout(rebaselineDirty, 100);
+
+  // Warn before unloading the tab if there are unsaved changes.
+  // Browsers ignore the message string per spec — they show a generic
+  // "Leave site? Changes you made may not be saved." prompt.
+  window.addEventListener('beforeunload', (e) => {
+    const btn = document.getElementById('btn-cloud-save');
+    if (btn && btn.classList.contains('is-dirty')) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
 
   async function loadPlan(id) {
     if (!id) return;
@@ -15914,6 +15993,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     refreshReviews();
     if (typeof refreshDocuments === 'function') refreshDocuments();
     hydrateChecklist();
+    rebaselineDirty();
   }
 
   async function copyShareLink() {
