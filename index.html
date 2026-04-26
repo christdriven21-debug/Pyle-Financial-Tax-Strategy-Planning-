@@ -7676,15 +7676,23 @@ function computePlan(d) {
     ppliCompliant = d.pplife.diversified;
     if (ppliCompliant) {
       // Future value of premiums compounding tax-free
-      const annualPremium = d.pplife.premium / d.pplife.payYears;
+      const payYearsSafe = Math.max(1, d.pplife.payYears);
+      const annualPremium = d.pplife.premium / payYearsSafe;
       // Compute FV with annuity formula for the premium-paying years,
-      // then compound balance for remaining years
-      const fvPaying = annualPremium * ((Math.pow(1 + d.pplife.ret, d.pplife.payYears) - 1) / d.pplife.ret);
-      const remainingYears = Math.max(0, d.pplife.years - d.pplife.payYears);
+      // then compound balance for remaining years. Guard against ret=0
+      // (annuity formula divides by ret; falls back to simple sum).
+      const fvPaying = d.pplife.ret > 0
+        ? annualPremium * ((Math.pow(1 + d.pplife.ret, payYearsSafe) - 1) / d.pplife.ret)
+        : annualPremium * payYearsSafe;
+      const remainingYears = Math.max(0, d.pplife.years - payYearsSafe);
       ppliFutureValue = fvPaying * Math.pow(1 + d.pplife.ret, remainingYears);
       // Tax savings vs taxable account: (FV - taxable FV) × marginal
       const taxableRet = d.pplife.ret * (1 - d.tax.marginal);
-      const fvPayingTaxable = annualPremium * ((Math.pow(1 + taxableRet, d.pplife.payYears) - 1) / taxableRet);
+      // Same guard for taxable-account comparison (taxableRet=0 if ret=0
+      // or marginal=100%; both implausible but possible)
+      const fvPayingTaxable = taxableRet > 0
+        ? annualPremium * ((Math.pow(1 + taxableRet, payYearsSafe) - 1) / taxableRet)
+        : annualPremium * payYearsSafe;
       const fvTaxable = fvPayingTaxable * Math.pow(1 + taxableRet, remainingYears);
       ppliTaxSavings = Math.max(0, ppliFutureValue - fvTaxable);
       ppliEstateSaving = d.pplife.ilit ? ppliFutureValue * d.tax.estate : 0;
@@ -7725,9 +7733,11 @@ function computePlan(d) {
     const catchup   = d.hsa.age >= 55 ? HSA_CATCHUP : 0;
     hsaAnnualLimit = baseLimit + catchup;
     hsaAnnualSaving = hsaAnnualLimit * d.tax.marginal;
-    // Compound assuming max contribution every year
-    hsaProjectedBalance = hsaAnnualLimit *
-      ((Math.pow(1 + d.hsa.ret, d.hsa.years) - 1) / d.hsa.ret);
+    // Compound assuming max contribution every year. Guard against ret=0
+    // (annuity formula divides by ret; falls back to simple sum × years).
+    hsaProjectedBalance = d.hsa.ret > 0
+      ? hsaAnnualLimit * ((Math.pow(1 + d.hsa.ret, d.hsa.years) - 1) / d.hsa.ret)
+      : hsaAnnualLimit * d.hsa.years;
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -10581,7 +10591,7 @@ function renderTransaction(p) {
       </div>
     </div>
   ` : `
-    <div class="card" style="border-left: 4px solid var(--gold-dark); background: var(--cream-light);" id="tax-explorer-card">
+    <div class="card" style="border-left: 4px solid var(--gold-dark); background: var(--cream-light);" id="tax-explorer-card-empty">
       <div class="card-title">🎚 Tax Impact Explorer</div>
       <div class="card-sub">
         No tax-lever strategies selected yet. Toggle on <strong>CRAT, CRUT, DAF, QOZ, §1031, QBI, Roth, QSBS, or Dynasty</strong> in the Builder (or enter a Business Sale Price) to populate this explorer. Each selected lever gets its own slider — drag to see the live impact on CG tax, QSBS exclusion, and total immediate tax savings.
@@ -12833,7 +12843,7 @@ function renderEstate(p) {
       </div>
     </div>
   ` : `
-    <div class="card" style="border-left: 4px solid var(--gold-dark); background: var(--cream-light);" id="estate-explorer-card">
+    <div class="card" style="border-left: 4px solid var(--gold-dark); background: var(--cream-light);" id="estate-explorer-card-empty">
       <div class="card-title">🎚 Estate Impact Explorer</div>
       <div class="card-sub">
         No estate-planning strategies selected yet. Toggle on <strong>Dynasty, SLAT, IDGT, GRAT, QPRT, ILIT, CRUT, CRAT, DAF, CLT, or Roth</strong> in the Builder to populate this explorer. Each selected strategy gets its own slider — drag to dial funding up or down and see the legacy numbers reshape live.
@@ -14096,7 +14106,10 @@ function renderInvestmentStrategy(p) {
   // Typical advisor estimate: proper location saves 40-75 bps/yr on the whole portfolio
   // Conservative: 50 bps × portfolio
   const taxDragSaving = totalAcct * 0.005;
-  const taxDragOver10yr = taxDragSaving * ((Math.pow(1 + d.proj.equity, 10) - 1) / d.proj.equity);
+  // Guard against d.proj.equity = 0 (annuity formula divides by it).
+  const taxDragOver10yr = d.proj.equity > 0
+    ? taxDragSaving * ((Math.pow(1 + d.proj.equity, 10) - 1) / d.proj.equity)
+    : taxDragSaving * 10;
 
   // ═══════════════════════════════════════════════════════════
   // 3. CONCENTRATION RISK
@@ -16131,20 +16144,24 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'proceeds-earnout-max': d.proceeds.earnoutMax, 'proceeds-earnout-prob': d.proceeds.earnoutProb * 100, 'proceeds-earnout-years': d.proceeds.earnoutYears,
       'proceeds-escrow-amount': d.proceeds.escrowAmount, 'proceeds-escrow-years': d.proceeds.escrowYears, 'proceeds-escrow-release-prob': d.proceeds.escrowReleaseProb * 100,
       'proceeds-clawback-amount': d.proceeds.clawbackAmount, 'proceeds-clawback-prob': d.proceeds.clawbackProb * 100, 'proceeds-indemnity-cap': d.proceeds.indemnityCap,
-      // Phase 2 strategies
-      'esop-1042-amount': d.esop1042.amount, 'esop-1042-basis': d.esop1042.basis, 'esop-1042-stake': d.esop1042.stake * 100, 'esop-1042-qrp': d.esop1042.qrp,
+      // Phase 2 strategies (all numeric + dropdown fields)
+      'esop-1042-amount': d.esop1042.amount, 'esop-1042-basis': d.esop1042.basis, 'esop-1042-stake': d.esop1042.stake * 100, 'esop-1042-qrp': d.esop1042.qrp, 'esop-1042-step-up': d.esop1042.stepUp ? 'yes' : 'no', 'esop-1042-ccorp': d.esop1042.cCorp ? 'yes' : 'no',
       'mon-install-amount': d.monInstall.amount, 'mon-install-basis': d.monInstall.basis, 'mon-install-term': d.monInstall.term, 'mon-install-rate': d.monInstall.rate * 100, 'mon-install-loan-pct': d.monInstall.loanPct * 100, 'mon-install-loan-rate': d.monInstall.loanRate * 100,
-      'captive-premium': d.captive.premium, 'captive-years': d.captive.years,
-      'pf-db': d.pf.deathBenefit, 'pf-premium': d.pf.premium, 'pf-years': d.pf.years, 'pf-loan-rate': d.pf.loanRate * 100, 'pf-credit-rate': d.pf.creditRate * 100,
+      'captive-premium': d.captive.premium, 'captive-years': d.captive.years, 'captive-831b': d.captive.election831b ? 'yes' : 'no', 'captive-pool': d.captive.diversified ? 'yes' : 'no',
+      'pf-db': d.pf.deathBenefit, 'pf-premium': d.pf.premium, 'pf-years': d.pf.years, 'pf-loan-rate': d.pf.loanRate * 100, 'pf-credit-rate': d.pf.creditRate * 100, 'pf-ilit': d.pf.ilit ? 'yes' : 'no',
       'nimcrut-amount': d.nimcrut.amount, 'nimcrut-rate': d.nimcrut.rate * 100, 'nimcrut-sale-year': d.nimcrut.saleYear, 'nimcrut-term': d.nimcrut.term, 'nimcrut-pre-income': d.nimcrut.preIncome * 100, 'nimcrut-ded-factor': d.nimcrut.dedFactor * 100,
-      'walton-amount': d.waltonGrat.amount, 'walton-term': d.waltonGrat.term, 'walton-7520': d.waltonGrat.rate7520 * 100, 'walton-return': d.waltonGrat.ret * 100, 'walton-age': d.waltonGrat.age,
+      'walton-amount': d.waltonGrat.amount, 'walton-term': d.waltonGrat.term, 'walton-7520': d.waltonGrat.rate7520 * 100, 'walton-return': d.waltonGrat.ret * 100, 'walton-age': d.waltonGrat.age, 'walton-roll': d.waltonGrat.rolling ? 'yes' : 'no',
       // Phase 3
-      'dapt-amount': d.dapt.amount,
-      'qsbs-1045-sold': d.qsbs1045.sold, 'qsbs-1045-basis': d.qsbs1045.basis, 'qsbs-1045-years': d.qsbs1045.yearsHeld, 'qsbs-1045-rollover': d.qsbs1045.rollover,
+      'dapt-amount': d.dapt.amount, 'dapt-situs': d.dapt.situs, 'dapt-estate': d.dapt.estate, 'dapt-creditors': d.dapt.creditors, 'dapt-trustee': d.dapt.trustee ? 'yes' : 'no',
+      'qsbs-1045-sold': d.qsbs1045.sold, 'qsbs-1045-basis': d.qsbs1045.basis, 'qsbs-1045-years': d.qsbs1045.yearsHeld, 'qsbs-1045-rollover': d.qsbs1045.rollover, 'qsbs-1045-window': d.qsbs1045.window ? 'yes' : 'no', 'qsbs-1045-qualified': d.qsbs1045.qualified ? 'yes' : 'no',
       'scin-amount': d.scin.amount, 'scin-basis': d.scin.basis, 'scin-term': d.scin.term, 'scin-afr': d.scin.afr * 100, 'scin-premium': d.scin.premium * 100, 'scin-age': d.scin.age,
-      'pplife-premium': d.pplife.premium, 'pplife-pay-years': d.pplife.payYears, 'pplife-return': d.pplife.ret * 100, 'pplife-years': d.pplife.years,
+      'pplife-premium': d.pplife.premium, 'pplife-pay-years': d.pplife.payYears, 'pplife-return': d.pplife.ret * 100, 'pplife-years': d.pplife.years, 'pplife-ilit': d.pplife.ilit ? 'yes' : 'no', 'pplife-diversified': d.pplife.diversified ? 'yes' : 'no',
       'cross-ps-owner': d.crossPs.ownerContrib, 'cross-ps-emps': d.crossPs.employees, 'cross-ps-emp-age': d.crossPs.empAge, 'cross-ps-owner-age': d.crossPs.ownerAge, 'cross-ps-years': d.crossPs.years, 'cross-ps-emp-pct': d.crossPs.empPct * 100,
-      'hsa-age': d.hsa.age, 'hsa-years': d.hsa.years, 'hsa-return': d.hsa.ret * 100,
+      // Existing strategies that also had missing select fields (oilgas, dbplan, ceasement)
+      'oilgas-state-conforms': d.oilgas.stateConforms, 'oilgas-structure': d.oilgas.structure, 'oilgas-risk': d.oilgas.risk,
+      'dbplan-type': d.dbplan.type, 'dbplan-vesting': d.dbplan.vesting,
+      'ceasement-structure': d.ceasement.structure, 'ceasement-purpose': d.ceasement.purpose, 'ceasement-appraisal': d.ceasement.appraisal,
+      'hsa-age': d.hsa.age, 'hsa-years': d.hsa.years, 'hsa-return': d.hsa.ret * 100, 'hsa-coverage': d.hsa.coverage, 'hsa-strategy': d.hsa.strategy,
       // Oil &amp; Gas Working Interest
       'oilgas-amount': d.oilgas.amount, 'oilgas-idc-pct': d.oilgas.idcPct * 100, 'oilgas-year': d.oilgas.year, 'oilgas-state-conforms': d.oilgas.stateConforms, 'oilgas-structure': d.oilgas.structure, 'oilgas-operator': d.oilgas.operator, 'oilgas-production': d.oilgas.production, 'oilgas-prod-years': d.oilgas.prodYears, 'oilgas-risk': d.oilgas.risk,
       'tax-fed': d.tax.fed * 100, 'tax-state': d.tax.state * 100, 'tax-medicare': d.tax.medicare * 100,
