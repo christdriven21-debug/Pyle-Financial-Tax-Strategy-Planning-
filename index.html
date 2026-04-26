@@ -7339,7 +7339,10 @@ function computePlan(d) {
   const QSBS_GROSS_ASSET_CEILING_PRE_OBBBA  = 50_000_000;
   const QSBS_GROSS_ASSET_CEILING_POST_OBBBA = 75_000_000;
   const corpGrossAssets    = d.corp?.grossAssets || 0;
-  const corpGrossAssetGate = (typeof qsbsIsPostOBBBA !== 'undefined' && qsbsIsPostOBBBA)
+  // Read regime directly from d.qsbs.regime — qsbsIsPostOBBBA itself is
+  // declared ~600 lines below this in the QSBS compute block, so accessing
+  // it via `typeof` here would throw ReferenceError due to const TDZ.
+  const corpGrossAssetGate = (d.qsbs?.regime === 'post-obbba')
     ? QSBS_GROSS_ASSET_CEILING_POST_OBBBA
     : QSBS_GROSS_ASSET_CEILING_PRE_OBBBA;
   const corpQsbsGatePass   = corpGrossAssets > 0 && corpGrossAssets <= corpGrossAssetGate;
