@@ -2459,6 +2459,21 @@
   /* Audit Log panel — never appears in PDF/print output (advisor-internal). */
   @media print { #audit-panel { display: none !important; } }
   .print-layout #audit-panel { display: none !important; }
+  /* Audit-log collapsible toggle */
+  .audit-toggle {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    background: transparent; border: none; padding: 6px 0;
+    cursor: pointer; text-align: left; font-family: 'Playfair Display', serif;
+    color: var(--ink);
+  }
+  .audit-toggle:hover { color: var(--gold-dark); }
+  .audit-toggle .audit-toggle-chevron {
+    display: inline-block; font-size: 14px; line-height: 1; color: var(--gold-dark);
+    transition: transform 0.2s ease;
+  }
+  .audit-toggle[aria-expanded="true"] .audit-toggle-chevron { transform: rotate(90deg); }
+  .audit-toggle .audit-toggle-label { font-size: 16px; font-weight: 700; letter-spacing: 1px; }
+  .audit-body.hidden { display: none !important; }
   /* Reviews + Documents panels also stay out of the printed plan deliverable. */
   .print-layout #review-panel,
   .print-layout #documents-panel { display: none !important; }
@@ -4406,29 +4421,34 @@
 
   <!-- AUDIT LOG PANEL — team-only, SOC 2 / fiduciary defense (populated by JS) -->
   <div class="review-panel hidden team-only" id="audit-panel">
-    <h3>🔒 Audit Log <span style="font-size:11px; color:var(--muted); font-weight:normal;">(SOC 2 / fiduciary record — append-only)</span></h3>
-    <div style="font-size: 12px; color: var(--muted); margin-bottom: 14px; font-style: italic;">
-      Every plan create/update/delete, document upload/delete, sign-in, AI query, and PDF export is recorded here. The log is append-only at the database level — even team members cannot edit or delete entries. Use this to defend fiduciary decisions ("when did we ask the client about the SLAT?") and provide SOC 2 Type II evidence of access control.
+    <button type="button" class="audit-toggle" id="audit-toggle" aria-expanded="false" aria-controls="audit-body">
+      <span class="audit-toggle-chevron" aria-hidden="true">▸</span>
+      <span class="audit-toggle-label">🔒 Audit Log <span style="font-size:11px; color:var(--muted); font-weight:normal;">(SOC 2 / fiduciary record — append-only · click to open)</span></span>
+    </button>
+    <div class="audit-body hidden" id="audit-body">
+      <div style="font-size: 12px; color: var(--muted); margin-bottom: 14px; font-style: italic;">
+        Every plan create/update/delete, document upload/delete, sign-in, AI query, and PDF export is recorded here. The log is append-only at the database level — even team members cannot edit or delete entries. Use this to defend fiduciary decisions ("when did we ask the client about the SLAT?") and provide SOC 2 Type II evidence of access control.
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <select id="audit-filter-action" style="padding:6px 8px; border-radius:3px; border:1px solid rgba(201,169,97,0.4); font-size:12px;">
+          <option value="">All actions</option>
+          <option value="plan.create">Plan create</option>
+          <option value="plan.update">Plan update</option>
+          <option value="plan.delete">Plan delete</option>
+          <option value="doc.upload">Doc upload</option>
+          <option value="doc.delete">Doc delete</option>
+          <option value="signin">Sign-in</option>
+          <option value="ai.ask">AI query</option>
+          <option value="export.pdf">PDF export</option>
+          <option value="share.create">Share link</option>
+        </select>
+        <input type="text" id="audit-filter-actor" placeholder="Filter by actor email…" style="padding:6px 8px; border-radius:3px; border:1px solid rgba(201,169,97,0.4); font-size:12px; min-width:200px;">
+        <button class="btn btn-sm" id="btn-audit-refresh">Refresh</button>
+        <button class="btn btn-sm" id="btn-audit-export">Export CSV</button>
+        <span style="font-size:11px; color:var(--muted);" id="audit-status"></span>
+      </div>
+      <div class="review-list" id="audit-list"></div>
     </div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
-      <select id="audit-filter-action" style="padding:6px 8px; border-radius:3px; border:1px solid rgba(201,169,97,0.4); font-size:12px;">
-        <option value="">All actions</option>
-        <option value="plan.create">Plan create</option>
-        <option value="plan.update">Plan update</option>
-        <option value="plan.delete">Plan delete</option>
-        <option value="doc.upload">Doc upload</option>
-        <option value="doc.delete">Doc delete</option>
-        <option value="signin">Sign-in</option>
-        <option value="ai.ask">AI query</option>
-        <option value="export.pdf">PDF export</option>
-        <option value="share.create">Share link</option>
-      </select>
-      <input type="text" id="audit-filter-actor" placeholder="Filter by actor email…" style="padding:6px 8px; border-radius:3px; border:1px solid rgba(201,169,97,0.4); font-size:12px; min-width:200px;">
-      <button class="btn btn-sm" id="btn-audit-refresh">Refresh</button>
-      <button class="btn btn-sm" id="btn-audit-export">Export CSV</button>
-      <span style="font-size:11px; color:var(--muted);" id="audit-status"></span>
-    </div>
-    <div class="review-list" id="audit-list"></div>
   </div>
 
   <!-- REVIEW / COMMENTS PANEL (populated by JS when a plan is loaded) -->
@@ -16220,6 +16240,10 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (!auditPanel) return;
     if (!currentUser || !isTeam) { auditPanel.classList.add('hidden'); return; }
     auditPanel.classList.remove('hidden');
+    // Skip the network call when the body is collapsed — the click-to-open
+    // handler will trigger refreshAuditLog() on first expand.
+    const auditBodyEl = document.getElementById('audit-body');
+    if (auditBodyEl?.classList.contains('hidden')) return;
     auditStatus.textContent = 'Loading…';
 
     const filterAction = document.getElementById('audit-filter-action')?.value || '';
@@ -16299,6 +16323,23 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   document.getElementById('audit-filter-actor')?.addEventListener('input', () => {
     clearTimeout(window.__auditFilterTimer);
     window.__auditFilterTimer = setTimeout(refreshAuditLog, 350);
+  });
+
+  // Collapse/expand toggle — audit body hidden by default; click reveals
+  // the description, filter controls, and log list. Lazy-loads the log
+  // on first open so the network call doesn't fire on every plan load.
+  const auditToggleBtn = document.getElementById('audit-toggle');
+  const auditBodyEl    = document.getElementById('audit-body');
+  let auditLoadedOnce = false;
+  auditToggleBtn?.addEventListener('click', () => {
+    const willOpen = auditBodyEl?.classList.contains('hidden');
+    if (!auditBodyEl) return;
+    auditBodyEl.classList.toggle('hidden', !willOpen);
+    auditToggleBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    if (willOpen && !auditLoadedOnce) {
+      auditLoadedOnce = true;
+      refreshAuditLog();
+    }
   });
 
   /* ──────────────────────────────────────────────────────────────────────
