@@ -4680,6 +4680,191 @@
       </div>
     </div>
 
+    <div class="strategy-block hidden" id="block-buysell">
+      <h4>Buy-Sell Agreement — Cross-Purchase / Entity Redemption / Wait-and-See</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Contractual obligation to buy/sell business interest at death/disability/departure. Three structures: <strong>cross-purchase</strong> (other owners buy with personally-owned life insurance), <strong>entity redemption</strong> (company buys with corporate-owned life insurance), or <strong>wait-and-see</strong> (decide at trigger). Post-Connelly v. U.S. (2024), corporate-owned life insurance proceeds <strong>increase company FMV</strong> for §2031 valuation — making entity redemption far less attractive than pre-Connelly.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Business Interest Value <span class="hint">(decedent's share)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="buysell-value" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Number of Owners</label>
+          <input type="number" id="buysell-owners" value="3" min="2" max="20">
+        </div>
+        <div class="field">
+          <label>Structure</label>
+          <select id="buysell-structure">
+            <option value="cross_purchase" selected>Cross-Purchase (recommended post-Connelly)</option>
+            <option value="entity_redemption">Entity Redemption (Connelly valuation issue)</option>
+            <option value="wait_and_see">Wait-and-See (hybrid; decide at trigger)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Insurance Funding %</label>
+          <div class="suffix-pct"><input type="number" id="buysell-insurance-pct" value="100" min="0" max="100" step="10"></div>
+        </div>
+        <div class="field">
+          <label>§2703 Compliant? <span class="hint">(arms-length pricing terms)</span></label>
+          <select id="buysell-2703">
+            <option value="yes" selected>Yes — bona fide business arrangement, comparable terms</option>
+            <option value="no">No — IRS may disregard for valuation</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Trigger Events Covered</label>
+          <select id="buysell-triggers">
+            <option value="full" selected>Death · Disability · Departure (full)</option>
+            <option value="death_only">Death only</option>
+            <option value="death_disability">Death + Disability</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-family-llc">
+      <h4>Family LLC — Pass-Through with Valuation Discount + Charging-Order Protection</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        LLC variant of FLP — pass-through taxation, governance flexibility, valuation discounts on gifted membership interests (lack of marketability + minority discount), and <strong>charging-order protection</strong> (creditor of an individual member cannot reach LLC assets, only future distributions to that member's interest). Strongest charging-order statutes: DE / NV / WY. §2036 retained-control issues mirror FLP — engage tax counsel + obtain qualified appraisal at funding.
+      </p>
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>LLC Funding Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="family-llc-funding" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Valuation Discount</label>
+          <div class="suffix-pct"><input type="number" id="family-llc-discount" value="30" step="1"></div>
+        </div>
+        <div class="field">
+          <label>State of Formation</label>
+          <select id="family-llc-state">
+            <option value="DE" selected>Delaware (strongest charging-order)</option>
+            <option value="NV">Nevada</option>
+            <option value="WY">Wyoming</option>
+            <option value="other">Other state (varies)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>% Gifted to Next Generation</label>
+          <div class="suffix-pct"><input type="number" id="family-llc-gifted" value="30" min="0" max="99" step="5"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-intra-loan">
+      <h4>Intra-Family Loan — AFR-Based Wealth Transfer</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Loan from grantor to family member (or grantor trust) at <strong>Applicable Federal Rate</strong> (AFR). All asset appreciation above AFR transfers gift-tax-free to the borrower over the loan term. Best in low-interest-rate environments. Document the note properly (term, rate, security if any) to avoid §7872 below-market-loan re-characterization. Combine with IDGT for installment-sale-to-grantor-trust at AFR.
+      </p>
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>Loan Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="intra-loan-amount" value="5000000"></div>
+        </div>
+        <div class="field">
+          <label>Loan Term (Years)</label>
+          <input type="number" id="intra-loan-term" value="9" min="3" max="30">
+        </div>
+        <div class="field">
+          <label>AFR Rate <span class="hint">(mid-term ≈ 4.5% / long-term ≈ 4.7% in 2024)</span></label>
+          <div class="suffix-pct"><input type="number" id="intra-loan-afr" value="4.5" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Expected Asset Return</label>
+          <div class="suffix-pct"><input type="number" id="intra-loan-return" value="8" step="0.5"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-private-foundation">
+      <h4>Private Foundation — Donor-Controlled Charitable Platform</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Donor-controlled grantmaking entity. <strong>30% AGI deduction limit</strong> (vs 60% public charity / DAF). <strong>5% annual distribution requirement</strong> (§4942). 1.39% net-investment excise tax (§4940 — reduced from 2% in 2020). Excludes self-dealing (§4941), excess business holdings (§4943, &lt;20% of any business), jeopardy investments (§4944), taxable expenditures (§4945). Strong governance + multi-generational platform vs DAF; ideal for $10M+ annual giving budgets.
+      </p>
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>Foundation Funding</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="private-foundation-funding" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Owner AGI <span class="hint">(30% AGI limit applies)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="private-foundation-agi" value="2000000"></div>
+        </div>
+        <div class="field">
+          <label>Asset Type</label>
+          <select id="private-foundation-asset">
+            <option value="cash" selected>Cash (30% AGI limit)</option>
+            <option value="appreciated_public">Appreciated public stock (30% AGI; full FMV deduction)</option>
+            <option value="appreciated_private">Appreciated closely-held stock (20% AGI; basis only)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Expected Investment Return</label>
+          <div class="suffix-pct"><input type="number" id="private-foundation-return" value="6" step="0.5"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-serp">
+      <h4>Funded SERP — Supplemental Executive Retirement Plan</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Non-qualified deferred compensation for top-tier executives (typically owner). Funded via <strong>corporate-owned life insurance (COLI)</strong> or annuities. <strong>No §415 contribution limits</strong> — discriminatory benefit allowed for "Top-Hat" plans (§401(a)(7) exemption). §409A timing rules apply: deferral elections before year, distribution events fixed in writing. Death benefit excluded under §101 if grantor not a 25%+ owner of the COLI sponsor's stock.
+      </p>
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>Annual Deferral / Contribution</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="serp-contribution" value="500000"></div>
+        </div>
+        <div class="field">
+          <label>Funding Years</label>
+          <input type="number" id="serp-years" value="15" min="3" max="30">
+        </div>
+        <div class="field">
+          <label>Expected Crediting Rate <span class="hint">(COLI / annuity)</span></label>
+          <div class="suffix-pct"><input type="number" id="serp-rate" value="6" step="0.5"></div>
+        </div>
+        <div class="field">
+          <label>Funding Vehicle</label>
+          <select id="serp-vehicle">
+            <option value="coli" selected>COLI (Corporate-Owned Life Insurance)</option>
+            <option value="annuity">Group Annuity</option>
+            <option value="rabbi_trust">Rabbi Trust (informal funding only)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-ing-trust">
+      <h4>ING Trust — Incomplete Non-Grantor Trust (DING / NING)</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Self-settled trust in DE (DING) or NV (NING) that is <strong>non-grantor for income tax</strong> (assets shift income off donor's state return) but <strong>incomplete for gift tax</strong> (so it stays in donor's estate — no gift tax). Result: investment income shifted to a no-tax jurisdiction (NV / DE / SD) for state-tax purposes. <strong>Powerful only for high-state-tax residents</strong> (CA / NY / NJ / OR) with significant investment income. CFTBA conformity issues — California aggressively challenges DING/NING for state income tax; recent legislation has narrowed effectiveness in CA.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Investment Income Shifted Annually</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ing-income" value="500000"></div>
+        </div>
+        <div class="field">
+          <label>Years of Operation</label>
+          <input type="number" id="ing-years" value="10" min="1" max="30">
+        </div>
+        <div class="field">
+          <label>Trust Situs</label>
+          <select id="ing-situs">
+            <option value="DE" selected>Delaware (DING)</option>
+            <option value="NV">Nevada (NING)</option>
+            <option value="SD">South Dakota</option>
+            <option value="WY">Wyoming</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <div class="strategy-block hidden" id="block-hsa">
       <h4>HSA — Health Savings Account (Triple-Tax-Advantaged)</h4>
       <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
@@ -4747,6 +4932,12 @@
       <input type="checkbox" id="use-pplife">       <!-- Private Placement Life Insurance -->
       <input type="checkbox" id="use-cross-ps">     <!-- Cross-Tested Profit-Sharing -->
       <input type="checkbox" id="use-hsa">          <!-- Health Savings Account -->
+      <!-- Phase 4 strategies -->
+      <input type="checkbox" id="use-buysell">             <!-- Buy-Sell Agreement -->
+      <input type="checkbox" id="use-family-llc">          <!-- Family LLC -->
+      <input type="checkbox" id="use-intra-loan">          <!-- Intra-Family Loan -->
+      <input type="checkbox" id="use-private-foundation">  <!-- Private Foundation -->
+      <input type="checkbox" id="use-serp">                <!-- Funded SERP -->
       <!-- New Phase-1 strategies (hidden toggles; real inputs in dedicated
            sections elsewhere when implemented). Solver uses these directly. -->
       <input type="checkbox" id="use-dbplan">      <!-- Defined Benefit / Cash Balance Plan -->
@@ -4762,7 +4953,7 @@
       <!-- ceasement-* promoted to visible block-ceasement -->
       <input type="hidden" id="muni-alloc-pct" value="20">
       <input type="hidden" id="flp-discount-pct" value="25">
-      <input type="hidden" id="ing-income" value="500000">
+      <!-- ing-income promoted to visible block-ing-trust -->
       <!-- Hedging parameters (defaults sized for typical $5-25M concentrated position) -->
       <input type="hidden" id="collar-notional" value="5000000">
       <input type="hidden" id="collar-floor-pct" value="90">     <!-- floor strike as % of current price -->
@@ -5698,6 +5889,48 @@ const STRATEGIES = [
     useId: 'use-hsa', blockId: 'block-hsa',
   },
   {
+    id: 'buysell-built', name: 'Buy-Sell Agreement',
+    category: 'estate',
+    tags: ['reduces_estate_tax'],
+    desc: 'Contractual obligation to buy/sell business interest at death/disability/departure. Cross-purchase preferred post-Connelly v. U.S. (2024) — entity-redemption COLI now increases FMV.',
+    useId: 'use-buysell', blockId: 'block-buysell',
+  },
+  {
+    id: 'family-llc-built', name: 'Family LLC',
+    category: 'estate',
+    tags: ['reduces_estate_tax'],
+    desc: 'LLC variant of FLP — pass-through tax + valuation discount + charging-order protection. Strongest in DE/NV/WY. §2036 retained-control caveats apply.',
+    useId: 'use-family-llc', blockId: 'block-family-llc',
+  },
+  {
+    id: 'intra-loan-built', name: 'Intra-Family Loan',
+    category: 'estate',
+    tags: ['reduces_estate_tax'],
+    desc: 'Loan from grantor to family member (or grantor trust) at AFR. All asset appreciation above AFR transfers gift-tax-free. Pair with IDGT for installment-sale-to-trust at AFR.',
+    useId: 'use-intra-loan', blockId: 'block-intra-loan',
+  },
+  {
+    id: 'private-foundation-built', name: 'Private Foundation',
+    category: 'giving',
+    tags: ['reduces_income_tax', 'charitable', 'requires_irrevocable'],
+    desc: 'Donor-controlled grantmaking entity. 30% AGI deduction limit + 5% min annual distribution + 1.39% excise tax. Best for $10M+ annual giving budgets.',
+    useId: 'use-private-foundation', blockId: 'block-private-foundation',
+  },
+  {
+    id: 'serp-built', name: 'Funded SERP',
+    category: 'income',
+    tags: ['reduces_income_tax'],
+    desc: 'Supplemental Executive Retirement Plan funded with COLI or annuities. No §415 limits — discriminatory benefit allowed for Top-Hat. §409A timing rules apply.',
+    useId: 'use-serp', blockId: 'block-serp',
+  },
+  {
+    id: 'ing-built', name: 'ING Trust (DING / NING)',
+    category: 'income',
+    tags: ['reduces_income_tax'],
+    desc: 'Incomplete Non-Grantor Trust in DE/NV/SD. Shifts investment income off donor\'s state return to no-tax jurisdiction; assets stay in donor\'s estate (no gift tax). CA aggressively challenges.',
+    useId: 'use-ing', blockId: 'block-ing-trust',
+  },
+  {
     id: 'qbi-199a', name: '§199A QBI Deduction',
     category: 'income',
     tags: ['reduces_income_tax'],
@@ -5847,7 +6080,7 @@ const STRATEGY_CATALOG = [
   { id: 'crat',          table: 'personal', section: 'charitable', name: 'Charitable Remainder Annuity Trust', status: 'built', useId: 'use-crat', blockId: 'block-crat', definition: 'Fixed-annuity charitable trust. Annual payout is locked at trust funding.', whenToUse: 'Income certainty preferred over inflation protection; older donors with shorter horizon', statutes: ['§664(d)(1)','§7520','Rev. Rul. 77-374'], pros: ['Eliminates CG','Predictable income','Estate removal'], cons: ['No inflation protection','5% probability-of-exhaustion test (Rev. Rul. 77-374)'] },
   { id: 'tclat',         table: 'personal', section: 'charitable', name: 'Testamentary Charitable Lead Annuity Trust', status: 'consideration', definition: 'CLAT funded at death rather than during life. Charity receives annuity for term, remainder to heirs.', whenToUse: 'Estate-tax-driven planning where lifetime gift not desired', statutes: ['§170(f)(2)(B)','§2055(e)'] },
   { id: 'charitable_life_estate', table: 'personal', section: 'charitable', name: 'Charitable Life Estate', status: 'consideration', definition: 'Donor gives remainder interest in personal residence/farm to charity, retaining lifetime use.', whenToUse: 'Donor wants lifetime use of property + immediate charitable deduction', statutes: ['§170(f)(3)(B)(i)','§2522'] },
-  { id: 'private_foundation', table: 'personal', section: 'charitable', name: 'Private Foundation', status: 'consideration', definition: 'Donor-controlled grantmaking entity. 30% AGI deduction limit (vs 60% public charity), 5% annual distribution requirement.', whenToUse: 'Donor wants long-term charitable platform with family governance + naming rights', statutes: ['§4940 (excise tax)','§4942 (5% min distribution)','§4944 (jeopardy investments)'] },
+  { id: 'private_foundation', table: 'personal', section: 'charitable', name: 'Private Foundation', status: 'built', useId: 'use-private-foundation', blockId: 'block-private-foundation', definition: 'Donor-controlled grantmaking entity. 30% AGI deduction limit (vs 60% public charity), 5% annual distribution requirement.', whenToUse: 'Donor wants long-term charitable platform with family governance + naming rights', statutes: ['§170(b)(1)(B)','§170(d) 5-yr carryforward','§4940 1.39% excise tax','§4942 5% distribution','§4941 self-dealing','§4943 business holdings','§4944 jeopardy','§4945 taxable expenditures'], pros: ['Family governance + multi-gen platform','Investment growth at 1.39% excise rate','Employee grantmaking infrastructure'], cons: ['30% AGI limit (vs 60% public charity)','5% annual distribution mandate','Form 990-PF compliance burden'] },
   { id: 'family_charity_plan', table: 'personal', section: 'charitable', name: 'Family Charity Plan', status: 'consideration', definition: 'Layered structure combining DAF + family foundation + named charitable funds for multi-generational giving.', whenToUse: 'Multi-generational donor families seeking governance, education, and tax efficiency', statutes: ['§170','§4940 et seq.'] },
   { id: 'ignit',         table: 'personal', section: 'charitable', name: 'IGNIT Plan™', status: 'consideration', definition: 'Integrated Generational Non-grantor IDGT — combines IDGT installment-sale leverage with non-grantor income shifting.', whenToUse: 'Sale of business to dynasty trust where state-tax arbitrage adds material value', statutes: ['§671 (grantor rules)','§267'] },
   { id: 'bargain_sale',  table: 'personal', section: 'charitable', name: 'Bargain Sale to Charity', status: 'consideration', definition: 'Donor sells appreciated asset to charity below FMV. Capital gain only on the sale portion; deduction on the gift portion.', whenToUse: 'Donor wants liquidity but also charitable benefit; works for low-basis property', statutes: ['§1011(b)','§170'] },
@@ -5870,7 +6103,7 @@ const STRATEGY_CATALOG = [
   { id: 'monetized_install_sale', table: 'personal', section: 'personal', name: 'Monetized Installment Sale', status: 'built', useId: 'use-mon-install', blockId: 'block-mon-install', definition: 'Sale on 30-yr installment note + upfront monetization loan against the note. Defers gain while providing liquidity.', whenToUse: 'Sale of low-basis property where §1031 unavailable; client needs liquidity now', statutes: ['§453','§453A interest charge','Notice 2023-34 / 2023-65 — listed transaction','Burnett v. Logan'], pros: ['~93% upfront liquidity','Gain deferred 30 years','Cash-flow neutral during term'], cons: ['IRS focus area — Form 8886 disclosure','Note default risk','Counterparty (structurer) risk'] },
   { id: 'slat',          table: 'personal', section: 'personal', name: 'SLAT', status: 'built', useId: 'use-slat', blockId: 'block-slat', definition: 'Spousal Lifetime Access Trust — irrevocable trust for benefit of spouse + descendants. Uses lifetime exemption while preserving indirect access.', whenToUse: 'Use exemption now (esp. before sunset) without losing access to assets', statutes: ['§2503','§2511','Reciprocal Trust Doctrine'], pros: ['Uses exemption','Spouse retains beneficial access'], cons: ['Reciprocal trust risk if both spouses fund','Divorce/death of spouse cuts off access'] },
   { id: 'gifting',       table: 'personal', section: 'personal', name: 'Annual Gifting', status: 'consideration', definition: 'Annual exclusion gifts ($18K/recipient/year in 2024 — indexed). 529 5-year accelerated gifts.', whenToUse: 'Every plan with significant net worth + family', statutes: ['§2503(b)','§529(c)(2)(B)'] },
-  { id: 'family_llc',    table: 'personal', section: 'personal', name: 'Family LLC', status: 'consideration', definition: 'LLC variant of FLP — pass-through taxation, governance flexibility, valuation discounts on gifted membership interests.', whenToUse: 'Same use cases as FLP but with charging-order protection in DE/NV/WY', statutes: ['§2036','§2701','State LLC charging-order statutes'] },
+  { id: 'family_llc',    table: 'personal', section: 'personal', name: 'Family LLC', status: 'built', useId: 'use-family-llc', blockId: 'block-family-llc', definition: 'LLC variant of FLP — pass-through taxation, governance flexibility, valuation discounts on gifted membership interests.', whenToUse: 'Same use cases as FLP but with charging-order protection in DE/NV/WY', statutes: ['§2036','§2701','DE 12 §18-703','NV NRS 86.401','WY W.S. 17-29-503','Bongard v. Comm\'r'], pros: ['25-40% valuation discount','Pass-through taxation','Charging-order protection'], cons: ['§2036 retained-control risk','Bongard substance test','Annual K-1 prep cost'] },
   { id: 'walton_grat',   table: 'personal', section: 'personal', name: 'Standard GRAT', status: 'built', useId: 'use-grat', blockId: 'block-grat', definition: 'Grantor Retained Annuity Trust — transfer asset appreciation above §7520 rate to heirs gift-tax-free.', whenToUse: 'Asset expected to outperform §7520 hurdle (currently ~5%)', statutes: ['§2702(b)','§7520','Walton'], pros: ['Gift-tax efficient','Self-cancelling if grantor outlives term'], cons: ['Mortality risk during term','Adequate disclosure'] },
   { id: 'crummey_powers', table: 'personal', section: 'personal', name: 'Crummey Powers', status: 'consideration', definition: 'Withdrawal-right notices to trust beneficiaries that convert future-interest gifts into present-interest gifts qualifying for annual exclusion.', whenToUse: 'Funding ILIT or other irrevocable trust with annual-exclusion gifts', statutes: ['Crummey v. Comm\'r 397 F.2d 82','§2503(b)'] },
   { id: 'sale_install_note', table: 'personal', section: 'personal', name: 'Sale for Installment Note', status: 'consideration', definition: 'Sale of asset to family member (or trust) for installment note at AFR. Locks in current value + transfers appreciation.', whenToUse: 'Estate freeze where IDGT not appropriate', statutes: ['§453','§7872','§267'] },
@@ -5879,11 +6112,11 @@ const STRATEGY_CATALOG = [
   { id: 'dynasty',       table: 'personal', section: 'personal', name: 'Dynasty Trust', status: 'built', useId: 'use-dynasty', blockId: 'block-dynasty', definition: 'Multi-generational trust that escapes estate + GST tax for generations. Funded with lifetime exemption + GST exemption.', whenToUse: 'Family with sufficient assets to leave material wealth to grandchildren+', statutes: ['§2631 (GST exemption)','State perpetuities statutes (DE/SD/AK)'], pros: ['Multi-generational tax-free wealth','GST exemption leverage'], cons: ['Irrevocable','State situs choice critical'] },
   { id: 'corp_recap',    table: 'personal', section: 'personal', name: 'Corporate Recapitalization', status: 'consideration', definition: 'Restructure corp into voting + non-voting (or preferred + common) classes for valuation-discount gifting.', whenToUse: 'Owner wants to gift discounted non-voting shares while retaining control', statutes: ['§2701','§368(a)(1)(E)','Rev. Rul. 83-120'] },
   { id: 'premium_finance', table: 'personal', section: 'personal', name: 'Premium Finance', status: 'built', useId: 'use-pf', blockId: 'block-pf', definition: 'Bank loan funds life-insurance premiums. Death benefit pays off loan + leaves net to family. Highly rate-sensitive.', whenToUse: 'Need large death benefit but reluctant to commit cash to premiums; rate < expected policy IRR', statutes: ['§7702','§264 — interest deduction limits','§101 — DB exclusion'], pros: ['Leverage premium payments','Large net DB without big out-of-pocket','ILIT excludes from estate'], cons: ['Rate-sensitive — squeezed at SOFR+','Collateral calls if cash value drops','§264 caps interest deduction'] },
-  { id: 'buy_sell',      table: 'personal', section: 'personal', name: 'Buy-Sell Agreement', status: 'consideration', definition: 'Contractual obligation to buy/sell business interest at death/disability/departure. Often funded by life insurance.', whenToUse: 'Closely-held business with multiple owners', statutes: ['§2703','Connelly v. U.S. (2024) — life insurance proceeds in valuation'] },
+  { id: 'buy_sell',      table: 'personal', section: 'personal', name: 'Buy-Sell Agreement', status: 'built', useId: 'use-buysell', blockId: 'block-buysell', definition: 'Contractual obligation to buy/sell business interest at death/disability/departure. Often funded by life insurance.', whenToUse: 'Closely-held business with multiple owners', statutes: ['§2703','Connelly v. U.S. 602 U.S. 257 (2024)','§101(a)(1)','§1014','§318'], pros: ['Liquidity at trigger event','Valuation lock-in if §2703 compliant','Family wealth preserved'], cons: ['Connelly: entity-redemption COLI inflates FMV','§2703 disregard if not arms-length','Premium funding cost'] },
   { id: 'ilit',          table: 'personal', section: 'personal', name: 'ILIT', status: 'built', useId: 'use-ilit', blockId: 'block-ilit', definition: 'Irrevocable Life Insurance Trust — owns the policy outside the estate, providing tax-free death benefit liquidity.', whenToUse: 'Estate-tax exposure + need for death-benefit liquidity', statutes: ['§2042','§2035 (3-yr lookback)','§677','§7702'], pros: ['Tax-free death benefit','Estate exclusion'], cons: ['Irrevocable','§2035 3-yr lookback if existing policy transferred'] },
-  { id: 'ing_trust',     table: 'personal', section: 'personal', name: 'Intentional Non-Grantor Trust (ING)', status: 'consideration', definition: 'Self-settled trust in DE/NV that is non-grantor for income tax — shifts income off donor\'s state return to no-tax jurisdiction.', whenToUse: 'High-state-tax residents with significant investment income', statutes: ['§672(f)','State trust statutes'] },
+  { id: 'ing_trust',     table: 'personal', section: 'personal', name: 'Intentional Non-Grantor Trust (ING)', status: 'built', useId: 'use-ing', blockId: 'block-ing-trust', definition: 'Self-settled trust in DE/NV that is non-grantor for income tax — shifts income off donor\'s state return to no-tax jurisdiction.', whenToUse: 'High-state-tax residents with significant investment income', statutes: ['§672(f)','Reg §1.672(f)-3','DE 12 §3528','NV NRS 166','CA R&T §17745 throwback'], pros: ['Shifts state income tax to no-tax state','Estate-includible (no gift cost)','Asset-protection benefits'], cons: ['CA throwback rule (R&T §17745)','NY expanded sourcing','Independent distribution committee required'] },
   { id: 'asset_protection', table: 'personal', section: 'personal', name: 'Domestic Asset Protection Trust', status: 'built', useId: 'use-dapt', blockId: 'block-dapt', definition: 'Self-settled spendthrift trust in DAPT-friendly state (DE/NV/AK/SD/WY) for creditor protection.', whenToUse: 'Professional with malpractice exposure; pre-marital wealth protection', statutes: ['DE 12 §3570','NV NRS 166','AK AS 34.40.110','SD SDCL 55-16','UVTA','§548'], pros: ['Creditor protection after SOL period','Quality-of-life preserved (discretionary distributions)','Optional non-grantor estate exclusion'], cons: ['UVTA exposure for pre-existing creditors','State-law-untested in many cases','Independent co-trustee required'] },
-  { id: 'intra_family_loan', table: 'personal', section: 'personal', name: 'Intra-Family Loan', status: 'consideration', definition: 'Loan between family members at AFR. Wealth transfer = appreciation above AFR over loan term.', whenToUse: 'Low-rate environments; alternative to gift', statutes: ['§7872','§483','AFR (mid-term)'] },
+  { id: 'intra_family_loan', table: 'personal', section: 'personal', name: 'Intra-Family Loan', status: 'built', useId: 'use-intra-loan', blockId: 'block-intra-loan', definition: 'Loan between family members at AFR. Wealth transfer = appreciation above AFR over loan term.', whenToUse: 'Low-rate environments; alternative to gift', statutes: ['§7872','§483','§267','AFR (mid + long-term)'], pros: ['Simple structure (one note)','No mortality risk','Pair with IDGT for installment sale'], cons: ['§7872 below-market rules','Imputed interest if AFR not used','Default risk on note'] },
   { id: 'scin',          table: 'personal', section: 'personal', name: 'SCIN — Self-Canceling Installment Note', status: 'built', useId: 'use-scin', blockId: 'block-scin', definition: 'Installment note that cancels at grantor\'s death. Removes asset from estate at sale; income/gain still taxed during life.', whenToUse: 'Grantor with shorter life expectancy seeking estate removal', statutes: ['§453','§691(a)(1) IRD','Estate of Frane v. Comm\'r 998 F.2d 567','Costanza v. Comm\'r T.C. Memo 2003-269'], pros: ['Mortality-driven estate removal','Family liquidity preserved','§453 installment treatment'], cons: ['Premium pricing complex','Best when grantor LE < note term','§691 IRD treatment of unpaid balance'] },
   { id: 'gdot',          table: 'personal', section: 'personal', name: 'GDOT — Grantor Deemed Owner Trust', status: 'consideration', definition: 'Variant of grantor trust used for grantor-trust income shifting in non-traditional fact patterns.', whenToUse: 'Niche use case where standard IDGT structure doesn\'t fit', statutes: ['§671-§679'] },
   { id: 'self_finance_ins', table: 'personal', section: 'personal', name: 'Self-Financed Insurance', status: 'consideration', definition: 'Funding life-insurance premiums from internal cash flow rather than premium-financing loans. Avoids interest-rate risk.', whenToUse: 'Client with strong cash flow + long-horizon insurance need', statutes: ['§7702','§101(a)'] },
@@ -5905,7 +6138,7 @@ const STRATEGY_CATALOG = [
   { id: 'cross_tested_ps', table: 'business', section: 'financial', name: 'Cross-Tested Profit Sharing', status: 'built', useId: 'use-cross-ps', blockId: 'block-cross-ps', definition: 'Profit-sharing variant using new-comparability allocation — gives owners much higher share than rank-and-file.', whenToUse: 'Older owner / younger workforce; passes §401(a)(4) general test', statutes: ['§401(a)(4)','Reg §1.401(a)(4)-8','§415(c) — $69k/$76.5k limit','§404(a)(7)'], pros: ['Owner-favorable allocation','Stacks with DB plan','§415 cap higher than 401(k) alone'], cons: ['Min employee allocation 5-7.5%','Requires actuarial cross-test','Older-owner / younger-emp profile needed'] },
   { id: 'db_business',   table: 'business', section: 'financial', name: 'Defined Benefit Plan', status: 'built', useId: 'use-dbplan', blockId: 'block-dbplan', definition: 'Same as Personal Atlas DB Plan — high-contribution-limit qualified plan; in business context, often paired with PS for stacked deduction.', whenToUse: 'Owner age 50+ with stable cash flow', statutes: ['§401(a)','§415(b)','§412'] },
   { id: 'combined_db_ps', table: 'business', section: 'financial', name: 'Combined PS + DB Plan', status: 'consideration', definition: 'Stack a 401(k)+Profit Sharing on top of a Cash Balance / DB plan. Combined deduction can exceed $400k/yr for owner age 55+.', whenToUse: 'Highest-capacity tax shelter for high-earning solo or small-firm owner', statutes: ['§404(a)(7) combined limit','§415','§401(a)(4) general test'] },
-  { id: 'funded_serp',   table: 'business', section: 'financial', name: 'Funded SERP', status: 'consideration', definition: 'Supplemental Executive Retirement Plan funded with corporate-owned life insurance or annuities. Non-qualified, no contribution limits.', whenToUse: 'Discriminatory benefit for top-tier executives outside §415 limits', statutes: ['§409A','§457(f)','Top-Hat plan rules'] },
+  { id: 'funded_serp',   table: 'business', section: 'financial', name: 'Funded SERP', status: 'built', useId: 'use-serp', blockId: 'block-serp', definition: 'Supplemental Executive Retirement Plan funded with corporate-owned life insurance or annuities. Non-qualified, no contribution limits.', whenToUse: 'Discriminatory benefit for top-tier executives outside §415 limits', statutes: ['§409A','§457(f)','§401(a)(7) Top-Hat','§101(j) employer-owned exception','§3121(v)(2)'], pros: ['No §415 contribution limit','Discriminatory allowed (Top-Hat)','COLI death benefit excluded under §101'], cons: ['§409A timing rules unforgiving','Rabbi-Trust assets at corporate creditor risk','§101(j) gates DB exclusion'] },
   { id: 'cre_ownership', table: 'business', section: 'financial', name: 'Commercial Real Estate Ownership', status: 'consideration', definition: 'Owner holds operating real estate (factory, warehouse, office) in a separate LLC and leases to the operating company.', whenToUse: 'Asset-protection separation + cost-segregation depreciation; eventual §1031 exit', statutes: ['§1031','§280A','§469(c)(7) real-estate professional'] },
   { id: 'pplife',        table: 'business', section: 'financial', name: 'Private Placement Life Insurance', status: 'built', useId: 'use-pplife', blockId: 'block-pplife', definition: 'Variable life-insurance policy with custom hedge-fund-style investment options, accessible only to accredited/qualified purchasers.', whenToUse: 'UHNW client wanting tax-free internal growth on alternative investments', statutes: ['§7702','§7702A MEC','§101(a) DB exclusion','§817(h) diversification','§953(d)','Webber v. Comm\'r 144 T.C. 324'], pros: ['Tax-free internal growth (§7702)','Death benefit tax-free (§101)','UHNW alternative-investment access'], cons: ['§5M+ minimum funding','§817(h) 5/55/90 diversification','Investor-control doctrine — no investment direction'] },
 
@@ -6654,6 +6887,12 @@ function readForm() {
       pplife: c('use-pplife'),
       crossPs: c('use-cross-ps'),
       hsa: c('use-hsa'),
+      // Phase 4
+      buysell: c('use-buysell'),
+      familyLlc: c('use-family-llc'),
+      intraLoan: c('use-intra-loan'),
+      privateFoundation: c('use-private-foundation'),
+      serp: c('use-serp'),
     },
     dynasty: {
       funding: n('dt-funding'),
@@ -6892,6 +7131,49 @@ function readForm() {
       years:    n('hsa-years') || 15,
       ret:     (n('hsa-return') || 7) / 100,
       strategy: t('hsa-strategy') || 'invest',
+    },
+    // Phase 4: Buy-Sell Agreement
+    buysell: {
+      value:        n('buysell-value'),
+      owners:       n('buysell-owners') || 3,
+      structure:    t('buysell-structure') || 'cross_purchase',
+      insurancePct:(n('buysell-insurance-pct') || 100) / 100,
+      compliant2703:t('buysell-2703') === 'yes',
+      triggers:     t('buysell-triggers') || 'full',
+    },
+    // Phase 4: Family LLC
+    familyLlc: {
+      funding:  n('family-llc-funding'),
+      discount:(n('family-llc-discount') || 30) / 100,
+      state:    t('family-llc-state') || 'DE',
+      gifted:  (n('family-llc-gifted') || 30) / 100,
+    },
+    // Phase 4: Intra-Family Loan
+    intraLoan: {
+      amount:  n('intra-loan-amount'),
+      term:    n('intra-loan-term') || 9,
+      afr:    (n('intra-loan-afr') || 4.5) / 100,
+      ret:    (n('intra-loan-return') || 8) / 100,
+    },
+    // Phase 4: Private Foundation
+    privateFoundation: {
+      funding:  n('private-foundation-funding'),
+      agi:      n('private-foundation-agi'),
+      asset:    t('private-foundation-asset') || 'cash',
+      ret:     (n('private-foundation-return') || 6) / 100,
+    },
+    // Phase 4: Funded SERP
+    serp: {
+      contribution: n('serp-contribution'),
+      years:        n('serp-years') || 15,
+      rate:        (n('serp-rate') || 6) / 100,
+      vehicle:      t('serp-vehicle') || 'coli',
+    },
+    // Phase 4: ING Trust (was stub; promote to first-class)
+    ingTrust: {
+      income: n('ing-income'),
+      years:  n('ing-years') || 10,
+      situs:  t('ing-situs') || 'DE',
     },
     slat: { funding: n('slat-funding'), growth: n('slat-growth') / 100, years: n('slat-years'), discount: n('slat-discount') / 100 },
     idgt: { amount: n('idgt-amount'), afr: n('idgt-afr') / 100, growth: n('idgt-growth') / 100, term: n('idgt-term'), discount: n('idgt-discount') / 100 },
@@ -8198,6 +8480,90 @@ function computePlan(d) {
   }
 
   // ──────────────────────────────────────────────────────────────────────
+  // PHASE 4 STRATEGIES
+  // ──────────────────────────────────────────────────────────────────────
+
+  // Buy-Sell Agreement
+  //   Cross-purchase: each owner buys life insurance on the others.
+  //     Premium total = (owners × insuredOwners-1) policies.
+  //   Entity redemption: company buys insurance on all owners.
+  //     Connelly v. U.S. (2024): insurance proceeds increase company FMV
+  //     for §2031 valuation, defeating the redemption-payoff purpose.
+  //   Estate-tax neutral by default; lock-in valuation under §2703 if
+  //     compliant (bona fide business arrangement, not a gift device,
+  //     comparable arms-length terms).
+  let buysellValuationLocked = 0, buysellInsuranceFunded = 0,
+      buysellConnellyRisk = false, buysell2703Risk = false;
+  if (d.use.buysell && d.buysell?.value > 0) {
+    buysellValuationLocked = d.buysell.compliant2703 ? d.buysell.value : 0;
+    buysellInsuranceFunded = d.buysell.value * d.buysell.insurancePct;
+    buysellConnellyRisk = d.buysell.structure === 'entity_redemption';
+    buysell2703Risk = !d.buysell.compliant2703;
+  }
+
+  // Family LLC
+  //   Estate savings = funding × discount × estate rate (on gifted portion)
+  //   Charging-order protection qualitative; not quantified
+  let familyLlcEstateSaving = 0, familyLlcDiscountValue = 0;
+  if (d.use.familyLlc && d.familyLlc?.funding > 0) {
+    familyLlcDiscountValue = d.familyLlc.funding * d.familyLlc.discount;
+    familyLlcEstateSaving = familyLlcDiscountValue * d.familyLlc.gifted * d.tax.estate;
+  }
+
+  // Intra-Family Loan
+  //   Wealth transfer = amount × ((1+ret)^term − (1+afr)^term)
+  //   Estate savings = transfer × estate rate
+  let intraLoanTransfer = 0, intraLoanEstateSaving = 0;
+  if (d.use.intraLoan && d.intraLoan?.amount > 0) {
+    intraLoanTransfer = d.intraLoan.amount * Math.max(0,
+      Math.pow(1 + d.intraLoan.ret, d.intraLoan.term) - Math.pow(1 + d.intraLoan.afr, d.intraLoan.term));
+    intraLoanEstateSaving = intraLoanTransfer * d.tax.estate;
+  }
+
+  // Private Foundation
+  //   Charitable deduction limit by asset type:
+  //     • Cash / appreciated public stock: 30% AGI limit, full FMV
+  //     • Closely-held stock: 20% AGI, basis only (§170(e)(1)(B))
+  //   5% min annual distribution = funding × 0.05 (compliance gate)
+  //   1.39% net-investment excise tax annually
+  let pfDeductionAvailable = 0, pfYear1Saving = 0, pfMinDistribution = 0,
+      pfExciseTaxAnnual = 0, pfRequiresAGISpread = false;
+  if (d.use.privateFoundation && d.privateFoundation?.funding > 0) {
+    const pfAgiLimit = d.privateFoundation.asset === 'appreciated_private'
+      ? d.privateFoundation.agi * 0.20
+      : d.privateFoundation.agi * 0.30;
+    pfDeductionAvailable = d.privateFoundation.funding;  // contribution amount
+    pfYear1Saving = Math.min(pfDeductionAvailable, pfAgiLimit) * d.tax.marginal;
+    pfRequiresAGISpread = pfDeductionAvailable > pfAgiLimit;
+    pfMinDistribution = d.privateFoundation.funding * 0.05;
+    // Excise tax on net investment income (1.39% post-2020)
+    pfExciseTaxAnnual = (d.privateFoundation.funding * d.privateFoundation.ret) * 0.0139;
+  }
+
+  // Funded SERP
+  //   Annual deferral × marginal = annual deferred-tax saving
+  //   Future value = annuity FV at crediting rate over funding years
+  //   §409A timing rules (no immediate compute impact)
+  let serpAnnualSaving = 0, serpFutureValue = 0, serpLifetimeSaving = 0;
+  if (d.use.serp && d.serp?.contribution > 0) {
+    serpAnnualSaving = d.serp.contribution * d.tax.marginal;
+    serpLifetimeSaving = serpAnnualSaving * d.serp.years;
+    // FV of annuity at crediting rate (guard for rate=0)
+    serpFutureValue = d.serp.rate > 0
+      ? d.serp.contribution * ((Math.pow(1 + d.serp.rate, d.serp.years) - 1) / d.serp.rate)
+      : d.serp.contribution * d.serp.years;
+  }
+
+  // ING Trust (DING/NING) — promote from stub
+  //   State-tax saving = investment income × state rate × years
+  //   Only meaningful if d.tax.state > 0
+  let ingAnnualSaving = 0, ingLifetimeSaving = 0;
+  if (d.use.ing && d.ingTrust?.income > 0) {
+    ingAnnualSaving = d.ingTrust.income * d.tax.state;
+    ingLifetimeSaving = ingAnnualSaving * d.ingTrust.years;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
   // SLAT — CORRECTED estate savings.
   //   Funding uses lifetime exemption (like Dynasty), so the base funding
   //   is a wash vs. what would have been shielded by exemption at death.
@@ -8397,12 +8763,8 @@ function computePlan(d) {
   const flpTransferBase = d.use.flp ? ((d.dynasty?.funding || 0) + (d.slat?.funding || 0)) : 0;
   const flpSaving = flpTransferBase * (d.flp?.discountPct || 0) * d.tax.estate;
 
-  // ING Trust (Incomplete Non-Grantor): moves income-producing assets to
-  // a no-state-tax jurisdiction (Delaware, Nevada). Savings ≈ ing.income
-  // × user's state tax rate × years. Only meaningful if client state has
-  // tax (FL/TX/WA/NV have $0 state, so savings = 0 automatically).
-  const ingAnnualSaving = d.use.ing ? ((d.ing?.income || 0) * d.tax.state) : 0;
-  const ingLifetimeSaving = ingAnnualSaving * Math.min(d.proj.years || 10, 20);
+  // ING Trust compute is now in the Phase 4 block above (uses d.ingTrust,
+  // years from form, state-tax saving × years × marginal-state-rate).
 
   // ──────────────────────────────────────────────────────────────────────
   // Conservation Easement — §170(h) charitable deduction
@@ -8542,7 +8904,13 @@ function computePlan(d) {
                        + crossPsAnnualSaving
                        + hsaAnnualSaving
                        // Corporate tax profile annual savings
-                       + s250TaxSaving + s41Credit + s172TaxSaving;
+                       + s250TaxSaving + s41Credit + s172TaxSaving
+                       // Phase 4 strategies
+                       + familyLlcEstateSaving
+                       + intraLoanEstateSaving
+                       + pfYear1Saving
+                       + serpAnnualSaving;
+                       // ingAnnualSaving already aggregated via phase1StateSaving below
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -8985,6 +9353,12 @@ function computePlan(d) {
     s163jLimit, s163jDisallowed, s163jHits,
     s250GiltiDed, s250FdiiDed, s250TotalDed, s250TaxSaving,
     s41Credit, s172UsableThisYear, s172TaxSaving,
+    // Phase 4 strategies
+    buysellValuationLocked, buysellInsuranceFunded, buysellConnellyRisk, buysell2703Risk,
+    familyLlcDiscountValue, familyLlcEstateSaving,
+    intraLoanTransfer, intraLoanEstateSaving,
+    pfDeductionAvailable, pfYear1Saving, pfMinDistribution, pfExciseTaxAnnual, pfRequiresAGISpread,
+    serpAnnualSaving, serpFutureValue, serpLifetimeSaving,
     // Sale Proceeds Tranches
     proceedsInstallment, proceedsEarnoutMax, proceedsEarnoutProb, proceedsEarnoutExpected,
     proceedsEscrow, proceedsEscrowProb, proceedsEscrowExpected,
@@ -9533,6 +9907,12 @@ function renderTechnicalAppendix(p) {
   if (d.use.pplife)     strategiesInUse.push('PPLI (Private Placement Life)');
   if (d.use.crossPs)    strategiesInUse.push('Cross-Tested Profit-Sharing');
   if (d.use.hsa)        strategiesInUse.push('HSA §223');
+  if (d.use.buysell)            strategiesInUse.push('Buy-Sell Agreement (§2703)');
+  if (d.use.familyLlc)          strategiesInUse.push('Family LLC');
+  if (d.use.intraLoan)          strategiesInUse.push('Intra-Family Loan (AFR)');
+  if (d.use.privateFoundation)  strategiesInUse.push('Private Foundation');
+  if (d.use.serp)               strategiesInUse.push('Funded SERP §409A');
+  if (d.use.ing)                strategiesInUse.push('ING Trust (DING/NING)');
 
   return `
     <!-- COVER PAGE -->
@@ -10547,6 +10927,147 @@ function renderSummary(p) {
       <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
         <span class="title">Statutory Citations + 2024 Limits</span>
         <strong>§223</strong> — HSA definition. <strong>§223(b)(2)</strong> — 2024 limits: $4,150 single / $8,300 family. <strong>§223(b)(3)</strong> — $1,000 catchup at 55+. <strong>§223(c)(2)</strong> — HDHP requirements: $1,600 / $3,200 minimum deductible. <strong>§223(f)(4)</strong> — 20% penalty waiver at 65+.
+      </div>
+    </div>` : ''}
+
+    ${d.use.buysell ? `
+    <div class="card" ${p.buysellConnellyRisk || p.buysell2703Risk ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
+      <div class="card-title">Buy-Sell Agreement — ${d.buysell.structure === 'cross_purchase' ? 'Cross-Purchase' : d.buysell.structure === 'entity_redemption' ? 'Entity Redemption' : 'Wait-and-See'}</div>
+      ${p.buysellConnellyRisk ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ Connelly v. U.S. (2024) — Entity Redemption Valuation Trap</span>
+          The Supreme Court held that <strong>corporate-owned life insurance proceeds increase the company's FMV</strong> for §2031 estate-tax valuation. In an entity-redemption structure, the company receives the insurance + the company's value goes UP by that amount — defeating the redemption-payoff economics. <strong>Switch to cross-purchase</strong> (each owner buys insurance on the others personally) to avoid the Connelly inflation. Existing entity-redemption policies should be unwound and replaced.
+        </div>` : ''}
+      ${p.buysell2703Risk ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ §2703 Disregard Risk</span>
+          §2703(a) disregards a buy-sell agreement for valuation purposes UNLESS three tests are met: (1) bona fide business arrangement, (2) not a device to transfer property to family for less than full consideration, (3) terms comparable to similar arms-length arrangements (§2703(b)). Without compliance, IRS may use FMV ignoring the buy-sell formula — defeating the valuation lock-in.
+        </div>` : ''}
+      <div class="card-sub">${fmt$M(d.buysell.value)} business interest among ${d.buysell.owners} owners; ${(d.buysell.insurancePct*100).toFixed(0)}% insurance-funded; ${d.buysell.triggers === 'full' ? 'death + disability + departure' : d.buysell.triggers === 'death_disability' ? 'death + disability' : 'death only'} triggers.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Business Interest Insured</div><div class="value">${fmt$M(d.buysell.value)}</div></div>
+        <div class="kpi gold"><div class="label">Insurance Funded</div><div class="value">${fmt$M(p.buysellInsuranceFunded)}</div></div>
+        <div class="kpi success"><div class="label">Valuation Lock-in (§2703)</div><div class="value">${fmt$M(p.buysellValuationLocked)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — Liquidity + Valuation Lock-In</span>
+        ${d.buysell.structure === 'cross_purchase' ? 'Cross-purchase: each owner buys life insurance on the others personally. At trigger, surviving owners use insurance proceeds to buy decedent\'s interest. Family receives FMV liquidity; surviving owners get stepped-up basis on purchased shares. Connelly-proof.' : d.buysell.structure === 'entity_redemption' ? 'Entity redemption: company buys insurance on each owner. At death, company redeems decedent\'s interest with insurance proceeds. Connelly: this inflates company FMV for estate purposes — recommend conversion to cross-purchase.' : 'Wait-and-see: structure allows decision at trigger between cross-purchase and redemption. Most flexible but highest documentation burden.'}
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§2703</strong> — disregard rules for buy-sell + comparable-terms test. <strong>Connelly v. U.S. 602 U.S. 257 (2024)</strong> — corporate-owned life insurance increases FMV. <strong>§101(a)(1)</strong> — death-benefit exclusion. <strong>§1014</strong> — basis step-up. <strong>§318</strong> — constructive ownership rules for redemption.
+      </div>
+    </div>` : ''}
+
+    ${d.use.familyLlc ? `
+    <div class="card">
+      <div class="card-title">Family LLC — Discount Gifting + Charging-Order Protection</div>
+      <div class="card-sub">${fmt$M(d.familyLlc.funding)} in a ${d.familyLlc.state} LLC; ${(d.familyLlc.discount*100).toFixed(0)}% valuation discount; ${(d.familyLlc.gifted*100).toFixed(0)}% gifted to next generation.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">LLC Funding</div><div class="value">${fmt$M(d.familyLlc.funding)}</div></div>
+        <div class="kpi gold"><div class="label">Valuation Discount Value</div><div class="value">${fmt$M(p.familyLlcDiscountValue)}</div></div>
+        <div class="kpi success"><div class="label">Estate Tax Saved on Gifted Portion</div><div class="value">${fmt$M(p.familyLlcEstateSaving)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — Pass-Through + Discount + Asset Protection</span>
+        Family LLC combines pass-through taxation (no entity-level tax), valuation discounts on gifted membership interests (lack-of-marketability + minority discount = ${(d.familyLlc.discount*100).toFixed(0)}% off), and <strong>charging-order protection</strong> in ${d.familyLlc.state}. Creditor of an individual member can only attach charging-order income, not LLC assets. Strongest charging-order statutes: DE (12 §18-703), NV (NRS 86.401), WY (W.S. 17-29-503). Engage qualified appraiser at funding + IDGT or annual-exclusion gifts of membership interests over time.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§2036(a)</strong> — retained-control re-inclusion (Bongard substance test). <strong>§2701</strong> — preferred-LP estate-freeze restrictions. <strong>Estate of Strangi 96 T.C. Memo 2003-145</strong> · <strong>Estate of Bongard 124 T.C. 95 (2005)</strong>. <strong>DE 12 §18-703</strong>, <strong>NV NRS 86.401</strong>, <strong>WY W.S. 17-29-503</strong> — charging-order statutes.
+      </div>
+    </div>` : ''}
+
+    ${d.use.intraLoan ? `
+    <div class="card">
+      <div class="card-title">Intra-Family Loan — AFR-Based Wealth Transfer</div>
+      <div class="card-sub">${fmt$M(d.intraLoan.amount)} loan for ${d.intraLoan.term} yrs at ${(d.intraLoan.afr*100).toFixed(2)}% AFR; expected return ${(d.intraLoan.ret*100).toFixed(1)}%.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Loan Amount</div><div class="value">${fmt$M(d.intraLoan.amount)}</div></div>
+        <div class="kpi gold"><div class="label">Wealth Transferred (Above AFR)</div><div class="value">${fmt$M(p.intraLoanTransfer)}</div></div>
+        <div class="kpi success"><div class="label">Estate Tax Saved</div><div class="value">${fmt$M(p.intraLoanEstateSaving)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit</span>
+        Lend ${fmt$M(d.intraLoan.amount)} to family member or grantor trust at AFR (${(d.intraLoan.afr*100).toFixed(2)}%). All asset appreciation above AFR over the ${d.intraLoan.term}-yr term — projected <strong>${fmt$M(p.intraLoanTransfer)}</strong> — transfers gift-tax-free. Document the note formally: term, rate, repayment schedule. §7872 below-market-loan rules require AFR; if below, IRS imputes interest as gift. Pair with IDGT for installment-sale-to-grantor-trust at AFR (no §453 interest charge on grantor-trust transactions).
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§7872</strong> — below-market loan rules. <strong>§483</strong> — imputed interest on deferred-payment sales. <strong>AFR (mid-term + long-term)</strong> — published monthly by IRS. <strong>§267</strong> — related-party transactions.
+      </div>
+    </div>` : ''}
+
+    ${d.use.privateFoundation ? `
+    <div class="card" ${p.pfRequiresAGISpread ? 'style="border-left: 4px solid var(--gold-dark);"' : ''}>
+      <div class="card-title">Private Foundation — Donor-Controlled Charitable Platform</div>
+      ${p.pfRequiresAGISpread ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Contribution Exceeds Annual AGI Limit</span>
+          Funding (${fmt$M(d.privateFoundation.funding)}) exceeds the ${d.privateFoundation.asset === 'appreciated_private' ? '20%' : '30%'} AGI limit (${fmt$M(d.privateFoundation.asset === 'appreciated_private' ? d.privateFoundation.agi * 0.20 : d.privateFoundation.agi * 0.30)}) for this asset type. Excess deduction carries forward 5 years (§170(d)). Plan absorption across multiple years or pair with cash gifts to higher-limit public charities first.
+        </div>` : ''}
+      <div class="card-sub">${fmt$M(d.privateFoundation.funding)} ${d.privateFoundation.asset === 'cash' ? 'cash' : d.privateFoundation.asset === 'appreciated_public' ? 'appreciated public stock' : 'appreciated closely-held stock'} contribution; expected ${(d.privateFoundation.ret*100).toFixed(1)}% return; ${fmt$M(p.pfMinDistribution)}/yr minimum distribution.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Foundation Funding</div><div class="value">${fmt$M(d.privateFoundation.funding)}</div></div>
+        <div class="kpi gold"><div class="label">Year-1 Tax Saved</div><div class="value">${fmt$M(p.pfYear1Saving)}</div></div>
+        <div class="kpi"><div class="label">5% Min Annual Distribution</div><div class="value">${fmt$M(p.pfMinDistribution)}</div></div>
+        <div class="kpi"><div class="label">1.39% Net-Investment Excise</div><div class="value">${fmt$(p.pfExciseTaxAnnual)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — Multi-Generational Charitable Platform</span>
+        Donor-controlled grantmaking entity. Strong governance for next-generation philanthropy. Ideal for ongoing $1M+ annual giving budgets where DAF flexibility isn't enough. Trade-offs vs DAF: lower 30% AGI limit (vs 60%), 5% mandatory distribution, 1.39% excise tax, more complex compliance (Form 990-PF, self-dealing rules §4941, excess-business-holdings §4943, jeopardy investments §4944, taxable expenditures §4945). Best when donor wants formal multi-generational governance + naming rights + employee-grant infrastructure.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§170(b)(1)(B)</strong> — 30% AGI limit (cash + appreciated public). <strong>§170(b)(1)(D)</strong> — 20% AGI limit (closely-held stock; basis only). <strong>§170(d)</strong> — 5-yr carryforward. <strong>§4940</strong> — 1.39% excise tax. <strong>§4942</strong> — 5% min distribution. <strong>§4941</strong> — self-dealing. <strong>§4943</strong> — &lt;20% business holdings. <strong>§4944</strong> — jeopardy investments. <strong>§4945</strong> — taxable expenditures.
+      </div>
+    </div>` : ''}
+
+    ${d.use.serp ? `
+    <div class="card">
+      <div class="card-title">Funded SERP — Supplemental Executive Retirement Plan (Top-Hat)</div>
+      <div class="card-sub">${fmt$(d.serp.contribution)}/yr deferral × ${d.serp.years} yrs at ${(d.serp.rate*100).toFixed(1)}% expected crediting; ${d.serp.vehicle === 'coli' ? 'COLI-funded' : d.serp.vehicle === 'annuity' ? 'group annuity' : 'rabbi trust (informal funding)'}.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Annual Deferral</div><div class="value">${fmt$(d.serp.contribution)}</div></div>
+        <div class="kpi success"><div class="label">Annual Tax Deferred</div><div class="value">${fmt$(p.serpAnnualSaving)}</div></div>
+        <div class="kpi gold"><div class="label">Lifetime Saving (${d.serp.years} yrs)</div><div class="value">${fmt$M(p.serpLifetimeSaving)}</div></div>
+        <div class="kpi"><div class="label">Projected Future Value</div><div class="value">${fmt$M(p.serpFutureValue)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — High-Capacity Deferral Outside §415 Limits</span>
+        Non-qualified Top-Hat plan for top-tier executives (typically owner). <strong>No §415 contribution limits</strong>. Funded ${d.serp.vehicle === 'coli' ? 'via Corporate-Owned Life Insurance — death benefit excluded under §101 if owner is not a 25%+ shareholder of the COLI sponsor' : d.serp.vehicle === 'annuity' ? 'via group annuity contracts — guaranteed crediting rate, but lower upside' : 'informally via Rabbi Trust — assets remain corporate; subject to creditors'}. §409A timing rules apply: deferral elections before the year of services, distribution events fixed in the plan document. Pair with ILIT to keep death proceeds out of executive's estate.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§409A</strong> — non-qualified deferred-comp timing rules. <strong>§457(f)</strong> — ineligible plan rules (gov/tax-exempt). <strong>§401(a)(7)</strong> — Top-Hat plan exemption from ERISA fiduciary rules. <strong>§101(a)(1)</strong> — DB exclusion (employer-owned exception §101(j)). <strong>§3121(v)(2)</strong> — FICA timing on deferred comp.
+      </div>
+    </div>` : ''}
+
+    ${d.use.ing ? `
+    <div class="card">
+      <div class="card-title">ING Trust — ${d.ingTrust.situs === 'DE' ? 'DING (Delaware)' : d.ingTrust.situs === 'NV' ? 'NING (Nevada)' : d.ingTrust.situs} Incomplete Non-Grantor</div>
+      <div class="card-sub">${fmt$(d.ingTrust.income)}/yr investment income shifted to ${d.ingTrust.situs} for state-tax purposes; ${d.ingTrust.years}-yr horizon.</div>
+      ${d.tax.state === 0 ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ No State Tax to Shift</span>
+          Client's state tax rate is 0% — ING Trust adds compliance burden without state-tax benefit. Skip unless planning for relocation to a high-tax state.
+        </div>` : ''}
+      ${(d.clientState === 'CA') ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ California ING Effectiveness Severely Limited</span>
+          California aggressively challenges DING/NING via the "throwback" rule (R&amp;TC §17745) and the FTB's expanded definition of "California source income." Recent legislation (SB 131) further narrows ING effectiveness for CA residents. The strategy may not work as intended for CA residents — engage CA tax counsel before funding.
+        </div>` : ''}
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Investment Income Shifted</div><div class="value">${fmt$(d.ingTrust.income)}</div></div>
+        <div class="kpi success"><div class="label">Annual State Tax Saved</div><div class="value">${fmt$(p.ingAnnualSaving)}</div></div>
+        <div class="kpi gold"><div class="label">${d.ingTrust.years}-Yr Lifetime Saving</div><div class="value">${fmt$M(p.ingLifetimeSaving)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit + Compliance Caveats</span>
+        Self-settled trust in a no-tax state (NV / DE / SD / WY) drafted as <strong>non-grantor for income tax</strong> (so income is taxed to the trust at the trust's situs, not the donor's state) but <strong>incomplete for gift tax</strong> (so assets stay in donor's estate — no gift-tax cost). Result: investment income earns at the trust's no-tax state for ${(d.tax.state*100).toFixed(2)}% annual savings × ${d.ingTrust.years} years. <strong>Risks:</strong> CA throwback rule, NY's expanded sourcing definitions, IRS attempts to recharacterize via the "completed gift" doctrine. Use independent distribution committee + decant flexibility.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§672(f)</strong> — foreign-grantor trust rules. <strong>DE 12 §3528 / 3801</strong> — Delaware DAPT. <strong>NV NRS 166</strong> — Nevada spendthrift trust. <strong>CA R&amp;TC §17745</strong> — throwback rule. <strong>Reg §1.672(f)-3</strong>.
       </div>
     </div>` : ''}
 
@@ -12718,7 +13239,7 @@ function renderCompare(p) {
     };
   }
 
-  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false, oilgas: false, dbplan: false, ceasement: false, esop1042: false, monInstall: false, captive: false, pf: false, nimcrut: false, waltonGrat: false, dapt: false, qsbs1045: false, scin: false, pplife: false, crossPs: false, hsa: false };
+  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false, oilgas: false, dbplan: false, ceasement: false, esop1042: false, monInstall: false, captive: false, pf: false, nimcrut: false, waltonGrat: false, dapt: false, qsbs1045: false, scin: false, pplife: false, crossPs: false, hsa: false, buysell: false, familyLlc: false, intraLoan: false, privateFoundation: false, serp: false, ing: false };
 
   const scenarios = [
     variant('No Planning', allOff),
@@ -16858,6 +17379,13 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'corp-174-status': d.corp.s174Status, 'corp-174-domestic': d.corp.s174Domestic, 'corp-174-foreign': d.corp.s174Foreign,
       'corp-163j-ati': d.corp.s163jAti, 'corp-163j-exempt': d.corp.s163jExempt ? 'yes' : 'no',
       'corp-41-credit': d.corp.s41Credit, 'corp-250-gilti': d.corp.s250Gilti, 'corp-250-fdii': d.corp.s250Fdii, 'corp-172-nol': d.corp.s172Nol,
+      // Phase 4 strategies
+      'buysell-value': d.buysell.value, 'buysell-owners': d.buysell.owners, 'buysell-structure': d.buysell.structure, 'buysell-insurance-pct': d.buysell.insurancePct * 100, 'buysell-2703': d.buysell.compliant2703 ? 'yes' : 'no', 'buysell-triggers': d.buysell.triggers,
+      'family-llc-funding': d.familyLlc.funding, 'family-llc-discount': d.familyLlc.discount * 100, 'family-llc-state': d.familyLlc.state, 'family-llc-gifted': d.familyLlc.gifted * 100,
+      'intra-loan-amount': d.intraLoan.amount, 'intra-loan-term': d.intraLoan.term, 'intra-loan-afr': d.intraLoan.afr * 100, 'intra-loan-return': d.intraLoan.ret * 100,
+      'private-foundation-funding': d.privateFoundation.funding, 'private-foundation-agi': d.privateFoundation.agi, 'private-foundation-asset': d.privateFoundation.asset, 'private-foundation-return': d.privateFoundation.ret * 100,
+      'serp-contribution': d.serp.contribution, 'serp-years': d.serp.years, 'serp-rate': d.serp.rate * 100, 'serp-vehicle': d.serp.vehicle,
+      'ing-income': d.ingTrust.income, 'ing-years': d.ingTrust.years, 'ing-situs': d.ingTrust.situs,
       // Sale Proceeds Structure (installment / earnout / escrow / clawback)
       'proceeds-installment-amount': d.proceeds.installmentAmount, 'proceeds-installment-years': d.proceeds.installmentYears, 'proceeds-installment-rate': d.proceeds.installmentRate * 100,
       'proceeds-earnout-max': d.proceeds.earnoutMax, 'proceeds-earnout-prob': d.proceeds.earnoutProb * 100, 'proceeds-earnout-years': d.proceeds.earnoutYears,
@@ -16890,7 +17418,7 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'ins-current': d.ins.current, 'ins-rec-min': d.ins.recMin, 'ins-rec-max': d.ins.recMax,
       'firm-name': d.firm.name, 'firm-tag': d.firm.tag,
     },
-    checkboxes: { 'use-dynasty': d.use.dynasty, 'use-crat': d.use.crat, 'use-daf': d.use.daf, 'use-qoz': d.use.qoz, 'use-oilgas': d.use.oilgas, 'use-esop-1042': d.use.esop1042, 'use-mon-install': d.use.monInstall, 'use-captive': d.use.captive, 'use-pf': d.use.pf, 'use-nimcrut': d.use.nimcrut, 'use-walton-grat': d.use.waltonGrat, 'use-dapt': d.use.dapt, 'use-1045': d.use.qsbs1045, 'use-scin': d.use.scin, 'use-pplife': d.use.pplife, 'use-cross-ps': d.use.crossPs, 'use-hsa': d.use.hsa },
+    checkboxes: { 'use-dynasty': d.use.dynasty, 'use-crat': d.use.crat, 'use-daf': d.use.daf, 'use-qoz': d.use.qoz, 'use-oilgas': d.use.oilgas, 'use-esop-1042': d.use.esop1042, 'use-mon-install': d.use.monInstall, 'use-captive': d.use.captive, 'use-pf': d.use.pf, 'use-nimcrut': d.use.nimcrut, 'use-walton-grat': d.use.waltonGrat, 'use-dapt': d.use.dapt, 'use-1045': d.use.qsbs1045, 'use-scin': d.use.scin, 'use-pplife': d.use.pplife, 'use-cross-ps': d.use.crossPs, 'use-hsa': d.use.hsa, 'use-buysell': d.use.buysell, 'use-family-llc': d.use.familyLlc, 'use-intra-loan': d.use.intraLoan, 'use-private-foundation': d.use.privateFoundation, 'use-serp': d.use.serp, 'use-ing': d.use.ing },
     firmLogo: d.firm.logo || null,
   });
 
@@ -17013,6 +17541,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
                     'use-collar','use-pvf','use-exchfund','use-oilgas',
                     'use-esop-1042','use-mon-install','use-captive','use-pf','use-nimcrut','use-walton-grat',
                     'use-dapt','use-1045','use-scin','use-pplife','use-cross-ps','use-hsa',
+                    'use-buysell','use-family-llc','use-intra-loan','use-private-foundation','use-serp',
                     'qsbs-attest-ccorp','qsbs-attest-active','qsbs-attest-grossassets','qsbs-attest-original'];
     const values = {};
     const checkboxes = {};
