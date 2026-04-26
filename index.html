@@ -3206,6 +3206,86 @@
       </div>
     </div>
 
+    <!-- CORPORATE FINANCIALS — operating company P&L + balance sheet + workforce + concentration -->
+    <div style="margin: 22px 0 10px; padding-top: 16px; border-top: 1px solid var(--border);">
+      <h4 style="font-size: 14px; color: var(--ink); margin: 0 0 6px; font-weight: 600;">
+        Corporate Financials <span style="font-weight: 400; color: var(--muted); font-size: 12px;">— operating company P&amp;L · balance sheet · workforce · concentration</span>
+      </h4>
+      <p style="font-size: 11px; color: var(--muted); font-style: italic; margin: 0 0 12px; line-height: 1.5;">
+        Drives <strong>QSBS §1202(d) gross-asset gate</strong> ($50M pre-OBBBA / $75M post-OBBBA), <strong>§831(b) captive sizing</strong> (typical premium = 1-3% of revenue), <strong>cross-tested PS / DB plan</strong> nondiscrimination, <strong>§199A QBI</strong> calculation, <strong>reasonable-compensation</strong> analysis, and <strong>pre-sale valuation uplift</strong> opportunity (current EBITDA × industry multiple vs headline price). Skip if data is unavailable; defaults assume mid-market mix.
+      </p>
+    </div>
+    <div class="form-grid cols-3">
+      <div class="field">
+        <label>Annual Revenue (Current Year)</label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-revenue" value="20000000"></div>
+      </div>
+      <div class="field">
+        <label>EBITDA (Current Year)</label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-ebitda" value="5000000"></div>
+      </div>
+      <div class="field">
+        <label>Gross Assets at QSBS Issuance <span class="hint">(§1202(d) gate)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-gross-assets" value="15000000"></div>
+      </div>
+    </div>
+    <div class="form-grid cols-3" style="margin-top: 14px;">
+      <div class="field">
+        <label>Owner W-2 Compensation (Annual) <span class="hint">(reasonable-comp test)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-owner-comp" value="500000"></div>
+      </div>
+      <div class="field">
+        <label>Owner K-1 / Distributions (Annual) <span class="hint">(pass-through earnings beyond W-2)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-owner-distributions" value="2000000"></div>
+      </div>
+      <div class="field">
+        <label>§199A Qualified Business Income <span class="hint">(eligible portion of net biz income)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-qbi" value="2000000"></div>
+      </div>
+    </div>
+    <div class="form-grid cols-3" style="margin-top: 14px;">
+      <div class="field">
+        <label>Full-Time Employees <span class="hint">(headcount; drives nondiscrimination + PBGC)</span></label>
+        <input type="number" id="corp-employees" value="25" min="0" max="10000">
+      </div>
+      <div class="field">
+        <label>Avg Employee Compensation <span class="hint">(for cross-tested PS modeling)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-avg-comp" value="80000"></div>
+      </div>
+      <div class="field">
+        <label>Operating Cash Flow (Annual) <span class="hint">(EBITDA − working-capital change)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-ocf" value="4500000"></div>
+      </div>
+    </div>
+    <div class="form-grid cols-3" style="margin-top: 14px;">
+      <div class="field">
+        <label>3-Year Revenue CAGR <span class="hint">(growth rate; drives valuation uplift opportunity)</span></label>
+        <div class="suffix-pct"><input type="number" id="corp-cagr" value="12" step="0.5"></div>
+      </div>
+      <div class="field">
+        <label>Top Customer Concentration <span class="hint">(% revenue from largest customer; valuation drag if >20%)</span></label>
+        <div class="suffix-pct"><input type="number" id="corp-customer-concentration" value="15" min="0" max="100" step="1"></div>
+      </div>
+      <div class="field">
+        <label>Recurring Revenue % <span class="hint">(SaaS-style subscription revenue; valuation premium)</span></label>
+        <div class="suffix-pct"><input type="number" id="corp-recurring-revenue" value="30" min="0" max="100" step="5"></div>
+      </div>
+    </div>
+    <div class="form-grid cols-3" style="margin-top: 14px;">
+      <div class="field">
+        <label>Industry EBITDA Multiple — Low <span class="hint">(typical exit multiple band)</span></label>
+        <div class="suffix-pct" style="--suffix:'×';"><input type="number" id="corp-multiple-low" value="6" step="0.5"></div>
+      </div>
+      <div class="field">
+        <label>Industry EBITDA Multiple — High</label>
+        <div class="suffix-pct" style="--suffix:'×';"><input type="number" id="corp-multiple-high" value="10" step="0.5"></div>
+      </div>
+      <div class="field">
+        <label>Estimated Insurable Annual Risk <span class="hint">(drives §831(b) captive premium ceiling)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-insurable-risk" value="500000"></div>
+      </div>
+    </div>
+
     <!-- REOPEN main form-grid for the remaining household-financial fields -->
     <div class="form-grid cols-3" style="margin-top: 18px;">
       <div class="field">
@@ -6430,6 +6510,27 @@ function readForm() {
     },
     crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
     daf: { amount: n('daf-amount') },
+    // Corporate Financials — operating company P&amp;L, balance sheet,
+    // workforce, concentration. Drives QSBS gross-asset gate, §831(b)
+    // captive sizing, cross-tested PS modeling, §199A QBI, valuation
+    // uplift opportunity. Set in Section 2 → Corporate Financials.
+    corp: {
+      revenue:               n('corp-revenue'),
+      ebitda:                n('corp-ebitda'),
+      grossAssets:           n('corp-gross-assets'),
+      ownerComp:             n('corp-owner-comp'),
+      ownerDistributions:    n('corp-owner-distributions'),
+      qbi:                   n('corp-qbi'),
+      employees:             n('corp-employees'),
+      avgComp:               n('corp-avg-comp'),
+      operatingCashFlow:     n('corp-ocf'),
+      cagr:                 (n('corp-cagr')                  || 0) / 100,
+      customerConcentration:(n('corp-customer-concentration') || 0) / 100,
+      recurringRevenue:     (n('corp-recurring-revenue')     || 0) / 100,
+      multipleLow:           n('corp-multiple-low')          || 6,
+      multipleHigh:          n('corp-multiple-high')         || 10,
+      insurableRisk:         n('corp-insurable-risk'),
+    },
     // Sale Proceeds Structure — how the headline price is split into
     // cash at close vs deferred/contingent/at-risk tranches. Each tranche
     // has its own §453 tax timing + QOZ 180-day clock + risk profile.
@@ -6731,6 +6832,72 @@ function computePlan(d) {
   const recaptureOrdinaryTax = recaptureAmount * d.tax.marginal;
   const recaptureCGTaxIfStock = recaptureAmount * combinedCGRate;
   const assetVsStockPenalty = Math.max(0, recaptureOrdinaryTax - recaptureCGTaxIfStock);
+
+  // ──────────────────────────────────────────────────────────────────────
+  // CORPORATE FINANCIALS — derived metrics from operating-company inputs
+  //
+  //   Drives:
+  //     • Implied valuation range (EBITDA × industry multiple)
+  //     • Pre-sale uplift opportunity (current EBITDA × multiple at
+  //       projected CAGR vs. headline sale price today)
+  //     • §1202(d) gross-asset gate check ($50M pre-OBBBA / $75M post)
+  //     • §831(b) captive premium sizing (1-3% of revenue rule of thumb)
+  //     • Reasonable-comp test (owner W-2 vs avg-comp × productivity multiple)
+  //     • Concentration risk (>20% top customer = valuation drag)
+  //     • Recurring revenue % (premium for SaaS-style recurring)
+  //   All derivations gracefully handle missing inputs (default 0).
+  // ──────────────────────────────────────────────────────────────────────
+  const corpRev      = d.corp?.revenue       || 0;
+  const corpEbitda   = d.corp?.ebitda        || 0;
+  const corpEmps     = d.corp?.employees     || 0;
+  const corpAvgComp  = d.corp?.avgComp       || 0;
+  const corpMultLow  = d.corp?.multipleLow   || 6;
+  const corpMultHigh = d.corp?.multipleHigh  || 10;
+  const corpCAGR     = d.corp?.cagr          || 0;
+
+  // Implied valuation band today + 3 years out at projected growth
+  const corpEbitdaMargin    = corpRev > 0 ? corpEbitda / corpRev : 0;
+  const corpValuationLow    = corpEbitda * corpMultLow;
+  const corpValuationHigh   = corpEbitda * corpMultHigh;
+  const corpValuationMid    = (corpValuationLow + corpValuationHigh) / 2;
+  // 3-year forward EBITDA at projected CAGR
+  const corpEbitda3yr       = corpEbitda * Math.pow(1 + corpCAGR, 3);
+  const corpValuationMid3yr = corpEbitda3yr * ((corpMultLow + corpMultHigh) / 2);
+  const corpUpliftOpportunity = Math.max(0, corpValuationMid3yr - (d.biz.sale || corpValuationMid));
+
+  // §1202 gross-asset gate
+  const QSBS_GROSS_ASSET_CEILING_PRE_OBBBA  = 50_000_000;
+  const QSBS_GROSS_ASSET_CEILING_POST_OBBBA = 75_000_000;
+  const corpGrossAssets    = d.corp?.grossAssets || 0;
+  const corpGrossAssetGate = (typeof qsbsIsPostOBBBA !== 'undefined' && qsbsIsPostOBBBA)
+    ? QSBS_GROSS_ASSET_CEILING_POST_OBBBA
+    : QSBS_GROSS_ASSET_CEILING_PRE_OBBBA;
+  const corpQsbsGatePass   = corpGrossAssets > 0 && corpGrossAssets <= corpGrossAssetGate;
+  const corpQsbsGateFailed = corpGrossAssets > corpGrossAssetGate;
+
+  // §831(b) captive sizing — typical premium = 1-3% of revenue, capped at $2.65M
+  const CAPTIVE_831B_CAP_2024 = 2_650_000;
+  const corpCaptivePremiumLow   = Math.min(corpRev * 0.01, CAPTIVE_831B_CAP_2024);
+  const corpCaptivePremiumHigh  = Math.min(corpRev * 0.03, CAPTIVE_831B_CAP_2024);
+  const corpInsurableRiskCap    = Math.min(d.corp?.insurableRisk || 0, CAPTIVE_831B_CAP_2024);
+  const corpCaptiveRecommended  = Math.min(corpInsurableRiskCap || corpCaptivePremiumLow, CAPTIVE_831B_CAP_2024);
+
+  // Reasonable-comp test — owner W-2 should be defensible vs avg-comp baseline
+  const corpReasonableCompFloor   = corpAvgComp * 2;   // owner ≥ 2× avg employee
+  const corpReasonableCompCeiling = corpAvgComp * 10;  // owner ≤ 10× avg (rule of thumb)
+  const corpOwnerCompFlag = d.corp?.ownerComp > 0 && (
+    d.corp.ownerComp < corpReasonableCompFloor ||
+    d.corp.ownerComp > corpReasonableCompCeiling
+  );
+
+  // Concentration risk score (qualitative)
+  const corpConcentrationRisk =
+    d.corp?.customerConcentration > 0.40 ? 'high' :
+    d.corp?.customerConcentration > 0.20 ? 'moderate' :
+    'low';
+
+  // Recurring revenue premium — SaaS-style >50% recurring earns valuation premium
+  const corpRecurringPremium = (d.corp?.recurringRevenue || 0) > 0.50;
 
   // ──────────────────────────────────────────────────────────────────────
   // SALE PROCEEDS TRANCHES — installment, earnout, escrow, clawback
@@ -8504,6 +8671,13 @@ function computePlan(d) {
     multiYearTax: runMultiYearTax({ withPlanningProceeds, nwWithout_total, ssAnnualHousehold }, d),
     goalAnalysis: analyzeGoals({ familyTotalNW, withPlanningTotal, dynasty20yr, monteCarlo: runMonteCarlo({ withPlanningTotal, ssAnnualHousehold, nwWithout_total }, d), totalImmediate }, d),
     saleIsAsset, recaptureAmount, recaptureOrdinaryTax, recaptureCGTaxIfStock, assetVsStockPenalty,
+    // Corporate Financials — derived
+    corpEbitdaMargin, corpValuationLow, corpValuationHigh, corpValuationMid,
+    corpEbitda3yr, corpValuationMid3yr, corpUpliftOpportunity,
+    corpGrossAssetGate, corpQsbsGatePass, corpQsbsGateFailed,
+    corpCaptivePremiumLow, corpCaptivePremiumHigh, corpCaptiveRecommended,
+    corpReasonableCompFloor, corpReasonableCompCeiling, corpOwnerCompFlag,
+    corpConcentrationRisk, corpRecurringPremium,
     // Sale Proceeds Tranches
     proceedsInstallment, proceedsEarnoutMax, proceedsEarnoutProb, proceedsEarnoutExpected,
     proceedsEscrow, proceedsEscrowProb, proceedsEscrowExpected,
@@ -10452,6 +10626,80 @@ function renderTransaction(p) {
     </div>
   ` : '';
 
+  const corpFinancialsCard = (d.corp?.revenue > 0 || d.corp?.ebitda > 0) ? `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">Corporate Financial Snapshot — Operating Company Profile</div>
+      <div class="card-sub">${fmt$M(d.corp.revenue)} revenue · ${fmt$M(d.corp.ebitda)} EBITDA (${(p.corpEbitdaMargin*100).toFixed(0)}% margin) · ${d.corp.employees} employees · ${d.corp.cagr > 0 ? fmtPct(d.corp.cagr*100) + ' 3-yr CAGR' : 'flat growth'}.</div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Revenue</div><div class="value">${fmt$M(d.corp.revenue)}</div></div>
+        <div class="kpi gold"><div class="label">EBITDA</div><div class="value">${fmt$M(d.corp.ebitda)}</div></div>
+        <div class="kpi gold"><div class="label">Implied Valuation Range</div><div class="value">${fmt$M(p.corpValuationLow)}–${fmt$M(p.corpValuationHigh)}</div></div>
+        <div class="kpi"><div class="label">Mid-Range Today</div><div class="value">${fmt$M(p.corpValuationMid)}</div></div>
+        <div class="kpi success"><div class="label">3-Yr Forward Mid (at ${fmtPct(d.corp.cagr*100)} CAGR)</div><div class="value">${fmt$M(p.corpValuationMid3yr)}</div></div>
+        <div class="kpi success"><div class="label">Pre-Sale Uplift Opportunity</div><div class="value">${fmt$M(p.corpUpliftOpportunity)}</div></div>
+      </div>
+
+      ${p.corpUpliftOpportunity > 5_000_000 && d.biz.sale > 0 ? `
+        <div class="callout">
+          <span class="title">Strategic Benefit — Defer Sale 24-36 Months for Material Uplift</span>
+          Current EBITDA of <strong>${fmt$M(d.corp.ebitda)}</strong> at ${fmtPct(d.corp.cagr*100)} CAGR projects to <strong>${fmt$M(p.corpEbitda3yr)}</strong> in 3 years. Applied to the industry mid-multiple band (${corpMultLow.toFixed(1)}–${corpMultHigh.toFixed(1)}×), the company would command <strong>${fmt$M(p.corpValuationMid3yr)}</strong> at exit — an uplift of <strong>${fmt$M(p.corpUpliftOpportunity)}</strong> over the current ${fmt$M(d.biz.sale)} sale price. Pair with operational levers (Cross-Tested PS for owner allocation, Captive for risk-management formalization, Open-Book Management for valuation premium) to compound the multiple expansion.
+        </div>
+      ` : ''}
+
+      ${p.corpQsbsGateFailed ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-top: 14px;">
+          <span class="title" style="color: var(--crimson);">⛔ §1202(d) Gross-Asset Gate Failed</span>
+          Gross assets at issuance <strong>${fmt$M(d.corp.grossAssets)}</strong> exceed the §1202(d) ceiling of <strong>${fmt$M(p.corpGrossAssetGate)}</strong> ${typeof qsbsIsPostOBBBA !== 'undefined' && qsbsIsPostOBBBA ? '(post-OBBBA)' : '(pre-OBBBA)'}. Stock issued at this asset size is <strong>not</strong> QSBS-eligible — §1202 exclusion does not apply.
+        </div>
+      ` : ''}
+      ${p.corpQsbsGatePass ? `
+        <div class="callout" style="background:#F0F8F0; border-left:3px solid var(--success); margin-top: 14px;">
+          <span class="title" style="color: var(--success);">✓ §1202(d) Gross-Asset Gate Passed</span>
+          Gross assets <strong>${fmt$M(d.corp.grossAssets)}</strong> are below the ${fmt$M(p.corpGrossAssetGate)} ceiling. QSBS issuance window remains open — coordinate with company counsel to document the gate at issuance via Form 8949 attachment.
+        </div>
+      ` : ''}
+
+      ${p.corpOwnerCompFlag ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-top: 12px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Reasonable-Compensation Audit Risk</span>
+          Owner W-2 (<strong>${fmt$(d.corp.ownerComp)}</strong>) is ${d.corp.ownerComp < p.corpReasonableCompFloor ? 'below 2× avg-employee comp (' + fmt$(p.corpReasonableCompFloor) + ')' : 'above 10× avg-employee comp (' + fmt$(p.corpReasonableCompCeiling) + ')'} — outside the ${fmt$(p.corpReasonableCompFloor)}–${fmt$(p.corpReasonableCompCeiling)} defensible band. ${d.corp.ownerComp < p.corpReasonableCompFloor ? 'For S-Corps, IRS may recharacterize distributions as wages (Watson v. U.S., 8th Cir 2012) — adds payroll tax. ' : 'For C-Corps, IRS may recharacterize excess as dividend (deductible to neither). '}Document compensation methodology vs comparable executives in industry surveys.
+        </div>
+      ` : ''}
+
+      ${p.corpCaptiveRecommended > 500_000 && !d.use.captive ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-top: 12px;">
+          <span class="title" style="color: var(--gold-dark);">💡 §831(b) Captive Insurance Opportunity Detected</span>
+          At ${fmt$M(d.corp.revenue)} revenue with ${fmt$(d.corp.insurableRisk)} estimated insurable risk, a <strong>${fmt$M(p.corpCaptiveRecommended)}/yr captive premium</strong> is feasible (recommended band: ${fmt$M(p.corpCaptivePremiumLow)}–${fmt$M(p.corpCaptivePremiumHigh)}). At ${fmtPct(d.tax.marginal*100)} marginal, that's roughly <strong>${fmt$M(p.corpCaptiveRecommended * d.tax.marginal)}</strong>/yr in operating-co tax savings, with reserves accumulating tax-free at the §831(b) captive. Toggle Captive Insurance in the Strategy Library to model.
+        </div>
+      ` : ''}
+
+      ${p.corpConcentrationRisk === 'high' ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-top: 12px;">
+          <span class="title" style="color: var(--crimson);">⛔ High Customer Concentration — ${(d.corp.customerConcentration*100).toFixed(0)}%</span>
+          Top customer concentration above 40% triggers material valuation drag in M&amp;A diligence — typical 1-2 turn discount on EBITDA multiple. Pre-sale priority: diversify customer base or negotiate multi-year customer contracts. Consider ${fmt$M(corpEbitda * (corpMultHigh - corpMultLow))} of bracket variance on the sale price comes from this dimension alone.
+        </div>
+      ` : p.corpConcentrationRisk === 'moderate' ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-top: 12px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Moderate Customer Concentration — ${(d.corp.customerConcentration*100).toFixed(0)}%</span>
+          Concentration in 20-40% range is a yellow flag in due diligence. Consider locking in multi-year contracts with the top customer before sale to convert concentration risk into recurring-revenue premium.
+        </div>
+      ` : ''}
+
+      ${p.corpRecurringPremium ? `
+        <div class="callout" style="background:#F0F8F0; border-left:3px solid var(--success); margin-top: 12px;">
+          <span class="title" style="color: var(--success);">✓ Recurring Revenue Premium — ${(d.corp.recurringRevenue*100).toFixed(0)}%</span>
+          Recurring revenue above 50% commands a valuation premium of 1-2 turns of EBITDA in tech / SaaS / subscription sectors. Document MRR/ARR growth, net revenue retention (NRR target &gt; 110%), gross retention, and customer LTV/CAC for the M&amp;A data room.
+        </div>
+      ` : ''}
+
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory + Diligence Citations</span>
+        <strong>§1202(d)(1)</strong> — gross-asset ceiling at issuance. <strong>§831(b)</strong> — micro-captive premium cap (2024: $2.65M). <strong>Watson v. U.S. 668 F.3d 1008 (8th Cir 2012)</strong> — S-Corp reasonable comp. <strong>§162(a)</strong> — reasonable comp deductibility. <strong>§280G</strong> — parachute payment ceilings (relevant at sale).
+      </div>
+    </div>
+  ` : '';
+
   const saleStructureCard = `
     <div class="card advisor-only" style="border-left: 4px solid ${p.saleIsAsset ? 'var(--crimson)' : 'var(--success)'};">
       <div class="card-title">Sale Structure: ${p.saleIsAsset ? '⚠️ Asset Sale' : '✓ Stock Sale'}</div>
@@ -10819,6 +11067,8 @@ function renderTransaction(p) {
     ${postTransactionCard}
 
     ${taxExplorerHTML}
+
+    ${corpFinancialsCard}
 
     ${saleStructureCard}
 
@@ -16172,6 +16422,12 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'qoz-amount': d.qoz.amount, 'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years, 'qoz-business-type': d.qoz.businessType, 'qoz-improvement': d.qoz.improvement,
       // Deal Architecture (shared by every eligible-gain strategy)
       'deal-industry': d.deal.industry, 'deal-buyer-relationship': d.deal.buyerRelationship, 'deal-conflicting-election': d.deal.conflictingElection, 'deal-sale-structure': d.deal.saleStructure, 'deal-recognition-vehicle': d.deal.recognitionVehicle, 'deal-cg-eligible-pct': (d.deal.cgEligiblePct || 1) * 100, 'deal-allocation-type': d.deal.allocationType,
+      // Corporate Financials (operating company P&amp;L + balance sheet + workforce)
+      'corp-revenue': d.corp.revenue, 'corp-ebitda': d.corp.ebitda, 'corp-gross-assets': d.corp.grossAssets,
+      'corp-owner-comp': d.corp.ownerComp, 'corp-owner-distributions': d.corp.ownerDistributions, 'corp-qbi': d.corp.qbi,
+      'corp-employees': d.corp.employees, 'corp-avg-comp': d.corp.avgComp, 'corp-ocf': d.corp.operatingCashFlow,
+      'corp-cagr': d.corp.cagr * 100, 'corp-customer-concentration': d.corp.customerConcentration * 100, 'corp-recurring-revenue': d.corp.recurringRevenue * 100,
+      'corp-multiple-low': d.corp.multipleLow, 'corp-multiple-high': d.corp.multipleHigh, 'corp-insurable-risk': d.corp.insurableRisk,
       // Sale Proceeds Structure (installment / earnout / escrow / clawback)
       'proceeds-installment-amount': d.proceeds.installmentAmount, 'proceeds-installment-years': d.proceeds.installmentYears, 'proceeds-installment-rate': d.proceeds.installmentRate * 100,
       'proceeds-earnout-max': d.proceeds.earnoutMax, 'proceeds-earnout-prob': d.proceeds.earnoutProb * 100, 'proceeds-earnout-years': d.proceeds.earnoutYears,
@@ -18587,6 +18843,20 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (d.use.pplife && (p.ppliTaxSavings + p.ppliEstateSaving) > 0) lines.push(`PPLI tax-free internal growth saved ${fmt$M(p.ppliTaxSavings)} income tax + ${fmt$M(p.ppliEstateSaving)} estate (${d.pplife.years}-yr balance ${fmt$M(p.ppliFutureValue)})`);
     if (d.use.crossPs && p.crossPsLifetimeSaving > 0)    lines.push(`Cross-Tested Profit-Sharing lifetime saving: ${fmt$M(p.crossPsLifetimeSaving)} (net of employee cost: ${fmt$(p.crossPsNetSaving)}/yr)`);
     if (d.use.hsa && p.hsaAnnualSaving > 0)              lines.push(`HSA annual tax saving ${fmt$(p.hsaAnnualSaving)}; ${d.hsa.years}-yr projected balance ${fmt$M(p.hsaProjectedBalance)}`);
+
+    // Corporate Financials context (operating company P&L + balance sheet + workforce)
+    if (d.corp && (d.corp.revenue > 0 || d.corp.ebitda > 0)) {
+      lines.push(`\n=== CORPORATE FINANCIALS ===`);
+      lines.push(`Revenue: ${fmt$M(d.corp.revenue)} · EBITDA: ${fmt$M(d.corp.ebitda)} (${(p.corpEbitdaMargin*100).toFixed(0)}% margin)`);
+      lines.push(`3-yr CAGR: ${fmtPct(d.corp.cagr*100)} → projected EBITDA in 3 yrs: ${fmt$M(p.corpEbitda3yr)}`);
+      lines.push(`Implied valuation today: ${fmt$M(p.corpValuationLow)}–${fmt$M(p.corpValuationHigh)} (industry multiple ${d.corp.multipleLow.toFixed(1)}–${d.corp.multipleHigh.toFixed(1)}×)`);
+      if (p.corpUpliftOpportunity > 0 && d.biz.sale > 0) lines.push(`Pre-sale uplift opportunity (defer 3 yrs): ${fmt$M(p.corpUpliftOpportunity)}`);
+      lines.push(`Workforce: ${d.corp.employees} employees @ ${fmt$(d.corp.avgComp)} avg comp`);
+      lines.push(`Owner: W-2 ${fmt$(d.corp.ownerComp)} + K-1/distributions ${fmt$(d.corp.ownerDistributions)}; reasonable-comp ${p.corpOwnerCompFlag ? 'OUTSIDE BAND (' + fmt$(p.corpReasonableCompFloor) + '–' + fmt$(p.corpReasonableCompCeiling) + ')' : 'within band'}`);
+      lines.push(`Gross assets at issuance: ${fmt$M(d.corp.grossAssets)} (${p.corpQsbsGatePass ? '✓ §1202(d) gate passes' : p.corpQsbsGateFailed ? '⛔ §1202(d) gate FAILED — exceeds ' + fmt$M(p.corpGrossAssetGate) : 'gate not yet evaluated'})`);
+      lines.push(`Concentration risk: ${p.corpConcentrationRisk} (top customer ${(d.corp.customerConcentration*100).toFixed(0)}%); recurring revenue ${(d.corp.recurringRevenue*100).toFixed(0)}%${p.corpRecurringPremium ? ' (premium-tier)' : ''}`);
+      lines.push(`§831(b) captive premium recommendation: ${fmt$M(p.corpCaptiveRecommended)}/yr (band ${fmt$M(p.corpCaptivePremiumLow)}–${fmt$M(p.corpCaptivePremiumHigh)})`);
+    }
 
     // Deal Architecture context (drives QOZ + QSBS + §1042 + §199A + §1031 + CRT eligibility)
     if (d.deal) {
