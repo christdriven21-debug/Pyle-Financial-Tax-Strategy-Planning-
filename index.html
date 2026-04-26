@@ -4244,6 +4244,243 @@
       </div>
     </div>
 
+    <div class="strategy-block hidden" id="block-dapt">
+      <h4>Domestic Asset Protection Trust (DAPT) — Self-Settled Spendthrift</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Self-settled irrevocable trust in a DAPT-friendly state (DE, NV, AK, SD, WY, OH, TN, MO, RI, NH, MS, UT, VA, HI, WV, CT, IN, OK, MI). Grantor is also discretionary beneficiary; trust assets protected from grantor's future creditors after the statute-of-limitations period (typically 18-48 months by state). <strong>Pre-existing creditors</strong> can still reach if transfer was fraudulent under UVTA. Estate-tax neutral by default (grantor trust); can be drafted as non-grantor for income-tax shifting.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Funding Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dapt-amount" value="5000000"></div>
+        </div>
+        <div class="field">
+          <label>Trust Situs</label>
+          <select id="dapt-situs">
+            <option value="DE" selected>Delaware (4-yr SOL)</option>
+            <option value="NV">Nevada (2-yr SOL — strongest)</option>
+            <option value="AK">Alaska (4-yr SOL)</option>
+            <option value="SD">South Dakota (2-yr / dynasty integration)</option>
+            <option value="WY">Wyoming (4-yr / quiet trust statute)</option>
+            <option value="other">Other DAPT state</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Estate-Tax Treatment</label>
+          <select id="dapt-estate">
+            <option value="grantor" selected>Grantor (estate-includible) — asset-protection only</option>
+            <option value="non_grantor">Non-grantor (estate-excluded) — combine with state-tax shift</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid cols-2" style="margin-top: 14px;">
+        <div class="field">
+          <label>Pre-Existing Creditors? <span class="hint">(UVTA fraudulent-transfer exposure)</span></label>
+          <select id="dapt-creditors">
+            <option value="none" selected>None — clean transfer</option>
+            <option value="potential">Potential — engage UVTA review</option>
+            <option value="pending">Pending claim — DAPT INEFFECTIVE</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Independent Co-Trustee Engaged? <span class="hint">(strengthens spendthrift protection)</span></label>
+          <select id="dapt-trustee">
+            <option value="yes" selected>Yes — trust-company co-trustee</option>
+            <option value="no">No — sole grantor-trustee (weak)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden sale-only" id="block-1045">
+      <h4>§1045 QSBS Rollover — Defer Gain into New QSBS</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        If client sells QSBS held &lt;5 years (so §1202 100% exclusion not yet available), §1045 lets them roll proceeds into <strong>new QSBS within 60 days</strong>. Holding period of original stock tacks onto replacement → continuous 5-yr clock toward §1202. If replacement is held to 5 years, eligible for full §1202 exclusion on combined gain. Used when serial-entrepreneur client has multiple successive ventures.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>QSBS Sold</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-1045-sold" value="5000000"></div>
+        </div>
+        <div class="field">
+          <label>Adjusted Basis in Sold Stock</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-1045-basis" value="100000"></div>
+        </div>
+        <div class="field">
+          <label>Years Held Before Sale <span class="hint">(must be &lt; 5 to need §1045)</span></label>
+          <input type="number" id="qsbs-1045-years" value="3" min="1" max="5">
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Replacement QSBS Investment</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-1045-rollover" value="5000000"></div>
+        </div>
+        <div class="field">
+          <label>Rollover Within 60 Days?</label>
+          <select id="qsbs-1045-window">
+            <option value="yes" selected>Yes — within §1045 window</option>
+            <option value="no">No — DISQUALIFIES rollover</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Replacement is Qualified C-Corp QSBS?</label>
+          <select id="qsbs-1045-qualified">
+            <option value="yes" selected>Yes — meets §1202(c) requirements</option>
+            <option value="no">No — DISQUALIFIES</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-scin">
+      <h4>SCIN — Self-Canceling Installment Note (Estate Removal at Death)</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Sale of asset to family member or trust on installment note that <strong>cancels at grantor's death</strong>. Removes asset from estate at sale date; income/gain still recognized during life as payments received. SCIN premium (above AFR) compensates buyer for cancellation feature — typically priced via mortality tables. Best for grantors with shorter-than-actuarial life expectancy.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Sale Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="scin-amount" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Asset Basis</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="scin-basis" value="500000"></div>
+        </div>
+        <div class="field">
+          <label>Note Term (Years)</label>
+          <input type="number" id="scin-term" value="10" min="3" max="20">
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Base AFR</label>
+          <div class="suffix-pct"><input type="number" id="scin-afr" value="4.5" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>SCIN Premium <span class="hint">(actuarial cancellation premium)</span></label>
+          <div class="suffix-pct"><input type="number" id="scin-premium" value="1.5" step="0.1"></div>
+        </div>
+        <div class="field">
+          <label>Grantor Age <span class="hint">(life-expectancy driver)</span></label>
+          <input type="number" id="scin-age" value="70" min="50" max="90">
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-pplife">
+      <h4>Private Placement Life Insurance (PPLI) — UHNW Tax-Free Investment Wrapper</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Variable life policy with custom hedge-fund and PE investment options. <strong>Internal growth tax-free</strong> (§7702 if compliant); death benefit excluded under §101. Available only to <strong>accredited investors / qualified purchasers</strong>. Onshore (Bermuda Class IV) or offshore (Cayman) carriers. Minimum funding typically $5M+. §817(h) diversification rules require 5+ underlying investments, no investor-control issues (Reg §1.817-5).
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Total Premium Funding</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="pplife-premium" value="10000000"></div>
+        </div>
+        <div class="field">
+          <label>Premium Pay Years</label>
+          <input type="number" id="pplife-pay-years" value="5" min="1" max="20">
+        </div>
+        <div class="field">
+          <label>Expected Internal Return <span class="hint">(net of fund + insurance fees)</span></label>
+          <div class="suffix-pct"><input type="number" id="pplife-return" value="8" step="0.5"></div>
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Projection Years</label>
+          <input type="number" id="pplife-years" value="20" min="5" max="40">
+        </div>
+        <div class="field">
+          <label>Held in ILIT? <span class="hint">(estate exclusion)</span></label>
+          <select id="pplife-ilit">
+            <option value="yes" selected>Yes — ILIT-owned</option>
+            <option value="no">No — personally owned</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>§817(h) Diversification Compliant?</label>
+          <select id="pplife-diversified">
+            <option value="yes" selected>Yes — 5+ underlying investments, no investor control</option>
+            <option value="no">No — DISQUALIFIES §7702 / §817 wrapper</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-cross-ps">
+      <h4>Cross-Tested (New Comparability) Profit-Sharing Plan</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Profit-sharing variant using <strong>new comparability</strong> allocation that gives owners a much larger share than rank-and-file employees. Passes §401(a)(4) general test by demonstrating equivalent benefits at retirement age. Stack on top of 401(k) + DB plan for combined $100k+ owner allocation in addition to DB contribution. Best with older owner / younger workforce.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Owner Annual Contribution</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="cross-ps-owner" value="70000"></div>
+        </div>
+        <div class="field">
+          <label>Eligible Non-Owner Employees</label>
+          <input type="number" id="cross-ps-emps" value="3" min="0" max="500">
+        </div>
+        <div class="field">
+          <label>Avg Employee Age</label>
+          <input type="number" id="cross-ps-emp-age" value="35" min="20" max="70">
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Owner Age</label>
+          <input type="number" id="cross-ps-owner-age" value="55" min="40" max="75">
+        </div>
+        <div class="field">
+          <label>Funding Years</label>
+          <input type="number" id="cross-ps-years" value="10" min="3" max="20">
+        </div>
+        <div class="field">
+          <label>Min Employee Allocation % <span class="hint">(§401(a)(4) safe harbor 5-7.5%)</span></label>
+          <div class="suffix-pct"><input type="number" id="cross-ps-emp-pct" value="5" step="0.5"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-block hidden" id="block-hsa">
+      <h4>HSA — Health Savings Account (Triple-Tax-Advantaged)</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Triple-tax-advantaged account: contributions deductible (above-the-line), growth tax-free, qualified-medical withdrawals tax-free. 2024 limits: <strong>$4,150 single / $8,300 family + $1,000 catchup at 55+</strong>. Requires HDHP coverage (≥$1,600 deductible single / $3,200 family). At 65+, non-medical withdrawals taxed at ordinary rates only (no penalty) — effectively a Traditional IRA backstop. Build long-term medical reserve by paying out-of-pocket and investing the HSA.
+      </p>
+      <div class="form-grid cols-3">
+        <div class="field">
+          <label>Coverage Type</label>
+          <select id="hsa-coverage">
+            <option value="single" selected>Single ($4,150 + $1,000 catchup)</option>
+            <option value="family">Family ($8,300 + $1,000 catchup)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Account Holder Age <span class="hint">(catchup at 55+)</span></label>
+          <input type="number" id="hsa-age" value="50" min="18" max="64">
+        </div>
+        <div class="field">
+          <label>Years Until 65 Withdrawal <span class="hint">(funding horizon)</span></label>
+          <input type="number" id="hsa-years" value="15" min="1" max="40">
+        </div>
+      </div>
+      <div class="form-grid cols-2" style="margin-top: 14px;">
+        <div class="field">
+          <label>Expected Annual Return <span class="hint">(invested portion)</span></label>
+          <div class="suffix-pct"><input type="number" id="hsa-return" value="7" step="0.5"></div>
+        </div>
+        <div class="field">
+          <label>Pay Medical Out-of-Pocket? <span class="hint">(maximize compounding)</span></label>
+          <select id="hsa-strategy">
+            <option value="invest" selected>Yes — invest HSA, pay medical from cash</option>
+            <option value="reimburse">No — use HSA for current medical</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <!-- Hidden checkboxes preserve existing JS wiring (strategyMap in mode-switch code) -->
     <div style="display:none" aria-hidden="true">
       <input type="checkbox" id="use-dynasty" checked>
@@ -4268,6 +4505,12 @@
       <input type="checkbox" id="use-pf">          <!-- Premium Finance life insurance -->
       <input type="checkbox" id="use-nimcrut">     <!-- NIMCRUT (§664(d)(3) net-income with make-up CRUT) -->
       <input type="checkbox" id="use-walton-grat"> <!-- Walton zeroed-out GRAT -->
+      <input type="checkbox" id="use-dapt">         <!-- Domestic Asset Protection Trust -->
+      <input type="checkbox" id="use-1045">         <!-- §1045 QSBS rollover -->
+      <input type="checkbox" id="use-scin">         <!-- Self-Canceling Installment Note -->
+      <input type="checkbox" id="use-pplife">       <!-- Private Placement Life Insurance -->
+      <input type="checkbox" id="use-cross-ps">     <!-- Cross-Tested Profit-Sharing -->
+      <input type="checkbox" id="use-hsa">          <!-- Health Savings Account -->
       <!-- New Phase-1 strategies (hidden toggles; real inputs in dedicated
            sections elsewhere when implemented). Solver uses these directly. -->
       <input type="checkbox" id="use-dbplan">      <!-- Defined Benefit / Cash Balance Plan -->
@@ -5177,6 +5420,48 @@ const STRATEGIES = [
     useId: 'use-walton-grat', blockId: 'block-walton-grat',
   },
   {
+    id: 'dapt-built', name: 'Domestic Asset Protection Trust (DAPT)',
+    category: 'estate',
+    tags: ['reduces_estate_tax', 'requires_irrevocable'],
+    desc: 'Self-settled spendthrift trust in DE/NV/AK/SD/WY for creditor protection. Statute-of-limitations period (2-4yr by state) shields against future creditors. Pre-existing creditors still reach via UVTA.',
+    useId: 'use-dapt', blockId: 'block-dapt',
+  },
+  {
+    id: '1045-built', name: '§1045 QSBS Rollover',
+    category: 'capgains',
+    tags: ['reduces_capgains_tax', 'requires_liquidity_event'],
+    desc: 'When QSBS held <5 years, roll proceeds into new QSBS within 60 days. Holding period tacks for §1202 5-yr clock; eligible for full exclusion when replacement reaches 5 years.',
+    useId: 'use-1045', blockId: 'block-1045',
+  },
+  {
+    id: 'scin-built', name: 'SCIN — Self-Canceling Installment Note',
+    category: 'estate',
+    tags: ['reduces_estate_tax', 'requires_liquidity_event'],
+    desc: 'Sale of asset on installment note that cancels at grantor death. Removes asset from estate at sale; income/gain still recognized during life. SCIN premium compensates buyer for cancellation feature.',
+    useId: 'use-scin', blockId: 'block-scin',
+  },
+  {
+    id: 'pplife-built', name: 'Private Placement Life Insurance (PPLI)',
+    category: 'income',
+    tags: ['reduces_income_tax', 'reduces_estate_tax'],
+    desc: 'Variable life policy with custom hedge-fund / PE investments. Internal growth tax-free under §7702; death benefit excluded under §101. Accredited investor / qualified purchaser only; $5M+ minimum.',
+    useId: 'use-pplife', blockId: 'block-pplife',
+  },
+  {
+    id: 'cross-ps-built', name: 'Cross-Tested Profit-Sharing Plan',
+    category: 'income',
+    tags: ['reduces_income_tax'],
+    desc: 'New comparability allocation gives owner much larger share than rank-and-file. Stack on 401(k) + DB plan for $100k+ owner allocation. Best with older owner / younger workforce.',
+    useId: 'use-cross-ps', blockId: 'block-cross-ps',
+  },
+  {
+    id: 'hsa-built', name: 'Health Savings Account (HSA)',
+    category: 'income',
+    tags: ['reduces_income_tax'],
+    desc: 'Triple-tax-advantaged: deductible contribution + tax-free growth + tax-free qualified-medical withdrawal. 2024: $4,150 single / $8,300 family + $1,000 catchup at 55+. Requires HDHP coverage.',
+    useId: 'use-hsa', blockId: 'block-hsa',
+  },
+  {
     id: 'qbi-199a', name: '§199A QBI Deduction',
     category: 'income',
     tags: ['reduces_income_tax'],
@@ -5361,9 +5646,9 @@ const STRATEGY_CATALOG = [
   { id: 'buy_sell',      table: 'personal', section: 'personal', name: 'Buy-Sell Agreement', status: 'consideration', definition: 'Contractual obligation to buy/sell business interest at death/disability/departure. Often funded by life insurance.', whenToUse: 'Closely-held business with multiple owners', statutes: ['§2703','Connelly v. U.S. (2024) — life insurance proceeds in valuation'] },
   { id: 'ilit',          table: 'personal', section: 'personal', name: 'ILIT', status: 'built', useId: 'use-ilit', blockId: 'block-ilit', definition: 'Irrevocable Life Insurance Trust — owns the policy outside the estate, providing tax-free death benefit liquidity.', whenToUse: 'Estate-tax exposure + need for death-benefit liquidity', statutes: ['§2042','§2035 (3-yr lookback)','§677','§7702'], pros: ['Tax-free death benefit','Estate exclusion'], cons: ['Irrevocable','§2035 3-yr lookback if existing policy transferred'] },
   { id: 'ing_trust',     table: 'personal', section: 'personal', name: 'Intentional Non-Grantor Trust (ING)', status: 'consideration', definition: 'Self-settled trust in DE/NV that is non-grantor for income tax — shifts income off donor\'s state return to no-tax jurisdiction.', whenToUse: 'High-state-tax residents with significant investment income', statutes: ['§672(f)','State trust statutes'] },
-  { id: 'asset_protection', table: 'personal', section: 'personal', name: 'Domestic Asset Protection Trust', status: 'consideration', definition: 'Self-settled spendthrift trust in DAPT-friendly state (DE/NV/AK/SD/WY) for creditor protection.', whenToUse: 'Professional with malpractice exposure; pre-marital wealth protection', statutes: ['DE Qualified Disposition in Trust Act','§548 fraudulent transfer','UVTA'] },
+  { id: 'asset_protection', table: 'personal', section: 'personal', name: 'Domestic Asset Protection Trust', status: 'built', useId: 'use-dapt', blockId: 'block-dapt', definition: 'Self-settled spendthrift trust in DAPT-friendly state (DE/NV/AK/SD/WY) for creditor protection.', whenToUse: 'Professional with malpractice exposure; pre-marital wealth protection', statutes: ['DE 12 §3570','NV NRS 166','AK AS 34.40.110','SD SDCL 55-16','UVTA','§548'], pros: ['Creditor protection after SOL period','Quality-of-life preserved (discretionary distributions)','Optional non-grantor estate exclusion'], cons: ['UVTA exposure for pre-existing creditors','State-law-untested in many cases','Independent co-trustee required'] },
   { id: 'intra_family_loan', table: 'personal', section: 'personal', name: 'Intra-Family Loan', status: 'consideration', definition: 'Loan between family members at AFR. Wealth transfer = appreciation above AFR over loan term.', whenToUse: 'Low-rate environments; alternative to gift', statutes: ['§7872','§483','AFR (mid-term)'] },
-  { id: 'scin',          table: 'personal', section: 'personal', name: 'SCIN — Self-Canceling Installment Note', status: 'consideration', definition: 'Installment note that cancels at grantor\'s death. Removes asset from estate at sale; income/gain still taxed during life.', whenToUse: 'Grantor with shorter life expectancy seeking estate removal', statutes: ['§453','§691(a)(1)','Estate of Frane v. Comm\'r'] },
+  { id: 'scin',          table: 'personal', section: 'personal', name: 'SCIN — Self-Canceling Installment Note', status: 'built', useId: 'use-scin', blockId: 'block-scin', definition: 'Installment note that cancels at grantor\'s death. Removes asset from estate at sale; income/gain still taxed during life.', whenToUse: 'Grantor with shorter life expectancy seeking estate removal', statutes: ['§453','§691(a)(1) IRD','Estate of Frane v. Comm\'r 998 F.2d 567','Costanza v. Comm\'r T.C. Memo 2003-269'], pros: ['Mortality-driven estate removal','Family liquidity preserved','§453 installment treatment'], cons: ['Premium pricing complex','Best when grantor LE < note term','§691 IRD treatment of unpaid balance'] },
   { id: 'gdot',          table: 'personal', section: 'personal', name: 'GDOT — Grantor Deemed Owner Trust', status: 'consideration', definition: 'Variant of grantor trust used for grantor-trust income shifting in non-traditional fact patterns.', whenToUse: 'Niche use case where standard IDGT structure doesn\'t fit', statutes: ['§671-§679'] },
   { id: 'self_finance_ins', table: 'personal', section: 'personal', name: 'Self-Financed Insurance', status: 'consideration', definition: 'Funding life-insurance premiums from internal cash flow rather than premium-financing loans. Avoids interest-rate risk.', whenToUse: 'Client with strong cash flow + long-horizon insurance need', statutes: ['§7702','§101(a)'] },
   { id: 'qprt',          table: 'personal', section: 'personal', name: 'QPRT', status: 'built', useId: 'use-qprt', blockId: 'block-qprt', definition: 'Qualified Personal Residence Trust — transfer residence at discounted gift value; grantor retains use for term then property passes to heirs.', whenToUse: 'High-value residence + grantor with normal life expectancy', statutes: ['§2702(a)(3)(A)','Reg §25.2702-5'], pros: ['Discounted gift value','Residence appreciation outside estate'], cons: ['Mortality risk during term','Rent payable to trust if grantor stays past term'] },
@@ -5372,6 +5657,7 @@ const STRATEGY_CATALOG = [
 
   // Qualified Planning Tools (warm bronze)
   { id: 'qualified_plan_xfer', table: 'personal', section: 'qualified', name: 'Qualified Plan Transfer', status: 'consideration', definition: 'Strategic transfer of qualified-plan assets via trustee-to-trustee rollover, in-service distribution, or NUA election.', whenToUse: 'Pre-retirement employer-stock holders; managing RMDs', statutes: ['§402(e)(4)','§401(a)(31)','§408(d)(3)'] },
+  { id: '1045_qsbs',     table: 'personal', section: 'qualified', name: '§1045 QSBS Rollover', status: 'built', useId: 'use-1045', blockId: 'block-1045', definition: 'Roll QSBS proceeds into new QSBS within 60 days when held <5 years. Holding period tacks; reach §1202 exclusion when replacement hits 5yr.', whenToUse: 'Serial entrepreneur with multiple successive C-corps; original QSBS sold before 5yr', statutes: ['§1045(a)','§1045(b)(2)','§1223(13) tacking','§1202(c)'], pros: ['CG deferral when 5-yr hold not reached','Tacking unlocks §1202 100% exclusion','Compatible with §1202 cap'], cons: ['60-day window is unforgiving','Replacement must independently qualify as QSBS','Rare to find another QSBS-qualified investment'] },
   { id: 'esop_planning', table: 'personal', section: 'qualified', name: 'ESOP Planning (§1042 Rollover)', status: 'built', useId: 'use-esop-1042', blockId: 'block-esop-1042', definition: 'Sale of C-corp stock to ESOP triggers §1042 deferred-gain rollover into qualified replacement property.', whenToUse: 'C-corp owner age 50+; willing to sell ≥30% to employees', statutes: ['§1042','§1042(b)(2) — 30% requirement','§1042(c)(4) — QRP','§409(n)','§4975(d)(13)','§1014 step-up'], pros: ['100% CG deferral on sale','Permanent exclusion if QRP held to death','Employee continuity'], cons: ['§409(n) blocks seller from ESOP allocations 10yr','QRP definition restrictive (no mutual funds)','Repurchase obligation on company'] },
   { id: 'pension_rescue', table: 'personal', section: 'qualified', name: 'Pension Rescue', status: 'consideration', definition: 'Strategic redesign of underperforming/over-funded DB plan to release excess assets for owner retirement.', whenToUse: 'Owner-only DB plan with excess assets nearing termination', statutes: ['§412','§4980 (50% reversion excise)','§4972'] },
   { id: 'db_plan',       table: 'personal', section: 'qualified', name: 'Defined Benefit / Cash Balance Plan', status: 'built', useId: 'use-dbplan', blockId: 'block-dbplan', definition: 'High-contribution-limit qualified plan for owners 45+ — up to ~$300k/yr deductible, stacks with 401(k)/profit-sharing.', whenToUse: 'High-earning solo or small-firm owner age 50+ with 5+ year horizon', statutes: ['§401(a)','§415(b)','§404(o)','§412'], pros: ['$285K+ annual deduction','Stacks with 401(k)+PS','Tax-deferred growth'], cons: ['Mandatory funding','Nondiscrimination testing if employees'] },
@@ -5380,12 +5666,12 @@ const STRATEGY_CATALOG = [
   // ─── BUSINESS OWNER ATLAS ──────────────────────────────────────────
   // Financial planning / Retirement (slate blue)
   { id: '401k',          table: 'business', section: 'financial', name: '401(k) Plan', status: 'consideration', definition: 'Foundational employer-sponsored deferral plan. 2026 limit ~$23,500 employee + $7,500 catchup at 50+.', whenToUse: 'Standard for any business with W-2 employees including owners', statutes: ['§401(k)','§402(g)','§415(c)'] },
-  { id: 'cross_tested_ps', table: 'business', section: 'financial', name: 'Cross-Tested Profit Sharing', status: 'consideration', definition: 'Profit-sharing variant using new-comparability allocation — gives owners much higher share than rank-and-file.', whenToUse: 'Older owner / younger workforce; passes §401(a)(4) general test', statutes: ['§401(a)(4)','Reg §1.401(a)(4)-8','§415(c)'] },
+  { id: 'cross_tested_ps', table: 'business', section: 'financial', name: 'Cross-Tested Profit Sharing', status: 'built', useId: 'use-cross-ps', blockId: 'block-cross-ps', definition: 'Profit-sharing variant using new-comparability allocation — gives owners much higher share than rank-and-file.', whenToUse: 'Older owner / younger workforce; passes §401(a)(4) general test', statutes: ['§401(a)(4)','Reg §1.401(a)(4)-8','§415(c) — $69k/$76.5k limit','§404(a)(7)'], pros: ['Owner-favorable allocation','Stacks with DB plan','§415 cap higher than 401(k) alone'], cons: ['Min employee allocation 5-7.5%','Requires actuarial cross-test','Older-owner / younger-emp profile needed'] },
   { id: 'db_business',   table: 'business', section: 'financial', name: 'Defined Benefit Plan', status: 'built', useId: 'use-dbplan', blockId: 'block-dbplan', definition: 'Same as Personal Atlas DB Plan — high-contribution-limit qualified plan; in business context, often paired with PS for stacked deduction.', whenToUse: 'Owner age 50+ with stable cash flow', statutes: ['§401(a)','§415(b)','§412'] },
   { id: 'combined_db_ps', table: 'business', section: 'financial', name: 'Combined PS + DB Plan', status: 'consideration', definition: 'Stack a 401(k)+Profit Sharing on top of a Cash Balance / DB plan. Combined deduction can exceed $400k/yr for owner age 55+.', whenToUse: 'Highest-capacity tax shelter for high-earning solo or small-firm owner', statutes: ['§404(a)(7) combined limit','§415','§401(a)(4) general test'] },
   { id: 'funded_serp',   table: 'business', section: 'financial', name: 'Funded SERP', status: 'consideration', definition: 'Supplemental Executive Retirement Plan funded with corporate-owned life insurance or annuities. Non-qualified, no contribution limits.', whenToUse: 'Discriminatory benefit for top-tier executives outside §415 limits', statutes: ['§409A','§457(f)','Top-Hat plan rules'] },
   { id: 'cre_ownership', table: 'business', section: 'financial', name: 'Commercial Real Estate Ownership', status: 'consideration', definition: 'Owner holds operating real estate (factory, warehouse, office) in a separate LLC and leases to the operating company.', whenToUse: 'Asset-protection separation + cost-segregation depreciation; eventual §1031 exit', statutes: ['§1031','§280A','§469(c)(7) real-estate professional'] },
-  { id: 'pplife',        table: 'business', section: 'financial', name: 'Private Placement Life Insurance', status: 'consideration', definition: 'Variable life-insurance policy with custom hedge-fund-style investment options, accessible only to accredited/qualified purchasers.', whenToUse: 'UHNW client wanting tax-free internal growth on alternative investments', statutes: ['§7702','§817(h) diversification','§953(d)'] },
+  { id: 'pplife',        table: 'business', section: 'financial', name: 'Private Placement Life Insurance', status: 'built', useId: 'use-pplife', blockId: 'block-pplife', definition: 'Variable life-insurance policy with custom hedge-fund-style investment options, accessible only to accredited/qualified purchasers.', whenToUse: 'UHNW client wanting tax-free internal growth on alternative investments', statutes: ['§7702','§7702A MEC','§101(a) DB exclusion','§817(h) diversification','§953(d)','Webber v. Comm\'r 144 T.C. 324'], pros: ['Tax-free internal growth (§7702)','Death benefit tax-free (§101)','UHNW alternative-investment access'], cons: ['§5M+ minimum funding','§817(h) 5/55/90 diversification','Investor-control doctrine — no investment direction'] },
 
   // Value creation in the business (burgundy)
   { id: '401k_shadow',   table: 'business', section: 'value-creation', name: '401(k) Shadow Program', status: 'consideration', definition: 'Non-qualified deferral mirror of 401(k) for highly-compensated employees who max out qualified plan limits.', whenToUse: 'HCEs hitting ADP/ACP limits in qualified plan', statutes: ['§409A','§457(f)','§3121(v)(2)'] },
@@ -5426,7 +5712,7 @@ const STRATEGY_CATALOG = [
   // Asset protection / Risk management (dark amber)
   { id: 'shareholder_agreement', table: 'business', section: 'asset-protection', name: 'Shareholders Agreement', status: 'consideration', definition: 'Buy-sell, transfer-restriction, drag-along, tag-along, governance terms among shareholders.', whenToUse: 'Multi-owner business; pre-sale to avoid valuation disputes', statutes: ['§2703','Connelly'] },
   { id: 'risk_audit',    table: 'business', section: 'asset-protection', name: 'Risk Management Audit', status: 'consideration', definition: 'Comprehensive review: P&C insurance, D&O, cyber, errors-and-omissions, key-person, business interruption.', whenToUse: 'Annually; post-acquisition; pre-sale due diligence prep' },
-  { id: 'hsa',           table: 'business', section: 'asset-protection', name: 'Health Savings Account', status: 'consideration', definition: 'Triple-tax-advantaged: deductible contribution, tax-deferred growth, tax-free qualified-medical withdrawal.', whenToUse: 'Owner with HDHP coverage; build long-term medical reserve', statutes: ['§223','§220 (Archer MSA)'] },
+  { id: 'hsa',           table: 'business', section: 'asset-protection', name: 'Health Savings Account', status: 'built', useId: 'use-hsa', blockId: 'block-hsa', definition: 'Triple-tax-advantaged: deductible contribution, tax-deferred growth, tax-free qualified-medical withdrawal.', whenToUse: 'Owner with HDHP coverage; build long-term medical reserve', statutes: ['§223','§223(b)(2) — 2024 limits','§223(b)(3) — 55+ catchup','§223(c)(2) — HDHP','§223(f)(4)'], pros: ['Triple tax advantage','65+ ordinary-rate withdrawals (no penalty)','Pay OOP + invest = compounding'], cons: ['Requires HDHP coverage','Annual limit modest','Qualified-medical only for tax-free withdrawals'] },
   { id: 'dapt',          table: 'business', section: 'asset-protection', name: 'Domestic Asset Protection Trust', status: 'consideration', definition: 'Self-settled trust in DE/NV/AK/SD/WY for creditor protection.', whenToUse: 'Professional with malpractice exposure', statutes: ['UVTA','State DAPT statutes'] },
   { id: 'offshore_apt',  table: 'business', section: 'asset-protection', name: 'International Asset Protection Trust', status: 'consideration', definition: 'Offshore trust (Cook Islands, Nevis) for stronger creditor protection — less domestic enforceability.', whenToUse: 'High-litigation-exposure professionals (surgeons, real estate developers)', statutes: ['Foreign Trust statutes','§679'] },
   { id: 's_esop',        table: 'business', section: 'asset-protection', name: 'S-Corporation ESOP', status: 'consideration', definition: 'S-corp owned by ESOP — operating-company income passes through to tax-exempt ESOP. Powerful structure post-§409(p) anti-abuse rules.', whenToUse: 'Owner exit + employee retention + permanent tax deferral on operating income', statutes: ['§1361','§409(p)','§4975'] },
@@ -6126,6 +6412,12 @@ function readForm() {
       pf: c('use-pf'),
       nimcrut: c('use-nimcrut'),
       waltonGrat: c('use-walton-grat'),
+      dapt: c('use-dapt'),
+      qsbs1045: c('use-1045'),
+      scin: c('use-scin'),
+      pplife: c('use-pplife'),
+      crossPs: c('use-cross-ps'),
+      hsa: c('use-hsa'),
     },
     dynasty: {
       funding: n('dt-funding'),
@@ -6259,6 +6551,58 @@ function readForm() {
       ret:      (n('walton-return') || 12) / 100,
       age:       n('walton-age') || 55,
       rolling:   t('walton-roll') === 'yes',
+    },
+    // Domestic Asset Protection Trust (DAPT)
+    dapt: {
+      amount:   n('dapt-amount'),
+      situs:    t('dapt-situs') || 'DE',
+      estate:   t('dapt-estate') || 'grantor',
+      creditors: t('dapt-creditors') || 'none',
+      trustee:  t('dapt-trustee') === 'yes',
+    },
+    // §1045 QSBS rollover
+    qsbs1045: {
+      sold:      n('qsbs-1045-sold'),
+      basis:     n('qsbs-1045-basis'),
+      yearsHeld: n('qsbs-1045-years') || 3,
+      rollover:  n('qsbs-1045-rollover'),
+      window:    t('qsbs-1045-window') === 'yes',
+      qualified: t('qsbs-1045-qualified') === 'yes',
+    },
+    // SCIN — Self-Canceling Installment Note
+    scin: {
+      amount:  n('scin-amount'),
+      basis:   n('scin-basis'),
+      term:    n('scin-term') || 10,
+      afr:    (n('scin-afr') || 4.5) / 100,
+      premium:(n('scin-premium') || 1.5) / 100,
+      age:     n('scin-age') || 70,
+    },
+    // Private Placement Life Insurance (PPLI)
+    pplife: {
+      premium:    n('pplife-premium'),
+      payYears:   n('pplife-pay-years') || 5,
+      ret:       (n('pplife-return') || 8) / 100,
+      years:      n('pplife-years') || 20,
+      ilit:       t('pplife-ilit') === 'yes',
+      diversified:t('pplife-diversified') === 'yes',
+    },
+    // Cross-Tested (New Comparability) Profit-Sharing Plan
+    crossPs: {
+      ownerContrib: n('cross-ps-owner'),
+      employees:    n('cross-ps-emps'),
+      empAge:       n('cross-ps-emp-age') || 35,
+      ownerAge:     n('cross-ps-owner-age') || 55,
+      years:        n('cross-ps-years') || 10,
+      empPct:      (n('cross-ps-emp-pct') || 5) / 100,
+    },
+    // Health Savings Account (HSA)
+    hsa: {
+      coverage: t('hsa-coverage') || 'single',
+      age:      n('hsa-age') || 50,
+      years:    n('hsa-years') || 15,
+      ret:     (n('hsa-return') || 7) / 100,
+      strategy: t('hsa-strategy') || 'invest',
     },
     slat: { funding: n('slat-funding'), growth: n('slat-growth') / 100, years: n('slat-years'), discount: n('slat-discount') / 100 },
     idgt: { amount: n('idgt-amount'), afr: n('idgt-afr') / 100, growth: n('idgt-growth') / 100, term: n('idgt-term'), discount: n('idgt-discount') / 100 },
@@ -7038,11 +7382,24 @@ function computePlan(d) {
   const QBI_THRESHOLD_MFJ    = 394_600;
   const QBI_PHASE_IN_MFJ     = 100_000;
   const QBI_CEILING_MFJ      = QBI_THRESHOLD_MFJ + QBI_PHASE_IN_MFJ;
+  // §199A SSTB list — note architecture + engineering are CARVED OUT
+  // (different from §1202(e)(3) which excludes them). Reputation/skill
+  // catch-all per §199A(d)(2)(B).
+  const QBI_SSTB_INDUSTRIES = new Set([
+    'health','law','accounting','actuarial','consulting',
+    'athletics','performing_arts','financial_services','brokerage',
+    'investment_advisor','insurance','reputation_skill',
+  ]);
+  const dealIndustryIsSstb = QBI_SSTB_INDUSTRIES.has(d.deal?.industry);
+  // Auto-pre-fill: if deal-industry indicates SSTB, treat as SSTB even
+  // if the user manually selected "no" — surface the override in render
+  const qbiSstbEffective = d.qbi.sstb || dealIndustryIsSstb;
+  const qbiSstbAutoSet = !d.qbi.sstb && dealIndustryIsSstb;
   let qbiDeduction = 0, qbiSavings = 0, qbiPhaseOutPct = 0, qbiFullyPhasedOut = false;
   if (d.use.qbi) {
     const taxableIncomeProxy = d.biz.income || 0;
     const basePct = d.qbi.pct;
-    if (d.qbi.sstb) {
+    if (qbiSstbEffective) {
       if (taxableIncomeProxy >= QBI_CEILING_MFJ) {
         // Fully phased out — SSTB cannot claim §199A above ceiling
         qbiDeduction = 0;
@@ -7243,6 +7600,134 @@ function computePlan(d) {
     waltonMortalityRisk = 1 - Math.pow(1 - ageRisk, t);
     // Rolling Walton ladder: 5x compounding multiplier on transfer
     if (d.waltonGrat.rolling) waltonRollingMultiplier = 5;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // DAPT — Domestic Asset Protection Trust
+  //   Asset-protection value (qualitative) + optional estate exclusion
+  //   if drafted as non-grantor. Compliance gates: clean creditor base
+  //   (no UVTA exposure) + independent co-trustee.
+  // ──────────────────────────────────────────────────────────────────────
+  let daptProtected = 0, daptEstateSaving = 0, daptCompliant = false,
+      daptUvtaRisk = false, daptPendingClaim = false;
+  if (d.use.dapt && d.dapt.amount > 0) {
+    daptUvtaRisk      = d.dapt.creditors === 'potential';
+    daptPendingClaim  = d.dapt.creditors === 'pending';
+    daptCompliant     = !daptPendingClaim && d.dapt.trustee;
+    daptProtected     = daptCompliant ? d.dapt.amount : 0;
+    daptEstateSaving  = (d.dapt.estate === 'non_grantor' && daptCompliant)
+      ? d.dapt.amount * d.tax.estate * 0.60   // partial — depends on retained interest
+      : 0;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // §1045 QSBS Rollover
+  //   Defer gain by reinvesting in new QSBS within 60 days. Holding
+  //   period tacks; if replacement reaches 5 years, eligible for full
+  //   §1202 exclusion on combined gain (cap = greater of $10M or 10×
+  //   basis under pre-OBBBA, $15M / 10× under post-OBBBA).
+  // ──────────────────────────────────────────────────────────────────────
+  let qsbs1045Eligible = false, qsbs1045Gain = 0, qsbs1045Deferred = 0,
+      qsbs1045TaxDeferred = 0;
+  if (d.use.qsbs1045 && d.qsbs1045.sold > 0) {
+    qsbs1045Eligible  = d.qsbs1045.window && d.qsbs1045.qualified;
+    qsbs1045Gain      = Math.max(0, d.qsbs1045.sold - d.qsbs1045.basis);
+    if (qsbs1045Eligible) {
+      qsbs1045Deferred    = Math.min(qsbs1045Gain, d.qsbs1045.rollover);
+      qsbs1045TaxDeferred = qsbs1045Deferred * combinedCGRate;
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // SCIN — Self-Canceling Installment Note
+  //   At grantor death, unpaid principal cancels — removes from estate.
+  //   Prior to death, payments are §453 installments; SCIN premium
+  //   (above AFR) is interest income. Estate-removal value =
+  //   remaining principal at expected death year × estate rate.
+  // ──────────────────────────────────────────────────────────────────────
+  let scinTransfer = 0, scinEstateSaving = 0, scinAnnualPayment = 0;
+  if (d.use.scin && d.scin.amount > 0) {
+    const scinTotalRate = d.scin.afr + d.scin.premium;
+    scinAnnualPayment = d.scin.amount * (scinTotalRate / (1 - Math.pow(1 + scinTotalRate, -d.scin.term)));
+    // Approximate life expectancy at age (Tables S annual)
+    const ageLE = d.scin.age < 60 ? 22 : d.scin.age < 70 ? 16 : d.scin.age < 80 ? 10 : 6;
+    // Expected unpaid balance at LE (if LE < term, SCIN-cancellation savings exist)
+    if (ageLE < d.scin.term) {
+      const yrsToLE = ageLE;
+      const fvAtLE = d.scin.amount * Math.pow(1 + scinTotalRate, yrsToLE)
+                   - scinAnnualPayment * ((Math.pow(1 + scinTotalRate, yrsToLE) - 1) / scinTotalRate);
+      scinTransfer = Math.max(0, fvAtLE);
+    } else {
+      scinTransfer = 0; // grantor outlives term — no cancellation
+    }
+    scinEstateSaving = scinTransfer * d.tax.estate;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // PPLI — Private Placement Life Insurance
+  //   Internal growth tax-free under §7702 if §817(h) diversification
+  //   met. Death benefit excluded under §101. ILIT-owned removes from
+  //   estate. Effective tax savings = (taxable-equivalent return) ×
+  //   premium × years × marginal — vs alternative taxable account.
+  // ──────────────────────────────────────────────────────────────────────
+  let ppliFutureValue = 0, ppliTaxSavings = 0, ppliEstateSaving = 0,
+      ppliCompliant = false;
+  if (d.use.pplife && d.pplife.premium > 0) {
+    ppliCompliant = d.pplife.diversified;
+    if (ppliCompliant) {
+      // Future value of premiums compounding tax-free
+      const annualPremium = d.pplife.premium / d.pplife.payYears;
+      // Compute FV with annuity formula for the premium-paying years,
+      // then compound balance for remaining years
+      const fvPaying = annualPremium * ((Math.pow(1 + d.pplife.ret, d.pplife.payYears) - 1) / d.pplife.ret);
+      const remainingYears = Math.max(0, d.pplife.years - d.pplife.payYears);
+      ppliFutureValue = fvPaying * Math.pow(1 + d.pplife.ret, remainingYears);
+      // Tax savings vs taxable account: (FV - taxable FV) × marginal
+      const taxableRet = d.pplife.ret * (1 - d.tax.marginal);
+      const fvPayingTaxable = annualPremium * ((Math.pow(1 + taxableRet, d.pplife.payYears) - 1) / taxableRet);
+      const fvTaxable = fvPayingTaxable * Math.pow(1 + taxableRet, remainingYears);
+      ppliTaxSavings = Math.max(0, ppliFutureValue - fvTaxable);
+      ppliEstateSaving = d.pplife.ilit ? ppliFutureValue * d.tax.estate : 0;
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Cross-Tested Profit-Sharing Plan
+  //   Owner contribution × marginal = annual income-tax saving.
+  //   §415(c) caps owner allocation at $69,000 (2024) / $76,500 with 50+ catchup.
+  //   Combined plan limit (DB + cross-tested PS) = 25% of comp under §404(a)(7).
+  //   Required min employee allocation cost = employees × empPct × salary-proxy.
+  // ──────────────────────────────────────────────────────────────────────
+  const CROSS_PS_415C_CAP = 76_500;  // 2024 with 50+ catchup; 69k base
+  let crossPsOwnerCapped = 0, crossPsAnnualSaving = 0, crossPsLifetimeSaving = 0,
+      crossPsEmpCost = 0, crossPsNetSaving = 0;
+  if (d.use.crossPs && d.crossPs.ownerContrib > 0) {
+    crossPsOwnerCapped    = Math.min(d.crossPs.ownerContrib, CROSS_PS_415C_CAP);
+    crossPsAnnualSaving   = crossPsOwnerCapped * d.tax.marginal;
+    crossPsLifetimeSaving = crossPsAnnualSaving * d.crossPs.years;
+    // Approximate employee cost: avg salary $80k × emp count × empPct
+    crossPsEmpCost = d.crossPs.employees * 80_000 * d.crossPs.empPct;
+    crossPsNetSaving = (crossPsOwnerCapped - crossPsEmpCost) * d.tax.marginal;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // HSA — Health Savings Account
+  //   2024 limits: $4,150 single / $8,300 family + $1,000 catchup at 55+.
+  //   Triple-tax-advantaged: deduction now + tax-free growth + tax-free
+  //   medical withdrawals. Maximize compounding by paying medical OOP.
+  // ──────────────────────────────────────────────────────────────────────
+  const HSA_LIMIT_SINGLE = 4_150;
+  const HSA_LIMIT_FAMILY = 8_300;
+  const HSA_CATCHUP      = 1_000;
+  let hsaAnnualLimit = 0, hsaAnnualSaving = 0, hsaProjectedBalance = 0;
+  if (d.use.hsa) {
+    const baseLimit = d.hsa.coverage === 'family' ? HSA_LIMIT_FAMILY : HSA_LIMIT_SINGLE;
+    const catchup   = d.hsa.age >= 55 ? HSA_CATCHUP : 0;
+    hsaAnnualLimit = baseLimit + catchup;
+    hsaAnnualSaving = hsaAnnualLimit * d.tax.marginal;
+    // Compound assuming max contribution every year
+    hsaProjectedBalance = hsaAnnualLimit *
+      ((Math.pow(1 + d.hsa.ret, d.hsa.years) - 1) / d.hsa.ret);
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -7582,7 +8067,13 @@ function computePlan(d) {
                        + captiveAnnualSaving
                        + pfEstateSaving
                        + nimcrutCgEliminated
-                       + waltonEstateSaving;
+                       + waltonEstateSaving
+                       + daptEstateSaving
+                       + qsbs1045TaxDeferred
+                       + scinEstateSaving
+                       + ppliTaxSavings + ppliEstateSaving
+                       + crossPsAnnualSaving
+                       + hsaAnnualSaving;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -7954,6 +8445,7 @@ function computePlan(d) {
     qsbsFederalSaved, qsbsMedicareSaved, qsbsStateSaved, qsbsTotalSaving,
     exch1031Gain, exch1031Deferred, exch1031Boot, exch1031TaxDeferred,
     qbiDeduction, qbiSavings, qbiPhaseOutPct, qbiFullyPhasedOut,
+    qbiSstbEffective, qbiSstbAutoSet, dealIndustryIsSstb,
     // Oil &amp; Gas Working Interest
     oilgasIdcDeduction, oilgasTdcAmount, oilgasFedSaving, oilgasStateSaving,
     oilgasNiitSaving, oilgasYear1Saving, oilgasAfterTaxCost, oilgasDepletionShelter,
@@ -7970,6 +8462,13 @@ function computePlan(d) {
     nimcrutDeduction, nimcrutEstateSaving, nimcrutCgEliminated, nimcrutMakeupBalance,
     // Walton GRAT
     waltonTransfer, waltonEstateSaving, waltonMortalityRisk, waltonRollingMultiplier,
+    // Phase 3
+    daptProtected, daptEstateSaving, daptCompliant, daptUvtaRisk, daptPendingClaim,
+    qsbs1045Eligible, qsbs1045Gain, qsbs1045Deferred, qsbs1045TaxDeferred,
+    scinTransfer, scinEstateSaving, scinAnnualPayment,
+    ppliFutureValue, ppliTaxSavings, ppliEstateSaving, ppliCompliant,
+    crossPsOwnerCapped, crossPsAnnualSaving, crossPsLifetimeSaving, crossPsEmpCost, crossPsNetSaving,
+    hsaAnnualLimit, hsaAnnualSaving, hsaProjectedBalance,
     slatEstateSave, slatFutureValue, slatGrowth,
     idgtTransferred, idgtEstateSave,
     qprtRemainderFactor, qprtMortalityProb, qprtTaxableGift, qprtResidenceFutureValue, qprtEstateRemoved, qprtEstateSave,
@@ -8537,6 +9036,12 @@ function renderTechnicalAppendix(p) {
   if (d.use.pf)         strategiesInUse.push('Premium Finance Life Insurance');
   if (d.use.nimcrut)    strategiesInUse.push('NIMCRUT §664(d)(3)');
   if (d.use.waltonGrat) strategiesInUse.push('Walton GRAT (zeroed-out)');
+  if (d.use.dapt)       strategiesInUse.push('DAPT (asset protection)');
+  if (d.use.qsbs1045)   strategiesInUse.push('§1045 QSBS Rollover');
+  if (d.use.scin)       strategiesInUse.push('SCIN — Self-Canceling Note');
+  if (d.use.pplife)     strategiesInUse.push('PPLI (Private Placement Life)');
+  if (d.use.crossPs)    strategiesInUse.push('Cross-Tested Profit-Sharing');
+  if (d.use.hsa)        strategiesInUse.push('HSA §223');
 
   return `
     <!-- COVER PAGE -->
@@ -8617,6 +9122,17 @@ function renderTechnicalAppendix(p) {
         <strong>§1202(e)(3) excluded categories:</strong> health, law, engineering, architecture, accounting, actuarial, performing arts, consulting, athletics, financial services, brokerage, banking, insurance, financing, leasing, investing; farming; oil/gas/percentage-depletion industries; hotels, motels, restaurants; reputation/skill businesses; and businesses whose principal asset is real estate not used in an active trade.
         <br><br>
         <strong>QSBS exclusion set to $0 in this plan.</strong> Either (a) the company genuinely fits a non-excluded category and Section 2 should be updated, or (b) consider alternative gain-deferral strategies (QOZ if buyer is unrelated, §1042 ESOP if C-corp + 30% ESOP feasible, CRT for charitable + income, opportunity zone fund).
+      </div>
+      ` : ''}
+      ${(['related_20','family','trust_to_trust'].includes(d.deal?.buyerRelationship)) ? `
+      <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin: 14px 0;">
+        <span class="title" style="color: var(--gold-dark);">⚠ Related-Party Buyer — §1202(c)(3) + §1202(h) Caveats</span>
+        Buyer relationship in Section 2 → Deal Architecture is set to <strong>${esc(d.deal.buyerRelationship.replace(/_/g, ' '))}</strong>. The seller's §1202 exclusion <em>generally</em> survives a sale to a related party, but two related-party rules apply:
+        <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
+          <li><strong>§1202(c)(3) redemption rules</strong> — if the corporation has redeemed (or makes "significant" redemptions of) stock from the seller or related parties within 2 years before/after the issuance, the stock loses QSBS status entirely. Verify the company's historical redemption activity before claiming exclusion.</li>
+          <li><strong>§1202(h) related-party transfers</strong> — the buyer's basis carries over from the seller, but the buyer does <strong>not</strong> get to claim §1202 exclusion on a future sale. This isn't seller-disqualifying but it caps the family-wide tax leverage.</li>
+        </ul>
+        <strong>Practical impact:</strong> seller's exclusion typically intact; document redemption history (Schedule M-2 of the corporate return); consider whether unrelated-buyer alternative provides more family-wide tax leverage.
       </div>
       ` : ''}
       <div class="appendix-finding ${p.qsbsAttestationsComplete ? 'pass' : 'fail'}">
@@ -9389,6 +9905,157 @@ function renderSummary(p) {
       <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
         <span class="title">Statutory Citations</span>
         <strong>§2702(b)</strong> — qualified annuity exception. <strong>§7520</strong> — discount rate (IRS monthly). <strong>Walton v. Comm'r 115 T.C. 589 (2000)</strong> — zeroed-out GRAT validation. <strong>Reg §25.2702-3</strong> — annuity-factor calculation. <strong>Audrey J. Walton Estate</strong> — IRS acquiescence on revenue-procedure annuity tables.
+      </div>
+    </div>` : ''}
+
+    ${d.use.dapt ? `
+    <div class="card" ${p.daptPendingClaim || !p.daptCompliant ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
+      <div class="card-title">Domestic Asset Protection Trust (DAPT)</div>
+      ${p.daptPendingClaim ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ Pending Creditor Claim — Transfer is Fraudulent Under UVTA</span>
+          The Uniform Voidable Transactions Act (UVTA) allows existing creditors with pending claims to void the transfer to a DAPT. <strong>Fund the DAPT before any claim is foreseeable</strong> — typically requires 18-48 months of clean creditor history depending on state. Until pending claims are resolved, DAPT is not effective protection.
+        </div>` : ''}
+      ${p.daptUvtaRisk ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Potential Creditor Exposure — UVTA Review Required</span>
+          Even potential future creditors (malpractice exposure, contract disputes, marital claims) may invoke UVTA's "actual or constructive intent to hinder" standard. Engage UVTA counsel before funding to document the legitimate non-creditor purpose of the trust (estate planning, multi-generational governance).
+        </div>` : ''}
+      ${!d.dapt.trustee && d.dapt.creditors === 'none' ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Sole Grantor-Trustee — Weakened Spendthrift Protection</span>
+          Most DAPT case law turns on whether the grantor retains too much control. Independent co-trustee from a corporate trust company strengthens the spendthrift wall and is recommended by virtually all DAPT statutes.
+        </div>` : ''}
+      <div class="card-sub">${fmt$M(d.dapt.amount)} in a ${d.dapt.situs} self-settled spendthrift trust. ${d.dapt.estate === 'non_grantor' ? 'Non-grantor structure — also removes from estate.' : 'Grantor structure — asset-protection only, estate-includible.'}</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Assets Protected</div><div class="value">${fmt$M(p.daptProtected)}</div></div>
+        <div class="kpi success"><div class="label">Estate Tax Saved (if non-grantor)</div><div class="value">${fmt$(p.daptEstateSaving)}</div></div>
+        <div class="kpi"><div class="label">Compliance Status</div><div class="value">${p.daptCompliant ? '✓ Pass' : '⚠ Gap'}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit</span>
+        Self-settled trust in ${d.dapt.situs} (statute-of-limitations period applies). Future creditors cannot reach trust assets after the SOL period (DE/AK 4yr; NV/SD 2yr). Grantor remains discretionary beneficiary — preserves quality of life. ${d.dapt.estate === 'non_grantor' ? `Non-grantor draft adds estate exclusion: ~60% of funding × ${fmtPct(d.tax.estate*100)} = <strong>${fmt$(p.daptEstateSaving)}</strong> estate-tax saving.` : 'Grantor draft is asset-protection only; combine with separate estate-tax planning (SLAT, IDGT, dynasty).'}
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>DE 12 §3570 et seq.</strong> — Qualified Disposition in Trust Act. <strong>NV NRS 166</strong> — Spendthrift Trust Act (2-yr SOL). <strong>AK AS 34.40.110</strong>. <strong>SD SDCL 55-16</strong>. <strong>UVTA §4-5</strong> — fraudulent transfer rules. <strong>§548</strong> — federal bankruptcy fraudulent transfer.
+      </div>
+    </div>` : ''}
+
+    ${d.use.qsbs1045 ? `
+    <div class="card sale-only" ${!p.qsbs1045Eligible ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
+      <div class="card-title">§1045 QSBS Rollover — Defer Gain into New QSBS</div>
+      ${!p.qsbs1045Eligible ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ §1045 Eligibility Failed</span>
+          ${!d.qsbs1045.window ? '<strong>60-day rollover window missed.</strong> §1045(a) requires reinvestment within 60 days of original sale. ' : ''}
+          ${!d.qsbs1045.qualified ? '<strong>Replacement is not Qualified C-Corp QSBS.</strong> Replacement must independently meet all §1202(c) tests at issuance. ' : ''}
+          Rollover deferral set to $0.
+        </div>` : ''}
+      <div class="card-sub">${fmt$M(d.qsbs1045.sold)} sold (${d.qsbs1045.yearsHeld}yr hold), ${fmt$M(d.qsbs1045.rollover)} rolled into new QSBS. Deferred ${fmt$(p.qsbs1045Deferred)} of gain; holding period tacks for §1202.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">QSBS Sold</div><div class="value">${fmt$M(d.qsbs1045.sold)}</div></div>
+        <div class="kpi gold"><div class="label">Gain Deferred via Rollover</div><div class="value">${fmt$M(p.qsbs1045Deferred)}</div></div>
+        <div class="kpi success"><div class="label">CG Tax Deferred</div><div class="value">${fmt$(p.qsbs1045TaxDeferred)}</div></div>
+        <div class="kpi"><div class="label">Years to §1202 5-yr Threshold</div><div class="value">${Math.max(0, 5 - d.qsbs1045.yearsHeld)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit</span>
+        §1045 lets a serial-entrepreneur client roll proceeds from one QSBS sale into another within 60 days, deferring CG. The original holding period <strong>tacks</strong> onto the replacement — so a 3-yr hold + 2-yr replacement reaches the §1202 5-yr threshold and qualifies the combined gain for full 100% exclusion (up to the $10M / $15M cap). Powerful when the original QSBS hadn't yet hit 5-yr but client must liquidate.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§1045(a)</strong> — 60-day rollover. <strong>§1045(b)(2)</strong> — replacement must be QSBS. <strong>§1223(13)</strong> — holding-period tacking. <strong>§1202(c)</strong> — QSBS requirements.
+      </div>
+    </div>` : ''}
+
+    ${d.use.scin ? `
+    <div class="card">
+      <div class="card-title">SCIN — Self-Canceling Installment Note</div>
+      <div class="card-sub">${fmt$M(d.scin.amount)} sale to family/trust on ${d.scin.term}-yr SCIN, age ${d.scin.age}. Total rate = AFR ${(d.scin.afr*100).toFixed(2)}% + ${(d.scin.premium*100).toFixed(2)}% cancellation premium. Note cancels at grantor death.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Annual Payment</div><div class="value">${fmt$(p.scinAnnualPayment)}</div></div>
+        <div class="kpi gold"><div class="label">Expected Estate Removal at Death</div><div class="value">${fmt$M(p.scinTransfer)}</div></div>
+        <div class="kpi success"><div class="label">Estate Tax Saved</div><div class="value">${fmt$(p.scinEstateSaving)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — Estate Freeze with Mortality-Driven Removal</span>
+        Sell ${fmt$M(d.scin.amount)} of asset to family member or grantor trust on installment note. Annual payments include AFR interest + a SCIN premium (priced via mortality tables to compensate buyer for the cancellation feature). At grantor's death, unpaid principal cancels — that balance is <strong>removed from the estate</strong>. Best for grantors with shorter-than-actuarial life expectancy where remaining-balance × estate rate is meaningful (Estate of Frane v. Comm'r 998 F.2d 567, 8th Cir 1993). Requires real expectation that grantor will outlive note (otherwise payment to estate at death is likely).
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§453</strong> — installment-method gain recognition. <strong>§691(a)</strong> — IRD treatment of unpaid balance at death. <strong>Estate of Frane v. Comm'r 998 F.2d 567 (8th Cir 1993)</strong>. <strong>Costanza v. Comm'r T.C. Memo 2003-269</strong>.
+      </div>
+    </div>` : ''}
+
+    ${d.use.pplife ? `
+    <div class="card" ${!p.ppliCompliant ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
+      <div class="card-title">Private Placement Life Insurance (PPLI)</div>
+      ${!p.ppliCompliant ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ §817(h) Diversification Failed</span>
+          PPLI tax benefits require <strong>5+ underlying investments</strong> with no single investment exceeding 55% (and no four exceeding 90%) per Reg §1.817-5(b). Failure means the policy is treated as a security, not life insurance — internal growth becomes taxable annually. Restructure with diversified investment options before issuance.
+        </div>` : ''}
+      ${!d.pplife.ilit ? `
+        <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ Policy NOT Held in ILIT</span>
+          Personally-owned PPLI includes the future death benefit + cash value in the taxable estate. Recommend ILIT ownership from inception — saves <strong>${fmt$(p.ppliFutureValue * d.tax.estate)}</strong> in estate tax on the projected ${d.pplife.years}-yr balance.
+        </div>` : ''}
+      <div class="card-sub">${fmt$M(d.pplife.premium)} premium over ${d.pplife.payYears} years; expected ${fmtPct(d.pplife.ret*100)} internal return; ${d.pplife.years}-yr projection${d.pplife.ilit ? '; held in ILIT' : ''}.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Total Premium Funded</div><div class="value">${fmt$M(d.pplife.premium)}</div></div>
+        <div class="kpi gold"><div class="label">Projected ${d.pplife.years}-Yr Balance</div><div class="value">${fmt$M(p.ppliFutureValue)}</div></div>
+        <div class="kpi success"><div class="label">Income Tax Saved (vs taxable account)</div><div class="value">${fmt$M(p.ppliTaxSavings)}</div></div>
+        <div class="kpi success"><div class="label">Estate Tax Saved (if ILIT)</div><div class="value">${fmt$M(p.ppliEstateSaving)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — UHNW Tax-Free Investment Wrapper</span>
+        Variable life policy that wraps custom hedge-fund / PE / direct-private investments. <strong>Internal growth tax-free</strong> under §7702 if §817(h) compliant; <strong>death benefit excluded</strong> under §101. ${d.pplife.ilit ? 'ILIT-owned: keeps the entire balance out of the estate, saving <strong>' + fmt$M(p.ppliEstateSaving) + '</strong> at ' + fmtPct(d.tax.estate*100) + ' estate rate.' : ''} Income-tax saving vs comparable taxable account ≈ <strong>${fmt$M(p.ppliTaxSavings)}</strong> over ${d.pplife.years} years (compounded difference between gross and taxable-equivalent return).
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations + Compliance Tests</span>
+        <strong>§7702</strong> — life-insurance definition. <strong>§7702A</strong> — MEC rules. <strong>§101(a)</strong> — death-benefit exclusion. <strong>§817(h)</strong> — diversification: 5/55/90 rule. <strong>Reg §1.817-5</strong>. <strong>Investor-control doctrine</strong> — Christoffersen v. U.S., Webber v. Comm'r 144 T.C. 324 (2015): policy owner cannot direct underlying investments.
+      </div>
+    </div>` : ''}
+
+    ${d.use.crossPs ? `
+    <div class="card">
+      <div class="card-title">Cross-Tested (New Comparability) Profit-Sharing Plan</div>
+      <div class="card-sub">${fmt$(d.crossPs.ownerContrib)}/yr owner allocation, age ${d.crossPs.ownerAge}; ${d.crossPs.employees} employees @ ${fmtPct(d.crossPs.empPct*100)} each. Stack on top of DB plan + 401(k).</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Owner Annual Allocation (capped)</div><div class="value">${fmt$(p.crossPsOwnerCapped)}</div></div>
+        <div class="kpi success"><div class="label">Annual Tax Saved (owner)</div><div class="value">${fmt$(p.crossPsAnnualSaving)}</div></div>
+        <div class="kpi gold"><div class="label">Lifetime Saving (${d.crossPs.years} yrs)</div><div class="value">${fmt$M(p.crossPsLifetimeSaving)}</div></div>
+        <div class="kpi"><div class="label">Annual Employee Cost</div><div class="value">${fmt$(p.crossPsEmpCost)}</div></div>
+        <div class="kpi success"><div class="label">Net Tax Saving (after emp cost)</div><div class="value">${fmt$(p.crossPsNetSaving)}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — Owner-Favorable Allocation Within §401(a)(4)</span>
+        New comparability allocation favors older / higher-paid (typically owner). Plan demonstrates equivalent benefits at retirement age via cross-testing under §401(a)(4) general test — younger employees get smaller current allocations because their longer time horizon provides equivalent retirement value. Best with older owner / younger workforce. Combined with a Cash Balance / DB plan + 401(k), total owner-side deduction can exceed $400K/yr.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§401(a)(4)</strong> — nondiscrimination general test. <strong>Reg §1.401(a)(4)-8</strong> — cross-testing. <strong>§415(c)</strong> — annual allocation limit ($69k 2024 / $76.5k with 50+ catchup). <strong>§404(a)(7)</strong> — combined plan deduction limit.
+      </div>
+    </div>` : ''}
+
+    ${d.use.hsa ? `
+    <div class="card">
+      <div class="card-title">Health Savings Account (HSA) — Triple-Tax-Advantaged</div>
+      <div class="card-sub">${d.hsa.coverage === 'family' ? 'Family' : 'Single'} coverage, age ${d.hsa.age} (${d.hsa.age >= 55 ? '$1,000 catchup applies' : 'catchup at 55'}); ${d.hsa.years}-yr horizon at ${fmtPct(d.hsa.ret*100)} expected return.</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Annual Contribution Limit</div><div class="value">${fmt$(p.hsaAnnualLimit)}</div></div>
+        <div class="kpi success"><div class="label">Annual Tax Saving</div><div class="value">${fmt$(p.hsaAnnualSaving)}</div></div>
+        <div class="kpi gold"><div class="label">Projected ${d.hsa.years}-Yr Balance</div><div class="value">${fmt$(p.hsaProjectedBalance)}</div></div>
+        <div class="kpi"><div class="label">Strategy</div><div class="value" style="font-size: 13px;">${d.hsa.strategy === 'invest' ? 'Pay OOP, invest HSA' : 'Use HSA for current medical'}</div></div>
+      </div>
+      <div class="callout">
+        <span class="title">Strategic Benefit — Triple Tax Advantage</span>
+        Above-the-line deduction on contribution + tax-free internal growth + tax-free withdrawal for qualified medical = <strong>only triple-tax-advantaged account in the code</strong>. ${d.hsa.strategy === 'invest' ? 'Maximize compounding by paying current medical out-of-pocket and investing the HSA at ' + fmtPct(d.hsa.ret*100) + '/yr — projected ' + fmt$(p.hsaProjectedBalance) + ' over ' + d.hsa.years + ' years.' : 'Using HSA for current medical avoids OOP cash but sacrifices long-term compounding.'} At 65+, non-medical withdrawals are taxed only at ordinary rates (no 20% penalty) — effectively a Traditional IRA backstop for healthcare in retirement.
+      </div>
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations + 2024 Limits</span>
+        <strong>§223</strong> — HSA definition. <strong>§223(b)(2)</strong> — 2024 limits: $4,150 single / $8,300 family. <strong>§223(b)(3)</strong> — $1,000 catchup at 55+. <strong>§223(c)(2)</strong> — HDHP requirements: $1,600 / $3,200 minimum deductible. <strong>§223(f)(4)</strong> — 20% penalty waiver at 65+.
       </div>
     </div>` : ''}
 
@@ -10944,12 +11611,14 @@ function renderTax(p) {
   }
   if (d.use.qbi) {
     let sstbWarn = '';
-    if (d.qbi.sstb && p.qbiFullyPhasedOut) {
-      sstbWarn = ` <strong style="color:var(--crimson);">⚠️ SSTB fully phased out</strong> — taxable income (${fmt$(d.biz.income)}) is above the 2025 MFJ ceiling of $494,600, so §199A(d)(3) eliminates the deduction entirely. Tool has zeroed the saving automatically.`;
-    } else if (d.qbi.sstb && p.qbiPhaseOutPct > 0) {
-      sstbWarn = ` <strong style="color:var(--gold-dark);">⚠️ SSTB partial phase-out</strong> — ${fmtPct(p.qbiPhaseOutPct*100)} of the deduction is disallowed under §199A(d)(3) at this income level.`;
-    } else if (d.qbi.sstb) {
-      sstbWarn = ' SSTB flagged but below MFJ threshold ($394,600) — full deduction preserved.';
+    const sstbEff = p.qbiSstbEffective;
+    const sstbAuto = p.qbiSstbAutoSet ? ` <em>(auto-detected SSTB from Section 2 → Deal Architecture industry "${esc(d.deal?.industry || '')}")</em>` : '';
+    if (sstbEff && p.qbiFullyPhasedOut) {
+      sstbWarn = ` <strong style="color:var(--crimson);">⚠️ SSTB fully phased out</strong>${sstbAuto} — taxable income (${fmt$(d.biz.income)}) is above the 2025 MFJ ceiling of $494,600, so §199A(d)(3) eliminates the deduction entirely. Tool has zeroed the saving automatically.`;
+    } else if (sstbEff && p.qbiPhaseOutPct > 0) {
+      sstbWarn = ` <strong style="color:var(--gold-dark);">⚠️ SSTB partial phase-out</strong>${sstbAuto} — ${fmtPct(p.qbiPhaseOutPct*100)} of the deduction is disallowed under §199A(d)(3) at this income level.`;
+    } else if (sstbEff) {
+      sstbWarn = ` SSTB flagged${sstbAuto} but below MFJ threshold ($394,600) — full deduction preserved.`;
     }
     items.push({
       label: '§199A QBI Deduction (annual)',
@@ -11371,7 +12040,7 @@ function renderCompare(p) {
     };
   }
 
-  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false, oilgas: false, dbplan: false, ceasement: false, esop1042: false, monInstall: false, captive: false, pf: false, nimcrut: false, waltonGrat: false };
+  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false, oilgas: false, dbplan: false, ceasement: false, esop1042: false, monInstall: false, captive: false, pf: false, nimcrut: false, waltonGrat: false, dapt: false, qsbs1045: false, scin: false, pplife: false, crossPs: false, hsa: false };
 
   const scenarios = [
     variant('No Planning', allOff),
@@ -15469,6 +16138,13 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'pf-db': d.pf.deathBenefit, 'pf-premium': d.pf.premium, 'pf-years': d.pf.years, 'pf-loan-rate': d.pf.loanRate * 100, 'pf-credit-rate': d.pf.creditRate * 100,
       'nimcrut-amount': d.nimcrut.amount, 'nimcrut-rate': d.nimcrut.rate * 100, 'nimcrut-sale-year': d.nimcrut.saleYear, 'nimcrut-term': d.nimcrut.term, 'nimcrut-pre-income': d.nimcrut.preIncome * 100, 'nimcrut-ded-factor': d.nimcrut.dedFactor * 100,
       'walton-amount': d.waltonGrat.amount, 'walton-term': d.waltonGrat.term, 'walton-7520': d.waltonGrat.rate7520 * 100, 'walton-return': d.waltonGrat.ret * 100, 'walton-age': d.waltonGrat.age,
+      // Phase 3
+      'dapt-amount': d.dapt.amount,
+      'qsbs-1045-sold': d.qsbs1045.sold, 'qsbs-1045-basis': d.qsbs1045.basis, 'qsbs-1045-years': d.qsbs1045.yearsHeld, 'qsbs-1045-rollover': d.qsbs1045.rollover,
+      'scin-amount': d.scin.amount, 'scin-basis': d.scin.basis, 'scin-term': d.scin.term, 'scin-afr': d.scin.afr * 100, 'scin-premium': d.scin.premium * 100, 'scin-age': d.scin.age,
+      'pplife-premium': d.pplife.premium, 'pplife-pay-years': d.pplife.payYears, 'pplife-return': d.pplife.ret * 100, 'pplife-years': d.pplife.years,
+      'cross-ps-owner': d.crossPs.ownerContrib, 'cross-ps-emps': d.crossPs.employees, 'cross-ps-emp-age': d.crossPs.empAge, 'cross-ps-owner-age': d.crossPs.ownerAge, 'cross-ps-years': d.crossPs.years, 'cross-ps-emp-pct': d.crossPs.empPct * 100,
+      'hsa-age': d.hsa.age, 'hsa-years': d.hsa.years, 'hsa-return': d.hsa.ret * 100,
       // Oil &amp; Gas Working Interest
       'oilgas-amount': d.oilgas.amount, 'oilgas-idc-pct': d.oilgas.idcPct * 100, 'oilgas-year': d.oilgas.year, 'oilgas-state-conforms': d.oilgas.stateConforms, 'oilgas-structure': d.oilgas.structure, 'oilgas-operator': d.oilgas.operator, 'oilgas-production': d.oilgas.production, 'oilgas-prod-years': d.oilgas.prodYears, 'oilgas-risk': d.oilgas.risk,
       'tax-fed': d.tax.fed * 100, 'tax-state': d.tax.state * 100, 'tax-medicare': d.tax.medicare * 100,
@@ -15478,7 +16154,7 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'ins-current': d.ins.current, 'ins-rec-min': d.ins.recMin, 'ins-rec-max': d.ins.recMax,
       'firm-name': d.firm.name, 'firm-tag': d.firm.tag,
     },
-    checkboxes: { 'use-dynasty': d.use.dynasty, 'use-crat': d.use.crat, 'use-daf': d.use.daf, 'use-qoz': d.use.qoz, 'use-oilgas': d.use.oilgas, 'use-esop-1042': d.use.esop1042, 'use-mon-install': d.use.monInstall, 'use-captive': d.use.captive, 'use-pf': d.use.pf, 'use-nimcrut': d.use.nimcrut, 'use-walton-grat': d.use.waltonGrat },
+    checkboxes: { 'use-dynasty': d.use.dynasty, 'use-crat': d.use.crat, 'use-daf': d.use.daf, 'use-qoz': d.use.qoz, 'use-oilgas': d.use.oilgas, 'use-esop-1042': d.use.esop1042, 'use-mon-install': d.use.monInstall, 'use-captive': d.use.captive, 'use-pf': d.use.pf, 'use-nimcrut': d.use.nimcrut, 'use-walton-grat': d.use.waltonGrat, 'use-dapt': d.use.dapt, 'use-1045': d.use.qsbs1045, 'use-scin': d.use.scin, 'use-pplife': d.use.pplife, 'use-cross-ps': d.use.crossPs, 'use-hsa': d.use.hsa },
     firmLogo: d.firm.logo || null,
   });
 
@@ -15600,6 +16276,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
                     'use-dbplan','use-muni','use-flp','use-ing','use-ceasement',
                     'use-collar','use-pvf','use-exchfund','use-oilgas',
                     'use-esop-1042','use-mon-install','use-captive','use-pf','use-nimcrut','use-walton-grat',
+                    'use-dapt','use-1045','use-scin','use-pplife','use-cross-ps','use-hsa',
                     'qsbs-attest-ccorp','qsbs-attest-active','qsbs-attest-grossassets','qsbs-attest-original'];
     const values = {};
     const checkboxes = {};
