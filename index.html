@@ -12281,6 +12281,21 @@ const SOLVER_STRATEGIES = [
   { key: 'collar',    label: 'Cashless Collar',        targets: ['cap-gains'],        tip: 'Buy puts + sell calls to bracket downside on a single-stock concentration. Locks in floor + cap; net premium cost near zero. Risk management more than tax savings.' },
   { key: 'pvf',       label: 'Prepaid Variable Forward', targets: ['cap-gains'],      tip: 'Get ~85% of stock value as cash today; deliver variable share count in 3-5 years. Defers capital gain recognition without selling. Rev. Rul. 2003-7 compliance required.' },
   { key: 'exchfund',  label: 'Exchange Fund (7-yr)',   targets: ['cap-gains'],        tip: 'Contribute concentrated stock to a 30+ stock partnership; exit after 7-year lockup with diversified pool at original basis. §721(b) tax-deferred. Min usually $1M-5M.' },
+  // ──── Phase 2 strategies ────
+  { key: 'oilgas',    label: 'Oil & Gas Working Interest §263(c)', targets: ['fed-income'], tip: '60-80% of investment deductible as IDC against ordinary income in Year 1. §469(c)(3) active-loss treatment if held directly. Speculative; concentration risk.' },
+  { key: 'esop1042',  label: '§1042 ESOP Rollover',    targets: ['cap-gains'],        tip: 'C-Corp owner sells ≥30% to ESOP and defers 100% of CG by reinvesting in Qualified Replacement Property within 12 months. Permanent exclusion if QRP held to death.' },
+  { key: 'monInstall', label: 'Monetized Installment Sale', targets: ['cap-gains'],   tip: 'Sale on 30-yr §453 installment note + ~93% upfront monetization loan. Defers gain to year-30; cash-flow neutral. Notice 2023-34/65 listed transaction.' },
+  { key: 'captive',   label: 'Captive Insurance §831(b)', targets: ['fed-income'],    tip: 'Operating co deducts insurance premiums up to $2.65M (2024). Captive accumulates reserves tax-free. Real risk transfer + diversified pool required.' },
+  { key: 'pf',        label: 'Premium Finance Life Insurance', targets: ['estate'],   tip: 'Bank-funded large permanent life policy. Death benefit pays loan + leaves net to family. ILIT-owned for estate exclusion. Spread-sensitive.' },
+  { key: 'nimcrut',   label: 'NIMCRUT §664(d)(3)',     targets: ['cap-gains','estate'], tip: 'Net-Income with Make-up CRUT. Pre-sale low income; post-sale catch-up. Eliminates CG on contributed asset; estate removal.' },
+  { key: 'waltonGrat', label: 'Walton GRAT (Zeroed)',  targets: ['estate'],           tip: 'Zeroed-out GRAT — taxable gift = $0. All appreciation above §7520 to heirs. Short term + rolling ladder for volatile assets.' },
+  // ──── Phase 3 strategies ────
+  { key: 'dapt',      label: 'Domestic Asset Protection Trust', targets: ['estate'],  tip: 'Self-settled spendthrift trust in DE/NV/AK/SD/WY. Statute-of-limitations period (2-4yr by state) shields against future creditors. Optional non-grantor for partial estate exclusion.' },
+  { key: 'qsbs1045',  label: '§1045 QSBS Rollover',    targets: ['cap-gains'],        tip: 'Roll QSBS proceeds into new QSBS within 60 days when 5-yr hold not yet reached. Holding period tacks toward §1202 100% exclusion.' },
+  { key: 'scin',      label: 'SCIN — Self-Canceling Installment Note', targets: ['estate'], tip: 'Sale to family/trust on note that cancels at grantor death. Mortality-driven estate removal. Best when grantor LE < note term.' },
+  { key: 'pplife',    label: 'Private Placement Life Insurance', targets: ['fed-income','estate'], tip: 'Variable life policy with hedge-fund / PE wrappers. Tax-free internal growth (§7702) + DB exclusion (§101). Accredited investor only.' },
+  { key: 'crossPs',   label: 'Cross-Tested Profit-Sharing', targets: ['fed-income'],  tip: 'New comparability allocation favors owner. Stacks with DB plan + 401(k) for $400k+ owner deduction. Older owner / younger workforce optimal.' },
+  { key: 'hsa',       label: 'Health Savings Account §223', targets: ['fed-income'],  tip: 'Triple-tax-advantaged: deductible contribution + tax-free growth + tax-free qualified-medical withdrawal. 2024: $4,150/$8,300 + $1,000 catchup at 55+.' },
 ];
 
 function solverScore(d, useSet) {
@@ -12304,16 +12319,34 @@ function solverScore(d, useSet) {
 
     const fedIncome  = (p.incomeTaxSavings || 0) + (p.qbiSavings || 0)
                      + (p.dbplanAnnualSaving || 0) + (p.muniSaving || 0)
-                     + (p.ceasementSaving || 0);
+                     + (p.ceasementSaving || 0)
+                     // Phase 2/3 income-tax-bucket strategies
+                     + (p.oilgasYear1Saving || 0)
+                     + (p.captiveAnnualSaving || 0)
+                     + (p.crossPsAnnualSaving || 0)
+                     + (p.hsaAnnualSaving || 0)
+                     + (p.ppliTaxSavings || 0);
     const capGains   = ((p.cgTaxSavings || 0) * fedShareOfCG)
                      + (p.qsbsTotalSaving || 0)
                      + (p.exch1031TaxDeferred || 0)
-                     + (p.hedgingCGSaving || 0);
+                     + (p.hedgingCGSaving || 0)
+                     // Phase 2/3 cap-gains-bucket strategies
+                     + (p.esop1042PermanentSavings || 0)
+                     + (p.monInstallTaxDeferred || 0)
+                     + (p.qsbs1045TaxDeferred || 0)
+                     + (p.nimcrutCgEliminated || 0);
     const stateLocal = (p.cgTaxSavings || 0) * stateShareOfCG
                      + (p.ingAnnualSaving || 0)
                      + (p.dynastyStateArbitrage || 0);
     const estate     = (p.totalEstateSave || 0) + (p.slatEstateSave || 0) + (p.idgtEstateSave || 0)
-                     + (p.flpSaving || 0);
+                     + (p.flpSaving || 0)
+                     // Phase 2/3 estate-bucket strategies
+                     + (p.pfEstateSaving || 0)
+                     + (p.waltonEstateSaving || 0)
+                     + (p.daptEstateSaving || 0)
+                     + (p.scinEstateSaving || 0)
+                     + (p.ppliEstateSaving || 0)
+                     + (p.ceasement2031cDiscount || 0);
     const total      = fedIncome + capGains + stateLocal + estate;
 
     return {
@@ -18510,8 +18543,25 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (d.use.qsbs)     strats.push(`§1202 QSBS (${p.qsbsIsPostOBBBA ? 'post-OBBBA' : 'pre-OBBBA'}, ${fmtPct(p.qsbsExclPct*100)} excl, saves ${fmt$M(p.qsbsTotalSaving)})`);
     if (d.use.qoz)      strats.push(`QOZ ${fmt$M(d.qoz.amount || p.scenarios.scenAll.qozInvestment)} invested, ${d.qoz.years}-yr hold`);
     if (d.use.exch1031) strats.push(`§1031 exchange ${fmt$M(d.exch1031.sale)} into ${fmt$M(d.exch1031.replacement)}`);
-    if (d.use.qbi)      strats.push(`§199A QBI ${fmt$(d.qbi.income)} income (SSTB: ${d.qbi.sstb ? 'yes, ' + (p.qbiFullyPhasedOut ? 'fully phased out' : fmtPct((1-p.qbiPhaseOutPct)*100) + ' allowed') : 'no'})`);
+    if (d.use.qbi)      strats.push(`§199A QBI ${fmt$(d.qbi.income)} income (SSTB: ${p.qbiSstbEffective ? 'yes' + (p.qbiSstbAutoSet ? ' (auto-detected from industry)' : '') + ', ' + (p.qbiFullyPhasedOut ? 'fully phased out' : fmtPct((1-p.qbiPhaseOutPct)*100) + ' allowed') : 'no'})`);
     if (d.use.roth)     strats.push(`Roth conversion ${fmt$M(d.roth.amount)} at ${fmtPct(d.roth.marginal*100)} marginal`);
+    // Phase 2 strategies
+    if (d.use.oilgas && p.oilgasYear1Saving > 0)    strats.push(`Oil & Gas WI §263(c) ${fmt$M(d.oilgas.amount)} invested, ${fmt$M(p.oilgasIdcDeduction)} Year-1 IDC deduction → ${fmt$(p.oilgasYear1Saving)} ordinary tax saving`);
+    if (d.use.dbplan)   strats.push(`Cash Balance / DB §401(a) ${fmt$(p.dbplanContribCapped)}/yr × ${d.dbplan.years} yrs → ${fmt$M(p.dbplanLifetimeSaving)} lifetime saving; ${fmt$M(p.dbplanProjectedBalance)} projected balance`);
+    if (d.use.ceasement) strats.push(`Conservation Easement §170(h) ${fmt$M(p.ceasementValue)} deduction (${d.ceasement.structure}); ${fmt$(p.ceasementSaving)} income tax saved + ${fmt$(p.ceasement2031cDiscount)} estate discount`);
+    if (d.use.esop1042 && p.esop1042Eligible) strats.push(`§1042 ESOP Rollover ${fmt$M(d.esop1042.amount)} sold to ESOP at ${(d.esop1042.stake*100).toFixed(0)}%, deferred ${fmt$M(p.esop1042DeferredGain)} gain (${d.esop1042.stepUp ? 'PERMANENT via §1014 step-up' : 'recognized when QRP sold'})`);
+    if (d.use.monInstall) strats.push(`Monetized Installment Sale ${fmt$M(d.monInstall.amount)} on ${d.monInstall.term}-yr §453 note; ${fmt$M(p.monInstallYear1Cash)} upfront via monetization loan; ${fmt$M(p.monInstallTaxDeferred)} CG deferred`);
+    if (d.use.captive)  strats.push(`Captive Insurance §831(b) ${fmt$M(p.captiveAnnualPremium)}/yr premium × ${d.captive.years} yrs → ${fmt$M(p.captiveLifetimeSaving)} lifetime saving (${p.captiveCompliant ? 'COMPLIANT' : 'GAPS — review §831(b) election + risk pool'})`);
+    if (d.use.pf)       strats.push(`Premium Finance Life ${fmt$M(d.pf.deathBenefit)} DB; spread ${((d.pf.creditRate - d.pf.loanRate)*100).toFixed(2)}% (${p.pfWorks ? 'positive' : 'NEGATIVE — uneconomic'}); net DB after loan payoff ${fmt$M(p.pfNetDeathBenefit)}; estate saved ${fmt$M(p.pfEstateSaving)}`);
+    if (d.use.nimcrut)  strats.push(`NIMCRUT ${fmt$M(d.nimcrut.amount)} contribution; charitable deduction ${fmt$M(p.nimcrutDeduction)}, CG eliminated ${fmt$M(p.nimcrutCgEliminated)}, estate removed ${fmt$M(p.nimcrutEstateSaving)}`);
+    if (d.use.waltonGrat) strats.push(`Walton GRAT ${fmt$M(d.waltonGrat.amount)} over ${d.waltonGrat.term} yrs at §7520 ${fmtPct(d.waltonGrat.rate7520*100)}, expected return ${fmtPct(d.waltonGrat.ret*100)} → ${fmt$M(p.waltonTransfer)} heir transfer (estate save ${fmt$M(p.waltonEstateSaving)})${d.waltonGrat.rolling ? '; rolling ladder ×5' : ''}`);
+    // Phase 3 strategies
+    if (d.use.dapt)     strats.push(`DAPT ${fmt$M(d.dapt.amount)} in ${d.dapt.situs} ${d.dapt.estate} structure (${p.daptCompliant ? 'compliant' : 'GAP — ' + (p.daptPendingClaim ? 'pending creditor claim' : 'review co-trustee')})${p.daptEstateSaving > 0 ? '; estate saving ' + fmt$M(p.daptEstateSaving) : ''}`);
+    if (d.use.qsbs1045 && p.qsbs1045Eligible) strats.push(`§1045 QSBS Rollover ${fmt$M(d.qsbs1045.sold)} sold (${d.qsbs1045.yearsHeld}yr hold) → ${fmt$M(d.qsbs1045.rollover)} rolled; ${fmt$M(p.qsbs1045TaxDeferred)} CG deferred; ${Math.max(0, 5 - d.qsbs1045.yearsHeld)} yrs to §1202 5-yr threshold`);
+    if (d.use.scin)     strats.push(`SCIN ${fmt$M(d.scin.amount)} on ${d.scin.term}-yr note (age ${d.scin.age}); annual payment ${fmt$(p.scinAnnualPayment)}; expected estate removal ${fmt$M(p.scinTransfer)} (estate save ${fmt$M(p.scinEstateSaving)})`);
+    if (d.use.pplife)   strats.push(`PPLI ${fmt$M(d.pplife.premium)} premium over ${d.pplife.payYears} yrs at ${fmtPct(d.pplife.ret*100)}; ${d.pplife.years}-yr balance ${fmt$M(p.ppliFutureValue)}; income tax saved ${fmt$M(p.ppliTaxSavings)} + estate saved ${fmt$M(p.ppliEstateSaving)} (${p.ppliCompliant ? '§817(h) compliant' : 'NON-COMPLIANT'})`);
+    if (d.use.crossPs)  strats.push(`Cross-Tested Profit-Sharing ${fmt$(p.crossPsOwnerCapped)}/yr owner allocation × ${d.crossPs.years} yrs → ${fmt$M(p.crossPsLifetimeSaving)} lifetime saving; ${d.crossPs.employees} employees @ ${fmtPct(d.crossPs.empPct*100)}`);
+    if (d.use.hsa)      strats.push(`HSA ${fmt$(p.hsaAnnualLimit)}/yr (${d.hsa.coverage} coverage; ${d.hsa.age >= 55 ? 'with catchup' : 'no catchup yet'}); ${d.hsa.years}-yr projected balance ${fmt$M(p.hsaProjectedBalance)} (${d.hsa.strategy === 'invest' ? 'invest + pay OOP' : 'use for current medical'})`);
     lines.push(strats.length ? strats.map(s => '• ' + s).join('\n') : '(none enabled)');
 
     lines.push(`\n=== HEADLINE SAVINGS ===`);
@@ -18521,6 +18571,44 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     lines.push(`Federal estate exemption in use: ${fmt$M(p.fedEstateExemption)}`);
     if (d.use.dynasty)  lines.push(`Dynasty Trust value at ${p.dynastyYears} yrs: ${fmt$M(p.dynasty20yr)} (appreciation ${fmt$M(p.dynastyGrowth)})`);
     if (p.dynastyIncomeTaxGiftEstateSave > 0) lines.push(`Rev. Rul. 2004-64 tax-burn leverage (grantor trust): ${fmt$M(p.dynastyIncomeTaxGiftEstateSave)} additional estate savings`);
+    // Phase 2/3 strategy headline savings
+    if (d.use.oilgas && p.oilgasYear1Saving > 0)         lines.push(`Oil & Gas WI Year-1 IDC tax saving: ${fmt$M(p.oilgasYear1Saving)} ordinary; ${fmt$M(p.oilgasDepletionShelter)} lifetime depletion shelter`);
+    if (d.use.dbplan && p.dbplanLifetimeSaving > 0)      lines.push(`Cash Balance / DB lifetime tax saving: ${fmt$M(p.dbplanLifetimeSaving)}; projected balance ${fmt$M(p.dbplanProjectedBalance)}`);
+    if (d.use.ceasement && p.ceasementSaving > 0)        lines.push(`Conservation Easement income tax saved: ${fmt$M(p.ceasementSaving)} + ${fmt$(p.ceasement2031cDiscount)} §2031(c) estate discount`);
+    if (d.use.esop1042 && p.esop1042TaxDeferred > 0)     lines.push(`§1042 ESOP cap-gains ${d.esop1042.stepUp ? 'PERMANENT exclusion via §1014 step-up' : 'deferred'}: ${fmt$M(p.esop1042TaxDeferred)}`);
+    if (d.use.monInstall && p.monInstallTaxDeferred > 0) lines.push(`Monetized Installment Sale CG deferred ${d.monInstall.term} yrs: ${fmt$M(p.monInstallTaxDeferred)}`);
+    if (d.use.captive && p.captiveLifetimeSaving > 0)    lines.push(`Captive §831(b) lifetime tax saving: ${fmt$M(p.captiveLifetimeSaving)}`);
+    if (d.use.pf && p.pfEstateSaving > 0)                lines.push(`Premium Finance estate saving (ILIT-owned net DB ${fmt$M(p.pfNetDeathBenefit)}): ${fmt$M(p.pfEstateSaving)}`);
+    if (d.use.nimcrut && p.nimcrutDeduction > 0)         lines.push(`NIMCRUT charitable deduction ${fmt$M(p.nimcrutDeduction)}; CG eliminated ${fmt$M(p.nimcrutCgEliminated)}; estate removed ${fmt$M(p.nimcrutEstateSaving)}`);
+    if (d.use.waltonGrat && p.waltonEstateSaving > 0)    lines.push(`Walton GRAT heir transfer ${fmt$M(p.waltonTransfer)} per GRAT × ${p.waltonRollingMultiplier} rolling = ${fmt$M(p.waltonEstateSaving * p.waltonRollingMultiplier)} estate saving`);
+    if (d.use.dapt && p.daptEstateSaving > 0)            lines.push(`DAPT estate saving (non-grantor draft): ${fmt$M(p.daptEstateSaving)}; ${fmt$M(p.daptProtected)} asset-protected`);
+    if (d.use.qsbs1045 && p.qsbs1045TaxDeferred > 0)     lines.push(`§1045 QSBS rollover deferred CG: ${fmt$M(p.qsbs1045TaxDeferred)}; tacks toward §1202 5-yr (${Math.max(0, 5 - d.qsbs1045.yearsHeld)} yrs to go)`);
+    if (d.use.scin && p.scinEstateSaving > 0)            lines.push(`SCIN expected estate removal ${fmt$M(p.scinTransfer)} → estate saved ${fmt$M(p.scinEstateSaving)}`);
+    if (d.use.pplife && (p.ppliTaxSavings + p.ppliEstateSaving) > 0) lines.push(`PPLI tax-free internal growth saved ${fmt$M(p.ppliTaxSavings)} income tax + ${fmt$M(p.ppliEstateSaving)} estate (${d.pplife.years}-yr balance ${fmt$M(p.ppliFutureValue)})`);
+    if (d.use.crossPs && p.crossPsLifetimeSaving > 0)    lines.push(`Cross-Tested Profit-Sharing lifetime saving: ${fmt$M(p.crossPsLifetimeSaving)} (net of employee cost: ${fmt$(p.crossPsNetSaving)}/yr)`);
+    if (d.use.hsa && p.hsaAnnualSaving > 0)              lines.push(`HSA annual tax saving ${fmt$(p.hsaAnnualSaving)}; ${d.hsa.years}-yr projected balance ${fmt$M(p.hsaProjectedBalance)}`);
+
+    // Deal Architecture context (drives QOZ + QSBS + §1042 + §199A + §1031 + CRT eligibility)
+    if (d.deal) {
+      lines.push(`\n=== DEAL ARCHITECTURE ===`);
+      lines.push(`Industry: ${d.deal.industry || 'unspecified'} (${p.dealIndustryIsSstb ? 'SSTB — §199A phase-out applies' : 'non-SSTB'}; ${p.qsbsIndustryExcluded ? '§1202(e)(3) excluded' : 'QSBS-eligible if other tests met'})`);
+      lines.push(`Buyer: ${d.deal.buyerRelationship || 'unrelated'}${['related_20','family','trust_to_trust'].includes(d.deal.buyerRelationship) ? ' — TRIGGERS §1400Z-2(e)(2) + §1202(c)(3) related-party rules' : ''}`);
+      lines.push(`Sale structure: ${d.deal.saleStructure || 'lump_sum'}; cap-gain portion ${fmtPct((d.deal.cgEligiblePct || 1) * 100)}`);
+      if (d.deal.conflictingElection && d.deal.conflictingElection !== 'none') {
+        lines.push(`Competing election: ${d.deal.conflictingElection} — overrides QOZ deferral`);
+      }
+    }
+
+    // Sale Proceeds Tranches
+    if (d.proceeds && p.proceedsHasTranches) {
+      lines.push(`\n=== SALE PROCEEDS TRANCHES ===`);
+      lines.push(`Cash at close (certain): ${fmt$M(p.proceedsCashAtClose)}`);
+      if (p.proceedsInstallment > 0)   lines.push(`Installment note (§453): ${fmt$M(p.proceedsInstallment)} over ${d.proceeds.installmentYears} yrs at ${(d.proceeds.installmentRate*100).toFixed(2)}% AFR; ~${fmt$(p.proceedsInstallmentAnnualPrincipal)} principal/yr`);
+      if (p.proceedsEarnoutMax > 0)    lines.push(`Earnout (max ${fmt$M(p.proceedsEarnoutMax)}): expected ${fmt$M(p.proceedsEarnoutExpected)} at ${(d.proceeds.earnoutProb*100).toFixed(0)}% probability over ${d.proceeds.earnoutYears} yrs`);
+      if (p.proceedsEscrow > 0)        lines.push(`Escrow holdback ${fmt$M(p.proceedsEscrow)} for ${d.proceeds.escrowYears} yrs; expected release ${fmt$M(p.proceedsEscrowExpected)}`);
+      if (p.proceedsClawback > 0)      lines.push(`Working-capital / clawback risk ${fmt$M(p.proceedsClawback)}; expected loss ${fmt$M(p.proceedsClawbackExpected)}`);
+      lines.push(`Risk-adjusted expected total: ${fmt$M(p.proceedsRiskAdjustedTotal)} (vs ${fmt$M(d.biz.sale)} headline = ${fmt$M(p.proceedsContingentDelta)} contingent gap)`);
+    }
 
     lines.push(`\n=== RETIREMENT ===`);
     const mc = p.monteCarlo;
