@@ -3441,6 +3441,68 @@
       </div>
     </div>
 
+    <div class="strategy-block hidden" id="block-oilgas">
+      <h4>Oil &amp; Gas Working Interest — §263(c) IDC + §469(c)(3) Active-Loss Treatment</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Direct working interest in domestic oil/gas drilling generates an immediate <strong>§263(c) Intangible Drilling Cost (IDC) deduction</strong> of 60-80% of the investment in Year 1, deductible against <strong>ordinary income</strong> (W-2, business income, capital gain). The <strong>§469(c)(3) working-interest exception</strong> exempts WI losses from passive-activity limits — <em>but only if held DIRECTLY or through a vehicle that does not limit liability</em>. LLC blockers and limited-partner positions <strong>forfeit</strong> the active-loss treatment. TDC (~20%) depreciates over 7 years (§168). Production income is sheltered by §613A percentage depletion (15% of gross). Highly speculative — concentration risk.
+      </p>
+      <div class="form-grid cols-4">
+        <div class="field">
+          <label>Investment Amount</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="oilgas-amount" value="2000000"></div>
+        </div>
+        <div class="field">
+          <label>IDC Allocation % <span class="hint">(typical 60-80%, varies by program)</span></label>
+          <div class="suffix-pct"><input type="number" id="oilgas-idc-pct" value="75" min="50" max="85" step="5"></div>
+        </div>
+        <div class="field">
+          <label>Year-1 Tax Year <span class="hint">(year of IDC deduction)</span></label>
+          <input type="number" id="oilgas-year" value="2026" min="2024" max="2030">
+        </div>
+        <div class="field">
+          <label>State Conformity</label>
+          <select id="oilgas-state-conforms">
+            <option value="full" selected>Full conformity (most states)</option>
+            <option value="ca">CA — limits IDC to 70%</option>
+            <option value="none">No state IDC deduction</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid cols-2" style="margin-top: 14px;">
+        <div class="field">
+          <label>Holding Structure <span class="hint">(§469(c)(3) active-loss requires DIRECT WI)</span></label>
+          <select id="oilgas-structure">
+            <option value="direct_wi" selected>Direct Working Interest — eligible for §469(c)(3) active-loss</option>
+            <option value="spc_recourse">Single-Purpose LLC w/ recourse on operations — eligible (rebuttable)</option>
+            <option value="llc_blocker">LLC with limited liability — DISQUALIFIES §469(c)(3)</option>
+            <option value="lp">Limited Partner — DISQUALIFIES §469(c)(3) (passive only)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Operator / Sponsor <span class="hint">(for documentation)</span></label>
+          <input type="text" id="oilgas-operator" value="" placeholder="e.g., Permian Basin Operator LLC">
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Estimated Annual Production Income <span class="hint">(years 2-10 average)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="oilgas-production" value="200000"></div>
+        </div>
+        <div class="field">
+          <label>Production Years</label>
+          <input type="number" id="oilgas-prod-years" value="8" min="3" max="20">
+        </div>
+        <div class="field">
+          <label>Program Risk Tier</label>
+          <select id="oilgas-risk">
+            <option value="developmental" selected>Developmental — proven reserves, low geological risk</option>
+            <option value="exploratory">Exploratory — higher dry-hole risk; Year-1 IDC if dry</option>
+            <option value="enhanced_recovery">Enhanced Recovery (CO2/water-flood) — mid-tier risk</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <div class="strategy-block hidden" id="block-qbi">
       <h4>§199A Qualified Business Income Deduction Parameters</h4>
       <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
@@ -3631,6 +3693,7 @@
       <input type="checkbox" id="use-qprt">
       <input type="checkbox" id="use-crut">
       <input type="checkbox" id="use-clt">
+      <input type="checkbox" id="use-oilgas">      <!-- Oil &amp; Gas Working Interest (§263(c) IDC + §469(c)(3) active-loss exception) -->
       <!-- New Phase-1 strategies (hidden toggles; real inputs in dedicated
            sections elsewhere when implemented). Solver uses these directly. -->
       <input type="checkbox" id="use-dbplan">      <!-- Defined Benefit / Cash Balance Plan -->
@@ -4453,6 +4516,13 @@ const STRATEGIES = [
     useId: 'use-1031', blockId: 'block-1031',
   },
   {
+    id: 'oilgas', name: 'Oil &amp; Gas Working Interest (§263(c) IDC)',
+    category: 'income',
+    tags: ['reduces_income_tax', 'reduces_capgains_tax', 'requires_liquidity_event'],
+    desc: 'Direct working-interest drilling investment — 60-80% of capital deductible as IDC against ordinary income in Year 1; §469(c)(3) active-loss treatment if held directly',
+    useId: 'use-oilgas', blockId: 'block-oilgas',
+  },
+  {
     id: 'qbi-199a', name: '§199A QBI Deduction',
     category: 'income',
     tags: ['reduces_income_tax'],
@@ -4925,6 +4995,7 @@ function readForm() {
       dbplan: c('use-dbplan'), muni: c('use-muni'), flp: c('use-flp'),
       ing: c('use-ing'), ceasement: c('use-ceasement'),
       collar: c('use-collar'), pvf: c('use-pvf'), exchfund: c('use-exchfund'),
+      oilgas: c('use-oilgas'),
     },
     dynasty: {
       funding: n('dt-funding'),
@@ -4978,6 +5049,18 @@ function readForm() {
     },
     exch1031: { sale: n('exch-sale'), basis: n('exch-basis'), replacement: n('exch-replacement') },
     qbi: { income: n('qbi-income'), pct: n('qbi-pct') / 100, sstb: t('qbi-sstb') === 'yes' },
+    // Oil &amp; Gas Working Interest — §263(c) IDC + §469(c)(3) active-loss exception
+    oilgas: {
+      amount:     n('oilgas-amount'),
+      idcPct:     (n('oilgas-idc-pct') || 75) / 100,
+      year:       n('oilgas-year') || 2026,
+      stateConforms: t('oilgas-state-conforms') || 'full',
+      structure:  t('oilgas-structure') || 'direct_wi',
+      operator:   t('oilgas-operator') || '',
+      production: n('oilgas-production'),
+      prodYears:  n('oilgas-prod-years') || 8,
+      risk:       t('oilgas-risk') || 'developmental',
+    },
     slat: { funding: n('slat-funding'), growth: n('slat-growth') / 100, years: n('slat-years'), discount: n('slat-discount') / 100 },
     idgt: { amount: n('idgt-amount'), afr: n('idgt-afr') / 100, growth: n('idgt-growth') / 100, term: n('idgt-term'), discount: n('idgt-discount') / 100 },
     qprt: {
@@ -5716,6 +5799,67 @@ function computePlan(d) {
   }
 
   // ──────────────────────────────────────────────────────────────────────
+  // Oil &amp; Gas Working Interest — §263(c) IDC + §469(c)(3) active-loss
+  //
+  //   §263(c) — Intangible Drilling Costs election: 60-80% of the
+  //     investment is currently deductible as ordinary expense in Year 1
+  //     (drilling labor, mud, fuel, casing rental, site prep).
+  //   §469(c)(3) — Working-Interest Exception: a DIRECT working interest
+  //     is NOT a passive activity, regardless of material participation.
+  //     IDC losses offset W-2, business income, and capital gain. LLC
+  //     blockers and LP positions FORFEIT this exception.
+  //   §168 — TDC (~20-40% of investment) depreciates 7-yr MACRS.
+  //   §613A — Percentage depletion (15% of gross production income)
+  //     shelters production cash flow in years 2+ (small-producer
+  //     ceiling at ~1,000 bbl/day equivalent).
+  //
+  //   Eligibility flags:
+  //     • activeLoss only if structure = direct_wi or spc_recourse
+  //       (LLC blocker or LP position → §469(c)(3) forfeited; losses
+  //       become passive and trapped)
+  //     • CA limits IDC to 70%; "none" zeroes state savings
+  // ──────────────────────────────────────────────────────────────────────
+  let oilgasIdcDeduction = 0, oilgasTdcAmount = 0, oilgasFedSaving = 0,
+      oilgasStateSaving = 0, oilgasNiitSaving = 0, oilgasYear1Saving = 0,
+      oilgasAfterTaxCost = 0, oilgasDepletionShelter = 0;
+  const oilgasActiveLoss = ['direct_wi','spc_recourse'].includes(d.oilgas.structure);
+  const oilgasStructureForfeited = ['llc_blocker','lp'].includes(d.oilgas.structure);
+  const oilgasStateLimited = d.oilgas.stateConforms === 'ca';
+  const oilgasStateNoneConforms = d.oilgas.stateConforms === 'none';
+  if (d.use.oilgas && d.oilgas.amount > 0) {
+    // Year-1 IDC current deduction (§263(c)(1) election)
+    oilgasIdcDeduction = d.oilgas.amount * d.oilgas.idcPct;
+    oilgasTdcAmount    = d.oilgas.amount - oilgasIdcDeduction;
+    if (oilgasActiveLoss) {
+      // §469(c)(3) — losses offset ordinary income
+      oilgasFedSaving = oilgasIdcDeduction * d.tax.marginal;
+      // State conformity: full / CA-70%-cap / none
+      const stateIdcAllowed = oilgasStateNoneConforms
+        ? 0
+        : oilgasStateLimited
+          ? oilgasIdcDeduction * 0.70
+          : oilgasIdcDeduction;
+      oilgasStateSaving = stateIdcAllowed * d.tax.state;
+      // §1411 NIIT does NOT apply to working-interest income/losses
+      // because it is non-passive AND tied to active oil/gas operations
+      // (§1411(c)(1)(A)(i) trade-or-business carve-out). Saving = 0
+      // since IDC offsets ordinary income (which never has NIIT) — kept
+      // here for documentation.
+      oilgasNiitSaving = 0;
+    } else {
+      // §469(c)(3) forfeited — IDC becomes passive loss, trapped until
+      // future passive income or eventual disposition. Year-1 saving = 0.
+      oilgasFedSaving = 0;
+      oilgasStateSaving = 0;
+    }
+    oilgasYear1Saving = oilgasFedSaving + oilgasStateSaving + oilgasNiitSaving;
+    oilgasAfterTaxCost = d.oilgas.amount - oilgasYear1Saving;
+    // Lifetime depletion shelter projection (§613A 15% of gross)
+    // Sheltered production income × marginal rate over prodYears
+    oilgasDepletionShelter = (d.oilgas.production * 0.15) * d.tax.marginal * d.oilgas.prodYears;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
   // SLAT — CORRECTED estate savings.
   //   Funding uses lifetime exemption (like Dynasty), so the base funding
   //   is a wash vs. what would have been shielded by exemption at death.
@@ -5964,7 +6108,8 @@ function computePlan(d) {
                        + dynastyStateArbitrage
                        + dynastyIncomeTaxGiftEstateSave
                        + phase1FedIncomeSaving + phase1StateSaving + phase1EstateSaving
-                       + hedgingCGSaving;
+                       + hedgingCGSaving
+                       + oilgasYear1Saving;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -6336,6 +6481,10 @@ function computePlan(d) {
     qsbsFederalSaved, qsbsMedicareSaved, qsbsStateSaved, qsbsTotalSaving,
     exch1031Gain, exch1031Deferred, exch1031Boot, exch1031TaxDeferred,
     qbiDeduction, qbiSavings, qbiPhaseOutPct, qbiFullyPhasedOut,
+    // Oil &amp; Gas Working Interest
+    oilgasIdcDeduction, oilgasTdcAmount, oilgasFedSaving, oilgasStateSaving,
+    oilgasNiitSaving, oilgasYear1Saving, oilgasAfterTaxCost, oilgasDepletionShelter,
+    oilgasActiveLoss, oilgasStructureForfeited, oilgasStateLimited, oilgasStateNoneConforms,
     slatEstateSave, slatFutureValue, slatGrowth,
     idgtTransferred, idgtEstateSave,
     qprtRemainderFactor, qprtMortalityProb, qprtTaxableGift, qprtResidenceFutureValue, qprtEstateRemoved, qprtEstateSave,
@@ -6465,6 +6614,7 @@ function renderClientPortrait(p) {
   if (d.use.roth) strategyDescriptions.push({ icon: '🌱', text: `Roth conversion of <strong>${fmt$M(d.roth.amount)}</strong> — pay tax now at today's rate, grow tax-free forever, inherit tax-free.` });
   if (d.use.qprt) strategyDescriptions.push({ icon: '🏡', text: `QPRT on ${d.qprt.type === 'secondary' ? 'your vacation home' : 'your primary residence'} — discounted gift today, full value passes to your children after ${d.qprt.term} years.` });
   if (d.use.exch1031) strategyDescriptions.push({ icon: '🏢', text: `§1031 real-estate exchange: <strong>${fmt$M(d.exch1031.sale)}</strong> reinvested into replacement property with full tax deferral.` });
+  if (d.use.oilgas && p.oilgasYear1Saving > 0) strategyDescriptions.push({ icon: '⛽', text: `Direct working-interest oil &amp; gas investment: <strong>${fmt$M(p.oilgasIdcDeduction)}</strong> Year-1 IDC deduction (§263(c)) saving <strong>${fmt$(p.oilgasYear1Saving)}</strong> against ordinary income via §469(c)(3) active-loss treatment.` });
   // Limit to top 6 for readability
   const topStrategies = strategyDescriptions.slice(0, 6);
 
@@ -6879,6 +7029,7 @@ function renderTechnicalAppendix(p) {
   if (d.use.qoz)      strategiesInUse.push('§1400Z-2 QOZ');
   if (d.use.exch1031) strategiesInUse.push('§1031 Like-Kind Exchange');
   if (d.use.qbi)      strategiesInUse.push('§199A QBI');
+  if (d.use.oilgas)   strategiesInUse.push('Oil & Gas WI §263(c)');
 
   return `
     <!-- COVER PAGE -->
@@ -7237,6 +7388,7 @@ function renderSummary(p) {
     if (d.use.daf) strategies.push({ name: 'Pre-Transaction DAF', desc: `${fmt$M(d.daf.amount)} Donor Advised Fund for strategic charitable giving.` });
     strategies.push({ name: 'Business Sale', desc: `${fmt$M(d.biz.sale)} sale with strategic tax planning creates significant capital gains efficiencies.` });
     if (d.use.qoz) strategies.push({ name: 'QOZ Investment', desc: `${fmt$M(p.scenarios.scenAll.qozInvestment)} of gain deferred into a Qualified Opportunity Fund. CG tax (${fmt$M(p.scenarios.scenAll.qozDeferred)}) deferred ${d.qoz.defer} yrs; appreciation tax-free if held ${d.qoz.years}+ yrs.` });
+    if (d.use.oilgas && p.oilgasYear1Saving > 0) strategies.push({ name: 'Oil & Gas Working Interest (§263(c))', desc: `${fmt$M(d.oilgas.amount)} direct working interest. Year-1 IDC deduction: ${fmt$M(p.oilgasIdcDeduction)} (saves ${fmt$M(p.oilgasYear1Saving)} ordinary tax). After-tax cost: ${fmt$M(p.oilgasAfterTaxCost)}. Plus 7-yr MACRS on TDC and §613A percentage depletion on production years.` });
     strategies.push({ name: 'Capital Gains Mitigation', desc: `Layered structure reduces taxable gain by ${fmt$M(p.scenarios.scenNone.taxableGain - p.scenarios.scenAll.taxableGain)}, saving ${fmt$M(p.cgTaxSavings)} in federal taxes.` });
     strategies.push({ name: 'Post-Sale Liquidity', desc: `${fmt$M(p.withPlanningProceeds)} proceeds provide exceptional liquidity for wealth management and estate planning.` });
     if (d.use.dynasty) strategies.push({ name: 'Multi-Generational Wealth', desc: `Dynasty Trust projected to grow to ${fmt$M(p.dynasty20yr)} over ${p.dynastyYears} years${p.dynastyUsesJointLE ? ' (joint life expectancy)' : ''}, tax-free to heirs.` });
@@ -7423,6 +7575,63 @@ function renderSummary(p) {
       <div class="callout">
         <span class="title">Strategic Benefit</span>
         Invest <strong>${fmt$(p.scenarios.scenAll.qozInvestment)}</strong> of gain into a QOF within 180 days of recognition. CG tax (<strong>${fmt$(p.scenarios.scenAll.qozDeferred)}</strong>) is deferred until disposition or 12/31/2026. If held ${d.qoz.years}+ years, the <em>post-investment appreciation</em> — projected ${fmt$(p.scenarios.scenAll.qoz10yrValue - p.scenarios.scenAll.qozInvestment)} — comes out completely tax-free (basis steps to FMV). Plus full step-up in basis at death.
+      </div>
+    </div>` : ''}
+
+    ${d.use.oilgas ? `
+    <div class="card" ${p.oilgasStructureForfeited ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
+      <div class="card-title">Oil &amp; Gas Working Interest — §263(c) IDC + §469(c)(3) Active-Loss</div>
+
+      ${p.oilgasStructureForfeited ? `
+        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+          <span class="title" style="color: var(--crimson);">⛔ §469(c)(3) Working-Interest Exception Forfeited</span>
+          The selected holding structure (<strong>${esc(d.oilgas.structure === 'llc_blocker' ? 'LLC with limited liability' : 'Limited Partner')}</strong>) limits the investor's liability — which forfeits the §469(c)(3) "working interest" exception under §469(c)(3)(B) and Reg §1.469-1T(e)(4)(iii). IDC losses become <strong>passive losses</strong>, suspended until future passive income or eventual disposition.
+          <br><br>
+          <strong>Year-1 ordinary tax saving set to $0 in this plan.</strong> To preserve §469(c)(3): hold the working interest <em>directly</em> (in your name or a single-member disregarded LLC with the WI as recourse), or in a general-partner capacity in a partnership/JV that does NOT limit liability. Coordinate with operator + counsel before signing.
+        </div>` : ''}
+
+      ${p.oilgasStateNoneConforms ? `
+        <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ State Does Not Conform to §263(c) IDC</span>
+          The selected state does not allow current deduction of intangible drilling costs at the state level. Federal IDC saving still applies; state taxes the IDC amount as ordinary income. Plan accordingly.
+        </div>` : ''}
+
+      ${p.oilgasStateLimited ? `
+        <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+          <span class="title" style="color: var(--gold-dark);">⚠ California — IDC Limited to 70%</span>
+          California does not fully conform to §263(c). Only 70% of IDC is currently deductible at the state level; the remaining 30% must be amortized over 60 months. State tax saving in this plan is computed at the 70% allowed level.
+        </div>` : ''}
+
+      <div class="card-sub">Direct working interest in a domestic ${esc(d.oilgas.risk === 'exploratory' ? 'exploratory' : d.oilgas.risk === 'enhanced_recovery' ? 'enhanced-recovery' : 'developmental')} drilling program${d.oilgas.operator ? ' operated by <strong>' + esc(d.oilgas.operator) + '</strong>' : ''}. <strong>${fmtPct(d.oilgas.idcPct*100)}</strong> of the ${fmt$(d.oilgas.amount)} investment classifies as Intangible Drilling Costs, deductible in Year 1 against ordinary income under §263(c)(1).</div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">Investment Amount</div><div class="value">${fmt$(d.oilgas.amount)}</div></div>
+        <div class="kpi gold"><div class="label">Year-1 IDC Deduction</div><div class="value">${fmt$(p.oilgasIdcDeduction)}</div></div>
+        <div class="kpi success"><div class="label">Year-1 Tax Saved</div><div class="value">${fmt$(p.oilgasYear1Saving)}</div></div>
+        <div class="kpi success"><div class="label">After-Tax Cost</div><div class="value">${fmt$(p.oilgasAfterTaxCost)}</div></div>
+        <div class="kpi"><div class="label">TDC (7-yr MACRS §168)</div><div class="value">${fmt$(p.oilgasTdcAmount)}</div></div>
+        <div class="kpi gold"><div class="label">Lifetime Depletion Shelter (est)</div><div class="value">${fmt$(p.oilgasDepletionShelter)}</div></div>
+      </div>
+
+      <div class="callout">
+        <span class="title">Strategic Benefit — Layered Deductions</span>
+        Year 1: <strong>${fmt$(p.oilgasIdcDeduction)}</strong> of IDC offsets ordinary income at <strong>${fmtPct(d.tax.marginal*100)}</strong> marginal — saving <strong>${fmt$(p.oilgasFedSaving)}</strong> federal + <strong>${fmt$(p.oilgasStateSaving)}</strong> state. Years 2-${1 + d.oilgas.prodYears}: <strong>${fmtPct(15)}</strong> percentage depletion (§613A) shelters production income; tangible drilling costs depreciate 7-yr MACRS. After-tax cost of the ${fmt$(d.oilgas.amount)} investment is reduced to <strong>${fmt$(p.oilgasAfterTaxCost)}</strong>. <em>NIIT (§1411) does not apply to working-interest activity per the §1411(c)(1)(A)(i) trade-or-business carve-out.</em>
+      </div>
+
+      <div class="callout" style="margin-top: 12px; background: #FFFAEB; border-left: 3px solid var(--gold-dark);">
+        <span class="title" style="color: var(--gold-dark);">⚠ Concentration &amp; Risk Disclosures</span>
+        Direct WI is <strong>speculative</strong>. Dry-hole risk on exploratory programs can exceed 30%; even producing wells underperform projection. The §469(c)(3) active-loss treatment requires the investor to bear <strong>unlimited liability for operations</strong> — coordinate well with operator's insurance + indemnity. Allocate no more than 5-10% of liquid net worth to direct WI. AMT preference under §57(a)(2) (excess IDC) rarely bites post-TCJA but is computed annually. Phantom income risk in years where production exceeds depletion. Consult both tax counsel and an oil/gas-experienced CPA before signing the JV agreement.
+      </div>
+
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Statutory Citations</span>
+        <strong>§263(c)(1)</strong> — election to deduct intangible drilling and development costs currently. ·
+        <strong>§469(c)(3)(A)</strong> — working-interest exception: a working interest in any oil/gas property is not a passive activity if held directly or through a vehicle that does not limit liability. ·
+        <strong>§469(c)(3)(B)</strong> — exception lost in any year the holder limits liability via LLC or LP. ·
+        <strong>§611, §613A</strong> — percentage depletion of 15% (small-producer); §613A(c) production ceiling ~1,000 bbl/day equivalent. ·
+        <strong>§168(e)(3)(C)</strong> — TDC is 7-yr MACRS property. ·
+        <strong>§1411(c)(1)(A)(i)</strong> — NIIT carve-out for trade-or-business income (working interest qualifies). ·
+        <strong>§57(a)(2)</strong> — excess IDC AMT preference (rarely binding post-TCJA).
       </div>
     </div>` : ''}
 
@@ -9347,7 +9556,7 @@ function renderCompare(p) {
     };
   }
 
-  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false };
+  const allOff = { dynasty: false, crat: false, daf: false, qoz: false, ilit: false, roth: false, grat: false, qsbs: false, exch1031: false, qbi: false, slat: false, idgt: false, oilgas: false };
 
   const scenarios = [
     variant('No Planning', allOff),
@@ -13433,6 +13642,8 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'qoz-amount': d.qoz.amount, 'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years, 'qoz-business-type': d.qoz.businessType, 'qoz-improvement': d.qoz.improvement,
       // Deal Architecture (shared by every eligible-gain strategy)
       'deal-industry': d.deal.industry, 'deal-buyer-relationship': d.deal.buyerRelationship, 'deal-conflicting-election': d.deal.conflictingElection, 'deal-sale-structure': d.deal.saleStructure, 'deal-recognition-vehicle': d.deal.recognitionVehicle, 'deal-cg-eligible-pct': (d.deal.cgEligiblePct || 1) * 100, 'deal-allocation-type': d.deal.allocationType,
+      // Oil &amp; Gas Working Interest
+      'oilgas-amount': d.oilgas.amount, 'oilgas-idc-pct': d.oilgas.idcPct * 100, 'oilgas-year': d.oilgas.year, 'oilgas-state-conforms': d.oilgas.stateConforms, 'oilgas-structure': d.oilgas.structure, 'oilgas-operator': d.oilgas.operator, 'oilgas-production': d.oilgas.production, 'oilgas-prod-years': d.oilgas.prodYears, 'oilgas-risk': d.oilgas.risk,
       'tax-fed': d.tax.fed * 100, 'tax-state': d.tax.state * 100, 'tax-medicare': d.tax.medicare * 100,
       'tax-marginal': d.tax.marginal * 100, 'tax-estate': d.tax.estate * 100, 'tax-estate-exempt': d.tax.estateExempt,
       'proj-equity': d.proj.equity * 100, 'proj-re': d.proj.re * 100,
@@ -13440,7 +13651,7 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'ins-current': d.ins.current, 'ins-rec-min': d.ins.recMin, 'ins-rec-max': d.ins.recMax,
       'firm-name': d.firm.name, 'firm-tag': d.firm.tag,
     },
-    checkboxes: { 'use-dynasty': d.use.dynasty, 'use-crat': d.use.crat, 'use-daf': d.use.daf, 'use-qoz': d.use.qoz },
+    checkboxes: { 'use-dynasty': d.use.dynasty, 'use-crat': d.use.crat, 'use-daf': d.use.daf, 'use-qoz': d.use.qoz, 'use-oilgas': d.use.oilgas },
     firmLogo: d.firm.logo || null,
   });
 
@@ -13558,7 +13769,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     ];
     const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt',
                     'use-dbplan','use-muni','use-flp','use-ing','use-ceasement',
-                    'use-collar','use-pvf','use-exchfund',
+                    'use-collar','use-pvf','use-exchfund','use-oilgas',
                     'qsbs-attest-ccorp','qsbs-attest-active','qsbs-attest-grossassets','qsbs-attest-original'];
     const values = {};
     const checkboxes = {};
