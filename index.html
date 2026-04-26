@@ -833,6 +833,12 @@
     border: 2px solid var(--gold-dark);
   }
   .btn-gold:hover { background: var(--gold-dark); color: var(--cream); }
+  .btn-crimson {
+    background: var(--crimson);
+    color: var(--cream);
+    border: 2px solid var(--crimson);
+  }
+  .btn-crimson:hover { background: #6E1414; border-color: #6E1414; }
   .btn-sm { padding: 10px 18px; font-size: 11px; }
 
   /* ===== CLOUD BAR (save/load/share) ===== */
@@ -2627,6 +2633,11 @@
       <button class="btn btn-secondary btn-sm" id="btn-emoney-import" title="Import a client fact-finder JSON from eMoney (Facts Finder export)">Import eMoney</button>
       <input type="file" id="mgp-input" accept="application/json,.json" style="display:none">
       <button class="btn btn-secondary btn-sm" id="btn-mgp-import" title="Import a client fact-finder JSON from MoneyGuidePro">Import MGP</button>
+      <!-- Tax-document OCR via Claude vision: 1040 + Schedule K-1 -->
+      <input type="file" id="tax1040-input" accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none">
+      <button class="btn btn-crimson btn-sm" id="btn-tax1040-import" title="Upload a Form 1040 tax return — AI extracts wages, AGI, capital gains, QBI, charitable, and prefills the relevant plan fields">📄 Import 1040</button>
+      <input type="file" id="taxk1-input" accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none">
+      <button class="btn btn-crimson btn-sm" id="btn-taxk1-import" title="Upload a Schedule K-1 (Form 1065 / 1120-S / 1041) — AI extracts every box including §199A QBI passthrough and capital account">📋 Import K-1</button>
     </div>
     <div class="cb-group">
       <span class="cb-label">Sample:</span>
@@ -3758,6 +3769,26 @@
           <span class="welcome-dot" data-dot="5"></span>
         </div>
         <button type="button" class="welcome-next" id="welcome-next">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== TAX DOCUMENT EXTRACTION MODAL — preview the AI-extracted
+       fields and let the advisor pick which ones to apply to the form. -->
+  <div id="taxdoc-modal" class="solver-modal hidden" role="dialog" aria-labelledby="taxdoc-title">
+    <div class="solver-backdrop" id="taxdoc-backdrop"></div>
+    <div class="solver-body" style="max-width: 900px;">
+      <div class="solver-header">
+        <h2 id="taxdoc-title">📄 Tax Document Extraction</h2>
+        <button class="solver-close" id="taxdoc-close" aria-label="Close">✕</button>
+      </div>
+      <div class="solver-content" id="taxdoc-content">
+        <div class="solver-intro">
+          Upload a Form 1040 or Schedule K-1 (PDF or image). Claude reads the document and extracts every numeric field. You then review what was extracted and pick which fields to write into the plan. The original file is <strong>never stored</strong> by us; only the extracted JSON is kept in memory until you apply or close.
+          <br><br>
+          <strong>Privacy:</strong> the extraction prompt explicitly tells Claude not to return SSN, full address, or full EIN. Only last-4 of EIN is retained.
+        </div>
+        <div id="taxdoc-result"></div>
       </div>
     </div>
   </div>
@@ -13876,6 +13907,207 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     } catch (e) { /* ignore — notifications are optional */ }
   }
   window.__NOTIFY__ = notify;
+
+  /* ─────────────────────────────────────────────────────────
+     TAX DOCUMENT IMPORT — Form 1040 + Schedule K-1
+     Uploads a PDF/image to /api/extract-tax-doc, gets back
+     structured JSON, shows a preview modal, lets the advisor
+     pick which fields to apply to the form.
+     ───────────────────────────────────────────────────────── */
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // result is "data:<media>;base64,<...>" — strip prefix
+        const s = reader.result || '';
+        const idx = s.indexOf('base64,');
+        resolve(idx >= 0 ? s.slice(idx + 7) : s);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function extractTaxDoc(file, docType) {
+    const modal = document.getElementById('taxdoc-modal');
+    const result = document.getElementById('taxdoc-result');
+    modal.classList.remove('hidden');
+    result.innerHTML = `
+      <div class="solver-progress">
+        Uploading <strong>${esc(file.name)}</strong> (${(file.size/1024).toFixed(0)}KB) and asking Claude to read it…
+        <div class="progbar"><div class="progbar-fill" style="width: 30%;"></div></div>
+      </div>
+    `;
+    try {
+      const fileBase64 = await fileToBase64(file);
+      const resp = await authedFetch('/api/extract-tax-doc', {
+        method: 'POST',
+        body: JSON.stringify({ docType, fileBase64, fileMediaType: file.type || 'application/pdf' }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        result.innerHTML = `<div class="solver-progress" style="color: var(--crimson); border-color: var(--crimson);">${esc(data.error || ('HTTP ' + resp.status))}${data.detail ? '<br><small>' + esc(String(data.detail)) + '</small>' : ''}</div>`;
+        return;
+      }
+      renderTaxExtraction(data, docType);
+    } catch (e) {
+      result.innerHTML = `<div class="solver-progress" style="color: var(--crimson); border-color: var(--crimson);">Upload failed: ${esc(e.message)}</div>`;
+    }
+  }
+
+  // Maps from extracted field paths → form input ids. Each entry: { path,
+  // formId, label, transform?, scope }. The user sees these as a checkbox
+  // list and chooses which to apply.
+  const TAX1040_MAP = [
+    { path: 'income.wages',                  formId: 'biz-income',     label: 'Wages → Business income',         help: 'Maps Form 1040 wages (Line 1z) to your plan\'s "biz-income" field.' },
+    { path: 'income.qualified_dividends',    formId: null,              label: 'Qualified dividends',             help: 'Reference only — not currently mapped to a plan input.' },
+    { path: 'income.capital_gain_loss',      formId: null,              label: 'Capital gain / loss',             help: 'Reference only — useful context for sale-event timing.' },
+    { path: 'agi',                           formId: null,              label: 'AGI',                             help: 'Reference only — used to validate AGI cap on charitable deductions.' },
+    { path: 'qbi_deduction',                 formId: 'qbi-income',      label: '§199A QBI deduction (back-calc)', transform: (v) => Math.round(v / 0.20), help: 'Back-calculates QBI income from the deduction at 20% phase-in.' },
+    { path: 'schedule_a_charitable',         formId: 'daf-amount',      label: 'Schedule A charitable → DAF',     help: 'Pre-fills DAF gift amount with last year\'s actual charitable.' },
+    { path: 'taxable_income',                formId: null,              label: 'Taxable income',                  help: 'Reference only.' },
+    { path: 'total_tax',                     formId: null,              label: 'Total federal tax',               help: 'Reference only — useful for effective-rate calc.' },
+  ];
+
+  const K1_MAP = [
+    { path: 'boxes.1_ordinary_business_income',    formId: 'biz-income',         label: 'Box 1 ordinary business income → biz income',  help: 'Treats K-1 ordinary income as the operating business income for the plan.' },
+    { path: 'boxes.9a_net_long_term_capital_gain', formId: 'concentrated-value', label: 'Box 9a long-term cap gain → concentrated value', help: 'Adds K-1 LT gain to concentrated-stock pool for cap-gains modeling.' },
+    { path: 'boxes.5_interest_income',             formId: null,                  label: 'Box 5 interest',                                help: 'Reference only.' },
+    { path: 'boxes.6b_qualified_dividends',        formId: null,                  label: 'Box 6b qualified dividends',                    help: 'Reference only.' },
+    { path: 'section_199A_qbi.qbi',                formId: 'qbi-income',          label: '§199A QBI passthrough → qbi-income',            help: 'Direct pass-through QBI for §199A deduction calculation.' },
+    { path: 'capital_account.ending',              formId: null,                  label: 'Ending capital account',                        help: 'Reference only — outside basis tracking.' },
+  ];
+
+  function getNested(obj, path) {
+    return path.split('.').reduce((o, k) => (o && o[k] !== undefined) ? o[k] : null, obj);
+  }
+
+  function renderTaxExtraction(data, docType) {
+    const result = document.getElementById('taxdoc-result');
+    const ext = data.extracted || {};
+    const map = docType === '1040' ? TAX1040_MAP : K1_MAP;
+
+    const headerInfo = docType === '1040' ?
+      `<div style="font-size: 13px; color: var(--ink-soft, #444); margin-bottom: 12px;">
+         <strong>${esc(ext.taxpayer_name || 'Taxpayer')}</strong>${ext.spouse_name ? ' &amp; ' + esc(ext.spouse_name) : ''}
+         · Tax year <strong>${esc(ext.plan_year || '?')}</strong>
+         · Filing: <strong>${esc((ext.filing_status || '?').toString().toUpperCase())}</strong>
+       </div>` :
+      `<div style="font-size: 13px; color: var(--ink-soft, #444); margin-bottom: 12px;">
+         Partnership: <strong>${esc(ext.partnership_name || 'Unknown')}</strong>
+         · EIN: <code>${esc(ext.partnership_ein_last4 || '—')}</code>
+         · K-1 year: <strong>${esc(ext.k1_year || '?')}</strong>
+         · Form: <strong>${esc(ext.k1_form_type || '?')}</strong>
+         · Partner: <strong>${esc(ext.partner_name || '—')}</strong>
+         ${ext.ownership_pct_capital !== null && ext.ownership_pct_capital !== undefined
+            ? '· Ownership: <strong>' + esc(ext.ownership_pct_capital) + '%</strong>'
+            : ''}
+       </div>`;
+
+    const rows = map.map((entry, i) => {
+      const raw = getNested(ext, entry.path);
+      const value = entry.transform ? entry.transform(raw) : raw;
+      const display = (value === null || value === undefined) ? '—' : (typeof value === 'number' ? fmt$(value) : esc(value));
+      const apply = entry.formId && value !== null && value !== undefined && (typeof value !== 'number' || value !== 0);
+      return `
+        <tr ${apply ? '' : 'style="opacity: 0.5;"'}>
+          <td style="padding: 8px 12px;">
+            <input type="checkbox" id="ext-apply-${i}" ${apply ? 'checked' : ''} ${apply ? '' : 'disabled'} data-form-id="${esc(entry.formId || '')}" data-value="${esc(String(value === null || value === undefined ? '' : value))}">
+          </td>
+          <td style="padding: 8px 12px;">
+            <label for="ext-apply-${i}" style="font-weight: 600; color: var(--ink); font-size: 13px;">${esc(entry.label)}</label>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4;">${esc(entry.help)}</div>
+          </td>
+          <td style="padding: 8px 12px; text-align: right; font-family: Menlo, monospace; font-weight: 600; color: var(--gold-dark);">${display}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const allRawText = JSON.stringify(ext, null, 2);
+    result.innerHTML = `
+      ${headerInfo}
+      <div class="solver-summary">
+        <h3>Pick fields to apply</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead style="background: var(--cream-light); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark);">
+            <tr>
+              <th style="padding: 8px 12px; text-align: left; width: 40px;">Apply</th>
+              <th style="padding: 8px 12px; text-align: left;">Field</th>
+              <th style="padding: 8px 12px; text-align: right; width: 140px;">Extracted Value</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="solver-actions">
+          <button class="btn btn-primary" id="taxdoc-apply">Apply Selected to Plan</button>
+          <button class="btn btn-secondary" id="taxdoc-cancel">Close — don't change anything</button>
+        </div>
+      </div>
+      <details style="margin-top: 18px;">
+        <summary style="cursor: pointer; font-size: 12px; color: var(--muted);">Show raw extracted JSON (for advisor review)</summary>
+        <pre style="background: #1d1d1d; color: #f0e7d0; padding: 14px 16px; border-radius: 4px; font-size: 11px; max-height: 300px; overflow: auto; margin-top: 8px;">${esc(allRawText)}</pre>
+      </details>
+    `;
+
+    // Wire buttons
+    document.getElementById('taxdoc-apply').addEventListener('click', () => {
+      const applied = [];
+      map.forEach((entry, i) => {
+        const cb = document.getElementById('ext-apply-' + i);
+        if (!cb || !cb.checked || !entry.formId) return;
+        const raw = getNested(ext, entry.path);
+        const value = entry.transform ? entry.transform(raw) : raw;
+        if (value === null || value === undefined) return;
+        const el = document.getElementById(entry.formId);
+        if (!el) return;
+        el.value = String(value);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        applied.push(entry.label);
+      });
+      // Auto-toggle QBI on if QBI was applied
+      if (applied.some(l => l.includes('QBI'))) {
+        const qbiCb = document.getElementById('use-qbi');
+        if (qbiCb) { qbiCb.checked = true; qbiCb.dispatchEvent(new Event('change', { bubbles: true })); }
+      }
+      // Close + regenerate plan
+      document.getElementById('taxdoc-modal').classList.add('hidden');
+      const gen = document.getElementById('btn-generate');
+      if (gen) gen.click();
+      setStatus(`✓ Applied ${applied.length} field${applied.length === 1 ? '' : 's'} from ${docType === '1040' ? '1040' : 'K-1'}`, 'ok');
+    });
+    document.getElementById('taxdoc-cancel').addEventListener('click', () => {
+      document.getElementById('taxdoc-modal').classList.add('hidden');
+    });
+  }
+
+  // Wire file inputs + buttons
+  (function bindTaxDocImport() {
+    const handlers = [
+      { btnId: 'btn-tax1040-import', inputId: 'tax1040-input', docType: '1040' },
+      { btnId: 'btn-taxk1-import',   inputId: 'taxk1-input',   docType: 'k1'   },
+    ];
+    handlers.forEach(({ btnId, inputId, docType }) => {
+      const btn = document.getElementById(btnId);
+      const input = document.getElementById(inputId);
+      if (!btn || !input) return;
+      btn.addEventListener('click', () => input.click());
+      input.addEventListener('change', (ev) => {
+        const file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) {
+          alert('File is over 10MB. Compress with Preview > Export, or split multi-year docs.');
+          return;
+        }
+        extractTaxDoc(file, docType);
+        ev.target.value = ''; // allow re-uploading same file
+      });
+    });
+    // Modal close handlers
+    const close = () => document.getElementById('taxdoc-modal').classList.add('hidden');
+    document.getElementById('taxdoc-close')?.addEventListener('click', close);
+    document.getElementById('taxdoc-backdrop')?.addEventListener('click', close);
+  })();
 
   const AUDIT_ACTION_LABELS = {
     'plan.create':  '🆕 Plan created',
