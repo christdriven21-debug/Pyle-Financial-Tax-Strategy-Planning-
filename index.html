@@ -2311,6 +2311,26 @@
   @media print { .ai-chat-launcher, .ai-chat-panel { display: none !important; } }
   .print-layout .ai-chat-launcher, .print-layout .ai-chat-panel { display: none !important; }
 
+  /* PDF capture: prevent charts and cards from being split across pages.
+     html2pdf reads these CSS hints and inserts page breaks before any
+     element that would otherwise straddle a page boundary. */
+  .print-layout .card,
+  .print-layout .kpi-grid,
+  .print-layout svg,
+  .print-layout img,
+  .print-layout .chart-container,
+  .print-layout table,
+  .print-layout .callout {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  /* Allow long content cards (multi-strategy explanation lists) to break
+     if they're truly larger than a page — without this they could overflow. */
+  .print-layout .card.allow-break {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
   /* ===== PRINT ===== */
   /* ===== LIFE TIMELINE — PRINT / PDF FLOW LAYOUT =====
      Screen timeline = absolute-positioned dots + floating labels anchored
