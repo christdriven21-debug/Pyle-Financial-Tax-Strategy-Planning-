@@ -2318,6 +2318,12 @@
   /* Hide launcher in print/PDF output */
   @media print { .ai-chat-launcher, .ai-chat-panel { display: none !important; } }
   .print-layout .ai-chat-launcher, .print-layout .ai-chat-panel { display: none !important; }
+  /* Audit Log panel — never appears in PDF/print output (advisor-internal). */
+  @media print { #audit-panel { display: none !important; } }
+  .print-layout #audit-panel { display: none !important; }
+  /* Reviews + Documents panels also stay out of the printed plan deliverable. */
+  .print-layout #review-panel,
+  .print-layout #documents-panel { display: none !important; }
 
   /* PDF capture: prevent charts and cards from being split across pages.
      html2pdf reads these CSS hints and inserts page breaks before any
@@ -12608,9 +12614,8 @@ async function generatePdf(kind) {
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: ['.kpi-grid', '.solver-summary'] },
       }).save();
     }
-    if (typeof window.__AUDIT__ === 'function') {
-      window.__AUDIT__('export.pdf', { entityType: 'plan', metadata: { suffix, fileName } });
-    }
+    // Audit log: PDF export removed per advisor preference (only log
+    // actual changes to plan content, not access/output events).
   } catch (err) {
     alert(suffix + ' PDF generation failed: ' + err.message);
     console.error('PDF generation failed:', err);
@@ -13548,27 +13553,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       if (!currentId) boot();
       armIdleTimer();
       // Log at most one 'signin' audit entry per user per 12 hours.
-      // Supabase fires SIGNED_IN on every page load, tab focus, and ~60
-      // minute token refresh — the 30-second age gate we tried before
-      // didn't work because last_sign_in_at is bumped on every refresh.
-      // localStorage keyed by user id + 12-hour bucket is tab-safe and
-      // refresh-proof: if we logged a signin for this user within the
-      // last 12 hours, skip. Covers the "one login per session per day"
-      // intent for SOC 2 without flooding the log.
-      try {
-        const uid = session?.user?.id || '';
-        if (uid) {
-          const key = 'pyle-last-signin-log-' + uid;
-          const lastLoggedMs = parseInt(localStorage.getItem(key) || '0', 10);
-          const twelveHours = 12 * 60 * 60 * 1000;
-          if (!lastLoggedMs || (Date.now() - lastLoggedMs) > twelveHours) {
-            localStorage.setItem(key, String(Date.now()));
-            setTimeout(() => {
-              if (typeof audit === 'function') audit('signin', { entityType: 'session' });
-            }, 500);
-          }
-        }
-      } catch (e) { /* ignore */ }
+      // Sign-in audit log REMOVED per advisor preference: only log
+      // actual changes to plan content, not access events.
     }
     if (event === 'SIGNED_OUT') {
       clearIdleTimer();
@@ -13854,9 +13840,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     } catch {
       prompt('Copy this URL:', url);
     }
-    if (typeof window.__AUDIT__ === 'function') {
-      window.__AUDIT__('share.create', { entityType: 'share_link', entityId: currentId });
-    }
+    // Share-link audit log REMOVED per advisor preference: only log
+    // actual changes to plan content.
   }
 
   /* ---- Plan Reviews (comments + approvals) ----
@@ -15139,13 +15124,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       appendMessage('assistant', data.answer);
       history.push({ role: 'user', content: question.trim() });
       history.push({ role: 'assistant', content: data.answer });
-      if (typeof window.__AUDIT__ === 'function') {
-        // Log only the question length + first 80 chars (no PII bodies).
-        window.__AUDIT__('ai.ask', { entityType: 'plan', metadata: {
-          question_len: question.length,
-          question_preview: question.slice(0, 80),
-        }});
-      }
+      // AI-query audit log REMOVED per advisor preference: only log
+      // actual changes to plan content, not access/query events.
       statusEl.textContent = isAdvisor
         ? 'Advisor mode · Grounded in plan data'
         : 'Grounded in your plan data · Powered by Claude';
