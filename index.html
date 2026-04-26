@@ -11471,14 +11471,14 @@ function renderTransaction(p) {
       ${p.corpUpliftOpportunity > 5_000_000 && d.biz.sale > 0 ? `
         <div class="callout">
           <span class="title">Strategic Benefit — Defer Sale 24-36 Months for Material Uplift</span>
-          Current EBITDA of <strong>${fmt$M(d.corp.ebitda)}</strong> at ${fmtPct(d.corp.cagr*100)} CAGR projects to <strong>${fmt$M(p.corpEbitda3yr)}</strong> in 3 years. Applied to the industry mid-multiple band (${corpMultLow.toFixed(1)}–${corpMultHigh.toFixed(1)}×), the company would command <strong>${fmt$M(p.corpValuationMid3yr)}</strong> at exit — an uplift of <strong>${fmt$M(p.corpUpliftOpportunity)}</strong> over the current ${fmt$M(d.biz.sale)} sale price. Pair with operational levers (Cross-Tested PS for owner allocation, Captive for risk-management formalization, Open-Book Management for valuation premium) to compound the multiple expansion.
+          Current EBITDA of <strong>${fmt$M(d.corp.ebitda)}</strong> at ${fmtPct(d.corp.cagr*100)} CAGR projects to <strong>${fmt$M(p.corpEbitda3yr)}</strong> in 3 years. Applied to the industry mid-multiple band (${(d.corp.multipleLow || 6).toFixed(1)}–${(d.corp.multipleHigh || 10).toFixed(1)}×), the company would command <strong>${fmt$M(p.corpValuationMid3yr)}</strong> at exit — an uplift of <strong>${fmt$M(p.corpUpliftOpportunity)}</strong> over the current ${fmt$M(d.biz.sale)} sale price. Pair with operational levers (Cross-Tested PS for owner allocation, Captive for risk-management formalization, Open-Book Management for valuation premium) to compound the multiple expansion.
         </div>
       ` : ''}
 
       ${p.corpQsbsGateFailed ? `
         <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-top: 14px;">
           <span class="title" style="color: var(--crimson);">⛔ §1202(d) Gross-Asset Gate Failed</span>
-          Gross assets at issuance <strong>${fmt$M(d.corp.grossAssets)}</strong> exceed the §1202(d) ceiling of <strong>${fmt$M(p.corpGrossAssetGate)}</strong> ${typeof qsbsIsPostOBBBA !== 'undefined' && qsbsIsPostOBBBA ? '(post-OBBBA)' : '(pre-OBBBA)'}. Stock issued at this asset size is <strong>not</strong> QSBS-eligible — §1202 exclusion does not apply.
+          Gross assets at issuance <strong>${fmt$M(d.corp.grossAssets)}</strong> exceed the §1202(d) ceiling of <strong>${fmt$M(p.corpGrossAssetGate)}</strong> ${p.qsbsIsPostOBBBA ? '(post-OBBBA)' : '(pre-OBBBA)'}. Stock issued at this asset size is <strong>not</strong> QSBS-eligible — §1202 exclusion does not apply.
         </div>
       ` : ''}
       ${p.corpQsbsGatePass ? `
@@ -11505,7 +11505,7 @@ function renderTransaction(p) {
       ${p.corpConcentrationRisk === 'high' ? `
         <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-top: 12px;">
           <span class="title" style="color: var(--crimson);">⛔ High Customer Concentration — ${(d.corp.customerConcentration*100).toFixed(0)}%</span>
-          Top customer concentration above 40% triggers material valuation drag in M&amp;A diligence — typical 1-2 turn discount on EBITDA multiple. Pre-sale priority: diversify customer base or negotiate multi-year customer contracts. Consider ${fmt$M(corpEbitda * (corpMultHigh - corpMultLow))} of bracket variance on the sale price comes from this dimension alone.
+          Top customer concentration above 40% triggers material valuation drag in M&amp;A diligence — typical 1-2 turn discount on EBITDA multiple. Pre-sale priority: diversify customer base or negotiate multi-year customer contracts. Consider ${fmt$M((d.corp.ebitda || 0) * ((d.corp.multipleHigh || 10) - (d.corp.multipleLow || 6)))} of bracket variance on the sale price comes from this dimension alone.
         </div>
       ` : p.corpConcentrationRisk === 'moderate' ? `
         <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-top: 12px;">
@@ -11586,7 +11586,7 @@ function renderTransaction(p) {
             <div class="kpi"><div class="label">Operating Cash Flow</div><div class="value">${fmt$M(d.corp.operatingCashFlow)}</div></div>
             ${d.corp.cfCapex > 0 ? `<div class="kpi"><div class="label">CapEx</div><div class="value">${fmt$M(d.corp.cfCapex)}</div></div>` : ''}
             <div class="kpi success"><div class="label">Free Cash Flow</div><div class="value">${fmt$M(p.corpFreeCashFlow)}</div></div>
-            ${corpRev > 0 ? `<div class="kpi"><div class="label">FCF Margin</div><div class="value">${(p.corpFcfMargin*100).toFixed(0)}%</div></div>` : ''}
+            ${(d.corp.revenue || 0) > 0 ? `<div class="kpi"><div class="label">FCF Margin</div><div class="value">${(p.corpFcfMargin*100).toFixed(0)}%</div></div>` : ''}
           </div>
         </div>
       ` : ''}
