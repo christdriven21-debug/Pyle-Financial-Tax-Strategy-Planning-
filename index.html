@@ -12513,58 +12513,84 @@ async function generatePdf(kind) {
   await Promise.all(svgPromises);
 
   try {
-    // For Full PDF, capture each tab panel separately and stitch them
-    // into one PDF. The previous "render the whole thing in one capture"
-    // approach hit html2canvas size limits when all 12 panels were
-    // expanded simultaneously (combined height > 32k px), producing
-    // blank output. Per-panel capture avoids that.
     const visiblePanels = panels.filter(p => p.style.display !== 'none');
     const useMultiPass = visiblePanels.length > 1;
 
     if (useMultiPass) {
-      // Get the common header (logo + title) once. We'll add it as the
-      // first page only.
-      const planHeader = planView.querySelector('.plan-header, header');
-
-      const pdfWorker = html2pdf().set({
-        margin: [12, 12, 14, 12],
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.96 },
-        html2canvas: { scale: 1.5, useCORS: true, logging: false, backgroundColor: '#F5F1E8' },
-        jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-      });
-
-      // Build a wrapper containing the header + ALL visible panels in
-      // sequence, with explicit page-break-after on each panel boundary.
-      const wrapper = document.createElement('div');
-      wrapper.className = 'print-layout pdf-wrapper';
-      wrapper.style.cssText = 'background:#F5F1E8; width:100%;';
-      if (planHeader) wrapper.appendChild(planHeader.cloneNode(true));
-      visiblePanels.forEach((panel, i) => {
-        const cloneP = panel.cloneNode(true);
-        cloneP.style.display = 'block';
-        cloneP.style.pageBreakBefore = i === 0 ? 'auto' : 'always';
-        cloneP.style.breakBefore = i === 0 ? 'auto' : 'page';
-        wrapper.appendChild(cloneP);
-      });
-      // Render off-screen but visible to the layout engine
-      wrapper.style.position = 'absolute';
-      wrapper.style.left = '0';
-      wrapper.style.top = '0';
-      wrapper.style.zIndex = '-1';
-      wrapper.style.opacity = '0.01';   // nearly invisible during the brief capture
-      wrapper.style.pointerEvents = 'none';
-      document.body.appendChild(wrapper);
-      // Settle layout
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      try {
-        await pdfWorker.from(wrapper).save();
-      } finally {
-        wrapper.remove();
+      // Full PDF — render each panel sequentially using html2canvas,
+      // then assemble pages directly with jsPDF. This bypasses html2pdf's
+      // size limit on a single capture by doing N small captures.
+      // We mutate the live planView in-place (showing one panel at a
+      // time) so CSS context is preserved; restore in finally.
+      const html2canvasFn = window.html2canvas;
+      const jsPDFCtor     = window.jspdf?.jsPDF || window.jsPDF;
+      if (!html2canvasFn || !jsPDFCtor) {
+        throw new Error('html2canvas or jsPDF not available — html2pdf bundle missing internals.');
       }
+
+      const pdf = new jsPDFCtor({ unit: 'mm', format: 'letter', orientation: 'portrait' });
+      const pageW = 216, pageH = 279, margin = 12;
+      const printW = pageW - 2 * margin;
+      const printH = pageH - 2 * margin;
+      let isFirstPage = true;
+
+      for (let i = 0; i < visiblePanels.length; i++) {
+        // Show ONLY this panel; hide all others. Header (logo + title)
+        // stays visible because it's outside .tab-panel.
+        panels.forEach(p => {
+          p.style.display = (p === visiblePanels[i]) ? 'block' : 'none';
+        });
+        // Re-snapshot canvases/SVGs in this panel only (the previous
+        // global snapshots were before the show/hide loop)
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const canvas = await html2canvasFn(planView, {
+          scale: 1.5,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#F5F1E8',
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        const imgPxW = canvas.width;
+        const imgPxH = canvas.height;
+        // Fit to print width
+        const renderW = printW;
+        const renderH = (imgPxH / imgPxW) * renderW;
+
+        if (renderH <= printH) {
+          // Whole panel fits on one page
+          if (!isFirstPage) pdf.addPage();
+          isFirstPage = false;
+          pdf.addImage(imgData, 'JPEG', margin, margin, renderW, renderH);
+        } else {
+          // Panel taller than a page — slice into vertical strips
+          const pages = Math.ceil(renderH / printH);
+          const stripHeightMm = printH;
+          const stripHeightPx = (stripHeightMm / renderH) * imgPxH;
+
+          for (let pg = 0; pg < pages; pg++) {
+            if (!isFirstPage) pdf.addPage();
+            isFirstPage = false;
+            const sourceY = pg * stripHeightPx;
+            const sourceH = Math.min(stripHeightPx, imgPxH - sourceY);
+            const strip = document.createElement('canvas');
+            strip.width  = imgPxW;
+            strip.height = sourceH;
+            const ctx = strip.getContext('2d');
+            ctx.fillStyle = '#F5F1E8';
+            ctx.fillRect(0, 0, imgPxW, sourceH);
+            ctx.drawImage(canvas, 0, sourceY, imgPxW, sourceH, 0, 0, imgPxW, sourceH);
+            const stripImg = strip.toDataURL('image/jpeg', 0.92);
+            const stripRenderH = (sourceH / imgPxH) * renderH;
+            pdf.addImage(stripImg, 'JPEG', margin, margin, renderW, stripRenderH);
+          }
+        }
+      }
+
+      pdf.save(fileName);
     } else {
-      // Single-panel capture (Client / Appendix PDF) — original path.
+      // Single-panel capture (Client / Appendix PDF) — original path
       await html2pdf().from(planView).set({
         margin: [12, 12, 14, 12],
         filename: fileName,
