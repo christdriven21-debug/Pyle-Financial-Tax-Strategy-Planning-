@@ -2841,6 +2841,130 @@
         <label>Depreciation Recapture / §1245 Amount <span class="hint">(asset sale only; taxed as ordinary income)</span></label>
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-recapture" value="0"></div>
       </div>
+    </div>
+
+    <!-- DEAL ARCHITECTURE SUB-SECTION — single source of truth for QOZ + QSBS + §1042 + §199A + CRT eligibility checks -->
+    <div style="margin: 22px 0 10px; padding-top: 16px; border-top: 1px solid var(--border);">
+      <h4 style="font-size: 14px; color: var(--ink); margin: 0 0 6px; font-weight: 600;">
+        Deal Architecture <span style="font-weight: 400; color: var(--muted); font-size: 12px;">— shared by every eligible-gain strategy (QOZ · QSBS · §1042 · §199A · CRT · §1031)</span>
+      </h4>
+      <p style="font-size: 11px; color: var(--muted); font-style: italic; margin: 0 0 12px; line-height: 1.5;">
+        These describe the deal itself. Strategy blocks below read these once — answer them here and every strategy updates. Buyer relationship triggers §1400Z-2(e)(2) related-party + §1202(c)(3) QSBS related-party rules. Industry triggers §1202(e)(3) SSTB exclusion + §199A SSTB phaseout. Competing election overrides QOZ.
+      </p>
+    </div>
+    <div class="form-grid cols-2">
+      <div class="field">
+        <label>Industry / Sector of Company Being Sold <span class="hint">(SSTB triggers QSBS §1202(e)(3) + §199A phaseout)</span></label>
+        <select id="deal-industry">
+          <optgroup label="🟢 Non-SSTB — full QSBS / §199A eligibility">
+            <option value="manufacturing" selected>Manufacturing / Industrial</option>
+            <option value="wholesale">Wholesale / Distribution</option>
+            <option value="software">Software / SaaS / Tech (product-driven)</option>
+            <option value="ecommerce">E-commerce / Online Retail</option>
+            <option value="retail">Retail (brick-and-mortar)</option>
+            <option value="construction_trades">Construction / Trades</option>
+            <option value="hotels">Hotels / Hospitality</option>
+            <option value="restaurants">Restaurants / Food Service</option>
+            <option value="real_estate_op">Real Estate Operating (development)</option>
+            <option value="real_estate_passive">Real Estate Passive / Triple-Net</option>
+            <option value="energy">Energy / Oil &amp; Gas</option>
+            <option value="agriculture">Agriculture / Farming / Ranching</option>
+            <option value="transportation">Transportation / Logistics</option>
+            <option value="staffing">Staffing / Temp Agency</option>
+            <option value="franchise">Franchise Operations</option>
+            <option value="other_non_sstb">Other Non-SSTB</option>
+          </optgroup>
+          <optgroup label="🟡 Mixed / Engineering &amp; Architecture (§199A allows; §1202 excludes)">
+            <option value="architecture">Architecture (§199A: allowed; §1202: excluded)</option>
+            <option value="engineering">Engineering (§199A: allowed; §1202: excluded)</option>
+          </optgroup>
+          <optgroup label="🔴 SSTB — disqualifies QSBS §1202; §199A phases out at high income">
+            <option value="health">Healthcare / Medical Practice / Dental / Veterinary</option>
+            <option value="law">Law Firm / Legal Services</option>
+            <option value="accounting">Accounting / Tax / Audit</option>
+            <option value="actuarial">Actuarial Services</option>
+            <option value="consulting">Consulting / Advisory / Management</option>
+            <option value="financial_services">Financial Services / Banking</option>
+            <option value="brokerage">Brokerage / Securities Dealer</option>
+            <option value="investment_advisor">Investment Advisory / Wealth Management</option>
+            <option value="insurance">Insurance Agency / Brokerage</option>
+            <option value="athletics">Athletics / Sports Team / Athlete</option>
+            <option value="performing_arts">Performing Arts / Entertainer</option>
+            <option value="reputation_skill">Other "Reputation or Skill" SSTB (§199A)</option>
+          </optgroup>
+          <optgroup label="⛔ Federally problematic">
+            <option value="cannabis">Cannabis / Marijuana (§280E + Schedule I)</option>
+            <option value="firearms">Firearms / Ammunition (§1202 OK; some funds exclude)</option>
+            <option value="adult">Adult Entertainment</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="field">
+        <label>Buyer Relationship <span class="hint">(§1400Z-2(e)(2) + §1202(c)(3) related-party rules)</span></label>
+        <select id="deal-buyer-relationship">
+          <option value="unrelated" selected>Unrelated third party — eligible</option>
+          <option value="related_20">Related party (&gt;20% common ownership) — DISQUALIFIES QOZ + QSBS</option>
+          <option value="family">Family member (&gt;20% via §267(b)/§707(b)) — DISQUALIFIES</option>
+          <option value="mbo">Internal MBO / management buyout — review related-party</option>
+          <option value="esop">ESOP transaction — eligible (consider §1042 alternative)</option>
+          <option value="trust_to_trust">Trust-to-trust restructure — likely DISQUALIFIES</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Competing Nonrecognition Election <span class="hint">(overrides QOZ/QSBS recognition)</span></label>
+        <select id="deal-conflicting-election">
+          <option value="none" selected>None — full gain available for QOZ deferral / §1202 exclusion</option>
+          <option value="1031">§1031 like-kind exchange (real estate) — no recognized gain</option>
+          <option value="1045">§1045 QSBS rollover — no recognized gain (use §1202 exclusion instead)</option>
+          <option value="1042">§1042 ESOP rollover — no recognized gain (10-yr basis carryover)</option>
+          <option value="351">§351 contribution to controlled C-corp — no recognized gain</option>
+          <option value="721">§721 contribution to partnership/LLC — no recognized gain</option>
+          <option value="368">§368 tax-free reorg / merger — no recognized gain on stock-for-stock</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sale Structure <span class="hint">(determines 180-day-clock starts for QOZ + §453 installment)</span></label>
+        <select id="deal-sale-structure">
+          <option value="lump_sum" selected>Lump-sum cash close — single 180-day clock</option>
+          <option value="installment">Installment sale (§453) — each payment starts its own 180-day clock</option>
+          <option value="earnout">Earnout / contingent consideration — clock per recognition event</option>
+          <option value="stock_for_stock_boot">Stock-for-stock + cash boot — only boot creates eligible gain</option>
+          <option value="promissory_note">Cash + promissory note — clock starts per principal payment</option>
+          <option value="escrow_holdback">Cash with escrow holdback — escrow recognized when released</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Personal vs Entity Recognition <span class="hint">(who recognizes the gain?)</span></label>
+        <select id="deal-recognition-vehicle">
+          <option value="individual" selected>Individual / flow-through (S-corp, LLC, partnership) — owner elects</option>
+          <option value="c_corp">C-corp asset sale — corp recognizes; owner gets after-tax distribution</option>
+          <option value="partnership_entity">Partnership entity-level election — partnership invests</option>
+          <option value="partner_level">Partnership partner-level election — partners individually invest</option>
+          <option value="trust">Non-grantor trust recognizes gain — trust elects</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Capital-Gain Portion of the Sale <span class="hint">(only capital gain qualifies for QOZ + §1202 + §1031)</span></label>
+        <div class="suffix-pct"><input type="number" id="deal-cg-eligible-pct" value="100" min="0" max="100" step="5"></div>
+        <div style="font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.4;">
+          Ordinary components — §1245/§1250 recapture, §751 hot assets, customer lists / §197 intangibles, workforce-in-place, accounts receivable, non-compete payments — are not deferrable/excludable. Stock sale = ~100% capital · Asset sale partnership/LLC = 40-80% · Asset sale service business = 30-60% · §1031 RE = 100%.
+        </div>
+      </div>
+      <div class="field">
+        <label>§1060 Allocation Documentation <span class="hint">(supports the % above)</span></label>
+        <select id="deal-allocation-type">
+          <option value="stock_sale" selected>Stock sale — entire gain is capital (no §1060 allocation)</option>
+          <option value="asset_sale_appraised">Asset sale — §1060 allocation by appraisal supports the %</option>
+          <option value="asset_sale_deal_terms">Asset sale — APA terms specify allocation</option>
+          <option value="partnership_751">Partnership interest — §751 "hot assets" carved out</option>
+          <option value="advisor_estimate">Advisor estimate (no formal allocation yet)</option>
+          <option value="rental_re">Real estate rental sale (capital portion only after §1245/§1250 recapture)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- REOPEN main form-grid for the remaining household-financial fields -->
+    <div class="form-grid cols-3" style="margin-top: 18px;">
       <div class="field">
         <label>Current Pre-Sale Net Worth</label>
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="client-pnw" value="65000000"></div>
@@ -3067,81 +3191,8 @@
           <input type="number" id="qoz-years" value="10">
         </div>
       </div>
-      <div class="form-grid cols-2" style="margin-top: 14px;">
-        <div class="field">
-          <label>Capital-Gain Portion of the Sale <span class="hint">(only capital gain is QOZ-deferrable)</span></label>
-          <div class="suffix-pct"><input type="number" id="qoz-cg-eligible-pct" value="100" min="0" max="100" step="5"></div>
-          <div style="font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.4;">
-            §1400Z-2(a)(1) defers <strong>capital gain only</strong>. Ordinary-income components — §1245/§1250 depreciation recapture, §751 partnership hot assets, customer lists / §197 intangibles, workforce-in-place, accounts receivable, non-compete payments — are <strong>not</strong> deferrable. Service businesses sold as asset deals typically allocate 30-60% to ordinary classes per §1060.
-            <br><br>
-            <strong>Typical splits:</strong> Stock sale of C-corp = ~100% capital · Asset sale of partnership/LLC = 40-80% capital · Asset sale of service business with low basis = 30-60% capital · §1031 exchange of real estate = 100% capital.
-          </div>
-        </div>
-        <div class="field">
-          <label>Allocation Documentation <span class="hint">(supports the % above)</span></label>
-          <select id="qoz-allocation-type">
-            <option value="stock_sale" selected>Stock sale — entire gain is capital (no §1060 allocation)</option>
-            <option value="asset_sale_appraised">Asset sale — §1060 allocation by appraisal supports the %</option>
-            <option value="asset_sale_deal_terms">Asset sale — APA terms specify allocation</option>
-            <option value="partnership_751">Partnership interest — §751 "hot assets" carved out</option>
-            <option value="advisor_estimate">Advisor estimate (no formal allocation yet)</option>
-            <option value="rental_re">Real estate rental sale (capital portion only after §1245/§1250 recapture)</option>
-          </select>
-        </div>
-      </div>
-      <h5 style="margin-top: 22px; margin-bottom: 8px; color: var(--ink); font-size: 14px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-        Source-Side Checks <span style="font-weight: 400; color: var(--muted); font-size: 12px;">— does the sale itself generate QOZ-eligible gain?</span>
-      </h5>
-      <p style="font-size: 11px; color: var(--muted); font-style: italic; margin-bottom: 12px; line-height: 1.5;">
-        §1400Z-2(a) defers gain only if it (a) is recognized capital gain on a sale to an <strong>unrelated party</strong> per §1400Z-2(e)(2), (b) is not displaced by a competing nonrecognition election (§1031 / §1045 / §1042 / §351 / §721), and (c) the QOF investment occurs within <strong>180 days of recognition</strong>. Installment sales, earnouts, and contingent consideration each create their own 180-day clock.
-      </p>
-      <div class="form-grid cols-2" style="margin-top: 8px;">
-        <div class="field">
-          <label>Buyer Relationship <span class="hint">(§1400Z-2(e)(2) related-party rule)</span></label>
-          <select id="qoz-buyer-relationship">
-            <option value="unrelated" selected>Unrelated third party — eligible</option>
-            <option value="related_20">Related party (&gt;20% common ownership) — DISQUALIFIES</option>
-            <option value="family">Family member (&gt;20% via §267(b)/§707(b)) — DISQUALIFIES</option>
-            <option value="mbo">Internal MBO / management buyout — review related-party</option>
-            <option value="esop">ESOP transaction — eligible (consider §1042 alternative)</option>
-            <option value="trust_to_trust">Trust-to-trust restructure — likely DISQUALIFIES</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Competing Nonrecognition Election <span class="hint">(overrides QOZ if elected)</span></label>
-          <select id="qoz-conflicting-election">
-            <option value="none" selected>None — full gain available for QOZ deferral</option>
-            <option value="1031">§1031 like-kind exchange (real estate) — no recognized gain to defer</option>
-            <option value="1045">§1045 QSBS rollover — no recognized gain (use QSBS §1202 exclusion instead)</option>
-            <option value="1042">§1042 ESOP rollover — no recognized gain (10-yr basis carryover)</option>
-            <option value="351">§351 contribution to controlled C-corp — no recognized gain</option>
-            <option value="721">§721 contribution to partnership/LLC — no recognized gain</option>
-            <option value="368">§368 tax-free reorg / merger — no recognized gain on stock-for-stock</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-grid cols-2" style="margin-top: 14px;">
-        <div class="field">
-          <label>Sale Structure <span class="hint">(determines 180-day-clock starts)</span></label>
-          <select id="qoz-sale-structure">
-            <option value="lump_sum" selected>Lump-sum cash close — single 180-day clock</option>
-            <option value="installment">Installment sale (§453) — each payment starts its own 180-day clock</option>
-            <option value="earnout">Earnout / contingent consideration — clock per recognition event</option>
-            <option value="stock_for_stock_boot">Stock-for-stock + cash boot — only boot creates eligible gain</option>
-            <option value="promissory_note">Cash + promissory note — clock starts per principal payment</option>
-            <option value="escrow_holdback">Cash with escrow holdback — escrow recognized when released</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Personal vs Entity Recognition <span class="hint">(who recognizes the gain?)</span></label>
-          <select id="qoz-recognition-vehicle">
-            <option value="individual" selected>Individual / flow-through (S-corp, LLC, partnership) — owner elects QOZ</option>
-            <option value="c_corp">C-corp asset sale — corp recognizes; owner gets after-tax distribution</option>
-            <option value="partnership_entity">Partnership entity-level election — partnership invests in QOF</option>
-            <option value="partner_level">Partnership partner-level election — partners individually invest</option>
-            <option value="trust">Non-grantor trust recognizes gain — trust elects QOZ</option>
-          </select>
-        </div>
+      <div style="margin-top: 14px; padding: 10px 12px; background: rgba(201,169,97,0.08); border-left: 3px solid var(--gold); font-size: 12px; line-height: 1.6; color: var(--ink);">
+        <strong>Source-side eligibility (buyer relationship · competing election · sale structure · cap-gain % · industry)</strong> is set in <strong>Section 2 → Deal Architecture</strong>. Those answers feed every eligible-gain strategy (QOZ · QSBS · §1042 · §199A · CRT · §1031). The fields below are <strong>QOZ-specific</strong> only: amount, deferral period, expected return, projection period, QOF investment type, and substantial-improvement plan.
       </div>
       <div class="form-grid cols-2" style="margin-top: 14px;">
         <div class="field">
@@ -4886,6 +4937,18 @@ function readForm() {
     },
     crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
     daf: { amount: n('daf-amount') },
+    // Deal Architecture — shared source-of-truth read by every
+    // eligible-gain strategy (QOZ, QSBS §1202, §1042, §199A, CRT, §1031).
+    // Set in Section 2 → Deal Architecture sub-section.
+    deal: {
+      industry:             t('deal-industry')             || 'manufacturing',
+      buyerRelationship:    t('deal-buyer-relationship')    || 'unrelated',
+      conflictingElection:  t('deal-conflicting-election')  || 'none',
+      saleStructure:        t('deal-sale-structure')        || 'lump_sum',
+      recognitionVehicle:   t('deal-recognition-vehicle')   || 'individual',
+      cgEligiblePct: (n('deal-cg-eligible-pct') !== 0 ? n('deal-cg-eligible-pct') : 100) / 100,
+      allocationType:       t('deal-allocation-type')       || 'stock_sale',
+    },
     qoz: {
       amount: n('qoz-amount'),              // portion of gain invested in QOF
       defer:  n('qoz-defer'),
@@ -4893,18 +4956,6 @@ function readForm() {
       years:  n('qoz-years'),
       businessType: t('qoz-business-type') || 'real_estate',
       improvement: t('qoz-improvement') || 'yes',
-      // §1400Z-2 only defers CAPITAL gain. Service-business asset sales
-      // commonly allocate 30-60% of price to ordinary classes (customer
-      // lists, workforce, §1245 recapture, hot assets) which are NOT
-      // deferrable. Default 100% for stock sales / real estate.
-      cgEligiblePct: (n('qoz-cg-eligible-pct') !== 0 ? n('qoz-cg-eligible-pct') : 100) / 100,
-      allocationType: t('qoz-allocation-type') || 'stock_sale',
-      // Source-side eligibility checks — does the SALE itself generate
-      // QOZ-eligible gain under §1400Z-2(a) and (e)(2)?
-      buyerRelationship:    t('qoz-buyer-relationship')    || 'unrelated',
-      conflictingElection:  t('qoz-conflicting-election')  || 'none',
-      saleStructure:        t('qoz-sale-structure')        || 'lump_sum',
-      recognitionVehicle:   t('qoz-recognition-vehicle')   || 'individual',
     },
     ilit: {
       coverage: n('ilit-coverage'),
@@ -5161,11 +5212,11 @@ function computePlan(d) {
     // §1400Z-2(e)(2) related-party rule: gain from a sale to a >20%
     // related party is NOT eligible. Family >20% per §267(b)/§707(b)
     // and trust-to-trust restructures fail the same test.
-    const qozBuyerDisqualified = ['related_20','family','trust_to_trust'].includes(d.qoz?.buyerRelationship);
+    const qozBuyerDisqualified = ['related_20','family','trust_to_trust'].includes(d.deal?.buyerRelationship);
     // Competing nonrecognition election — if §1031, §1045, §1042, §351,
     // §721, or §368 applies, the gain is NOT recognized in this sale, so
     // there is nothing to defer into a QOF.
-    const qozConflictingElection = d.qoz?.conflictingElection && d.qoz.conflictingElection !== 'none';
+    const qozConflictingElection = d.deal?.conflictingElection && d.deal.conflictingElection !== 'none';
     // State conformity: California, North Carolina, Mississippi, and
     // Pennsylvania do NOT conform to §1400Z-2 — state CG tax is owed at
     // sale even if federal is deferred. Massachusetts has rolling
@@ -5179,7 +5230,7 @@ function computePlan(d) {
     // Cap-gain eligibility: only the CAPITAL portion of the gain qualifies
     // for §1400Z-2 deferral. Ordinary components (§1245/§1250 recapture,
     // §751 hot assets, customer lists, workforce, A/R) do NOT qualify.
-    const qozCgEligiblePct = Math.max(0, Math.min(1, d.qoz?.cgEligiblePct ?? 1));
+    const qozCgEligiblePct = Math.max(0, Math.min(1, d.deal?.cgEligiblePct ?? 1));
     const qozCapitalGainPortion = gain * qozCgEligiblePct;
     const qozOrdinaryPortion    = gain - qozCapitalGainPortion;
     // Maximum deferrable = capital portion of the gain
@@ -7207,7 +7258,7 @@ function renderSummary(p) {
           §1400Z-2(d)(2)(D)(ii): a QOZ business that purchases existing property must <strong>substantially improve</strong> it — additions to basis must exceed the original basis (excluding land) within 30 months. Without a documented improvement plan, the property does not qualify and gain is not deferred. Either confirm an improvement plan, switch to ground-up new construction, or remove QOZ.
         </div>` : ''}
       ${p.scenarios.scenAll.qozBuyerDisqualified ? (() => {
-        const rel = d.qoz.buyerRelationship;
+        const rel = d.deal.buyerRelationship;
         const relLabel = rel === 'related_20'    ? 'a related party (>20% common ownership)'
                        : rel === 'family'        ? 'a family member meeting §267(b)/§707(b) attribution'
                        : rel === 'trust_to_trust' ? 'a trust-to-trust restructure (related under §267(b)(6))'
@@ -7226,13 +7277,13 @@ function renderSummary(p) {
           <strong>QOZ deferral set to $0 in this plan.</strong>
         </div>`;
       })() : ''}
-      ${(!p.scenarios.scenAll.qozBuyerDisqualified && d.qoz.buyerRelationship === 'mbo') ? `
+      ${(!p.scenarios.scenAll.qozBuyerDisqualified && d.deal.buyerRelationship === 'mbo') ? `
         <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
           <span class="title" style="color: var(--gold-dark);">⚠ MBO — Verify Related-Party Test</span>
           Internal MBOs frequently fail §1400Z-2(e)(2) when seller-rollover equity, seller-financing, or pre-existing shared ownership pushes related-party percentages above 20%. Document the post-close cap table and any seller continuing-equity carefully before claiming QOZ deferral. Consider a §1042 ESOP rollover instead — same rollover-style benefit without the related-party trap.
         </div>` : ''}
       ${p.scenarios.scenAll.qozConflictingElection ? (() => {
-        const elec = d.qoz.conflictingElection;
+        const elec = d.deal.conflictingElection;
         const elecLabel = elec === '1031' ? '§1031 like-kind exchange'
                         : elec === '1045' ? '§1045 QSBS rollover'
                         : elec === '1042' ? '§1042 ESOP rollover'
@@ -7254,8 +7305,8 @@ function renderSummary(p) {
           <strong>QOZ deferral does not apply to this transaction.</strong> If you intend to QOZ-defer, you must structure the deal as a <em>recognition event</em> (taxable sale) and <em>not</em> elect ${elecLabel}. Compare the math both ways before committing — for QSBS-qualified stock the §1202 exclusion almost always wins; for ESOP-feasible companies §1042 typically wins for the seller economics.
         </div>`;
       })() : ''}
-      ${(!p.scenarios.scenAll.qozBuyerDisqualified && !p.scenarios.scenAll.qozConflictingElection && d.qoz.saleStructure !== 'lump_sum') ? (() => {
-        const struct = d.qoz.saleStructure;
+      ${(!p.scenarios.scenAll.qozBuyerDisqualified && !p.scenarios.scenAll.qozConflictingElection && d.deal.saleStructure !== 'lump_sum') ? (() => {
+        const struct = d.deal.saleStructure;
         const structLabel = struct === 'installment' ? '§453 installment sale'
                           : struct === 'earnout' ? 'earnout / contingent consideration'
                           : struct === 'stock_for_stock_boot' ? 'stock-for-stock with cash boot'
@@ -13343,7 +13394,9 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'dt-funding': d.dynasty.funding, 'dt-exemption': d.dynasty.exemption, 'dt-years': d.dynasty.years,
       'crat-amount': d.crat.amount, 'crat-rate': d.crat.rate * 100, 'crat-ded': d.crat.dedPct * 100,
       'daf-amount': d.daf.amount,
-      'qoz-amount': d.qoz.amount, 'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years, 'qoz-business-type': d.qoz.businessType, 'qoz-improvement': d.qoz.improvement, 'qoz-cg-eligible-pct': (d.qoz.cgEligiblePct || 1) * 100, 'qoz-allocation-type': d.qoz.allocationType,
+      'qoz-amount': d.qoz.amount, 'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years, 'qoz-business-type': d.qoz.businessType, 'qoz-improvement': d.qoz.improvement,
+      // Deal Architecture (shared by every eligible-gain strategy)
+      'deal-industry': d.deal.industry, 'deal-buyer-relationship': d.deal.buyerRelationship, 'deal-conflicting-election': d.deal.conflictingElection, 'deal-sale-structure': d.deal.saleStructure, 'deal-recognition-vehicle': d.deal.recognitionVehicle, 'deal-cg-eligible-pct': (d.deal.cgEligiblePct || 1) * 100, 'deal-allocation-type': d.deal.allocationType,
       'tax-fed': d.tax.fed * 100, 'tax-state': d.tax.state * 100, 'tax-medicare': d.tax.medicare * 100,
       'tax-marginal': d.tax.marginal * 100, 'tax-estate': d.tax.estate * 100, 'tax-estate-exempt': d.tax.estateExempt,
       'proj-equity': d.proj.equity * 100, 'proj-re': d.proj.re * 100,
