@@ -471,7 +471,12 @@
   body.client-view .advisor-only { display: none !important; }
   body.client-view .plan-tab[data-tab="tax"],
   body.client-view .plan-tab[data-tab="compare"],
+  body.client-view .plan-tab[data-tab="atlas"],
   body.client-view .plan-tab[data-tab="appendix"] { display: none !important; }
+  body.client-view .tab-panel#panel-atlas { display: none !important; }
+  /* Atlas always hidden from print/PDF — advisor-internal tool */
+  @media print { .plan-tab[data-tab="atlas"], #panel-atlas { display: none !important; } }
+  .print-layout .plan-tab[data-tab="atlas"], .print-layout #panel-atlas { display: none !important; }
   body.client-view .tab-panel#panel-tax,
   body.client-view .tab-panel#panel-compare,
   body.client-view .tab-panel#panel-appendix { display: none !important; }
@@ -1096,6 +1101,139 @@
   .diff-table td.delta.neg { color: var(--crimson); font-weight: 700; }
   .diff-section { margin-top: 20px; }
   .diff-section h4 { margin: 0 0 8px; font-family: 'Playfair Display', serif; font-size: 14px; color: var(--ink); letter-spacing: 1px; }
+
+  /* ════════════════════════════════════════════════════════════════════
+     STRATEGY ATLAS — advisor-only catalog of ~100 wealth-planning tools
+     ════════════════════════════════════════════════════════════════════ */
+  .atlas-wrap { padding: 20px 24px; }
+  .atlas-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid rgba(201,169,97,0.3);
+    flex-wrap: wrap; gap: 12px;
+  }
+  .atlas-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--ink); margin: 0; letter-spacing: 1px; }
+  .atlas-subtitle { font-size: 12px; color: var(--muted); margin-top: 4px; max-width: 600px; line-height: 1.5; }
+  .atlas-tabs { display: flex; gap: 4px; }
+  .atlas-tab-btn {
+    padding: 8px 16px; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+    background: var(--cream-light); border: 1px solid rgba(201,169,97,0.4); color: var(--ink-soft);
+    cursor: pointer; border-radius: 3px; transition: all 0.15s;
+  }
+  .atlas-tab-btn:hover { border-color: var(--gold); color: var(--ink); }
+  .atlas-tab-btn.active { background: var(--gold); color: white; border-color: var(--gold-dark); }
+
+  .atlas-legend {
+    display: flex; flex-wrap: wrap; gap: 14px; padding: 12px 16px; background: var(--cream-light);
+    border-radius: 3px; margin-bottom: 16px; font-size: 11px;
+  }
+  .atlas-legend-item { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); }
+  .atlas-legend-swatch { width: 14px; height: 14px; border-radius: 2px; }
+
+  .atlas-status-key {
+    display: flex; gap: 16px; flex-wrap: wrap; padding: 8px 16px; font-size: 11px; color: var(--ink-soft);
+    margin-bottom: 14px;
+  }
+  .atlas-status-key span { display: inline-flex; align-items: center; gap: 4px; }
+  .atlas-status-badge {
+    display: inline-block; padding: 2px 6px; border-radius: 2px; font-size: 9px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase; color: white;
+  }
+  .atlas-status-badge.active { background: #2D6A4F; }
+  .atlas-status-badge.considered { background: #6F4E37; }
+  .atlas-status-badge.available { background: var(--gold-dark); }
+  .atlas-status-badge.stub { background: #6C757D; }
+
+  .atlas-grid {
+    display: grid; gap: 5px; padding: 4px;
+    grid-auto-rows: 76px;
+  }
+  .atlas-grid.grid-personal { grid-template-columns: repeat(7, 1fr); }
+  .atlas-grid.grid-business { grid-template-columns: repeat(8, 1fr); }
+
+  .atlas-cell {
+    position: relative; cursor: pointer; padding: 8px 6px;
+    color: white; font-size: 10.5px; font-weight: 600; letter-spacing: 0.3px;
+    text-align: center; line-height: 1.25;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px; transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    overflow: hidden;
+  }
+  .atlas-cell:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.18); filter: brightness(1.08); }
+  .atlas-cell::after {
+    content: ''; position: absolute; top: 4px; right: 4px;
+    font-size: 11px; font-weight: 700; line-height: 1; padding: 2px 4px;
+    border-radius: 2px; background: rgba(255,255,255,0.95); color: var(--ink); display: none;
+  }
+  .atlas-cell.is-active::after { content: '✓'; display: block; color: #2D6A4F; }
+  .atlas-cell.is-considered::after { content: '📋'; display: block; }
+  .atlas-cell.is-available::after { content: '+'; display: block; color: var(--gold-dark); }
+
+  /* Sophisticated muted-jewel palette — 8 distinct hues, all professional */
+  .atlas-cell.cat-charitable        { background: #2C5F6F; }   /* deep teal */
+  .atlas-cell.cat-personal          { background: #4A6B5C; }   /* sage forest */
+  .atlas-cell.cat-qualified         { background: #8B5A3C; }   /* warm bronze */
+  .atlas-cell.cat-financial         { background: #3B5C7C; }   /* slate blue */
+  .atlas-cell.cat-value-creation    { background: #7C3B47; }   /* burgundy */
+  .atlas-cell.cat-key-metrics       { background: #9C7A2B; }   /* antique gold */
+  .atlas-cell.cat-capital-structure { background: #3D5A40; }   /* forest */
+  .atlas-cell.cat-tax-wealth        { background: #3A6A6E; }   /* slate teal */
+  .atlas-cell.cat-asset-protection  { background: #876B36; }   /* dark amber */
+  .atlas-cell.cat-exit              { background: #9B5A3C; }   /* rust clay */
+  .atlas-cell.cat-harvest           { background: #6B6B47; }   /* olive */
+  .atlas-cell.cat-investment        { background: #4A4A55; }   /* graphite */
+
+  /* Considered Strategies summary panel */
+  .atlas-considered-panel {
+    margin-top: 28px; padding: 18px 22px; background: var(--cream-light);
+    border-left: 4px solid var(--gold); border-radius: 3px;
+  }
+  .atlas-considered-panel h3 { margin: 0 0 6px; font-family: 'Playfair Display', serif; font-size: 16px; color: var(--ink); letter-spacing: 1px; }
+  .atlas-considered-panel .desc { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 12px; }
+  .atlas-considered-list { list-style: none; padding: 0; margin: 0; }
+  .atlas-considered-list li {
+    padding: 10px 14px; background: white; border-radius: 3px; margin-bottom: 6px;
+    display: flex; align-items: center; justify-content: space-between; font-size: 13px;
+    border: 1px solid rgba(201,169,97,0.25);
+  }
+  .atlas-considered-list li .name { font-weight: 600; color: var(--ink); }
+  .atlas-considered-list li .meta { font-size: 11px; color: var(--muted); margin-left: 10px; }
+  .atlas-considered-list li button { background: transparent; border: none; color: var(--crimson); cursor: pointer; font-size: 16px; padding: 0 4px; }
+
+  /* Drawer */
+  .atlas-drawer { position: fixed; inset: 0; z-index: 999; pointer-events: none; }
+  .atlas-drawer[aria-hidden="false"] { pointer-events: auto; }
+  .atlas-drawer-backdrop {
+    position: absolute; inset: 0; background: rgba(20,20,20,0.45);
+    opacity: 0; transition: opacity 0.25s;
+  }
+  .atlas-drawer[aria-hidden="false"] .atlas-drawer-backdrop { opacity: 1; }
+  .atlas-drawer-body {
+    position: absolute; right: 0; top: 0; bottom: 0; width: min(520px, 92vw);
+    background: var(--paper); box-shadow: -10px 0 30px rgba(0,0,0,0.18);
+    transform: translateX(100%); transition: transform 0.3s ease;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .atlas-drawer[aria-hidden="false"] .atlas-drawer-body { transform: translateX(0); }
+  .atlas-drawer-header {
+    padding: 18px 22px 14px; border-bottom: 1px solid rgba(201,169,97,0.3);
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  }
+  .atlas-drawer-eyebrow {
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark);
+    font-weight: 700; margin-bottom: 4px;
+  }
+  .atlas-drawer-header h3 { margin: 0; font-family: 'Playfair Display', serif; font-size: 18px; color: var(--ink); letter-spacing: 0.5px; line-height: 1.25; }
+  .atlas-drawer-content { flex: 1; overflow-y: auto; padding: 20px 22px; font-size: 13px; line-height: 1.6; color: var(--ink-soft); }
+  .atlas-drawer-content h4 { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin: 16px 0 6px; font-weight: 700; }
+  .atlas-drawer-content h4:first-child { margin-top: 0; }
+  .atlas-drawer-content ul { margin: 4px 0 0 18px; padding: 0; }
+  .atlas-drawer-content li { margin-bottom: 4px; }
+  .atlas-drawer-content .citations { font-family: 'Courier New', monospace; font-size: 11px; color: var(--ink); }
+  .atlas-drawer-footer {
+    padding: 14px 22px; border-top: 1px solid rgba(201,169,97,0.3); background: var(--cream-light);
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .atlas-drawer-footer button { flex: 1; min-width: 140px; }
   .review-empty { font-size: 13px; color: var(--muted); font-style: italic; padding: 8px 0; }
   .review-item {
     padding: 10px 14px;
@@ -4324,6 +4462,7 @@
     <button class="plan-tab" data-tab="tax">Tax Optimization</button>
     <button class="plan-tab" data-tab="compare">Scenario Comparison</button>
     <button class="plan-tab" data-tab="estate">Estate Planning</button>
+    <button class="plan-tab" data-tab="atlas">🗺 Strategy Atlas</button>
     <button class="plan-tab" data-tab="appendix">Technical Appendix</button>
   </nav>
 
@@ -4339,9 +4478,26 @@
     <div class="tab-panel" id="panel-tax"></div>
     <div class="tab-panel" id="panel-compare"></div>
     <div class="tab-panel" id="panel-estate"></div>
+    <div class="tab-panel" id="panel-atlas"></div>
     <div class="tab-panel" id="panel-appendix"></div>
   </div>
 </main>
+
+<!-- ATLAS DETAIL DRAWER — slides in from right when a strategy cell is clicked -->
+<aside class="atlas-drawer" id="atlas-drawer" aria-hidden="true">
+  <div class="atlas-drawer-backdrop" id="atlas-drawer-backdrop"></div>
+  <div class="atlas-drawer-body" role="dialog" aria-labelledby="atlas-drawer-title">
+    <div class="atlas-drawer-header">
+      <div>
+        <div class="atlas-drawer-eyebrow" id="atlas-drawer-eyebrow"></div>
+        <h3 id="atlas-drawer-title">—</h3>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="atlas-drawer-close" aria-label="Close">×</button>
+    </div>
+    <div class="atlas-drawer-content" id="atlas-drawer-content"></div>
+    <div class="atlas-drawer-footer" id="atlas-drawer-footer"></div>
+  </div>
+</aside>
 
 <script>
 /* ============================================================
@@ -4547,6 +4703,8 @@ document.querySelectorAll('.plan-tab').forEach(tab => {
     });
     // re-render charts on tab switch (Chart.js needs visible canvas)
     if (window.__RENDER_CHARTS__) window.__RENDER_CHARTS__(target);
+    // Strategy Atlas — lazy-render on first tab activation, refresh on every visit
+    if (target === 'atlas' && window.__RENDER_ATLAS__) window.__RENDER_ATLAS__();
   });
 });
 
@@ -4766,6 +4924,476 @@ const TAG_LABELS = {
   render();
   // Expose so other code can refresh the library when state changes externally
   window.__RENDER_LIBRARY__ = render;
+})();
+
+/* ============================================================
+   STRATEGY ATLAS — advisor-only catalog of ~100 wealth-planning tools
+   organized into two canvases (Personal & Family / Business Owner).
+   Status per cell:
+     • built       — full UI + compute + render (already in plan or
+                      one-click add)
+     • available   — built strategy currently disabled in plan; click
+                      enables and surfaces the parameter block
+     • consideration — defined here but no compute model yet; click
+                       adds to "Strategies Considered" notes for client
+                       discussion (does not affect plan numbers)
+     • stub        — placeholder for future build
+   ============================================================ */
+
+// Master catalog. Each entry: id, table, section, name, status, useId
+// (if built), blockId (if built), definition (1-2 lines), whenToUse,
+// statutes, pros[], cons[], optional grid coordinates (row/col).
+const STRATEGY_CATALOG = [
+  // ─── PERSONAL & FAMILY ATLAS ─────────────────────────────────────
+  // Charitable Planning Tools (deep teal)
+  { id: 'crut',          table: 'personal', section: 'charitable', name: 'Charitable Remainder Unitrust', status: 'built', useId: 'use-crut', blockId: 'block-crut', definition: 'Variable-payout charitable trust. Annual distribution = % of trust value re-valued each year — provides inflation protection vs. CRAT\'s fixed annuity.', whenToUse: 'Sale of low-basis appreciated asset where client wants growing income + future charitable gift', statutes: ['§664(d)(2)','§170(a)','§4947'], pros: ['Eliminates CG on contribution','Variable income hedges inflation','Charitable deduction'], cons: ['Irrevocable','Income varies with markets','5% min payout'] },
+  { id: 'crat',          table: 'personal', section: 'charitable', name: 'Charitable Remainder Annuity Trust', status: 'built', useId: 'use-crat', blockId: 'block-crat', definition: 'Fixed-annuity charitable trust. Annual payout is locked at trust funding.', whenToUse: 'Income certainty preferred over inflation protection; older donors with shorter horizon', statutes: ['§664(d)(1)','§7520','Rev. Rul. 77-374'], pros: ['Eliminates CG','Predictable income','Estate removal'], cons: ['No inflation protection','5% probability-of-exhaustion test (Rev. Rul. 77-374)'] },
+  { id: 'tclat',         table: 'personal', section: 'charitable', name: 'Testamentary Charitable Lead Annuity Trust', status: 'consideration', definition: 'CLAT funded at death rather than during life. Charity receives annuity for term, remainder to heirs.', whenToUse: 'Estate-tax-driven planning where lifetime gift not desired', statutes: ['§170(f)(2)(B)','§2055(e)'] },
+  { id: 'charitable_life_estate', table: 'personal', section: 'charitable', name: 'Charitable Life Estate', status: 'consideration', definition: 'Donor gives remainder interest in personal residence/farm to charity, retaining lifetime use.', whenToUse: 'Donor wants lifetime use of property + immediate charitable deduction', statutes: ['§170(f)(3)(B)(i)','§2522'] },
+  { id: 'private_foundation', table: 'personal', section: 'charitable', name: 'Private Foundation', status: 'consideration', definition: 'Donor-controlled grantmaking entity. 30% AGI deduction limit (vs 60% public charity), 5% annual distribution requirement.', whenToUse: 'Donor wants long-term charitable platform with family governance + naming rights', statutes: ['§4940 (excise tax)','§4942 (5% min distribution)','§4944 (jeopardy investments)'] },
+  { id: 'family_charity_plan', table: 'personal', section: 'charitable', name: 'Family Charity Plan', status: 'consideration', definition: 'Layered structure combining DAF + family foundation + named charitable funds for multi-generational giving.', whenToUse: 'Multi-generational donor families seeking governance, education, and tax efficiency', statutes: ['§170','§4940 et seq.'] },
+  { id: 'ignit',         table: 'personal', section: 'charitable', name: 'IGNIT Plan™', status: 'consideration', definition: 'Integrated Generational Non-grantor IDGT — combines IDGT installment-sale leverage with non-grantor income shifting.', whenToUse: 'Sale of business to dynasty trust where state-tax arbitrage adds material value', statutes: ['§671 (grantor rules)','§267'] },
+  { id: 'bargain_sale',  table: 'personal', section: 'charitable', name: 'Bargain Sale to Charity', status: 'consideration', definition: 'Donor sells appreciated asset to charity below FMV. Capital gain only on the sale portion; deduction on the gift portion.', whenToUse: 'Donor wants liquidity but also charitable benefit; works for low-basis property', statutes: ['§1011(b)','§170'] },
+  { id: 'gift_annuity',  table: 'personal', section: 'charitable', name: 'Charitable Gift Annuity', status: 'consideration', definition: 'Donor gives cash/property to charity in exchange for fixed lifetime annuity from the charity\'s general fund.', whenToUse: 'Smaller gifts ($25K+) where donor wants simple lifetime income + charity', statutes: ['§170','§501(m)','ACGA rate tables'] },
+  { id: 'nimcrut',       table: 'personal', section: 'charitable', name: 'NIMCRUT', status: 'consideration', definition: 'Net Income with Make-up CRUT. Income limited to actual trust earnings, with deficit make-up in later high-earning years.', whenToUse: 'Holding non-income-producing asset (e.g., closely-held stock) where donor wants flexibility', statutes: ['§664(d)(3)'] },
+  { id: 'flipcrut',      table: 'personal', section: 'charitable', name: 'FLIPCRUT', status: 'consideration', definition: 'NIMCRUT that "flips" to standard CRUT upon a triggering event (typically sale of contributed asset).', whenToUse: 'Funding CRT with hard-to-value asset that will be sold mid-term', statutes: ['§664(d)(3)','Reg §1.664-3(a)(1)(i)(c)'] },
+  { id: 'balloon_clat',  table: 'personal', section: 'charitable', name: 'Balloon CLAT', status: 'consideration', definition: 'CLAT with backloaded annuity payments. Heavy upfront wealth retention then accelerated charitable payout.', whenToUse: 'Maximum heir transfer leverage when §7520 rate is low', statutes: ['§170(f)(2)(B)','§7520','Rev. Rul. 2012-3'] },
+  { id: 'clt',           table: 'personal', section: 'charitable', name: 'Charitable Lead Trust', status: 'built', useId: 'use-clt', blockId: 'block-clt', definition: 'Inverse of CRT — charity receives income for term, remainder passes to heirs gift-tax-free. Huge estate-tax leverage when §7520 rate is low.', whenToUse: 'High-§7520 era estate planning OR low-rate era for max heir leverage', statutes: ['§170(f)(2)(B)','§2522(c)(2)(B)','§2055(e)'], pros: ['Massive heir leverage','Charitable deduction'], cons: ['Irrevocable','Complex GST issues'] },
+  { id: 'daf',           table: 'personal', section: 'charitable', name: 'Donor-Advised Fund', status: 'built', useId: 'use-daf', blockId: 'block-daf', definition: 'Immediate charitable deduction with flexible timing of grants to public charities.', whenToUse: 'Bunching deductions; client wants advisory role over grants without 5% mandate', statutes: ['§170','§4966','§4967'], pros: ['Immediate deduction','Flexible grant timing','Low admin cost'], cons: ['No legal grant control','Fund holds final say'] },
+
+  // Personal Planning Tools (sage forest)
+  { id: 'young_pif',     table: 'personal', section: 'personal', name: 'Young Pooled Income Fund', status: 'consideration', definition: 'Charity-managed pooled income fund for younger donors — provides higher charitable deduction due to long term.', whenToUse: 'Donors under 50 wanting modest income + max deduction', statutes: ['§642(c)(5)','§170(f)(2)(A)'] },
+  { id: 'rent_to_own',   table: 'personal', section: 'personal', name: 'Rent To Own', status: 'consideration', definition: 'Wealth-transfer technique: family member rents at FMV with option to purchase at predetermined price.', whenToUse: 'Transferring residence or business property to next generation gradually', statutes: ['§2702','§7872 (interest imputation)'] },
+  { id: 'grat_walton',   table: 'personal', section: 'personal', name: 'Walton GRAT', status: 'consideration', definition: 'Zeroed-out GRAT structure — taxable gift = $0, all upside above §7520 rate passes to heirs gift-tax-free.', whenToUse: 'Volatile asset with expected outsized appreciation; 2-3 year terms', statutes: ['§2702','Rev. Rul. 77-454','Walton v. Comm\'r 115 T.C. 589'] },
+  { id: 'rev_living_trust', table: 'personal', section: 'personal', name: 'Revocable Living Trust + DPA', status: 'consideration', definition: 'Probate-avoidance vehicle + Durable Power of Attorney for incapacity. Foundational document set.', whenToUse: 'Every plan — basic estate-planning hygiene', statutes: ['State probate code','§676'] },
+  { id: 'preferred_lp',  table: 'personal', section: 'personal', name: 'Preferred Limited Partnership', status: 'consideration', definition: 'FLP variant with frozen-value preferred + appreciating common interests held by next generation.', whenToUse: 'Estate freeze on actively-managed family business or real estate', statutes: ['§2701','Rev. Rul. 83-120'] },
+  { id: 'jurisdictional_trust', table: 'personal', section: 'personal', name: 'Jurisdictional Trust', status: 'consideration', definition: 'Trust sited in favorable state (DE, NV, SD, AK) for tax, asset-protection, or perpetuities benefits.', whenToUse: 'High-tax state residents seeking situs arbitrage', statutes: ['Rev. Rul. 2008-22','State trust statutes'] },
+  { id: 'succession_planning', table: 'personal', section: 'personal', name: 'Succession Planning', status: 'consideration', definition: 'Multi-year process: leadership transition, ownership transfer, estate plan, governance.', whenToUse: 'Family business owners 5-10 years from desired exit', statutes: ['§2032A (special-use)','§303 (redemption)'] },
+  { id: 'flp',           table: 'personal', section: 'personal', name: 'Family Limited Partnership', status: 'available', useId: 'use-flp', definition: 'Valuation-discount vehicle for transferring partnership interests to family at lack-of-marketability + minority discount.', whenToUse: 'Real estate or business assets; wants 25-40% valuation discount on gifts', statutes: ['§2036','§2701','Estate of Strangi','Estate of Bongard','Bongard v. Comm\'r 124 T.C. 95'], pros: ['25-40% valuation discount','Centralized management'], cons: ['§2036 retained-control risk','Bongard substance test'] },
+  { id: 'monetized_install_sale', table: 'personal', section: 'personal', name: 'Monetized Installment Sale', status: 'consideration', definition: 'Sale on 30-yr installment note + upfront monetization loan against the note. Defers gain while providing liquidity.', whenToUse: 'Sale of low-basis property where §1031 unavailable; client needs liquidity now', statutes: ['§453','§453A interest charge','Burnett v. Logan'] },
+  { id: 'slat',          table: 'personal', section: 'personal', name: 'SLAT', status: 'built', useId: 'use-slat', blockId: 'block-slat', definition: 'Spousal Lifetime Access Trust — irrevocable trust for benefit of spouse + descendants. Uses lifetime exemption while preserving indirect access.', whenToUse: 'Use exemption now (esp. before sunset) without losing access to assets', statutes: ['§2503','§2511','Reciprocal Trust Doctrine'], pros: ['Uses exemption','Spouse retains beneficial access'], cons: ['Reciprocal trust risk if both spouses fund','Divorce/death of spouse cuts off access'] },
+  { id: 'gifting',       table: 'personal', section: 'personal', name: 'Annual Gifting', status: 'consideration', definition: 'Annual exclusion gifts ($18K/recipient/year in 2024 — indexed). 529 5-year accelerated gifts.', whenToUse: 'Every plan with significant net worth + family', statutes: ['§2503(b)','§529(c)(2)(B)'] },
+  { id: 'family_llc',    table: 'personal', section: 'personal', name: 'Family LLC', status: 'consideration', definition: 'LLC variant of FLP — pass-through taxation, governance flexibility, valuation discounts on gifted membership interests.', whenToUse: 'Same use cases as FLP but with charging-order protection in DE/NV/WY', statutes: ['§2036','§2701','State LLC charging-order statutes'] },
+  { id: 'walton_grat',   table: 'personal', section: 'personal', name: 'Standard GRAT', status: 'built', useId: 'use-grat', blockId: 'block-grat', definition: 'Grantor Retained Annuity Trust — transfer asset appreciation above §7520 rate to heirs gift-tax-free.', whenToUse: 'Asset expected to outperform §7520 hurdle (currently ~5%)', statutes: ['§2702(b)','§7520','Walton'], pros: ['Gift-tax efficient','Self-cancelling if grantor outlives term'], cons: ['Mortality risk during term','Adequate disclosure'] },
+  { id: 'crummey_powers', table: 'personal', section: 'personal', name: 'Crummey Powers', status: 'consideration', definition: 'Withdrawal-right notices to trust beneficiaries that convert future-interest gifts into present-interest gifts qualifying for annual exclusion.', whenToUse: 'Funding ILIT or other irrevocable trust with annual-exclusion gifts', statutes: ['Crummey v. Comm\'r 397 F.2d 82','§2503(b)'] },
+  { id: 'sale_install_note', table: 'personal', section: 'personal', name: 'Sale for Installment Note', status: 'consideration', definition: 'Sale of asset to family member (or trust) for installment note at AFR. Locks in current value + transfers appreciation.', whenToUse: 'Estate freeze where IDGT not appropriate', statutes: ['§453','§7872','§267'] },
+  { id: 'idgt',          table: 'personal', section: 'personal', name: 'IDGT — Sale to Grantor Trust', status: 'built', useId: 'use-idgt', blockId: 'block-idgt', definition: 'Sell appreciating assets to a grantor trust for installment note at AFR. Freezes estate value, transfers all appreciation above AFR to heirs.', whenToUse: 'High-growth asset estate freeze; combine with FLP discount for max leverage', statutes: ['§671-§679','§2702','Rev. Rul. 85-13','Rev. Rul. 2004-64'], pros: ['Massive estate freeze','No mortality risk'], cons: ['Adequate-consideration test','Grantor income tax'] },
+  { id: 'annuity_withdrawal', table: 'personal', section: 'personal', name: 'Annuity Withdrawal Strategy', status: 'consideration', definition: 'Strategic withdrawal sequencing from non-qualified annuities to manage tax-deferred buildup vs. distribution timing.', whenToUse: 'Pre-retirement clients with significant deferred-annuity balances', statutes: ['§72(e)','§72(q)'] },
+  { id: 'dynasty',       table: 'personal', section: 'personal', name: 'Dynasty Trust', status: 'built', useId: 'use-dynasty', blockId: 'block-dynasty', definition: 'Multi-generational trust that escapes estate + GST tax for generations. Funded with lifetime exemption + GST exemption.', whenToUse: 'Family with sufficient assets to leave material wealth to grandchildren+', statutes: ['§2631 (GST exemption)','State perpetuities statutes (DE/SD/AK)'], pros: ['Multi-generational tax-free wealth','GST exemption leverage'], cons: ['Irrevocable','State situs choice critical'] },
+  { id: 'corp_recap',    table: 'personal', section: 'personal', name: 'Corporate Recapitalization', status: 'consideration', definition: 'Restructure corp into voting + non-voting (or preferred + common) classes for valuation-discount gifting.', whenToUse: 'Owner wants to gift discounted non-voting shares while retaining control', statutes: ['§2701','§368(a)(1)(E)','Rev. Rul. 83-120'] },
+  { id: 'premium_finance', table: 'personal', section: 'personal', name: 'Premium Finance', status: 'consideration', definition: 'Bank loan funds life-insurance premiums. Death benefit pays off loan + leaves net to family. Highly rate-sensitive.', whenToUse: 'Need large death benefit but reluctant to commit cash to premiums; rate < expected policy IRR', statutes: ['§7702','§264 (interest deduction limits)'] },
+  { id: 'buy_sell',      table: 'personal', section: 'personal', name: 'Buy-Sell Agreement', status: 'consideration', definition: 'Contractual obligation to buy/sell business interest at death/disability/departure. Often funded by life insurance.', whenToUse: 'Closely-held business with multiple owners', statutes: ['§2703','Connelly v. U.S. (2024) — life insurance proceeds in valuation'] },
+  { id: 'ilit',          table: 'personal', section: 'personal', name: 'ILIT', status: 'built', useId: 'use-ilit', blockId: 'block-ilit', definition: 'Irrevocable Life Insurance Trust — owns the policy outside the estate, providing tax-free death benefit liquidity.', whenToUse: 'Estate-tax exposure + need for death-benefit liquidity', statutes: ['§2042','§2035 (3-yr lookback)','§677','§7702'], pros: ['Tax-free death benefit','Estate exclusion'], cons: ['Irrevocable','§2035 3-yr lookback if existing policy transferred'] },
+  { id: 'ing_trust',     table: 'personal', section: 'personal', name: 'Intentional Non-Grantor Trust (ING)', status: 'consideration', definition: 'Self-settled trust in DE/NV that is non-grantor for income tax — shifts income off donor\'s state return to no-tax jurisdiction.', whenToUse: 'High-state-tax residents with significant investment income', statutes: ['§672(f)','State trust statutes'] },
+  { id: 'asset_protection', table: 'personal', section: 'personal', name: 'Domestic Asset Protection Trust', status: 'consideration', definition: 'Self-settled spendthrift trust in DAPT-friendly state (DE/NV/AK/SD/WY) for creditor protection.', whenToUse: 'Professional with malpractice exposure; pre-marital wealth protection', statutes: ['DE Qualified Disposition in Trust Act','§548 fraudulent transfer','UVTA'] },
+  { id: 'intra_family_loan', table: 'personal', section: 'personal', name: 'Intra-Family Loan', status: 'consideration', definition: 'Loan between family members at AFR. Wealth transfer = appreciation above AFR over loan term.', whenToUse: 'Low-rate environments; alternative to gift', statutes: ['§7872','§483','AFR (mid-term)'] },
+  { id: 'scin',          table: 'personal', section: 'personal', name: 'SCIN — Self-Canceling Installment Note', status: 'consideration', definition: 'Installment note that cancels at grantor\'s death. Removes asset from estate at sale; income/gain still taxed during life.', whenToUse: 'Grantor with shorter life expectancy seeking estate removal', statutes: ['§453','§691(a)(1)','Estate of Frane v. Comm\'r'] },
+  { id: 'gdot',          table: 'personal', section: 'personal', name: 'GDOT — Grantor Deemed Owner Trust', status: 'consideration', definition: 'Variant of grantor trust used for grantor-trust income shifting in non-traditional fact patterns.', whenToUse: 'Niche use case where standard IDGT structure doesn\'t fit', statutes: ['§671-§679'] },
+  { id: 'self_finance_ins', table: 'personal', section: 'personal', name: 'Self-Financed Insurance', status: 'consideration', definition: 'Funding life-insurance premiums from internal cash flow rather than premium-financing loans. Avoids interest-rate risk.', whenToUse: 'Client with strong cash flow + long-horizon insurance need', statutes: ['§7702','§101(a)'] },
+  { id: 'qprt',          table: 'personal', section: 'personal', name: 'QPRT', status: 'built', useId: 'use-qprt', blockId: 'block-qprt', definition: 'Qualified Personal Residence Trust — transfer residence at discounted gift value; grantor retains use for term then property passes to heirs.', whenToUse: 'High-value residence + grantor with normal life expectancy', statutes: ['§2702(a)(3)(A)','Reg §25.2702-5'], pros: ['Discounted gift value','Residence appreciation outside estate'], cons: ['Mortality risk during term','Rent payable to trust if grantor stays past term'] },
+  { id: 'life_insurance_basic', table: 'personal', section: 'personal', name: 'Life Insurance Strategy', status: 'consideration', definition: 'Foundational coverage analysis — term, whole life, indexed UL — sized to estate liquidity needs.', whenToUse: 'Every plan; coordinate with ILIT for HNW', statutes: ['§7702','§101'] },
+  { id: 'life_settlement', table: 'personal', section: 'personal', name: 'Life Settlement', status: 'consideration', definition: 'Sale of existing life-insurance policy to a third party at above cash-surrender value when policy no longer needed.', whenToUse: 'Older policies (insured 70+) with mature need; alternative to lapse/surrender', statutes: ['§101(g)','§7702','State life-settlement licensing'] },
+
+  // Qualified Planning Tools (warm bronze)
+  { id: 'qualified_plan_xfer', table: 'personal', section: 'qualified', name: 'Qualified Plan Transfer', status: 'consideration', definition: 'Strategic transfer of qualified-plan assets via trustee-to-trustee rollover, in-service distribution, or NUA election.', whenToUse: 'Pre-retirement employer-stock holders; managing RMDs', statutes: ['§402(e)(4)','§401(a)(31)','§408(d)(3)'] },
+  { id: 'esop_planning', table: 'personal', section: 'qualified', name: 'ESOP Planning', status: 'consideration', definition: 'Sale of C-corp stock to ESOP triggers §1042 deferred-gain rollover into qualified replacement property.', whenToUse: 'C-corp owner age 50+; willing to sell ≥30% to employees', statutes: ['§1042','§4975(d)(13)','§409'] },
+  { id: 'pension_rescue', table: 'personal', section: 'qualified', name: 'Pension Rescue', status: 'consideration', definition: 'Strategic redesign of underperforming/over-funded DB plan to release excess assets for owner retirement.', whenToUse: 'Owner-only DB plan with excess assets nearing termination', statutes: ['§412','§4980 (50% reversion excise)','§4972'] },
+  { id: 'db_plan',       table: 'personal', section: 'qualified', name: 'Defined Benefit / Cash Balance Plan', status: 'built', useId: 'use-dbplan', blockId: 'block-dbplan', definition: 'High-contribution-limit qualified plan for owners 45+ — up to ~$300k/yr deductible, stacks with 401(k)/profit-sharing.', whenToUse: 'High-earning solo or small-firm owner age 50+ with 5+ year horizon', statutes: ['§401(a)','§415(b)','§404(o)','§412'], pros: ['$285K+ annual deduction','Stacks with 401(k)+PS','Tax-deferred growth'], cons: ['Mandatory funding','Nondiscrimination testing if employees'] },
+  { id: 'profit_sharing', table: 'personal', section: 'qualified', name: 'Profit-Sharing Plan', status: 'consideration', definition: 'Discretionary employer-funded retirement plan; new comparability designs allow owner to receive most of contribution.', whenToUse: 'Owner wants flexible (vs mandatory) annual contribution; new comparability for owner-favored allocation', statutes: ['§401(a)','§401(a)(4)','§415(c)'] },
+
+  // ─── BUSINESS OWNER ATLAS ──────────────────────────────────────────
+  // Financial planning / Retirement (slate blue)
+  { id: '401k',          table: 'business', section: 'financial', name: '401(k) Plan', status: 'consideration', definition: 'Foundational employer-sponsored deferral plan. 2026 limit ~$23,500 employee + $7,500 catchup at 50+.', whenToUse: 'Standard for any business with W-2 employees including owners', statutes: ['§401(k)','§402(g)','§415(c)'] },
+  { id: 'cross_tested_ps', table: 'business', section: 'financial', name: 'Cross-Tested Profit Sharing', status: 'consideration', definition: 'Profit-sharing variant using new-comparability allocation — gives owners much higher share than rank-and-file.', whenToUse: 'Older owner / younger workforce; passes §401(a)(4) general test', statutes: ['§401(a)(4)','Reg §1.401(a)(4)-8','§415(c)'] },
+  { id: 'db_business',   table: 'business', section: 'financial', name: 'Defined Benefit Plan', status: 'built', useId: 'use-dbplan', blockId: 'block-dbplan', definition: 'Same as Personal Atlas DB Plan — high-contribution-limit qualified plan; in business context, often paired with PS for stacked deduction.', whenToUse: 'Owner age 50+ with stable cash flow', statutes: ['§401(a)','§415(b)','§412'] },
+  { id: 'combined_db_ps', table: 'business', section: 'financial', name: 'Combined PS + DB Plan', status: 'consideration', definition: 'Stack a 401(k)+Profit Sharing on top of a Cash Balance / DB plan. Combined deduction can exceed $400k/yr for owner age 55+.', whenToUse: 'Highest-capacity tax shelter for high-earning solo or small-firm owner', statutes: ['§404(a)(7) combined limit','§415','§401(a)(4) general test'] },
+  { id: 'funded_serp',   table: 'business', section: 'financial', name: 'Funded SERP', status: 'consideration', definition: 'Supplemental Executive Retirement Plan funded with corporate-owned life insurance or annuities. Non-qualified, no contribution limits.', whenToUse: 'Discriminatory benefit for top-tier executives outside §415 limits', statutes: ['§409A','§457(f)','Top-Hat plan rules'] },
+  { id: 'cre_ownership', table: 'business', section: 'financial', name: 'Commercial Real Estate Ownership', status: 'consideration', definition: 'Owner holds operating real estate (factory, warehouse, office) in a separate LLC and leases to the operating company.', whenToUse: 'Asset-protection separation + cost-segregation depreciation; eventual §1031 exit', statutes: ['§1031','§280A','§469(c)(7) real-estate professional'] },
+  { id: 'pplife',        table: 'business', section: 'financial', name: 'Private Placement Life Insurance', status: 'consideration', definition: 'Variable life-insurance policy with custom hedge-fund-style investment options, accessible only to accredited/qualified purchasers.', whenToUse: 'UHNW client wanting tax-free internal growth on alternative investments', statutes: ['§7702','§817(h) diversification','§953(d)'] },
+
+  // Value creation in the business (burgundy)
+  { id: '401k_shadow',   table: 'business', section: 'value-creation', name: '401(k) Shadow Program', status: 'consideration', definition: 'Non-qualified deferral mirror of 401(k) for highly-compensated employees who max out qualified plan limits.', whenToUse: 'HCEs hitting ADP/ACP limits in qualified plan', statutes: ['§409A','§457(f)','§3121(v)(2)'] },
+  { id: 'roth_ira',      table: 'business', section: 'value-creation', name: 'Roth IRA / Backdoor / Mega-Backdoor', status: 'consideration', definition: 'After-tax retirement savings; backdoor (traditional → Roth conversion) for high earners; mega-backdoor via 401(k) after-tax.', whenToUse: 'High-income earners locked out of direct Roth', statutes: ['§408A','§402A','§408(d)(3)'] },
+  { id: 'open_book_mgmt', table: 'business', section: 'value-creation', name: 'Open-Book Management', status: 'consideration', definition: 'Operational discipline: share financials with employees and tie compensation to outcomes.', whenToUse: 'Closely-held business pre-sale; drives valuation premium' },
+  { id: 'tqc',           table: 'business', section: 'value-creation', name: 'Total Quality Control', status: 'consideration', definition: 'Operational discipline driving repeatable processes + measurable defect reduction.', whenToUse: 'Pre-sale operational due-diligence prep' },
+  { id: 'key_metric_bonus', table: 'business', section: 'value-creation', name: 'Key Metric Bonus Program', status: 'consideration', definition: 'Compensation tied to specific KPIs that buyers care about (recurring revenue, gross margin, customer retention).', whenToUse: '12-36 months pre-sale to lift KPIs that drive valuation' },
+  { id: 'bonus_comp',    table: 'business', section: 'value-creation', name: 'Bonus Compensation Design', status: 'consideration', definition: 'Variable-pay structure to align senior-team interests with sale outcome. Often phantom-equity or stay-bonus form.', whenToUse: 'Pre-sale retention of key team', statutes: ['§409A (phantom equity timing)'] },
+  { id: 'esop_plan_biz', table: 'business', section: 'value-creation', name: 'ESOP Plan', status: 'consideration', definition: 'Employee Stock Ownership Plan — qualified plan that buys company stock; sale to ESOP eligible for §1042 rollover.', whenToUse: 'C-corp owner exit; want employee continuity + §1042 deferral', statutes: ['§1042','§4975(d)(13)','§401(a)','§409'] },
+
+  // Key metrics (antique gold)
+  { id: 'key_metric_program', table: 'business', section: 'key-metrics', name: 'Key Metric Measurement Program', status: 'consideration', definition: 'Establishes the 5-7 KPIs that drive enterprise value. Reported monthly to owner + leadership.', whenToUse: 'Pre-sale enterprise-value lift; family-business stewardship' },
+  { id: 'client_profit_meas', table: 'business', section: 'key-metrics', name: 'Client Profitability Measurement', status: 'consideration', definition: 'Customer-level P&L analysis identifying which clients drive (or destroy) margin.', whenToUse: 'Service business with concentrated client base' },
+  { id: 'product_line_profit', table: 'business', section: 'key-metrics', name: 'Product Line Profitability', status: 'consideration', definition: 'SKU-level or service-line-level margin analysis. Often reveals 80/20 — 20% of products generate 80% of profit.', whenToUse: 'Multi-product/service businesses pre-sale' },
+  { id: 'aaa_marketing', table: 'business', section: 'key-metrics', name: 'Marketing to AAA Clients', status: 'consideration', definition: 'Client-tier strategy focusing acquisition spend on highest-LTV (AAA-grade) prospects only.', whenToUse: 'Sales-driven business with mixed client quality' },
+  { id: 'ip_identification', table: 'business', section: 'key-metrics', name: 'Identifying Intellectual Property', status: 'consideration', definition: 'Inventory + protection of trade secrets, patents, copyrights, customer lists. Often unrecognized value driver.', whenToUse: 'Tech-enabled or process-driven businesses pre-sale' },
+  { id: 'sales_metrics', table: 'business', section: 'key-metrics', name: 'Sales Metrics & Controls', status: 'consideration', definition: 'CRM-driven pipeline measurement: conversion rates, sales-cycle length, ACV trends.', whenToUse: 'B2B businesses where sales motion drives value' },
+  { id: 'sales_comp',    table: 'business', section: 'key-metrics', name: 'Sales-People Compensation', status: 'consideration', definition: 'Commission-structure design that aligns sales team with margin (not just revenue) and retention (not just acquisition).' },
+
+  // Capital structure (forest green)
+  { id: 'identifying_niches', table: 'business', section: 'capital-structure', name: 'Identifying Niches', status: 'consideration', definition: 'Strategic narrowing to most-defensible / highest-margin niches before sale.', whenToUse: 'Pre-sale value optimization for diversified business' },
+  { id: 'esop_recap',    table: 'business', section: 'capital-structure', name: 'ESOP Recapitalization', status: 'consideration', definition: 'Leveraged ESOP transaction — company borrows to buy out departing owner, ESOP holds employee shares.', whenToUse: 'Owner exit with desire to preserve company independence', statutes: ['§1042','§4975(d)(13)','§409'] },
+  { id: 'preferred_recap', table: 'business', section: 'capital-structure', name: 'Preferred Stock Recapitalization', status: 'consideration', definition: 'Restructure into preferred (frozen-value, current-yield) + common (appreciating) stock for estate freeze.', whenToUse: 'Estate freeze on operating company without sale', statutes: ['§2701','§368(a)(1)(E)','Rev. Rul. 83-120'] },
+  { id: 'corp_recap_biz', table: 'business', section: 'capital-structure', name: 'Corporate Recapitalization', status: 'consideration', definition: 'Voting/non-voting share class restructure for valuation-discount gifting + governance.', whenToUse: 'Business owner wants to gift discounted non-voting shares', statutes: ['§368(a)(1)(E)','§2701'] },
+  { id: 'asset_borrowing', table: 'business', section: 'capital-structure', name: 'Asset-Based Borrowing', status: 'consideration', definition: 'Revolving credit facility against AR / inventory / PP&E. Releases working capital trapped in operations.', whenToUse: 'Inventory-heavy or AR-heavy business needing growth capital' },
+  { id: 'mezz_debt',     table: 'business', section: 'capital-structure', name: 'Mezzanine Debt Structure', status: 'consideration', definition: 'Subordinated debt with equity kicker (warrants). Higher cost than senior debt but no dilution.', whenToUse: 'Growth-stage company beyond senior-debt capacity but reluctant to dilute' },
+  { id: 'manage_c_corp_tax', table: 'business', section: 'capital-structure', name: 'Managing C-Corp Sale Taxes', status: 'consideration', definition: 'Toolkit: §1202 QSBS exclusion, §338(h)(10) election, F-reorganization, structured asset/stock split, personal goodwill carve-out (Martin Ice Cream).', whenToUse: 'C-corp asset sale where stock-sale treatment unavailable', statutes: ['§1202','§338(h)(10)','§368(a)(1)(F)','Martin Ice Cream'] },
+
+  // Tax & wealth transfer planning (slate teal)
+  { id: 'flp_biz',       table: 'business', section: 'tax-wealth', name: 'Family Limited Partnership', status: 'available', useId: 'use-flp', definition: 'Operating-business or real-estate FLP for valuation-discount intra-family transfers.', whenToUse: 'Owner gifting business interests to next gen', statutes: ['§2036','§2701','Bongard'] },
+  { id: 'domestic_captive', table: 'business', section: 'tax-wealth', name: 'Domestic Captive Insurance', status: 'consideration', definition: 'Owner-formed insurance company insures specific business risks. Premiums deductible to operating co; captive defers/excludes income via §831(b) micro-captive election.', whenToUse: 'Operating business with $500k-$2.5M in insurable risks', statutes: ['§831(b)','§953(d)','Avrahami v. Comm\'r'] },
+  { id: 'crt_c_corp',    table: 'business', section: 'tax-wealth', name: 'CRT with C-Corp Stock', status: 'consideration', definition: 'Contribute appreciated C-corp stock to CRT before sale → eliminates CG on sale, generates charitable deduction, provides annuity to donor.', whenToUse: 'C-corp owner wanting charitable + income; pre-sale planning', statutes: ['§664','§170','§4940'] },
+  { id: 'nimcrut_planning', table: 'business', section: 'tax-wealth', name: 'NIMCRUT Planning', status: 'consideration', definition: 'NIMCRUT funded with closely-held stock — distributions limited to actual income until sale of stock triggers make-up.', whenToUse: 'Pre-sale charitable + flexible-income strategy', statutes: ['§664(d)(3)'] },
+  { id: 'intl_captive',  table: 'business', section: 'tax-wealth', name: 'International Captive Insurance', status: 'consideration', definition: 'Captive insurance company in offshore jurisdiction (Bermuda, Cayman) for premium deduction + tax-deferred reserves.', whenToUse: 'Larger insurable-risk profiles ($2M+ premiums); UHNW', statutes: ['§953(d)','§831(b)','§952','Subpart F'] },
+  { id: 'c_s_corp_combo', table: 'business', section: 'tax-wealth', name: 'C + S Corporation Combinations', status: 'consideration', definition: 'Layered structure: S-corp operating co + C-corp subsidiary or vice versa for entity-level tax optimization.', whenToUse: 'Specific tax optimization opportunities (R&D credits, FDII, etc.)', statutes: ['§1361','§11','§199A','§1366'] },
+  { id: 'family_biz_transition', table: 'business', section: 'tax-wealth', name: 'Family Business Transition', status: 'consideration', definition: 'Multi-year leadership + ownership transition combining gifting, sales, and governance development.', whenToUse: 'G1 owner planning G2 takeover over 5-10 yrs', statutes: ['§2701','§2032A','§303'] },
+
+  // Asset protection / Risk management (dark amber)
+  { id: 'shareholder_agreement', table: 'business', section: 'asset-protection', name: 'Shareholders Agreement', status: 'consideration', definition: 'Buy-sell, transfer-restriction, drag-along, tag-along, governance terms among shareholders.', whenToUse: 'Multi-owner business; pre-sale to avoid valuation disputes', statutes: ['§2703','Connelly'] },
+  { id: 'risk_audit',    table: 'business', section: 'asset-protection', name: 'Risk Management Audit', status: 'consideration', definition: 'Comprehensive review: P&C insurance, D&O, cyber, errors-and-omissions, key-person, business interruption.', whenToUse: 'Annually; post-acquisition; pre-sale due diligence prep' },
+  { id: 'hsa',           table: 'business', section: 'asset-protection', name: 'Health Savings Account', status: 'consideration', definition: 'Triple-tax-advantaged: deductible contribution, tax-deferred growth, tax-free qualified-medical withdrawal.', whenToUse: 'Owner with HDHP coverage; build long-term medical reserve', statutes: ['§223','§220 (Archer MSA)'] },
+  { id: 'dapt',          table: 'business', section: 'asset-protection', name: 'Domestic Asset Protection Trust', status: 'consideration', definition: 'Self-settled trust in DE/NV/AK/SD/WY for creditor protection.', whenToUse: 'Professional with malpractice exposure', statutes: ['UVTA','State DAPT statutes'] },
+  { id: 'offshore_apt',  table: 'business', section: 'asset-protection', name: 'International Asset Protection Trust', status: 'consideration', definition: 'Offshore trust (Cook Islands, Nevis) for stronger creditor protection — less domestic enforceability.', whenToUse: 'High-litigation-exposure professionals (surgeons, real estate developers)', statutes: ['Foreign Trust statutes','§679'] },
+  { id: 's_esop',        table: 'business', section: 'asset-protection', name: 'S-Corporation ESOP', status: 'consideration', definition: 'S-corp owned by ESOP — operating-company income passes through to tax-exempt ESOP. Powerful structure post-§409(p) anti-abuse rules.', whenToUse: 'Owner exit + employee retention + permanent tax deferral on operating income', statutes: ['§1361','§409(p)','§4975'] },
+  { id: 'internal_sale_tax', table: 'business', section: 'asset-protection', name: 'Tax Management of Internal Sale', status: 'consideration', definition: 'Toolkit for sales to family / management / ESOP: §453 installment, §1042 ESOP rollover, gift+sale to IDGT.', whenToUse: 'Internal exit (vs 3rd party)', statutes: ['§453','§1042','§267'] },
+
+  // Exit planning (rust clay)
+  { id: 'factoring',     table: 'business', section: 'exit', name: 'Factoring Companies', status: 'consideration', definition: 'Sell accounts receivable to a factor for immediate cash at discount. Releases working capital pre-sale.', whenToUse: 'Pre-sale window where AR cleanup matters; or sustained working-capital constraint' },
+  { id: 'non_funded_serp', table: 'business', section: 'exit', name: 'Non-Funded SERP', status: 'consideration', definition: 'Promise of future deferred compensation to executives, paid from corporate general assets — no formal funding.', whenToUse: 'Retention of senior team without immediate cash outlay', statutes: ['§409A','§457(f)','Top-Hat'] },
+  { id: 'purchasing_co', table: 'business', section: 'exit', name: 'Purchasing Companies', status: 'consideration', definition: 'Strategic acquisition of competitors / suppliers to drive valuation leading into eventual sale.', whenToUse: 'Roll-up strategy 3-5 years pre-exit' },
+  { id: 'golden_handcuffs', table: 'business', section: 'exit', name: 'Golden Handcuffs', status: 'consideration', definition: 'Long-term retention compensation: deferred bonuses, restricted stock, vesting schedules tied to sale or term.', whenToUse: 'Pre-sale retention of key non-owner executives', statutes: ['§409A','§83','§422'] },
+  { id: 'recap_flip',    table: 'business', section: 'exit', name: 'Recapitalization & Flip', status: 'consideration', definition: 'PE-style recap: owner sells majority but retains minority stake in new owner\'s entity. "Two bites at the apple."', whenToUse: 'Owner wants partial liquidity now + upside on continued growth', statutes: ['§368','§351','§453'] },
+  { id: 'family_biz_constitution', table: 'business', section: 'exit', name: 'Family Business Constitution', status: 'consideration', definition: 'Formal governance document: ownership rules, employment, distributions, dispute resolution, board composition.', whenToUse: 'Multi-generation family business; pre-G2 transition' },
+  { id: 'third_party_sale', table: 'business', section: 'exit', name: '3rd Party Sale', status: 'consideration', definition: 'Sale to strategic acquirer or PE buyer — typically the highest-value exit.', whenToUse: 'Standard exit when no internal succession candidate', statutes: ['§453','§1202','§1042 (if ESOP route)'] },
+
+  // Investment management (graphite)
+  { id: 'mbo',           table: 'business', section: 'investment', name: 'Management Buyout', status: 'consideration', definition: 'Sale to existing management team, often via leveraged structure. May include seller financing + earnout.', whenToUse: 'Management team has the talent + capital appetite', statutes: ['§453','§267 (related-party)'] },
+  { id: 'stay_bonus',    table: 'business', section: 'investment', name: 'Stay Bonus', status: 'consideration', definition: 'One-time bonus paid to key employees at sale closing, contingent on continued employment through transaction.', whenToUse: 'Pre-sale transaction-protection for key team', statutes: ['§280G (parachute payments)'] },
+  { id: 'key_emp_bonus', table: 'business', section: 'investment', name: 'Key Employee Bonus Program', status: 'consideration', definition: 'Annual cash + deferred bonus to retain top 5-10% of workforce. Often phantom equity.', whenToUse: 'Talent retention without dilution', statutes: ['§409A','§83'] },
+  { id: 'passive_investment', table: 'business', section: 'investment', name: 'Passive Investment Strategies', status: 'consideration', definition: 'Index-driven low-fee allocation for post-sale liquidity. Tax-loss harvesting, direct indexing.', whenToUse: 'Post-sale liquid wealth >$10M' },
+  { id: 'hedge_funds',   table: 'business', section: 'investment', name: 'Hedge Fund Allocation', status: 'consideration', definition: 'Alpha-seeking strategies: long/short equity, market-neutral, multi-strategy. Typically 5-20% of UHNW portfolio.', whenToUse: 'Qualified-purchaser clients ($5M+ investments) seeking uncorrelated returns' },
+  { id: 'direct_re',     table: 'business', section: 'investment', name: 'Direct Real Estate', status: 'consideration', definition: 'Operating real estate ownership: multifamily, industrial, NNN. Cost-segregation depreciation + §1031 exchange chain.', whenToUse: 'Post-sale wealth wanting tax-advantaged income + appreciation', statutes: ['§1031','§168','§469(c)(7)'] },
+  { id: 'asset_allocation', table: 'business', section: 'investment', name: 'Asset Allocation Strategy', status: 'consideration', definition: 'Strategic + tactical allocation across stocks, bonds, alts, real assets calibrated to client\'s liability matching + behavioral profile.', whenToUse: 'Foundational for every plan' },
+];
+
+(function () {
+  const PERSONAL_SECTIONS = [
+    { key: 'charitable',  label: 'Charitable Planning Tools',  cssClass: 'cat-charitable' },
+    { key: 'personal',    label: 'Personal Planning Tools',    cssClass: 'cat-personal' },
+    { key: 'qualified',   label: 'Qualified Planning Tools',   cssClass: 'cat-qualified' },
+  ];
+  const BUSINESS_SECTIONS = [
+    { key: 'financial',         label: 'Financial Planning / Retirement', cssClass: 'cat-financial' },
+    { key: 'value-creation',    label: 'Value Creation in Business',      cssClass: 'cat-value-creation' },
+    { key: 'key-metrics',       label: 'Key Metrics & Operations',         cssClass: 'cat-key-metrics' },
+    { key: 'capital-structure', label: 'Financial & Capital Structure',   cssClass: 'cat-capital-structure' },
+    { key: 'tax-wealth',        label: 'Tax & Wealth Transfer Planning',  cssClass: 'cat-tax-wealth' },
+    { key: 'asset-protection',  label: 'Asset Protection / Risk Mgmt',    cssClass: 'cat-asset-protection' },
+    { key: 'exit',              label: 'Exit Planning',                    cssClass: 'cat-exit' },
+    { key: 'investment',        label: 'Investment Management',            cssClass: 'cat-investment' },
+  ];
+
+  // Per-plan persistence: considered list keyed by current plan id
+  function consideredKey() {
+    return 'pyle_considered_' + (window.currentPlanId || 'default');
+  }
+  function getConsidered() {
+    try { return new Set(JSON.parse(localStorage.getItem(consideredKey()) || '[]')); }
+    catch { return new Set(); }
+  }
+  function setConsidered(set) {
+    localStorage.setItem(consideredKey(), JSON.stringify([...set]));
+  }
+  function toggleConsidered(id) {
+    const c = getConsidered();
+    if (c.has(id)) c.delete(id); else c.add(id);
+    setConsidered(c);
+    return c;
+  }
+
+  // Status resolver — checks if a 'built' strategy is currently active in the plan
+  function resolveStatus(s) {
+    if (s.status === 'built' && s.useId) {
+      const el = document.getElementById(s.useId);
+      if (el && el.checked) return { state: 'active', label: 'Active in plan' };
+      return { state: 'available', label: 'Available — click to add' };
+    }
+    if (s.status === 'available') {
+      const el = s.useId ? document.getElementById(s.useId) : null;
+      if (el && el.checked) return { state: 'active', label: 'Active in plan' };
+      return { state: 'available', label: 'Available — click to add' };
+    }
+    if (s.status === 'consideration') {
+      return getConsidered().has(s.id)
+        ? { state: 'considered', label: 'Marked for client discussion' }
+        : { state: 'consideration', label: 'Click to discuss with client' };
+    }
+    return { state: 'stub', label: 'Not yet modeled' };
+  }
+
+  function renderAtlas() {
+    const panel = document.getElementById('panel-atlas');
+    if (!panel) return;
+
+    const considered = getConsidered();
+
+    panel.innerHTML = `
+      <div class="atlas-wrap">
+        <div class="atlas-header">
+          <div>
+            <h2 class="atlas-title">🗺 Strategy Atlas</h2>
+            <div class="atlas-subtitle">A comprehensive map of the wealth-planning toolkit for this client. Click any tool for the definition, statutory citations, and one-click add to plan or client-discussion notes. Advisor-internal — never shown to clients or in PDF exports.</div>
+          </div>
+          <div class="atlas-tabs">
+            <button class="atlas-tab-btn active" data-atlas="personal">Personal &amp; Family</button>
+            <button class="atlas-tab-btn" data-atlas="business">Business Owner</button>
+          </div>
+        </div>
+
+        <div class="atlas-status-key">
+          <span><span class="atlas-status-badge active">✓ Active</span> Currently in this plan</span>
+          <span><span class="atlas-status-badge available">+ Available</span> Built; one-click add</span>
+          <span><span class="atlas-status-badge considered">📋 Considered</span> Flagged for client discussion</span>
+          <span><span class="atlas-status-badge stub">… Future</span> Not yet modeled</span>
+        </div>
+
+        <div class="atlas-view" data-atlas-view="personal"></div>
+        <div class="atlas-view" data-atlas-view="business" hidden></div>
+
+        <div class="atlas-considered-panel" id="atlas-considered-panel"></div>
+      </div>
+    `;
+
+    renderTable('personal', PERSONAL_SECTIONS, panel.querySelector('[data-atlas-view="personal"]'));
+    renderTable('business', BUSINESS_SECTIONS, panel.querySelector('[data-atlas-view="business"]'));
+    renderConsideredPanel();
+
+    // Tab switcher
+    panel.querySelectorAll('.atlas-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tgt = btn.dataset.atlas;
+        panel.querySelectorAll('.atlas-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+        panel.querySelectorAll('.atlas-view').forEach(v => {
+          v.hidden = v.dataset.atlasView !== tgt;
+        });
+      });
+    });
+  }
+
+  function renderTable(table, sections, container) {
+    const tools = STRATEGY_CATALOG.filter(s => s.table === table);
+    const sectionGroups = sections.map(sec => ({
+      ...sec,
+      tools: tools.filter(t => t.section === sec.key),
+    }));
+
+    // Build legend
+    const legend = sections.map(s => `
+      <span class="atlas-legend-item">
+        <span class="atlas-legend-swatch ${s.cssClass}"></span> ${s.label}
+      </span>
+    `).join('');
+
+    // Build grid — one row per section, cells flow left-to-right
+    const cols = table === 'personal' ? 7 : 8;
+    const gridClass = table === 'personal' ? 'grid-personal' : 'grid-business';
+
+    const cellsHtml = sectionGroups.map(sec => {
+      // Pad each section to fill its row(s)
+      const rows = Math.ceil(sec.tools.length / cols);
+      const padding = rows * cols - sec.tools.length;
+      const sectionCells = sec.tools.map(t => buildCellHtml(t, sec)).join('');
+      const padCells = Array(padding).fill(`<div></div>`).join('');
+      return `
+        <div style="grid-column: 1 / -1; padding: 12px 4px 4px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-soft); font-weight: 700;">
+          ${sec.label} <span style="color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0;">— ${sec.tools.length} tools</span>
+        </div>
+        ${sectionCells}
+        ${padCells}
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="atlas-legend">${legend}</div>
+      <div class="atlas-grid ${gridClass}">${cellsHtml}</div>
+    `;
+
+    // Wire cell clicks
+    container.querySelectorAll('[data-atlas-cell]').forEach(cell => {
+      cell.addEventListener('click', () => openDrawer(cell.dataset.atlasCell));
+    });
+  }
+
+  function buildCellHtml(s, section) {
+    const { state } = resolveStatus(s);
+    const stateClass = state === 'active' ? 'is-active'
+                     : state === 'considered' ? 'is-considered'
+                     : state === 'available' ? 'is-available'
+                     : '';
+    const safeName = s.name.replace(/&amp;/g, '&').replace(/&/g, '&amp;');
+    return `<div class="atlas-cell ${section.cssClass} ${stateClass}" data-atlas-cell="${s.id}" title="${safeName}">${safeName}</div>`;
+  }
+
+  function renderConsideredPanel() {
+    const panel = document.getElementById('atlas-considered-panel');
+    if (!panel) return;
+    const considered = getConsidered();
+    const items = STRATEGY_CATALOG.filter(s => considered.has(s.id));
+    if (!items.length) {
+      panel.innerHTML = `
+        <h3>Strategies Considered for Client Discussion</h3>
+        <div class="desc">When you flag a strategy as "Considered," it appears here as a follow-up agenda item. Use these as talking points in the next client meeting.</div>
+        <div class="review-empty" style="padding: 12px 0;">No strategies flagged yet — click any tool above and choose "Mark as Considered" to add it here.</div>
+      `;
+      return;
+    }
+    const li = items.map(s => `
+      <li>
+        <div>
+          <span class="name">${s.name.replace(/&amp;/g, '&').replace(/&/g, '&amp;')}</span>
+          <span class="meta">${s.statutes ? s.statutes.slice(0, 2).join(' · ') : ''}</span>
+        </div>
+        <button data-remove="${s.id}" title="Remove">×</button>
+      </li>
+    `).join('');
+    panel.innerHTML = `
+      <h3>Strategies Considered for Client Discussion <span style="font-weight: 400; font-size: 12px; color: var(--muted);">(${items.length})</span></h3>
+      <div class="desc">These tools are flagged for the next client meeting agenda. Removing one here unflags it — re-flag from any cell above.</div>
+      <ul class="atlas-considered-list">${li}</ul>
+    `;
+    panel.querySelectorAll('button[data-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        toggleConsidered(btn.dataset.remove);
+        renderAtlas(); // full re-render so cells reflect status
+      });
+    });
+  }
+
+  // Drawer
+  const drawer = document.getElementById('atlas-drawer');
+  const drawerTitle = document.getElementById('atlas-drawer-title');
+  const drawerEyebrow = document.getElementById('atlas-drawer-eyebrow');
+  const drawerContent = document.getElementById('atlas-drawer-content');
+  const drawerFooter = document.getElementById('atlas-drawer-footer');
+  const drawerClose = document.getElementById('atlas-drawer-close');
+  const drawerBackdrop = document.getElementById('atlas-drawer-backdrop');
+  let currentDrawerStrategy = null;
+
+  function openDrawer(id) {
+    const s = STRATEGY_CATALOG.find(x => x.id === id);
+    if (!s) return;
+    currentDrawerStrategy = s;
+    const status = resolveStatus(s);
+    drawerEyebrow.textContent = status.label;
+    drawerTitle.innerHTML = s.name;
+
+    const sections = [];
+    if (s.definition) sections.push(`<h4>Definition</h4><p>${s.definition}</p>`);
+    if (s.whenToUse) sections.push(`<h4>When to Use</h4><p>${s.whenToUse}</p>`);
+    if (s.pros && s.pros.length) sections.push(`<h4>Strengths</h4><ul>${s.pros.map(p => `<li>${p}</li>`).join('')}</ul>`);
+    if (s.cons && s.cons.length) sections.push(`<h4>Considerations</h4><ul>${s.cons.map(p => `<li>${p}</li>`).join('')}</ul>`);
+    if (s.statutes && s.statutes.length) sections.push(`<h4>Statutory Citations</h4><div class="citations">${s.statutes.join(' · ')}</div>`);
+    drawerContent.innerHTML = sections.join('');
+
+    // Footer buttons depend on status
+    const footerButtons = [];
+    if (s.status === 'built' || s.status === 'available') {
+      const useEl = s.useId ? document.getElementById(s.useId) : null;
+      const isOn = useEl && useEl.checked;
+      if (isOn) {
+        footerButtons.push(`<button class="btn btn-secondary" data-action="navigate-block">Edit Parameters</button>`);
+        footerButtons.push(`<button class="btn btn-secondary" data-action="remove-from-plan">Remove from Plan</button>`);
+      } else {
+        footerButtons.push(`<button class="btn btn-primary" data-action="add-to-plan">Add to Plan</button>`);
+        footerButtons.push(`<button class="btn btn-secondary" data-action="mark-considered">Mark as Considered</button>`);
+      }
+    } else {
+      const isConsidered = getConsidered().has(s.id);
+      footerButtons.push(isConsidered
+        ? `<button class="btn btn-secondary" data-action="unmark-considered">Remove from Considered</button>`
+        : `<button class="btn btn-primary" data-action="mark-considered">Mark as Considered</button>`);
+      footerButtons.push(`<button class="btn btn-secondary" data-action="close">Close</button>`);
+    }
+    drawerFooter.innerHTML = footerButtons.join('');
+
+    drawerFooter.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => handleDrawerAction(btn.dataset.action));
+    });
+
+    drawer.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeDrawer() {
+    drawer.setAttribute('aria-hidden', 'true');
+    currentDrawerStrategy = null;
+  }
+
+  function handleDrawerAction(action) {
+    const s = currentDrawerStrategy;
+    if (!s) return;
+    if (action === 'close') return closeDrawer();
+    if (action === 'mark-considered') {
+      toggleConsidered(s.id);
+      closeDrawer();
+      renderAtlas();
+      return;
+    }
+    if (action === 'unmark-considered') {
+      toggleConsidered(s.id);
+      closeDrawer();
+      renderAtlas();
+      return;
+    }
+    if (action === 'add-to-plan') {
+      const useEl = s.useId ? document.getElementById(s.useId) : null;
+      if (useEl) {
+        useEl.checked = true;
+        useEl.dispatchEvent(new Event('change', { bubbles: true }));
+        if (window.__RENDER_LIBRARY__) window.__RENDER_LIBRARY__();
+      }
+      closeDrawer();
+      renderAtlas();
+      // Scroll to the parameter block
+      if (s.blockId) {
+        const block = document.getElementById(s.blockId);
+        if (block) {
+          block.classList.remove('hidden');
+          setTimeout(() => block.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+        }
+      }
+      return;
+    }
+    if (action === 'remove-from-plan') {
+      const useEl = s.useId ? document.getElementById(s.useId) : null;
+      if (useEl) {
+        useEl.checked = false;
+        useEl.dispatchEvent(new Event('change', { bubbles: true }));
+        if (window.__RENDER_LIBRARY__) window.__RENDER_LIBRARY__();
+      }
+      closeDrawer();
+      renderAtlas();
+      return;
+    }
+    if (action === 'navigate-block') {
+      closeDrawer();
+      if (s.blockId) {
+        const block = document.getElementById(s.blockId);
+        if (block) {
+          block.classList.remove('hidden');
+          setTimeout(() => block.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+        }
+      }
+      return;
+    }
+  }
+
+  if (drawerClose) drawerClose.addEventListener('click', closeDrawer);
+  if (drawerBackdrop) drawerBackdrop.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawer.getAttribute('aria-hidden') === 'false') closeDrawer();
+  });
+
+  // Expose render hook + lazy render on first activation
+  window.__RENDER_ATLAS__ = renderAtlas;
 })();
 
 /* ============================================================
