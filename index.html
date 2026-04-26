@@ -3286,6 +3286,162 @@
       </div>
     </div>
 
+    <!-- DETAILED P&amp;L (optional — if filled, deep analysis renders) -->
+    <details style="margin-top: 18px; padding: 14px; background: var(--cream-light); border-radius: 4px; border: 1px solid rgba(201,169,97,0.35);">
+      <summary style="cursor: pointer; font-weight: 600; font-size: 13px; color: var(--ink); letter-spacing: 0.5px;">▸ Detailed Income Statement <span style="font-weight: 400; color: var(--muted); font-size: 11px;">— line-item P&amp;L for advisor diligence (optional)</span></summary>
+      <div class="form-grid cols-4" style="margin-top: 14px;">
+        <div class="field">
+          <label>Cost of Goods Sold (COGS)</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-cogs" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Sales &amp; Marketing</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-sm-expense" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Research &amp; Development</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-rd-expense" value="0"></div>
+        </div>
+        <div class="field">
+          <label>General &amp; Administrative</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-ga-expense" value="0"></div>
+        </div>
+      </div>
+      <div class="form-grid cols-4" style="margin-top: 14px;">
+        <div class="field">
+          <label>Depreciation &amp; Amortization</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-da" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Interest Expense (annual)</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-interest-expense" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Effective Federal Tax Rate</label>
+          <div class="suffix-pct"><input type="number" id="corp-eff-tax" value="21" step="0.5"></div>
+        </div>
+        <div class="field">
+          <label>Net Income (entered) <span class="hint">(or computed from above)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-net-income" value="0"></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- DETAILED BALANCE SHEET (optional) -->
+    <details style="margin-top: 12px; padding: 14px; background: var(--cream-light); border-radius: 4px; border: 1px solid rgba(201,169,97,0.35);">
+      <summary style="cursor: pointer; font-weight: 600; font-size: 13px; color: var(--ink); letter-spacing: 0.5px;">▸ Detailed Balance Sheet <span style="font-weight: 400; color: var(--muted); font-size: 11px;">— assets, liabilities, equity (optional)</span></summary>
+      <div class="form-grid cols-4" style="margin-top: 14px;">
+        <div class="field">
+          <label>Cash &amp; Cash Equivalents</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-bs-cash" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Accounts Receivable</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-bs-ar" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Inventory</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-bs-inventory" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Property, Plant &amp; Equipment (net)</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-bs-ppe" value="0"></div>
+        </div>
+      </div>
+      <div class="form-grid cols-4" style="margin-top: 14px;">
+        <div class="field">
+          <label>Intangibles &amp; Goodwill</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-bs-intangibles" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Accounts Payable</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-bs-ap" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Accrued Liabilities</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-bs-accrued" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Long-Term Debt</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-bs-lt-debt" value="0"></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- CASH FLOW STATEMENT (optional) -->
+    <details style="margin-top: 12px; padding: 14px; background: var(--cream-light); border-radius: 4px; border: 1px solid rgba(201,169,97,0.35);">
+      <summary style="cursor: pointer; font-weight: 600; font-size: 13px; color: var(--ink); letter-spacing: 0.5px;">▸ Cash Flow Statement <span style="font-weight: 400; color: var(--muted); font-size: 11px;">— operating, investing, financing (optional)</span></summary>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>Capital Expenditures (CapEx)</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-cf-capex" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Investing Activities (other)</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-cf-investing" value="0"></div>
+        </div>
+        <div class="field">
+          <label>Financing Activities (debt + equity)</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-cf-financing" value="0"></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- CORPORATE TAX PROFILE — §174, §163(j), §250 GILTI/FDII, §41 R&amp;D credit, §172 NOL -->
+    <details style="margin-top: 12px; padding: 14px; background: var(--cream-light); border-radius: 4px; border: 1px solid rgba(201,169,97,0.35);">
+      <summary style="cursor: pointer; font-weight: 600; font-size: 13px; color: var(--ink); letter-spacing: 0.5px;">▸ Corporate Tax Profile <span style="font-weight: 400; color: var(--muted); font-size: 11px;">— §174 R&amp;D · §163(j) interest · §250 GILTI/FDII · §41 R&amp;D credit · §172 NOL</span></summary>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>§174 R&amp;D Capitalization Status <span class="hint">(post-TCJA mandatory)</span></label>
+          <select id="corp-174-status">
+            <option value="none" selected>No R&amp;D expenses</option>
+            <option value="domestic_only">All domestic R&amp;D (5-yr amortization)</option>
+            <option value="mixed">Mixed domestic + foreign (5-yr / 15-yr split)</option>
+            <option value="foreign_only">Foreign R&amp;D only (15-yr amortization)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>§174 Domestic R&amp;D Spend <span class="hint">(amortized 5 yrs)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-174-domestic" value="0"></div>
+        </div>
+        <div class="field">
+          <label>§174 Foreign R&amp;D Spend <span class="hint">(amortized 15 yrs)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-174-foreign" value="0"></div>
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>§163(j) Adjusted Taxable Income <span class="hint">(EBIT post-2022; for 30% interest cap)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-163j-ati" value="0"></div>
+        </div>
+        <div class="field">
+          <label>§163(j) Small-Business Exception?</label>
+          <select id="corp-163j-exempt">
+            <option value="yes" selected>Yes — avg gross receipts ≤ $30M (3-yr lookback)</option>
+            <option value="no">No — full §163(j) limit applies</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>§41 R&amp;D Credit Claimed (Annual)</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-41-credit" value="0"></div>
+        </div>
+      </div>
+      <div class="form-grid cols-3" style="margin-top: 14px;">
+        <div class="field">
+          <label>§250 GILTI Income <span class="hint">(Global Intangible Low-Taxed Income; 50% deductible)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-250-gilti" value="0"></div>
+        </div>
+        <div class="field">
+          <label>§250 FDII Income <span class="hint">(Foreign-Derived Intangible Income; 37.5% deductible pre-2026, 21.875% post)</span></label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-250-fdii" value="0"></div>
+        </div>
+        <div class="field">
+          <label>§172 NOL Carryforward Balance</label>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-172-nol" value="0"></div>
+        </div>
+      </div>
+    </details>
+
     <!-- REOPEN main form-grid for the remaining household-financial fields -->
     <div class="form-grid cols-3" style="margin-top: 18px;">
       <div class="field">
@@ -6530,6 +6686,38 @@ function readForm() {
       multipleLow:           n('corp-multiple-low')          || 6,
       multipleHigh:          n('corp-multiple-high')         || 10,
       insurableRisk:         n('corp-insurable-risk'),
+      // Detailed P&L
+      cogs:                  n('corp-cogs'),
+      smExpense:             n('corp-sm-expense'),
+      rdExpense:             n('corp-rd-expense'),
+      gaExpense:             n('corp-ga-expense'),
+      da:                    n('corp-da'),
+      interestExpense:       n('corp-interest-expense'),
+      effTaxRate:           (n('corp-eff-tax')                || 21) / 100,
+      netIncomeEntered:      n('corp-net-income'),
+      // Balance Sheet
+      bsCash:                n('corp-bs-cash'),
+      bsAr:                  n('corp-bs-ar'),
+      bsInventory:           n('corp-bs-inventory'),
+      bsPpe:                 n('corp-bs-ppe'),
+      bsIntangibles:         n('corp-bs-intangibles'),
+      bsAp:                  n('corp-bs-ap'),
+      bsAccrued:             n('corp-bs-accrued'),
+      bsLtDebt:              n('corp-bs-lt-debt'),
+      // Cash Flow
+      cfCapex:               n('corp-cf-capex'),
+      cfInvesting:           n('corp-cf-investing'),
+      cfFinancing:           n('corp-cf-financing'),
+      // Tax Profile
+      s174Status:            t('corp-174-status') || 'none',
+      s174Domestic:          n('corp-174-domestic'),
+      s174Foreign:           n('corp-174-foreign'),
+      s163jAti:              n('corp-163j-ati'),
+      s163jExempt:           t('corp-163j-exempt') === 'yes',
+      s41Credit:             n('corp-41-credit'),
+      s250Gilti:             n('corp-250-gilti'),
+      s250Fdii:              n('corp-250-fdii'),
+      s172Nol:               n('corp-172-nol'),
     },
     // Sale Proceeds Structure — how the headline price is split into
     // cash at close vs deferred/contingent/at-risk tranches. Each tranche
@@ -6898,6 +7086,108 @@ function computePlan(d) {
 
   // Recurring revenue premium — SaaS-style >50% recurring earns valuation premium
   const corpRecurringPremium = (d.corp?.recurringRevenue || 0) > 0.50;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // DETAILED P&amp;L derivation (only if user filled in line items)
+  //   Gross Profit = Revenue − COGS
+  //   Operating Income = Gross Profit − S&amp;M − R&amp;D − G&amp;A − D&amp;A
+  //   Pre-tax Income = Operating Income − Interest Expense
+  //   Net Income = Pre-tax Income × (1 − Effective Tax Rate)
+  //   (Or use entered net income if the user provided it directly)
+  // ──────────────────────────────────────────────────────────────────────
+  const corpHasDetailedPL = d.corp && (d.corp.cogs > 0 || d.corp.smExpense > 0 || d.corp.rdExpense > 0 || d.corp.gaExpense > 0);
+  const corpGrossProfit   = corpRev - (d.corp?.cogs || 0);
+  const corpGrossMargin   = corpRev > 0 ? corpGrossProfit / corpRev : 0;
+  const corpTotalOpex     = (d.corp?.smExpense || 0) + (d.corp?.rdExpense || 0) + (d.corp?.gaExpense || 0);
+  const corpOperatingIncome = corpGrossProfit - corpTotalOpex - (d.corp?.da || 0);
+  const corpOperatingMargin = corpRev > 0 ? corpOperatingIncome / corpRev : 0;
+  const corpPretaxIncome  = corpOperatingIncome - (d.corp?.interestExpense || 0);
+  const corpComputedNetIncome = corpPretaxIncome * (1 - (d.corp?.effTaxRate || 0.21));
+  const corpNetIncome     = (d.corp?.netIncomeEntered > 0) ? d.corp.netIncomeEntered : corpComputedNetIncome;
+  const corpNetMargin     = corpRev > 0 ? corpNetIncome / corpRev : 0;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // BALANCE SHEET derivation (only if user filled in line items)
+  //   Total Assets = Cash + AR + Inventory + PP&amp;E + Intangibles
+  //   Total Liabilities = AP + Accrued + LT Debt
+  //   Owner's Equity = Total Assets − Total Liabilities (residual)
+  //   Working Capital = (Cash + AR + Inventory) − (AP + Accrued)
+  //   Current Ratio = Current Assets / Current Liabilities
+  //   Debt/EBITDA = LT Debt / EBITDA (rule of thumb &lt; 4.0× healthy)
+  //   Interest Coverage = EBITDA / Interest Expense (&gt; 3.0× healthy)
+  // ──────────────────────────────────────────────────────────────────────
+  const corpHasBS = d.corp && (d.corp.bsCash > 0 || d.corp.bsAr > 0 || d.corp.bsPpe > 0 || d.corp.bsLtDebt > 0);
+  const corpTotalAssets = (d.corp?.bsCash || 0) + (d.corp?.bsAr || 0) + (d.corp?.bsInventory || 0) + (d.corp?.bsPpe || 0) + (d.corp?.bsIntangibles || 0);
+  const corpCurrentAssets   = (d.corp?.bsCash || 0) + (d.corp?.bsAr || 0) + (d.corp?.bsInventory || 0);
+  const corpCurrentLiabs    = (d.corp?.bsAp || 0) + (d.corp?.bsAccrued || 0);
+  const corpTotalLiabs      = corpCurrentLiabs + (d.corp?.bsLtDebt || 0);
+  const corpEquity          = corpTotalAssets - corpTotalLiabs;
+  const corpWorkingCapital  = corpCurrentAssets - corpCurrentLiabs;
+  const corpCurrentRatio    = corpCurrentLiabs > 0 ? corpCurrentAssets / corpCurrentLiabs : 0;
+  const corpDebtEbitda      = corpEbitda > 0 ? (d.corp?.bsLtDebt || 0) / corpEbitda : 0;
+  const corpInterestCoverage = (d.corp?.interestExpense || 0) > 0 ? corpEbitda / d.corp.interestExpense : 0;
+  // BS health flags
+  const corpDebtEbitdaHigh   = corpDebtEbitda > 4.0;        // M&amp;A red flag
+  const corpInterestCoverLow = corpInterestCoverage > 0 && corpInterestCoverage < 3.0;
+  const corpCurrentRatioWeak = corpCurrentRatio > 0 && corpCurrentRatio < 1.0;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // CASH FLOW STATEMENT derivation
+  //   Free Cash Flow = Operating Cash Flow − CapEx
+  //   FCF Margin = FCF / Revenue
+  // ──────────────────────────────────────────────────────────────────────
+  const corpHasCF = d.corp && (d.corp.cfCapex > 0 || d.corp.cfInvesting > 0 || d.corp.cfFinancing > 0);
+  const corpFreeCashFlow = (d.corp?.operatingCashFlow || 0) - (d.corp?.cfCapex || 0);
+  const corpFcfMargin    = corpRev > 0 ? corpFreeCashFlow / corpRev : 0;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // CORPORATE TAX PROFILE — §174, §163(j), §250 GILTI/FDII, §41 R&amp;D credit, §172 NOL
+  //
+  //   §174 (post-TCJA): R&amp;D MUST be capitalized + amortized — domestic 5-yr,
+  //     foreign 15-yr. Year-1 deduction is only 1/5th (or 1/15th) of total.
+  //     Deferred deduction = total spend − Y1 deduction (recovers over life).
+  //
+  //   §163(j): Interest deduction limited to 30% of ATI (EBIT-based post-2022).
+  //     Small-business exception: avg gross receipts ≤ $30M (3-yr) opts out.
+  //
+  //   §250: GILTI gets 50% deduction; FDII gets 37.5% (pre-2026), 21.875% (post).
+  //
+  //   §41 R&amp;D credit: max 20% of QREs; entered as flat amount.
+  //
+  //   §172 NOL: post-TCJA, 80% of taxable income offset in carryforward years.
+  // ──────────────────────────────────────────────────────────────────────
+  // §174 capitalization
+  const s174 = d.corp?.s174Status || 'none';
+  const s174Domestic = d.corp?.s174Domestic || 0;
+  const s174Foreign  = d.corp?.s174Foreign || 0;
+  const s174Y1Deduction = (s174Domestic / 5) + (s174Foreign / 15);   // mid-year convention simplified
+  const s174TotalSpend  = s174Domestic + s174Foreign;
+  const s174DeferredDed = Math.max(0, s174TotalSpend - s174Y1Deduction);
+  const s174CashflowDrag = s174DeferredDed * (d.corp?.effTaxRate || 0.21);
+
+  // §163(j) interest limitation
+  const s163jLimit = d.corp?.s163jExempt ? Infinity : (d.corp?.s163jAti || 0) * 0.30;
+  const s163jInterest = d.corp?.interestExpense || 0;
+  const s163jDisallowed = Math.max(0, s163jInterest - s163jLimit);
+  const s163jHits = !d.corp?.s163jExempt && s163jInterest > s163jLimit;
+
+  // §250 GILTI/FDII deductions (using post-2025 lower rates by default)
+  const FDII_DED_RATE = 0.21875;   // post-2026 rate (was 37.5% pre)
+  const GILTI_DED_RATE = 0.50;     // through 2025
+  const s250GiltiDed = (d.corp?.s250Gilti || 0) * GILTI_DED_RATE;
+  const s250FdiiDed  = (d.corp?.s250Fdii || 0) * FDII_DED_RATE;
+  const s250TotalDed = s250GiltiDed + s250FdiiDed;
+  const s250TaxSaving = s250TotalDed * (d.corp?.effTaxRate || 0.21);
+
+  // §41 R&amp;D credit (entered amount; reduces tax dollar-for-dollar)
+  const s41Credit = d.corp?.s41Credit || 0;
+
+  // §172 NOL — usable amount in current year (80% of taxable income limit)
+  const s172NolAvailable = d.corp?.s172Nol || 0;
+  const s172UsableThisYear = Math.min(s172NolAvailable, Math.max(0, corpPretaxIncome) * 0.80);
+  const s172TaxSaving = s172UsableThisYear * (d.corp?.effTaxRate || 0.21);
+
+  const corpHasTaxProfile = s174TotalSpend > 0 || s163jHits || s250TotalDed > 0 || s41Credit > 0 || s172NolAvailable > 0;
 
   // ──────────────────────────────────────────────────────────────────────
   // SALE PROCEEDS TRANCHES — installment, earnout, escrow, clawback
@@ -8250,7 +8540,9 @@ function computePlan(d) {
                        + scinEstateSaving
                        + ppliTaxSavings + ppliEstateSaving
                        + crossPsAnnualSaving
-                       + hsaAnnualSaving;
+                       + hsaAnnualSaving
+                       // Corporate tax profile annual savings
+                       + s250TaxSaving + s41Credit + s172TaxSaving;
 
   // Net worth calculations
   const preSaleNW = d.client.preSaleNW;
@@ -8678,6 +8970,21 @@ function computePlan(d) {
     corpCaptivePremiumLow, corpCaptivePremiumHigh, corpCaptiveRecommended,
     corpReasonableCompFloor, corpReasonableCompCeiling, corpOwnerCompFlag,
     corpConcentrationRisk, corpRecurringPremium,
+    // Detailed P&L
+    corpHasDetailedPL, corpGrossProfit, corpGrossMargin, corpTotalOpex,
+    corpOperatingIncome, corpOperatingMargin, corpPretaxIncome, corpComputedNetIncome,
+    corpNetIncome, corpNetMargin,
+    // Balance Sheet
+    corpHasBS, corpTotalAssets, corpCurrentAssets, corpCurrentLiabs, corpTotalLiabs,
+    corpEquity, corpWorkingCapital, corpCurrentRatio, corpDebtEbitda, corpInterestCoverage,
+    corpDebtEbitdaHigh, corpInterestCoverLow, corpCurrentRatioWeak,
+    // Cash Flow
+    corpHasCF, corpFreeCashFlow, corpFcfMargin,
+    // Tax Profile
+    corpHasTaxProfile, s174TotalSpend, s174Y1Deduction, s174DeferredDed, s174CashflowDrag,
+    s163jLimit, s163jDisallowed, s163jHits,
+    s250GiltiDed, s250FdiiDed, s250TotalDed, s250TaxSaving,
+    s41Credit, s172UsableThisYear, s172TaxSaving,
     // Sale Proceeds Tranches
     proceedsInstallment, proceedsEarnoutMax, proceedsEarnoutProb, proceedsEarnoutExpected,
     proceedsEscrow, proceedsEscrowProb, proceedsEscrowExpected,
@@ -10693,9 +11000,120 @@ function renderTransaction(p) {
         </div>
       ` : ''}
 
+      ${p.corpHasDetailedPL ? `
+        <div style="margin-top: 16px; padding: 14px; background: var(--cream-light); border-radius: 4px;">
+          <h4 style="font-size: 13px; color: var(--ink); margin: 0 0 10px; letter-spacing: 1px; text-transform: uppercase;">Detailed Income Statement</h4>
+          <table class="plan-table" style="width: 100%; font-size: 13px;">
+            <tr><td>Revenue</td><td class="num"><strong>${fmt$M(d.corp.revenue)}</strong></td></tr>
+            ${d.corp.cogs > 0 ? `<tr><td style="padding-left: 16px;">Cost of Goods Sold</td><td class="num">(${fmt$M(d.corp.cogs)})</td></tr>` : ''}
+            ${d.corp.cogs > 0 ? `<tr style="border-top: 1px solid var(--border);"><td><strong>Gross Profit</strong></td><td class="num"><strong>${fmt$M(p.corpGrossProfit)} (${(p.corpGrossMargin*100).toFixed(0)}%)</strong></td></tr>` : ''}
+            ${d.corp.smExpense > 0 ? `<tr><td style="padding-left: 16px;">Sales &amp; Marketing</td><td class="num">(${fmt$M(d.corp.smExpense)})</td></tr>` : ''}
+            ${d.corp.rdExpense > 0 ? `<tr><td style="padding-left: 16px;">Research &amp; Development</td><td class="num">(${fmt$M(d.corp.rdExpense)})</td></tr>` : ''}
+            ${d.corp.gaExpense > 0 ? `<tr><td style="padding-left: 16px;">General &amp; Administrative</td><td class="num">(${fmt$M(d.corp.gaExpense)})</td></tr>` : ''}
+            ${d.corp.da > 0 ? `<tr><td style="padding-left: 16px;">Depreciation &amp; Amortization</td><td class="num">(${fmt$M(d.corp.da)})</td></tr>` : ''}
+            <tr style="border-top: 1px solid var(--border);"><td><strong>Operating Income</strong></td><td class="num"><strong>${fmt$M(p.corpOperatingIncome)} (${(p.corpOperatingMargin*100).toFixed(0)}%)</strong></td></tr>
+            ${d.corp.interestExpense > 0 ? `<tr><td style="padding-left: 16px;">Interest Expense</td><td class="num">(${fmt$M(d.corp.interestExpense)})</td></tr>` : ''}
+            <tr><td><strong>Pre-Tax Income</strong></td><td class="num"><strong>${fmt$M(p.corpPretaxIncome)}</strong></td></tr>
+            <tr><td style="padding-left: 16px;">Tax Provision @ ${(d.corp.effTaxRate*100).toFixed(0)}%</td><td class="num">(${fmt$M(p.corpPretaxIncome * d.corp.effTaxRate)})</td></tr>
+            <tr style="border-top: 2px solid var(--gold);"><td><strong>Net Income</strong></td><td class="num"><strong>${fmt$M(p.corpNetIncome)} (${(p.corpNetMargin*100).toFixed(0)}%)</strong></td></tr>
+          </table>
+        </div>
+      ` : ''}
+
+      ${p.corpHasBS ? `
+        <div style="margin-top: 12px; padding: 14px; background: var(--cream-light); border-radius: 4px;">
+          <h4 style="font-size: 13px; color: var(--ink); margin: 0 0 10px; letter-spacing: 1px; text-transform: uppercase;">Balance Sheet</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+              <table class="plan-table" style="width: 100%; font-size: 12px;">
+                <tr><th colspan="2" style="text-align: left; color: var(--gold-dark);">ASSETS</th></tr>
+                ${d.corp.bsCash > 0 ? `<tr><td>Cash</td><td class="num">${fmt$M(d.corp.bsCash)}</td></tr>` : ''}
+                ${d.corp.bsAr > 0 ? `<tr><td>AR</td><td class="num">${fmt$M(d.corp.bsAr)}</td></tr>` : ''}
+                ${d.corp.bsInventory > 0 ? `<tr><td>Inventory</td><td class="num">${fmt$M(d.corp.bsInventory)}</td></tr>` : ''}
+                ${d.corp.bsPpe > 0 ? `<tr><td>PP&amp;E</td><td class="num">${fmt$M(d.corp.bsPpe)}</td></tr>` : ''}
+                ${d.corp.bsIntangibles > 0 ? `<tr><td>Intangibles</td><td class="num">${fmt$M(d.corp.bsIntangibles)}</td></tr>` : ''}
+                <tr style="border-top: 1px solid var(--border);"><td><strong>Total Assets</strong></td><td class="num"><strong>${fmt$M(p.corpTotalAssets)}</strong></td></tr>
+              </table>
+            </div>
+            <div>
+              <table class="plan-table" style="width: 100%; font-size: 12px;">
+                <tr><th colspan="2" style="text-align: left; color: var(--gold-dark);">LIABILITIES + EQUITY</th></tr>
+                ${d.corp.bsAp > 0 ? `<tr><td>AP</td><td class="num">${fmt$M(d.corp.bsAp)}</td></tr>` : ''}
+                ${d.corp.bsAccrued > 0 ? `<tr><td>Accrued</td><td class="num">${fmt$M(d.corp.bsAccrued)}</td></tr>` : ''}
+                ${d.corp.bsLtDebt > 0 ? `<tr><td>LT Debt</td><td class="num">${fmt$M(d.corp.bsLtDebt)}</td></tr>` : ''}
+                <tr><td><strong>Total Liabilities</strong></td><td class="num"><strong>${fmt$M(p.corpTotalLiabs)}</strong></td></tr>
+                <tr style="border-top: 1px solid var(--border);"><td><strong>Owner's Equity</strong></td><td class="num"><strong>${fmt$M(p.corpEquity)}</strong></td></tr>
+              </table>
+            </div>
+          </div>
+          <div class="kpi-grid" style="margin-top: 12px;">
+            <div class="kpi"><div class="label">Working Capital</div><div class="value" style="font-size: 13px;">${fmt$M(p.corpWorkingCapital)}</div></div>
+            <div class="kpi ${p.corpCurrentRatioWeak ? 'warning' : ''}"><div class="label">Current Ratio</div><div class="value" style="font-size: 13px;">${p.corpCurrentRatio.toFixed(2)}×</div></div>
+            <div class="kpi ${p.corpDebtEbitdaHigh ? 'warning' : ''}"><div class="label">Debt / EBITDA</div><div class="value" style="font-size: 13px;">${p.corpDebtEbitda.toFixed(2)}×</div></div>
+            <div class="kpi ${p.corpInterestCoverLow ? 'warning' : ''}"><div class="label">Interest Coverage</div><div class="value" style="font-size: 13px;">${p.corpInterestCoverage.toFixed(2)}×</div></div>
+          </div>
+          ${p.corpDebtEbitdaHigh ? `<div style="margin-top: 8px; font-size: 11px; color: var(--crimson); font-style: italic;">⚠ Debt/EBITDA above 4.0× — likely valuation discount in M&amp;A diligence; consider deleveraging pre-sale.</div>` : ''}
+          ${p.corpInterestCoverLow ? `<div style="margin-top: 8px; font-size: 11px; color: var(--crimson); font-style: italic;">⚠ Interest coverage below 3.0× — covenants may restrict; refinance or deleverage.</div>` : ''}
+          ${p.corpCurrentRatioWeak ? `<div style="margin-top: 8px; font-size: 11px; color: var(--crimson); font-style: italic;">⚠ Current ratio below 1.0× — short-term liquidity risk; review cash management.</div>` : ''}
+        </div>
+      ` : ''}
+
+      ${p.corpHasCF || (d.corp?.operatingCashFlow > 0) ? `
+        <div style="margin-top: 12px; padding: 14px; background: var(--cream-light); border-radius: 4px;">
+          <h4 style="font-size: 13px; color: var(--ink); margin: 0 0 10px; letter-spacing: 1px; text-transform: uppercase;">Cash Flow Highlights</h4>
+          <div class="kpi-grid">
+            <div class="kpi"><div class="label">Operating Cash Flow</div><div class="value">${fmt$M(d.corp.operatingCashFlow)}</div></div>
+            ${d.corp.cfCapex > 0 ? `<div class="kpi"><div class="label">CapEx</div><div class="value">${fmt$M(d.corp.cfCapex)}</div></div>` : ''}
+            <div class="kpi success"><div class="label">Free Cash Flow</div><div class="value">${fmt$M(p.corpFreeCashFlow)}</div></div>
+            ${corpRev > 0 ? `<div class="kpi"><div class="label">FCF Margin</div><div class="value">${(p.corpFcfMargin*100).toFixed(0)}%</div></div>` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      ${p.corpHasTaxProfile ? `
+        <div style="margin-top: 12px; padding: 14px; background: var(--cream-light); border-radius: 4px;">
+          <h4 style="font-size: 13px; color: var(--ink); margin: 0 0 10px; letter-spacing: 1px; text-transform: uppercase;">Corporate Tax Profile</h4>
+
+          ${p.s174TotalSpend > 0 ? `
+            <div class="callout" style="background:#FFFAEB; border-left:3px solid var(--gold-dark); margin-bottom: 12px;">
+              <span class="title" style="color: var(--gold-dark);">⚠ §174 R&amp;D Capitalization Cash Flow Drag</span>
+              Post-TCJA (effective 2022), R&amp;D spend must be <strong>capitalized + amortized</strong> rather than currently deducted. ${d.corp.s174Status === 'domestic_only' ? '5-year amortization (domestic).' : d.corp.s174Status === 'foreign_only' ? '15-year amortization (foreign).' : 'Mixed: 5-yr domestic + 15-yr foreign.'} Total R&amp;D spend ${fmt$M(p.s174TotalSpend)}; year-1 deduction ${fmt$M(p.s174Y1Deduction)} (vs ${fmt$M(p.s174TotalSpend)} pre-TCJA). <strong>Cash-flow drag in Year 1: ~${fmt$M(p.s174CashflowDrag)}</strong>. Recovers over amortization life. Pair with §41 R&amp;D credit (claimed: ${fmt$(p.s41Credit)}) to offset.
+            </div>
+          ` : ''}
+
+          ${p.s163jHits ? `
+            <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom: 12px;">
+              <span class="title" style="color: var(--crimson);">⛔ §163(j) Interest Limitation Exceeded</span>
+              Interest expense ${fmt$M(d.corp.interestExpense)} exceeds 30% of ATI (${fmt$M(p.s163jLimit)}) by <strong>${fmt$M(p.s163jDisallowed)}</strong>. Disallowed interest carries forward indefinitely but reduces current-year deduction. ${d.corp.s163jExempt ? '' : 'Verify avg gross receipts ≤ $30M (3-yr lookback) for small-business exemption — may apply if revenue is in that band.'}
+            </div>
+          ` : ''}
+
+          ${p.s250TotalDed > 0 ? `
+            <div class="callout" style="background:#F0F8F0; border-left:3px solid var(--success); margin-bottom: 12px;">
+              <span class="title" style="color: var(--success);">✓ §250 GILTI / FDII Deductions</span>
+              GILTI deduction (50%): <strong>${fmt$M(p.s250GiltiDed)}</strong>. FDII deduction (21.875% post-2025; was 37.5% pre-2026): <strong>${fmt$M(p.s250FdiiDed)}</strong>. Combined tax saving at ${(d.corp.effTaxRate*100).toFixed(0)}% rate: <strong>${fmt$M(p.s250TaxSaving)}</strong>. Coordinate with international tax counsel to maximize FDII export-income capture before pre-2026 rates sunset.
+            </div>
+          ` : ''}
+
+          ${p.s41Credit > 0 ? `
+            <div class="callout" style="background:#F0F8F0; border-left:3px solid var(--success); margin-bottom: 12px;">
+              <span class="title" style="color: var(--success);">✓ §41 R&amp;D Credit Claimed</span>
+              Annual R&amp;D credit: <strong>${fmt$M(p.s41Credit)}</strong> — direct dollar-for-dollar reduction in federal income tax. Stack with state R&amp;D credits where applicable (CA / NY / TX). Document QREs (Qualified Research Expenses) per §41(d)(1) four-part test.
+            </div>
+          ` : ''}
+
+          ${p.s172UsableThisYear > 0 ? `
+            <div class="callout" style="background:#F0F8F0; border-left:3px solid var(--success); margin-bottom: 12px;">
+              <span class="title" style="color: var(--success);">✓ §172 NOL Carryforward Available</span>
+              Carryforward balance: <strong>${fmt$M(d.corp.s172Nol)}</strong>. Usable this year (limited to 80% of pre-tax income post-TCJA): <strong>${fmt$M(p.s172UsableThisYear)}</strong>. Tax saving at ${(d.corp.effTaxRate*100).toFixed(0)}%: <strong>${fmt$M(p.s172TaxSaving)}</strong>. NOL retains forever (post-TCJA — no expiration); plan absorption around years of high taxable income.
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
+
       <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
         <span class="title">Statutory + Diligence Citations</span>
-        <strong>§1202(d)(1)</strong> — gross-asset ceiling at issuance. <strong>§831(b)</strong> — micro-captive premium cap (2024: $2.65M). <strong>Watson v. U.S. 668 F.3d 1008 (8th Cir 2012)</strong> — S-Corp reasonable comp. <strong>§162(a)</strong> — reasonable comp deductibility. <strong>§280G</strong> — parachute payment ceilings (relevant at sale).
+        <strong>§1202(d)(1)</strong> — gross-asset ceiling at issuance. <strong>§831(b)</strong> — micro-captive premium cap (2024: $2.65M). <strong>§174</strong> — R&amp;D capitalization (post-TCJA). <strong>§163(j)</strong> — 30% ATI interest limitation. <strong>§250</strong> — GILTI / FDII deductions. <strong>§41</strong> — R&amp;D credit. <strong>§172(b)</strong> — NOL carryforward (80% limit). <strong>Watson v. U.S. 668 F.3d 1008 (8th Cir 2012)</strong> — S-Corp reasonable comp. <strong>§162(a)</strong> — reasonable comp deductibility. <strong>§280G</strong> — parachute payment ceilings.
       </div>
     </div>
   ` : '';
@@ -16428,6 +16846,18 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'corp-employees': d.corp.employees, 'corp-avg-comp': d.corp.avgComp, 'corp-ocf': d.corp.operatingCashFlow,
       'corp-cagr': d.corp.cagr * 100, 'corp-customer-concentration': d.corp.customerConcentration * 100, 'corp-recurring-revenue': d.corp.recurringRevenue * 100,
       'corp-multiple-low': d.corp.multipleLow, 'corp-multiple-high': d.corp.multipleHigh, 'corp-insurable-risk': d.corp.insurableRisk,
+      // Detailed P&L
+      'corp-cogs': d.corp.cogs, 'corp-sm-expense': d.corp.smExpense, 'corp-rd-expense': d.corp.rdExpense, 'corp-ga-expense': d.corp.gaExpense,
+      'corp-da': d.corp.da, 'corp-interest-expense': d.corp.interestExpense, 'corp-eff-tax': d.corp.effTaxRate * 100, 'corp-net-income': d.corp.netIncomeEntered,
+      // Balance Sheet
+      'corp-bs-cash': d.corp.bsCash, 'corp-bs-ar': d.corp.bsAr, 'corp-bs-inventory': d.corp.bsInventory, 'corp-bs-ppe': d.corp.bsPpe, 'corp-bs-intangibles': d.corp.bsIntangibles,
+      'corp-bs-ap': d.corp.bsAp, 'corp-bs-accrued': d.corp.bsAccrued, 'corp-bs-lt-debt': d.corp.bsLtDebt,
+      // Cash Flow
+      'corp-cf-capex': d.corp.cfCapex, 'corp-cf-investing': d.corp.cfInvesting, 'corp-cf-financing': d.corp.cfFinancing,
+      // Tax Profile
+      'corp-174-status': d.corp.s174Status, 'corp-174-domestic': d.corp.s174Domestic, 'corp-174-foreign': d.corp.s174Foreign,
+      'corp-163j-ati': d.corp.s163jAti, 'corp-163j-exempt': d.corp.s163jExempt ? 'yes' : 'no',
+      'corp-41-credit': d.corp.s41Credit, 'corp-250-gilti': d.corp.s250Gilti, 'corp-250-fdii': d.corp.s250Fdii, 'corp-172-nol': d.corp.s172Nol,
       // Sale Proceeds Structure (installment / earnout / escrow / clawback)
       'proceeds-installment-amount': d.proceeds.installmentAmount, 'proceeds-installment-years': d.proceeds.installmentYears, 'proceeds-installment-rate': d.proceeds.installmentRate * 100,
       'proceeds-earnout-max': d.proceeds.earnoutMax, 'proceeds-earnout-prob': d.proceeds.earnoutProb * 100, 'proceeds-earnout-years': d.proceeds.earnoutYears,
@@ -18856,6 +19286,29 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       lines.push(`Gross assets at issuance: ${fmt$M(d.corp.grossAssets)} (${p.corpQsbsGatePass ? '✓ §1202(d) gate passes' : p.corpQsbsGateFailed ? '⛔ §1202(d) gate FAILED — exceeds ' + fmt$M(p.corpGrossAssetGate) : 'gate not yet evaluated'})`);
       lines.push(`Concentration risk: ${p.corpConcentrationRisk} (top customer ${(d.corp.customerConcentration*100).toFixed(0)}%); recurring revenue ${(d.corp.recurringRevenue*100).toFixed(0)}%${p.corpRecurringPremium ? ' (premium-tier)' : ''}`);
       lines.push(`§831(b) captive premium recommendation: ${fmt$M(p.corpCaptiveRecommended)}/yr (band ${fmt$M(p.corpCaptivePremiumLow)}–${fmt$M(p.corpCaptivePremiumHigh)})`);
+
+      // Detailed P&L
+      if (p.corpHasDetailedPL) {
+        lines.push(`P&L: GP ${fmt$M(p.corpGrossProfit)} (${(p.corpGrossMargin*100).toFixed(0)}% GM) · OI ${fmt$M(p.corpOperatingIncome)} (${(p.corpOperatingMargin*100).toFixed(0)}% OM) · NI ${fmt$M(p.corpNetIncome)} (${(p.corpNetMargin*100).toFixed(0)}% NM)`);
+      }
+      // Balance Sheet
+      if (p.corpHasBS) {
+        lines.push(`Balance Sheet: TA ${fmt$M(p.corpTotalAssets)} · TL ${fmt$M(p.corpTotalLiabs)} · Equity ${fmt$M(p.corpEquity)} · WC ${fmt$M(p.corpWorkingCapital)} · CR ${p.corpCurrentRatio.toFixed(2)}× · Debt/EBITDA ${p.corpDebtEbitda.toFixed(2)}× · Int Cov ${p.corpInterestCoverage.toFixed(2)}×${p.corpDebtEbitdaHigh ? ' ⚠HIGH-LEVERAGE' : ''}${p.corpInterestCoverLow ? ' ⚠LOW-COVERAGE' : ''}${p.corpCurrentRatioWeak ? ' ⚠WEAK-LIQUIDITY' : ''}`);
+      }
+      // Cash Flow
+      if (p.corpHasCF || d.corp.operatingCashFlow > 0) {
+        lines.push(`Cash Flow: OCF ${fmt$M(d.corp.operatingCashFlow)} · CapEx ${fmt$M(d.corp.cfCapex)} · FCF ${fmt$M(p.corpFreeCashFlow)} (${(p.corpFcfMargin*100).toFixed(0)}% margin)`);
+      }
+      // Tax Profile
+      if (p.corpHasTaxProfile) {
+        const taxLines = [];
+        if (p.s174TotalSpend > 0) taxLines.push(`§174 R&D capitalization ${fmt$M(p.s174TotalSpend)} total; Y1 deduction ${fmt$M(p.s174Y1Deduction)}; cash drag ${fmt$M(p.s174CashflowDrag)}`);
+        if (p.s163jHits) taxLines.push(`§163(j) interest disallowed: ${fmt$M(p.s163jDisallowed)} (limit ${fmt$M(p.s163jLimit)})`);
+        if (p.s250TotalDed > 0) taxLines.push(`§250 GILTI+FDII deductions: ${fmt$M(p.s250TotalDed)} → ${fmt$M(p.s250TaxSaving)} tax saving`);
+        if (p.s41Credit > 0) taxLines.push(`§41 R&D credit ${fmt$M(p.s41Credit)} (direct dollar-for-dollar reduction)`);
+        if (p.s172UsableThisYear > 0) taxLines.push(`§172 NOL: ${fmt$M(d.corp.s172Nol)} balance, ${fmt$M(p.s172UsableThisYear)} usable this year → ${fmt$M(p.s172TaxSaving)} saving`);
+        if (taxLines.length) lines.push(`Tax Profile: ${taxLines.join('; ')}`);
+      }
     }
 
     // Deal Architecture context (drives QOZ + QSBS + §1042 + §199A + §1031 + CRT eligibility)
