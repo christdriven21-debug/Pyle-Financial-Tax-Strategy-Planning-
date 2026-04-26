@@ -3117,6 +3117,72 @@
       </div>
     </div>
 
+    <!-- SALE PROCEEDS STRUCTURE — installment, earnout, clawback, escrow -->
+    <div style="margin: 22px 0 10px; padding-top: 16px; border-top: 1px solid var(--border);">
+      <h4 style="font-size: 14px; color: var(--ink); margin: 0 0 6px; font-weight: 600;">
+        Sale Proceeds Structure <span style="font-weight: 400; color: var(--muted); font-size: 12px;">— installment payments, earnouts, clawbacks, escrow holdbacks</span>
+      </h4>
+      <p style="font-size: 11px; color: var(--muted); font-style: italic; margin: 0 0 12px; line-height: 1.5;">
+        The sale-price total above is the <strong>gross headline figure</strong>. Most HNW deals split it into a <strong>cash at close</strong> tranche plus deferred / contingent / at-risk components. Each tranche has its own tax timing, QOZ 180-day clock, and risk profile. Cash at close = Sale Price − Installment Note − Earnout (max) − Escrow Holdback − Working-Capital Clawback Risk.
+      </p>
+    </div>
+    <div class="form-grid cols-3">
+      <div class="field">
+        <label>Installment Note Principal <span class="hint">(§453; deferred-recognition)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="proceeds-installment-amount" value="0"></div>
+      </div>
+      <div class="field">
+        <label>Installment Term <span class="hint">(years over which principal is paid)</span></label>
+        <input type="number" id="proceeds-installment-years" value="5" min="1" max="30">
+      </div>
+      <div class="field">
+        <label>Installment Interest Rate <span class="hint">(AFR mid-term ≈ 4.5%)</span></label>
+        <div class="suffix-pct"><input type="number" id="proceeds-installment-rate" value="4.5" step="0.1"></div>
+      </div>
+    </div>
+    <div class="form-grid cols-3" style="margin-top: 14px;">
+      <div class="field">
+        <label>Earnout — Maximum Potential <span class="hint">(contingent on post-close performance)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="proceeds-earnout-max" value="0"></div>
+      </div>
+      <div class="field">
+        <label>Earnout — Probability of Achievement <span class="hint">(advisor estimate; expected-value calc)</span></label>
+        <div class="suffix-pct"><input type="number" id="proceeds-earnout-prob" value="50" min="0" max="100" step="5"></div>
+      </div>
+      <div class="field">
+        <label>Earnout — Years to Resolution</label>
+        <input type="number" id="proceeds-earnout-years" value="3" min="1" max="10">
+      </div>
+    </div>
+    <div class="form-grid cols-3" style="margin-top: 14px;">
+      <div class="field">
+        <label>Escrow Holdback <span class="hint">(typically 10-15% of price; held for indemnification claims)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="proceeds-escrow-amount" value="0"></div>
+      </div>
+      <div class="field">
+        <label>Escrow Period <span class="hint">(years until release)</span></label>
+        <input type="number" id="proceeds-escrow-years" value="2" min="0" max="10" step="0.5">
+      </div>
+      <div class="field">
+        <label>Escrow — Probability of Full Release <span class="hint">(claims-free release)</span></label>
+        <div class="suffix-pct"><input type="number" id="proceeds-escrow-release-prob" value="90" min="0" max="100" step="5"></div>
+      </div>
+    </div>
+    <div class="form-grid cols-3" style="margin-top: 14px;">
+      <div class="field">
+        <label>Working-Capital / Clawback Risk <span class="hint">(potential downward purchase-price adjustment)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="proceeds-clawback-amount" value="0"></div>
+      </div>
+      <div class="field">
+        <label>Clawback — Probability <span class="hint">(advisor estimate; expected-value reduction)</span></label>
+        <div class="suffix-pct"><input type="number" id="proceeds-clawback-prob" value="30" min="0" max="100" step="5"></div>
+      </div>
+      <div class="field">
+        <label>Seller Indemnification Cap <span class="hint">(maximum exposure beyond escrow)</span></label>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="proceeds-indemnity-cap" value="0"></div>
+      </div>
+    </div>
+
     <!-- REOPEN main form-grid for the remaining household-financial fields -->
     <div class="form-grid cols-3" style="margin-top: 18px;">
       <div class="field">
@@ -5777,6 +5843,23 @@ function readForm() {
     },
     crat: { amount: n('crat-amount'), rate: n('crat-rate') / 100, dedPct: n('crat-ded') / 100 },
     daf: { amount: n('daf-amount') },
+    // Sale Proceeds Structure — how the headline price is split into
+    // cash at close vs deferred/contingent/at-risk tranches. Each tranche
+    // has its own §453 tax timing + QOZ 180-day clock + risk profile.
+    proceeds: {
+      installmentAmount:   n('proceeds-installment-amount'),
+      installmentYears:    n('proceeds-installment-years') || 5,
+      installmentRate:    (n('proceeds-installment-rate') || 4.5) / 100,
+      earnoutMax:          n('proceeds-earnout-max'),
+      earnoutProb:        (n('proceeds-earnout-prob') || 50) / 100,
+      earnoutYears:        n('proceeds-earnout-years') || 3,
+      escrowAmount:        n('proceeds-escrow-amount'),
+      escrowYears:         n('proceeds-escrow-years') || 2,
+      escrowReleaseProb:  (n('proceeds-escrow-release-prob') || 90) / 100,
+      clawbackAmount:      n('proceeds-clawback-amount'),
+      clawbackProb:       (n('proceeds-clawback-prob') || 30) / 100,
+      indemnityCap:        n('proceeds-indemnity-cap'),
+    },
     // Deal Architecture — shared source-of-truth read by every
     // eligible-gain strategy (QOZ, QSBS §1202, §1042, §199A, CRT, §1031).
     // Set in Section 2 → Deal Architecture sub-section.
@@ -5957,6 +6040,55 @@ function computePlan(d) {
   const recaptureOrdinaryTax = recaptureAmount * d.tax.marginal;
   const recaptureCGTaxIfStock = recaptureAmount * combinedCGRate;
   const assetVsStockPenalty = Math.max(0, recaptureOrdinaryTax - recaptureCGTaxIfStock);
+
+  // ──────────────────────────────────────────────────────────────────────
+  // SALE PROCEEDS TRANCHES — installment, earnout, escrow, clawback
+  //
+  //   Headline sale price = cash at close + installment principal +
+  //                         earnout (max) + escrow holdback + clawback risk
+  //   Each tranche has its own:
+  //     • Tax-timing (§453 installment method defers gain pro-rata;
+  //       earnout taxable when received; escrow taxable on release;
+  //       clawback reduces basis when actually paid)
+  //     • QOZ 180-day clock (per Reg §1.1400Z-2(a)-1(b)(1))
+  //     • Risk profile (probability-weighted expected value)
+  // ──────────────────────────────────────────────────────────────────────
+  const proceedsInstallment   = d.proceeds?.installmentAmount   || 0;
+  const proceedsEarnoutMax    = d.proceeds?.earnoutMax           || 0;
+  const proceedsEarnoutProb   = d.proceeds?.earnoutProb           ?? 0.50;
+  const proceedsEarnoutExpected = proceedsEarnoutMax * proceedsEarnoutProb;
+  const proceedsEscrow        = d.proceeds?.escrowAmount         || 0;
+  const proceedsEscrowProb    = d.proceeds?.escrowReleaseProb    ?? 0.90;
+  const proceedsEscrowExpected = proceedsEscrow * proceedsEscrowProb;
+  const proceedsClawback      = d.proceeds?.clawbackAmount       || 0;
+  const proceedsClawbackProb  = d.proceeds?.clawbackProb         ?? 0.30;
+  const proceedsClawbackExpected = proceedsClawback * proceedsClawbackProb;
+  // Cash at close = headline price − everything else NOT received at close
+  const proceedsCashAtClose = Math.max(0, salePrice
+                              - proceedsInstallment
+                              - proceedsEarnoutMax
+                              - proceedsEscrow);
+  // Risk-adjusted total expected proceeds:
+  //   Cash at close (certain) + Installment principal (high probability) +
+  //   Expected earnout (probability-weighted) + Expected escrow release −
+  //   Expected clawback
+  const proceedsRiskAdjustedTotal = proceedsCashAtClose
+                                   + proceedsInstallment
+                                   + proceedsEarnoutExpected
+                                   + proceedsEscrowExpected
+                                   - proceedsClawbackExpected;
+  // Headline-vs-realistic delta
+  const proceedsContingentDelta = salePrice - proceedsRiskAdjustedTotal;
+  // §453 installment annual cash flow approximation
+  const proceedsInstallmentYears = d.proceeds?.installmentYears || 5;
+  const proceedsInstallmentRate  = d.proceeds?.installmentRate  || 0.045;
+  const proceedsInstallmentAnnualPrincipal = proceedsInstallmentYears > 0
+    ? proceedsInstallment / proceedsInstallmentYears
+    : 0;
+  const proceedsInstallmentFirstYearInterest = proceedsInstallment * proceedsInstallmentRate;
+  // Has any deferred/contingent component?
+  const proceedsHasTranches = proceedsInstallment > 0 || proceedsEarnoutMax > 0
+                            || proceedsEscrow > 0 || proceedsClawback > 0;
 
   // ──────────────────────────────────────────────────────────────────────
   // CRAT §664(d)(1) QUALIFICATION TESTS (run FIRST; a failed CRAT gets
@@ -7377,6 +7509,13 @@ function computePlan(d) {
     multiYearTax: runMultiYearTax({ withPlanningProceeds, nwWithout_total, ssAnnualHousehold }, d),
     goalAnalysis: analyzeGoals({ familyTotalNW, withPlanningTotal, dynasty20yr, monteCarlo: runMonteCarlo({ withPlanningTotal, ssAnnualHousehold, nwWithout_total }, d), totalImmediate }, d),
     saleIsAsset, recaptureAmount, recaptureOrdinaryTax, recaptureCGTaxIfStock, assetVsStockPenalty,
+    // Sale Proceeds Tranches
+    proceedsInstallment, proceedsEarnoutMax, proceedsEarnoutProb, proceedsEarnoutExpected,
+    proceedsEscrow, proceedsEscrowProb, proceedsEscrowExpected,
+    proceedsClawback, proceedsClawbackProb, proceedsClawbackExpected,
+    proceedsCashAtClose, proceedsRiskAdjustedTotal, proceedsContingentDelta,
+    proceedsInstallmentYears, proceedsInstallmentRate, proceedsInstallmentAnnualPrincipal,
+    proceedsInstallmentFirstYearInterest, proceedsHasTranches,
     dynasty20yr, dynastyGrowth, dynastyYears, dynastyUsesJointLE,
     cgTaxSavings, totalImmediate,
     dbplanAnnualSaving, dbplanLifetimeSaving, dbplan415Cap, dbplanContribCapped,
@@ -9023,7 +9162,63 @@ function renderTransaction(p) {
     </div>
   `;
 
-  // Tax Impact Explorer — slide strategy funding amounts to see live
+  // Sale Proceeds Tranche card — installment, earnout, escrow, clawback
+  const proceedsTrancheCard = p.proceedsHasTranches ? `
+    <div class="card sale-only" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">Sale Proceeds Tranches — Cash at Close vs Deferred &amp; Contingent</div>
+      <div class="card-sub">Headline price <strong>${fmt$M(d.biz.sale)}</strong> splits into ${[
+        p.proceedsCashAtClose > 0 && 'cash at close',
+        p.proceedsInstallment > 0 && 'installment note',
+        p.proceedsEarnoutMax > 0 && 'earnout',
+        p.proceedsEscrow > 0 && 'escrow holdback',
+        p.proceedsClawback > 0 && 'clawback risk',
+      ].filter(Boolean).join(', ')}. Each tranche has its own tax timing under §453, its own QOZ 180-day clock, and its own probability of actual receipt. The risk-adjusted expected total is <strong>${fmt$M(p.proceedsRiskAdjustedTotal)}</strong> — ${fmt$M(p.proceedsContingentDelta)} below the headline.</div>
+
+      <div class="kpi-grid">
+        <div class="kpi success"><div class="label">Cash at Close (certain)</div><div class="value">${fmt$(p.proceedsCashAtClose)}</div></div>
+        ${p.proceedsInstallment > 0 ? `<div class="kpi gold"><div class="label">Installment Note Principal</div><div class="value">${fmt$(p.proceedsInstallment)}</div></div>` : ''}
+        ${p.proceedsEarnoutMax > 0 ? `<div class="kpi gold"><div class="label">Earnout — Max / Expected</div><div class="value">${fmt$M(p.proceedsEarnoutMax)} / ${fmt$M(p.proceedsEarnoutExpected)}</div></div>` : ''}
+        ${p.proceedsEscrow > 0 ? `<div class="kpi"><div class="label">Escrow Holdback / Expected Release</div><div class="value">${fmt$(p.proceedsEscrow)} / ${fmt$(p.proceedsEscrowExpected)}</div></div>` : ''}
+        ${p.proceedsClawback > 0 ? `<div class="kpi" style="border-left: 3px solid var(--crimson);"><div class="label">Clawback Risk / Expected Loss</div><div class="value">${fmt$(p.proceedsClawback)} / ${fmt$(p.proceedsClawbackExpected)}</div></div>` : ''}
+        <div class="kpi success"><div class="label">Risk-Adjusted Expected Total</div><div class="value">${fmt$(p.proceedsRiskAdjustedTotal)}</div></div>
+      </div>
+
+      ${p.proceedsInstallment > 0 ? `
+        <div class="callout" style="margin-top: 14px;">
+          <span class="title">§453 Installment-Method Treatment — ${fmt$(p.proceedsInstallment)} over ${p.proceedsInstallmentYears} years</span>
+          Capital gain is recognized pro-rata as principal payments are received: roughly <strong>${fmt$(p.proceedsInstallmentAnnualPrincipal)}</strong> of principal/yr (excluding interest) at <strong>${(p.proceedsInstallmentRate*100).toFixed(2)}%</strong> AFR. First-year imputed interest ≈ <strong>${fmt$(p.proceedsInstallmentFirstYearInterest)}</strong> (taxed as ordinary income). Each principal payment opens a fresh <strong>180-day QOZ window</strong> per Reg §1.1400Z-2(a)-1(b)(1). §453A interest charge applies if the seller's installment receivables exceed $5M at year-end. Note default risk: if buyer defaults, seller has §1234 ordinary loss recapture exposure.
+        </div>
+      ` : ''}
+
+      ${p.proceedsEarnoutMax > 0 ? `
+        <div class="callout" style="margin-top: 12px; background: #FFFAEB; border-left: 3px solid var(--gold-dark);">
+          <span class="title" style="color: var(--gold-dark);">⚠ Earnout Tax + Risk Treatment</span>
+          Earnout payments are taxable when the contingency resolves AND the amount becomes fixed (Reg §15A.453-1(c)). Each recognition event opens its own 180-day QOZ window. Document the maximum upfront on Form 8275 to support fixed-vs-contingent allocation. <strong>Plan accordingly:</strong> reserve liquidity at close — don't promise dollars not yet received. Common buyer tactic: accelerated post-close cost-cutting depresses earnout-trigger metrics; protect with carve-out language on operational decisions.
+        </div>
+      ` : ''}
+
+      ${p.proceedsEscrow > 0 ? `
+        <div class="callout" style="margin-top: 12px; background: #FFFAEB; border-left: 3px solid var(--gold-dark);">
+          <span class="title" style="color: var(--gold-dark);">⚠ Escrow Holdback — ${fmt$(p.proceedsEscrow)} for ${d.proceeds.escrowYears}yr</span>
+          Escrow is held by a third-party agent for indemnification claims (typically reps/warranties + working-capital adjustment). Released at <strong>${(d.proceeds.escrowReleaseProb*100).toFixed(0)}%</strong> probability of full release. Tax-deferred until release per Rev. Rul. 79-91 and Reg §1.453-1(b)(3) — the gain on escrowed dollars isn't recognized until the seller takes economic ownership. <strong>Practical defense:</strong> negotiate "basket" deductible (typically 0.5-1% of price) so small claims don't trigger; cap escrow draws at 10-15% of price; specify R&W insurance to backstop indemnity above escrow.
+        </div>
+      ` : ''}
+
+      ${p.proceedsClawback > 0 ? `
+        <div class="callout" style="margin-top: 12px; background: #FFF0F0; border-left: 3px solid var(--crimson);">
+          <span class="title" style="color: var(--crimson);">⛔ Clawback / Working-Capital Adjustment Exposure — ${fmt$(p.proceedsClawback)}</span>
+          Working-capital adjustments are the most common post-close dispute. The Purchase Agreement specifies a target net working capital; if actual closing-date NWC is below target, seller refunds the shortfall. <strong>Expected reduction</strong> at ${(d.proceeds.clawbackProb*100).toFixed(0)}% probability ≈ <strong>${fmt$(p.proceedsClawbackExpected)}</strong> — already reflected in the risk-adjusted total above.
+          <br><br>
+          <strong>Pre-close defenses:</strong> (1) lock the NWC target with a peg-letter ≥ 60 days before close; (2) negotiate a 0.5% deductible / 1% materiality threshold; (3) audit-firm independent calculation with binding-arbitration tiebreaker; (4) ${d.proceeds.indemnityCap > 0 ? `indemnity cap of <strong>${fmt$(d.proceeds.indemnityCap)}</strong>` : 'specify an indemnity cap (typically 10-25% of price)'}; (5) tax basis adjustment on actual clawback paid (reduces basis going forward — see §1001 + Rev. Rul. 80-58).
+        </div>
+      ` : ''}
+
+      <div class="callout" style="margin-top: 12px; font-size: 12px; line-height: 1.6;">
+        <span class="title">Liquidity-Planning Implication</span>
+        Pre-sale strategies sized to <strong>cash at close</strong> (${fmt$(p.proceedsCashAtClose)}), not the headline ${fmt$M(d.biz.sale)}. The QOZ / CRT / Dynasty funding amounts below assume liquidity is available at close; deferred tranches require staging across multiple recognition events. The risk-adjusted expected total <strong>${fmt$M(p.proceedsRiskAdjustedTotal)}</strong> is what truly hits the family balance sheet over time.
+      </div>
+    </div>
+  ` : '';
   // changes in capital-gains, income, and estate tax savings.
   //
   // Sliders built DYNAMICALLY from enabled strategies (d.use.xxx). Each
@@ -9312,6 +9507,8 @@ function renderTransaction(p) {
     ${taxExplorerHTML}
 
     ${saleStructureCard}
+
+    ${proceedsTrancheCard}
 
     <div class="card">
       <div class="card-title">Business Sale &amp; Tax Optimization Strategy</div>
@@ -14623,6 +14820,11 @@ document.getElementById('btn-download').addEventListener('click', () => {
       'qoz-amount': d.qoz.amount, 'qoz-defer': d.qoz.defer, 'qoz-return': d.qoz.ret * 100, 'qoz-years': d.qoz.years, 'qoz-business-type': d.qoz.businessType, 'qoz-improvement': d.qoz.improvement,
       // Deal Architecture (shared by every eligible-gain strategy)
       'deal-industry': d.deal.industry, 'deal-buyer-relationship': d.deal.buyerRelationship, 'deal-conflicting-election': d.deal.conflictingElection, 'deal-sale-structure': d.deal.saleStructure, 'deal-recognition-vehicle': d.deal.recognitionVehicle, 'deal-cg-eligible-pct': (d.deal.cgEligiblePct || 1) * 100, 'deal-allocation-type': d.deal.allocationType,
+      // Sale Proceeds Structure (installment / earnout / escrow / clawback)
+      'proceeds-installment-amount': d.proceeds.installmentAmount, 'proceeds-installment-years': d.proceeds.installmentYears, 'proceeds-installment-rate': d.proceeds.installmentRate * 100,
+      'proceeds-earnout-max': d.proceeds.earnoutMax, 'proceeds-earnout-prob': d.proceeds.earnoutProb * 100, 'proceeds-earnout-years': d.proceeds.earnoutYears,
+      'proceeds-escrow-amount': d.proceeds.escrowAmount, 'proceeds-escrow-years': d.proceeds.escrowYears, 'proceeds-escrow-release-prob': d.proceeds.escrowReleaseProb * 100,
+      'proceeds-clawback-amount': d.proceeds.clawbackAmount, 'proceeds-clawback-prob': d.proceeds.clawbackProb * 100, 'proceeds-indemnity-cap': d.proceeds.indemnityCap,
       // Oil &amp; Gas Working Interest
       'oilgas-amount': d.oilgas.amount, 'oilgas-idc-pct': d.oilgas.idcPct * 100, 'oilgas-year': d.oilgas.year, 'oilgas-state-conforms': d.oilgas.stateConforms, 'oilgas-structure': d.oilgas.structure, 'oilgas-operator': d.oilgas.operator, 'oilgas-production': d.oilgas.production, 'oilgas-prod-years': d.oilgas.prodYears, 'oilgas-risk': d.oilgas.risk,
       'tax-fed': d.tax.fed * 100, 'tax-state': d.tax.state * 100, 'tax-medicare': d.tax.medicare * 100,
