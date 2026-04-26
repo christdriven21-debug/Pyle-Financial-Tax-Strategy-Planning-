@@ -3093,20 +3093,42 @@
         <div class="field">
           <label>QOF Investment Type <span class="hint">(determines §1400Z-2 eligibility)</span></label>
           <select id="qoz-business-type">
-            <optgroup label="✅ Eligible">
+            <optgroup label="🟢 Eligible — clean fit (operational tests easy to meet)">
               <option value="real_estate" selected>Real Estate Development (substantial improvement)</option>
               <option value="real_estate_ground_up">Real Estate — ground-up new construction</option>
-              <option value="operating_business">Operating Business — qualifying QOZB (active trade)</option>
-              <option value="renewable_energy">Renewable Energy / Solar / Wind in QOZ</option>
               <option value="manufacturing">Manufacturing / Industrial in QOZ</option>
-              <option value="tech_startup">Technology / SaaS startup HQ'd in QOZ</option>
-              <option value="hospitality">Hotel / Hospitality in QOZ</option>
               <option value="multifamily">Multifamily Housing in QOZ</option>
-              <option value="mixed_use">Mixed-Use Development</option>
+              <option value="hospitality">Hotel / Hospitality in QOZ (non-resort)</option>
               <option value="self_storage">Self Storage / Warehousing in QOZ</option>
+              <option value="mixed_use">Mixed-Use Development</option>
+              <option value="renewable_energy">Renewable Energy / Solar / Wind in QOZ</option>
+              <option value="restaurant">Restaurant / Food Service in QOZ</option>
+              <option value="construction">Construction / Trades (QOZ projects)</option>
+              <option value="agriculture">Agriculture / Farming in QOZ</option>
+            </optgroup>
+            <optgroup label="🟡 Eligible — operational tests are tricky (carefully document)">
+              <option value="operating_business">Operating Business — generic QOZB</option>
+              <option value="tech_startup">Technology / SaaS startup HQ'd in QOZ</option>
+              <option value="professional_services">Professional Services / Consulting in QOZ</option>
+              <option value="healthcare">Healthcare / Medical Practice in QOZ</option>
+              <option value="retail_multi">Retail (multi-location, must majority-source from QOZ)</option>
+              <option value="education">Education / Tutoring / Training in QOZ</option>
               <option value="other_eligible">Other (advisor confirms eligibility)</option>
             </optgroup>
-            <optgroup label="❌ Disqualified ("sin business" §144(c)(6)(B))">
+            <optgroup label="🟠 Heavily restricted (5% nonqualified-financial-property cap)">
+              <option value="financial_services">Financial Services (banking, insurance, broker-dealer)</option>
+              <option value="holding_company">Holding Company / Asset Management</option>
+              <option value="family_office">Family Office / Multi-Family Office</option>
+              <option value="real_estate_passive">Real Estate Passive / Triple-Net Lease (NNN)</option>
+            </optgroup>
+            <optgroup label="🔴 Effectively disqualified (federal law / fund mandates)">
+              <option value="cannabis">Cannabis / Marijuana (state-legal but federally illegal — §280E + Schedule I)</option>
+              <option value="adult">Adult Entertainment / Strip Club (most fund mandates exclude)</option>
+              <option value="pe_vc_fund">Private Equity / VC Fund (fails active-business test)</option>
+              <option value="hedge_fund">Hedge Fund (fails active-business test)</option>
+              <option value="firearms">Firearms / Ammunition (most fund mandates exclude)</option>
+            </optgroup>
+            <optgroup label="❌ Statutorily disqualified — sin businesses (§144(c)(6)(B))">
               <option value="golf">Private / Commercial Golf Course</option>
               <option value="country_club">Country Club</option>
               <option value="massage">Massage Parlor</option>
@@ -4118,27 +4140,69 @@ function esc(s) {
 function escAttr(s) { return esc(s); }  // same escaping; named for intent
 window.__esc = esc;
 
-// QOZ business-type human labels (used in eligibility warnings).
-const QOZ_BUSINESS_LABELS = {
-  real_estate: 'Real Estate Development',
-  real_estate_ground_up: 'Real Estate — Ground-Up Construction',
-  operating_business: 'Operating QOZ Business',
-  renewable_energy: 'Renewable Energy in QOZ',
-  manufacturing: 'Manufacturing in QOZ',
-  tech_startup: 'Tech Startup in QOZ',
-  hospitality: 'Hotel / Hospitality in QOZ',
-  multifamily: 'Multifamily Housing in QOZ',
-  mixed_use: 'Mixed-Use Development',
-  self_storage: 'Self Storage / Warehousing',
-  other_eligible: 'Other Eligible',
-  golf:        'Private / Commercial Golf Course',
-  country_club:'Country Club',
-  massage:     'Massage Parlor',
-  hot_tub:     'Hot Tub Facility',
-  suntan:      'Suntan Facility',
-  racetrack:   'Racetrack / Gambling Facility / Casino',
-  liquor:      'Liquor Store (off-premises)',
+// QOZ business-type human labels + eligibility tiers.
+//   green  = clean fit, operational tests easy to meet
+//   yellow = eligible but the 50% gross-income / 70% tangible
+//            property tests need careful documentation
+//   orange = heavily restricted by the <5% nonqualified financial
+//            property cap; usually disqualified in practice
+//   red    = effectively disqualified via federal law conflict
+//            (cannabis), industry-standard fund mandates (adult,
+//            firearms), or fundamental structure (PE/VC funds fail
+//            active-business test)
+//   sin    = statutorily disqualified by §144(c)(6)(B)
+const QOZ_BUSINESS = {
+  // 🟢 GREEN — clean fit
+  real_estate:           { label: 'Real Estate Development',                   tier: 'green',  notes: 'Standard fit. Substantial-improvement test must be met (basis doubled in 30 mo).' },
+  real_estate_ground_up: { label: 'Real Estate — Ground-Up Construction',      tier: 'green',  notes: 'Easiest path: original-use property automatically qualifies. No 30-mo improvement test.' },
+  manufacturing:         { label: 'Manufacturing / Industrial in QOZ',          tier: 'green',  notes: 'Tangible-property heavy. Gross-income from QOZ usually clear (factory location).' },
+  multifamily:           { label: 'Multifamily Housing in QOZ',                 tier: 'green',  notes: 'Clean — rental property with substantial-improvement plan or ground-up construction.' },
+  hospitality:           { label: 'Hotel / Hospitality in QOZ (non-resort)',    tier: 'green',  notes: 'Eligible. Avoid "resort" branding to stay clear of §144(c)(6)(B) optics.' },
+  self_storage:          { label: 'Self Storage / Warehousing',                 tier: 'green',  notes: 'Tangible-property dominant; passive income concerns mitigated if owner-operated.' },
+  mixed_use:             { label: 'Mixed-Use Development',                      tier: 'green',  notes: 'Common QOF structure. Watch for retail-tenant mix that triggers sin-business issues.' },
+  renewable_energy:      { label: 'Renewable Energy in QOZ',                    tier: 'green',  notes: 'Solar/wind farms eligible if generation occurs in QOZ.' },
+  restaurant:            { label: 'Restaurant / Food Service in QOZ',           tier: 'green',  notes: 'Eligible. Liquor sales OK as ancillary; not principal business.' },
+  construction:          { label: 'Construction / Trades (QOZ projects)',       tier: 'green',  notes: 'Eligible if substantial work performed in QOZ.' },
+  agriculture:           { label: 'Agriculture / Farming in QOZ',               tier: 'green',  notes: 'Eligible. Land + equipment-heavy = easy tangible property test.' },
+
+  // 🟡 YELLOW — operational tests are tricky
+  operating_business:    { label: 'Operating QOZ Business (generic)',           tier: 'yellow', notes: 'Must satisfy 70% tangible property + 50% QOZ gross income + 40% intangibles in QOZ active conduct.' },
+  tech_startup:          { label: 'Tech / SaaS startup HQ\'d in QOZ',           tier: 'yellow', notes: '50% gross-income test is the killer. Must document services performed in QOZ (employee hours, contract location). Remote-first SaaS with national customers often fails.' },
+  professional_services: { label: 'Professional Services / Consulting in QOZ',  tier: 'yellow', notes: 'Same 50% gross-income trap as tech. National client base = fail. Locally-sourced revenue (regional law/CPA firm) = pass.' },
+  healthcare:            { label: 'Healthcare / Medical Practice in QOZ',       tier: 'yellow', notes: 'Eligible if patient base + services performed are QOZ-resident. Telehealth complicates sourcing.' },
+  retail_multi:          { label: 'Retail (multi-location)',                    tier: 'yellow', notes: 'Each location must independently satisfy QOZB tests, OR aggregate via parent QOF that meets 70% in-QOZ.' },
+  education:             { label: 'Education / Tutoring / Training',            tier: 'yellow', notes: 'Eligible if instruction delivered in QOZ. Online course companies usually fail gross-income test.' },
+  other_eligible:        { label: 'Other (advisor confirms)',                   tier: 'yellow', notes: 'Advisor must verify against §1400Z-2(d) operational tests.' },
+
+  // 🟠 ORANGE — heavily restricted
+  financial_services:    { label: 'Financial Services',                         tier: 'orange', notes: 'BAD FIT: §1400Z-2(d)(3)(A)(ii) caps nonqualified financial property at 5%. Banks, broker-dealers, insurance carriers fail. Working-capital safe harbor may help if planning a real-estate / construction project.' },
+  holding_company:       { label: 'Holding Company / Asset Management',         tier: 'orange', notes: 'BAD FIT: same 5% nonqualified financial property cap. Holding companies hold equity = financial property.' },
+  family_office:         { label: 'Family Office / MFO',                        tier: 'orange', notes: 'BAD FIT: portfolio assets are nonqualified financial property. Use a separate operating entity for QOZ-eligible work.' },
+  real_estate_passive:   { label: 'Real Estate Passive / Triple-Net Lease',     tier: 'orange', notes: 'BAD FIT: triple-net lease fails the active-conduct-of-trade-or-business test under Final Regs.' },
+
+  // 🔴 RED — effectively disqualified
+  cannabis:              { label: 'Cannabis / Marijuana',                       tier: 'red',    notes: 'DISQUALIFIED: federally illegal Schedule I controlled substance. §280E denies federal deductions; QOF cannot operate a federally illegal business. State legality is irrelevant.' },
+  adult:                 { label: 'Adult Entertainment / Strip Club',           tier: 'red',    notes: 'NOT statutorily disqualified, but virtually all institutional QOFs and lenders exclude in fund mandates. Self-funded QOF only.' },
+  pe_vc_fund:            { label: 'Private Equity / VC Fund',                   tier: 'red',    notes: 'DISQUALIFIED: holding companies for portfolio investments fail both active-business test and 5% nonqualified-financial-property cap.' },
+  hedge_fund:            { label: 'Hedge Fund',                                 tier: 'red',    notes: 'DISQUALIFIED: same as PE/VC. Trading securities is investment activity, not active conduct.' },
+  firearms:              { label: 'Firearms / Ammunition',                      tier: 'red',    notes: 'NOT statutorily disqualified, but most fund mandates exclude. Verify with proposed QOF before committing.' },
+
+  // ❌ SIN — statutorily disqualified per §144(c)(6)(B)
+  golf:         { label: 'Private / Commercial Golf Course',     tier: 'sin', notes: '§144(c)(6)(B) — statutorily disqualified.' },
+  country_club: { label: 'Country Club',                         tier: 'sin', notes: '§144(c)(6)(B) — statutorily disqualified.' },
+  massage:      { label: 'Massage Parlor',                       tier: 'sin', notes: '§144(c)(6)(B) — statutorily disqualified.' },
+  hot_tub:      { label: 'Hot Tub Facility',                     tier: 'sin', notes: '§144(c)(6)(B) — statutorily disqualified.' },
+  suntan:       { label: 'Suntan Facility',                      tier: 'sin', notes: '§144(c)(6)(B) — statutorily disqualified.' },
+  racetrack:    { label: 'Racetrack / Gambling Facility',         tier: 'sin', notes: '§144(c)(6)(B) — statutorily disqualified.' },
+  liquor:       { label: 'Liquor Store (off-premises)',           tier: 'sin', notes: '§144(c)(6)(B) — statutorily disqualified.' },
 };
+// Backward-compat alias for code that still references the old map name.
+const QOZ_BUSINESS_LABELS = Object.fromEntries(
+  Object.entries(QOZ_BUSINESS).map(([k, v]) => [k, v.label])
+);
+const QOZ_DISQUALIFIED_TYPES = ['golf','country_club','massage','hot_tub','suntan','racetrack','liquor'];
+const QOZ_RED_TIER_TYPES = ['cannabis','adult','pe_vc_fund','hedge_fund','firearms'];
+const QOZ_ORANGE_TIER_TYPES = ['financial_services','holding_company','family_office','real_estate_passive'];
 
 // Compact currency formatter ($1.5M / $750K / $250) — used by chart axis
 // labels and small KPI tiles. Honors __FX__ symbol + rate.
@@ -5025,8 +5089,13 @@ function computePlan(d) {
     // country club, massage parlor, hot tub, suntan, racetrack/gambling,
     // liquor store. Substantial-improvement also required (basis doubled
     // within 30 months) unless ground-up new construction.
-    const QOZ_DISQUALIFIED_TYPES = ['golf','country_club','massage','hot_tub','suntan','racetrack','liquor'];
-    const qozTypeDisqualified = QOZ_DISQUALIFIED_TYPES.includes(d.qoz?.businessType);
+    // Disqualification check: sin businesses (§144(c)(6)(B)), red tier
+    // (cannabis / adult / PE-VC fund / hedge / firearms), and orange
+    // tier (financial services / holding co / family office / NNN
+    // real estate) are all treated as ineligible. Yellow tier remains
+    // eligible but the UI flags the operational-test risk.
+    const qozTier = (typeof QOZ_BUSINESS !== 'undefined' && QOZ_BUSINESS[d.qoz?.businessType]?.tier) || 'green';
+    const qozTypeDisqualified = qozTier === 'sin' || qozTier === 'red' || qozTier === 'orange';
     const qozImprovementMissing = d.qoz?.improvement === 'no';
     const qozEligible = !qozTypeDisqualified && !qozImprovementMissing;
     // Cap-gain eligibility: only the CAPITAL portion of the gain qualifies
@@ -5060,6 +5129,7 @@ function computePlan(d) {
       qozCapitalGainPortion,
       qozOrdinaryPortion,
       qozMaxDeferrable,
+      qozTier,
     };
   })();
 
@@ -7029,16 +7099,46 @@ function renderSummary(p) {
     ${d.use.qoz ? `
     <div class="card sale-only" ${p.scenarios.scenAll.qozTypeDisqualified || p.scenarios.scenAll.qozImprovementMissing ? 'style="border-left: 4px solid var(--crimson);"' : ''}>
       <div class="card-title">Qualified Opportunity Zone (QOZ) Strategy</div>
-      ${p.scenarios.scenAll.qozTypeDisqualified ? `
-        <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
-          <span class="title" style="color: var(--crimson);">⛔ DISQUALIFIED — §144(c)(6)(B) Sin Business</span>
-          The selected QOF investment type (<strong>${esc(QOZ_BUSINESS_LABELS[d.qoz.businessType] || d.qoz.businessType)}</strong>) is statutorily disqualified from QOZ benefits under IRC §144(c)(6)(B), incorporated by reference into §1400Z-2(d)(3)(A)(iii). The fund cannot defer or exclude gain under §1400Z-2 if its principal business is one of the seven listed disqualified activities (private/commercial golf course, country club, massage parlor, hot tub facility, suntan facility, racetrack/gambling, or off-premises liquor store). <strong>QOZ deferral set to $0 in this plan.</strong> Pick a qualifying business type (real estate development, operating QOZB, renewable energy, manufacturing) or remove QOZ from the strategy stack.
-        </div>` : ''}
+      ${p.scenarios.scenAll.qozTypeDisqualified ? (() => {
+        const tier = p.scenarios.scenAll.qozTier;
+        const bizMeta = (typeof QOZ_BUSINESS !== 'undefined') ? QOZ_BUSINESS[d.qoz.businessType] : null;
+        const headline = tier === 'sin'    ? '⛔ DISQUALIFIED — §144(c)(6)(B) Sin Business'
+                       : tier === 'red'    ? '⛔ DISQUALIFIED — Federal Law / Industry Mandate Conflict'
+                       : tier === 'orange' ? '⛔ DISQUALIFIED — Fails 5% Nonqualified-Financial-Property Cap'
+                       : '⛔ DISQUALIFIED';
+        const explain = tier === 'sin'    ? `Statutorily disqualified under IRC §144(c)(6)(B), incorporated by reference into §1400Z-2(d)(3)(A)(iii). The seven disqualified activities are golf, country club, massage parlor, hot tub, suntan, racetrack/gambling, and off-premises liquor store.`
+                      : tier === 'red'    ? `${esc(bizMeta?.notes || '')} A QOF cannot operate this kind of business and still satisfy the §1400Z-2(d) qualification tests.`
+                      : tier === 'orange' ? `${esc(bizMeta?.notes || '')} §1400Z-2(d)(3)(A)(ii) caps nonqualified financial property (cash, debt, securities held for investment) at 5% of QOZB assets. Financial services, asset management, family offices, and triple-net real estate routinely fail this test.`
+                      : '';
+        return `
+          <div class="callout" style="background:#FFF0F0; border-left:3px solid var(--crimson); margin-bottom:14px;">
+            <span class="title" style="color: var(--crimson);">${headline}</span>
+            The selected QOF investment type (<strong>${esc(bizMeta?.label || d.qoz.businessType)}</strong>) cannot defer gain under §1400Z-2. ${explain}
+            <br><br>
+            <strong>QOZ deferral set to $0 in this plan.</strong> Pick a 🟢 green-tier eligible activity (real estate, manufacturing, multifamily, hospitality, self-storage, restaurant, construction, agriculture) or remove QOZ from the strategy stack.
+          </div>`;
+      })() : ''}
       ${(!p.scenarios.scenAll.qozTypeDisqualified && p.scenarios.scenAll.qozImprovementMissing) ? `
         <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
           <span class="title" style="color: var(--gold-dark);">⚠ Substantial Improvement Test Failed</span>
           §1400Z-2(d)(2)(D)(ii): a QOZ business that purchases existing property must <strong>substantially improve</strong> it — additions to basis must exceed the original basis (excluding land) within 30 months. Without a documented improvement plan, the property does not qualify and gain is not deferred. Either confirm an improvement plan, switch to ground-up new construction, or remove QOZ.
         </div>` : ''}
+      ${(p.scenarios.scenAll.qozTier === 'yellow' && !p.scenarios.scenAll.qozTypeDisqualified) ? (() => {
+        const bizMeta = (typeof QOZ_BUSINESS !== 'undefined') ? QOZ_BUSINESS[d.qoz.businessType] : null;
+        return `
+          <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
+            <span class="title" style="color: var(--gold-dark);">🟡 Operational Tests Need Careful Documentation</span>
+            <strong>${esc(bizMeta?.label || d.qoz.businessType)}</strong> is eligible but the QOZB tests can be tight: ${esc(bizMeta?.notes || '')}
+            <br><br>
+            <strong>Three tests the QOF must pass annually:</strong>
+            <ol style="margin: 8px 0 0 20px; line-height: 1.6;">
+              <li><strong>70% Tangible Property Test</strong> (§1400Z-2(d)(3)(A)(i)) — at least 70% of tangible property must be QOZ business property</li>
+              <li><strong>50% Gross Income Test</strong> (§1400Z-2(d)(3)(A)(ii)) — at least 50% of gross income from active conduct in the QOZ. Three safe harbors: 50% of services performed in QOZ (by hours OR compensation), or tangible property + management functions in QOZ</li>
+              <li><strong>&lt;5% Nonqualified Financial Property</strong> — cash + debt + investment securities can't exceed 5% of QOZB assets (working-capital safe harbor exempts up to 31 mo of construction working capital)</li>
+            </ol>
+            Document compliance annually; failure for two consecutive years can decertify the QOZB and accelerate gain recognition.
+          </div>`;
+      })() : ''}
       ${(p.scenarios.scenAll.qozCgEligiblePct < 1 && !p.scenarios.scenAll.qozTypeDisqualified && !p.scenarios.scenAll.qozImprovementMissing) ? `
         <div class="callout" style="background:#FFF8F0; border-left:3px solid var(--gold-dark); margin-bottom:14px;">
           <span class="title" style="color: var(--gold-dark);">⚠ Only the Capital Portion of the Gain Qualifies</span>
