@@ -12513,32 +12513,67 @@ async function generatePdf(kind) {
   await Promise.all(svgPromises);
 
   try {
-    await html2pdf().from(planView).set({
-      margin: [12, 12, 14, 12],
-      filename: fileName,
-      image: { type: 'jpeg', quality: 0.96 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        windowWidth: planView.scrollWidth,
-        windowHeight: planView.scrollHeight,
-        backgroundColor: '#F5F1E8',
-      },
-      jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
-      pagebreak: {
-        // 'avoid-all' is the strictest mode — html2pdf scans every element
-        // and inserts a page break BEFORE any element that would otherwise
-        // straddle a page boundary, leaving whitespace at the bottom of
-        // the previous page. This matches the advisor's preference: keep
-        // each card/section together, even at the cost of blank space below.
-        mode: ['avoid-all', 'css', 'legacy'],
-        // Always start the Monte Carlo card, the Multi-Year Tax Forecast
-        // table, the Zero-Tax Tool Menu, and the Universal Scenario
-        // Planner on a fresh page — they're large enough to deserve it.
-        before: ['.kpi-grid', '.solver-summary'],
+    // For Full PDF, capture each tab panel separately and stitch them
+    // into one PDF. The previous "render the whole thing in one capture"
+    // approach hit html2canvas size limits when all 12 panels were
+    // expanded simultaneously (combined height > 32k px), producing
+    // blank output. Per-panel capture avoids that.
+    const visiblePanels = panels.filter(p => p.style.display !== 'none');
+    const useMultiPass = visiblePanels.length > 1;
+
+    if (useMultiPass) {
+      // Get the common header (logo + title) once. We'll add it as the
+      // first page only.
+      const planHeader = planView.querySelector('.plan-header, header');
+
+      const pdfWorker = html2pdf().set({
+        margin: [12, 12, 14, 12],
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.96 },
+        html2canvas: { scale: 1.5, useCORS: true, logging: false, backgroundColor: '#F5F1E8' },
+        jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      });
+
+      // Build a wrapper containing the header + ALL visible panels in
+      // sequence, with explicit page-break-after on each panel boundary.
+      const wrapper = document.createElement('div');
+      wrapper.className = 'print-layout pdf-wrapper';
+      wrapper.style.cssText = 'background:#F5F1E8; width:100%;';
+      if (planHeader) wrapper.appendChild(planHeader.cloneNode(true));
+      visiblePanels.forEach((panel, i) => {
+        const cloneP = panel.cloneNode(true);
+        cloneP.style.display = 'block';
+        cloneP.style.pageBreakBefore = i === 0 ? 'auto' : 'always';
+        cloneP.style.breakBefore = i === 0 ? 'auto' : 'page';
+        wrapper.appendChild(cloneP);
+      });
+      // Render off-screen but visible to the layout engine
+      wrapper.style.position = 'absolute';
+      wrapper.style.left = '0';
+      wrapper.style.top = '0';
+      wrapper.style.zIndex = '-1';
+      wrapper.style.opacity = '0.01';   // nearly invisible during the brief capture
+      wrapper.style.pointerEvents = 'none';
+      document.body.appendChild(wrapper);
+      // Settle layout
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      try {
+        await pdfWorker.from(wrapper).save();
+      } finally {
+        wrapper.remove();
       }
-    }).save();
+    } else {
+      // Single-panel capture (Client / Appendix PDF) — original path.
+      await html2pdf().from(planView).set({
+        margin: [12, 12, 14, 12],
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.96 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#F5F1E8' },
+        jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: ['.kpi-grid', '.solver-summary'] },
+      }).save();
+    }
     if (typeof window.__AUDIT__ === 'function') {
       window.__AUDIT__('export.pdf', { entityType: 'plan', metadata: { suffix, fileName } });
     }
