@@ -22241,6 +22241,33 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     L.push(`\nSTRATEGIES ACTIVE:`);
     Object.entries(d.use).filter(([k,v]) => v).forEach(([k]) => L.push(`• ${k}`));
 
+    // ILIT per-policy detail
+    if (d.use.ilit) {
+      const ilitParts = [];
+      if (d.ilit.husband?.type && d.ilit.husband.type !== 'none')
+        ilitParts.push(`Husband ${fmt$M(d.ilit.husband.coverage)} ${d.ilit.husband.type}${d.ilit.husband.income > 0 ? ` + ${fmt$(d.ilit.husband.income)}/yr withdrawals` : ''}`);
+      if (d.ilit.wife?.type && d.ilit.wife.type !== 'none')
+        ilitParts.push(`Wife ${fmt$M(d.ilit.wife.coverage)} ${d.ilit.wife.type}${d.ilit.wife.income > 0 ? ` + ${fmt$(d.ilit.wife.income)}/yr withdrawals` : ''}`);
+      if (d.ilit.joint?.type && d.ilit.joint.type !== 'none')
+        ilitParts.push(`Joint Survivorship ${fmt$M(d.ilit.joint.coverage)} ${d.ilit.joint.type}`);
+      if ((d.ilit.splitDollar?.annualLoan || 0) > 0)
+        ilitParts.push(`+ Split-dollar ${fmt$(d.ilit.splitDollar.annualLoan)}/yr × ${d.ilit.splitDollar.years}yr at ${(d.ilit.splitDollar.rate*100).toFixed(2)}% AFR`);
+      if (ilitParts.length > 0) L.push(`ILIT detail: ${ilitParts.join(' · ')}`);
+    }
+
+    // Beneficiaries
+    const benesQA = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+    if (benesQA.length > 0) {
+      L.push(`\nBENEFICIARIES:`);
+      benesQA.forEach(b => {
+        const tags = [];
+        if (b.sharePct > 0) tags.push(`${b.sharePct.toFixed(1)}% inheritance share`);
+        if (b.college) tags.push(`college: ${b.college}`);
+        if (b.annualCost > 0) tags.push(`${fmt$(b.annualCost)}/yr × ${b.yearsOfCollege}yr`);
+        L.push(`• ${b.name} (${b.rel})${tags.length ? ' — ' + tags.join('; ') : ''}`);
+      });
+    }
+
     L.push(`\nMONTE CARLO: ${p.monteCarlo ? (p.monteCarlo.successRate*100).toFixed(0) + '%' : 'n/a'} probability of success`);
 
     if (p.goalAnalysis && p.goalAnalysis.goals.length) {
@@ -22584,7 +22611,26 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (d.use.idgt)     strats.push(`IDGT ${fmt$M(d.idgt.amount)} installment sale at ${fmtPct(d.idgt.afr*100)} AFR`);
     if (d.use.grat)     strats.push(`GRAT ${fmt$M(d.grat.transfer)} over ${d.grat.term} yrs at ${fmtPct(d.grat.hurdle*100)} §7520`);
     if (d.use.qprt)     strats.push(`QPRT ${fmt$M(d.qprt.residence)} residence over ${d.qprt.term} yrs`);
-    if (d.use.ilit)     strats.push(`ILIT ${fmt$M(d.ilit.coverage)} life insurance, ${fmt$(d.ilit.premium)}/yr premium`);
+    if (d.use.ilit) {
+      // Per-policy ILIT detail — His/Hers/Joint Survivorship + split-dollar
+      const ilitParts = [];
+      if (d.ilit.husband?.type && d.ilit.husband.type !== 'none') {
+        ilitParts.push(`Husband ${d.ilit.husband.type} ${fmt$M(d.ilit.husband.coverage)}/${fmt$(d.ilit.husband.premium)}-pr (${d.ilit.husband.term === 'life' ? 'permanent' : d.ilit.husband.term + 'yr term'})${d.ilit.husband.income > 0 ? `; ${fmt$(d.ilit.husband.income)}/yr withdrawals from ${d.ilit.husband.incomeStart || 'now'}` : ''}`);
+      }
+      if (d.ilit.wife?.type && d.ilit.wife.type !== 'none') {
+        ilitParts.push(`Wife ${d.ilit.wife.type} ${fmt$M(d.ilit.wife.coverage)}/${fmt$(d.ilit.wife.premium)}-pr (${d.ilit.wife.term === 'life' ? 'permanent' : d.ilit.wife.term + 'yr term'})${d.ilit.wife.income > 0 ? `; ${fmt$(d.ilit.wife.income)}/yr withdrawals from ${d.ilit.wife.incomeStart || 'now'}` : ''}`);
+      }
+      if (d.ilit.joint?.type && d.ilit.joint.type !== 'none') {
+        ilitParts.push(`Joint Survivorship ${d.ilit.joint.type} ${fmt$M(d.ilit.joint.coverage)}/${fmt$(d.ilit.joint.premium)}-pr (${d.ilit.joint.term === 'life' ? 'permanent' : d.ilit.joint.term + 'yr term'})${d.ilit.joint.income > 0 ? `; ${fmt$(d.ilit.joint.income)}/yr withdrawals from ${d.ilit.joint.incomeStart || 'now'}` : ''}`);
+      }
+      if ((d.ilit.splitDollar?.annualLoan || 0) > 0) {
+        ilitParts.push(`Loan-Based Split-Dollar ${fmt$(d.ilit.splitDollar.annualLoan)}/yr × ${d.ilit.splitDollar.years}yr at ${(d.ilit.splitDollar.rate * 100).toFixed(2)}% AFR (${d.ilit.splitDollar.interest})`);
+      }
+      const ilitDescription = ilitParts.length > 0
+        ? `ILIT — ${ilitParts.join(' · ')}; total DB ${fmt$M(d.ilit.coverage)}, total annual premium ${fmt$(d.ilit.premium)}`
+        : `ILIT ${fmt$M(d.ilit.coverage)} life insurance, ${fmt$(d.ilit.premium)}/yr premium (legacy aggregate — no per-policy breakdown)`;
+      strats.push(ilitDescription);
+    }
     if (d.use.crat)     strats.push(`CRAT ${fmt$M(d.crat.amount)} at ${fmtPct(d.crat.rate*100)} payout (qualified: ${p.cratQualified ? 'YES' : 'NO — failed §664(d)'})`);
     if (d.use.crut)     strats.push(`CRUT ${fmt$M(d.crut.amount)} at ${fmtPct(d.crut.rate*100)} unitrust payout`);
     if (d.use.daf)      strats.push(`DAF ${fmt$M(d.daf.amount)}`);
@@ -22619,6 +22665,84 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (d.use.serp)              strats.push(`Funded SERP ${fmt$(d.serp.contribution)}/yr × ${d.serp.years}yr at ${(d.serp.rate*100).toFixed(1)}% (${d.serp.vehicle}); ${fmt$(p.serpAnnualSaving)} annual tax saved; FV ${fmt$M(p.serpFutureValue)}`);
     if (d.use.ing)               strats.push(`ING Trust ${fmt$(d.ingTrust.income)}/yr investment income shifted to ${d.ingTrust.situs}; ${fmt$(p.ingAnnualSaving)} annual state-tax savings × ${d.ingTrust.years}yr = ${fmt$M(p.ingLifetimeSaving)}`);
     lines.push(strats.length ? strats.map(s => '• ' + s).join('\n') : '(none enabled)');
+
+    // ─── BENEFICIARIES (per-heir education + inheritance share) ───
+    const benes = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+    if (benes.length > 0) {
+      lines.push(`\n=== BENEFICIARIES ===`);
+      const REL_LABEL = {
+        spouse: 'Spouse', son: 'Son', daughter: 'Daughter',
+        'son-in-law': 'Son-in-Law', 'daughter-in-law': 'Daughter-in-Law',
+        grandson: 'Grandson', granddaughter: 'Granddaughter',
+        father: 'Father', mother: 'Mother', brother: 'Brother', sister: 'Sister',
+        nephew: 'Nephew', niece: 'Niece', partner: 'Partner', other: 'Other',
+      };
+      benes.forEach(b => {
+        const parts = [`${b.name} (${REL_LABEL[b.rel] || b.rel})`];
+        if (b.birthYear > 0) parts.push(`b. ${b.birthYear}`);
+        if (b.sharePct > 0) parts.push(`inherits ${b.sharePct.toFixed(1)}%`);
+        if (b.college) parts.push(`college: ${b.college}`);
+        if (b.collegeStartYear > 0) parts.push(`starts ${b.collegeStartYear}`);
+        if (b.annualCost > 0) parts.push(`${fmt$(b.annualCost)}/yr × ${b.yearsOfCollege}yr = ${fmt$(b.annualCost * b.yearsOfCollege)}`);
+        lines.push(`• ${parts.join('; ')}`);
+      });
+      // Education total + share total summary
+      const eduTotal = benes.reduce((s, b) => s + (b.annualCost || 0) * (b.yearsOfCollege || 4), 0);
+      const shareTotal = benes.reduce((s, b) => s + (b.sharePct || 0), 0);
+      if (eduTotal > 0) lines.push(`Total education funding liability: ${fmt$M(eduTotal)} nominal`);
+      if (shareTotal > 0) lines.push(`Total inheritance shares allocated: ${shareTotal.toFixed(1)}%${Math.abs(shareTotal-100) > 0.01 ? ' (NOT fully allocated — residuary clause picks up the difference)' : ' (fully allocated to heirs)'}`);
+    }
+
+    // ─── BALANCE SHEET ALLOCATION (asset class + sector breakdown) ───
+    if (d.balanceSheet && typeof d.balanceSheet === 'object') {
+      const bs = d.balanceSheet;
+      const sectionTotal = (sec) => {
+        const arr = bs[sec];
+        if (!Array.isArray(arr)) return 0;
+        return arr.reduce((s, r) => s + (r.value || 0), 0);
+      };
+      const assets = sectionTotal('cash') + sectionTotal('brokerage') + sectionTotal('retirement')
+                   + sectionTotal('real-estate') + sectionTotal('business')
+                   + sectionTotal('personal-property') + sectionTotal('other-assets');
+      if (assets > 0) {
+        lines.push(`\n=== BALANCE SHEET DETAIL ===`);
+        lines.push(`Cash & equivalents: ${fmt$M(sectionTotal('cash'))}`);
+        lines.push(`Taxable brokerage: ${fmt$M(sectionTotal('brokerage'))}`);
+        lines.push(`Retirement accounts: ${fmt$M(sectionTotal('retirement'))}`);
+        lines.push(`Real estate: ${fmt$M(sectionTotal('real-estate'))}`);
+        lines.push(`Business interests: ${fmt$M(sectionTotal('business'))}`);
+        lines.push(`Personal property: ${fmt$M(sectionTotal('personal-property'))}`);
+        lines.push(`Other assets: ${fmt$M(sectionTotal('other-assets'))}`);
+        // Asset-class allocation rollup (investment sections only)
+        const byClass = {};
+        let investableTotal = 0;
+        ['brokerage','retirement','other-assets'].forEach(sec => {
+          const arr = bs[sec];
+          if (!Array.isArray(arr)) return;
+          arr.forEach(item => {
+            const v = item.value || 0;
+            if (v <= 0) return;
+            const cls = item.assetClass || '(unclassified)';
+            byClass[cls] = (byClass[cls] || 0) + v;
+            investableTotal += v;
+          });
+        });
+        if (investableTotal > 0) {
+          lines.push(`Asset allocation (investable ${fmt$M(investableTotal)}):`);
+          Object.entries(byClass).sort((a,b) => b[1] - a[1]).forEach(([cls, v]) => {
+            lines.push(`  • ${cls}: ${fmt$M(v)} (${(v/investableTotal*100).toFixed(1)}%)`);
+          });
+        }
+      }
+    }
+
+    // ─── ILIT WITHDRAWAL INCOME (separate section for clarity) ───
+    if (d.use.ilit && (p.ilitWithdrawalIncomeEventual || 0) > 0) {
+      lines.push(`\n=== ILIT INCOME PROJECTION ===`);
+      lines.push(`Currently producing: ${fmt$(p.ilitWithdrawalIncomeCurrent || 0)}/yr (already started)`);
+      lines.push(`At full capacity: ${fmt$(p.ilitWithdrawalIncomeEventual || 0)}/yr (when all policies online)`);
+      lines.push(`Tax treatment: §72(e) basis-first withdrawals, then §7702 non-MEC policy loans — tax-free until basis recovered or policy lapses`);
+    }
 
     lines.push(`\n=== HEADLINE SAVINGS ===`);
     lines.push(`Total immediate tax savings: ${fmt$M(p.totalImmediate)}`);
