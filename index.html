@@ -11129,6 +11129,7 @@ function renderClientPortrait(p) {
 function renderPlanHealthPanel(p) {
   const d = p.input;
   const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
   const issues = [];
   const today = new Date().getFullYear();
 
@@ -11278,6 +11279,93 @@ function renderPlanHealthPanel(p) {
         fix: 'Section 2 → Personal Balance Sheet → Brokerage rows → set asset-class dropdown',
       });
     }
+  }
+
+  // ─── TAX-STACK COHERENCE ──────────────────────────────────────
+  // marginal income rate should be ≥ federal + state + medicare. If less,
+  // the advisor's marginal rate is internally inconsistent — refunds /
+  // negative income tax aside, this usually means a typo in one field.
+  const taxStackSum = (d.tax.fed || 0) + (d.tax.state || 0) + (d.tax.medicare || 0);
+  if ((d.tax.marginal || 0) > 0 && (d.tax.marginal || 0) < taxStackSum - 0.005) {
+    issues.push({
+      level: 'warn',
+      title: 'Marginal income rate < (federal + state + medicare CG rates)',
+      detail: `Marginal income tax = ${(d.tax.marginal*100).toFixed(1)}% but federal CG ${(d.tax.fed*100).toFixed(1)}% + state ${(d.tax.state*100).toFixed(1)}% + medicare ${(d.tax.medicare*100).toFixed(1)}% = ${(taxStackSum*100).toFixed(1)}%. Ordinary income usually exceeds long-term cap-gain rates, so marginal should typically be higher than the CG stack. Confirm fields aren't swapped.`,
+      fix: 'Section 4 → Tax Assumptions → review Marginal Income Rate vs. CG components',
+    });
+  }
+
+  // ─── PLAN YEAR SANITY ─────────────────────────────────────────
+  if (d.client.year > 0 && d.client.year < today) {
+    issues.push({
+      level: 'info',
+      title: `Plan year is in the past (${d.client.year})`,
+      detail: `Plan dated ${d.client.year}, current calendar year ${today}. Tax exemption amounts, AFR / §7520 rates, and inflation projections all use the plan year as anchor — confirm intentional vs. forgotten roll-forward.`,
+      fix: 'Section 1 → Plan Year (or use Cloud Plans → "Clone → Next Year")',
+    });
+  }
+  if (d.client.year > today + 2) {
+    issues.push({
+      level: 'warn',
+      title: `Plan year is far in the future (${d.client.year})`,
+      detail: `Plan dated ${d.client.year} (${d.client.year - today} years out). Future-dated plans are valid for forecasting but tax-rate / exemption assumptions may not match published figures for that year.`,
+      fix: 'Section 1 → Plan Year — confirm intent',
+    });
+  }
+
+  // ─── ILIT PREMIUM-TO-DB RATIO SANITY ──────────────────────────
+  // Annual premium > 10% of DB is unusual — typically term is ~0.5-1% and
+  // limited-pay whole/UL is ~3-7% of face. Flag obvious typos.
+  if (d.use.ilit && d.ilit.coverage > 0 && d.ilit.premium > 0) {
+    const premToDB = d.ilit.premium / d.ilit.coverage;
+    if (premToDB > 0.10) {
+      issues.push({
+        level: 'warn',
+        title: `ILIT premium-to-DB ratio looks high (${(premToDB*100).toFixed(1)}%)`,
+        detail: `Annual premium ${fmt$(d.ilit.premium)} on ${fmt$(d.ilit.coverage)} face. Term policies usually run 0.3-1% of face; limited-pay permanent runs 3-7%; pay-to-life runs 1.5-3%. ${premToDB > 0.20 ? '20%+ is almost certainly a data-entry error — confirm the per-policy premium amounts.' : 'Confirm: is the premium for the FULL policy or a single year? Limited-pay schedules amortize the premium over fewer years (5-pay / 7-pay) so per-year premium is higher.'}`,
+        fix: 'Section 3 → ILIT block → expand each policy → review Annual Premium',
+      });
+    }
+  }
+
+  // ─── CONCENTRATED POSITION > PRE-SALE NW ──────────────────────
+  if (d.client.concentratedValue > 0 && d.client.preSaleNW > 0
+      && d.client.concentratedValue > d.client.preSaleNW) {
+    issues.push({
+      level: 'error',
+      title: 'Concentrated position exceeds total net worth',
+      detail: `Concentrated stock ${fmt$(d.client.concentratedValue)} > pre-sale net worth ${fmt$(d.client.preSaleNW)}. The position can't be larger than the entire household NW — one of the two values is likely a typo.`,
+      fix: 'Section 1 → review Pre-Sale Net Worth or Section 3 → Concentrated Stock Position',
+    });
+  }
+
+  // ─── BUSINESS BASIS > SALE PRICE ──────────────────────────────
+  if (d.biz.sale > 0 && d.biz.basis > 0 && d.biz.basis > d.biz.sale) {
+    issues.push({
+      level: 'warn',
+      title: 'Business basis exceeds sale price (loss on sale)',
+      detail: `Cost basis ${fmt$(d.biz.basis)} > sale price ${fmt$(d.biz.sale)}. This is a loss sale — capital-gains strategies (QSBS, QOZ, CRT) don't apply since there's no gain. Confirm basis figure (often understated when adjusted/contributed-capital basis applies).`,
+      fix: 'Section 2 → Business Sale → review Cost Basis',
+    });
+  }
+
+  // ─── DYNASTY/SLAT/IDGT EXEMPTION OVER-USE ─────────────────────
+  // Combined exemption used across estate strategies > federal exemption ×
+  // (2 if portability, else 1). Over-use means future gifts will be
+  // taxable at 40% marginal — flag for plan adjustment.
+  const fedExemptCap = (d.tax.estateExempt || 0) * (d.tax.portability ? 2 : 1);
+  const exemptionUsed = (d.use.dynasty ? d.dynasty.exemption || d.dynasty.funding || 0 : 0)
+                      + (d.use.slat    ? d.slat.funding    || 0 : 0)
+                      + (d.use.idgt    ? (d.idgt.amount || 0) * 0.10 : 0)  // ~10% seed gift on IDGT
+                      + (d.use.qprt    ? d.qprt.residence * 0.30 || 0 : 0)  // ~30% taxable gift on QPRT
+                      + (d.use.grat    ? 0 : 0);  // GRAT zeroed-out — no exemption used
+  if (fedExemptCap > 0 && exemptionUsed > fedExemptCap * 1.05) {
+    issues.push({
+      level: 'warn',
+      title: `Combined estate-strategy gifts exceed federal exemption (${fmt$M(exemptionUsed)} vs. ${fmt$M(fedExemptCap)})`,
+      detail: `Dynasty + SLAT + IDGT seed + QPRT discounted-gift estimate sums to ${fmt$M(exemptionUsed)}, exceeding the ${d.tax.portability ? 'portability-doubled ' : ''}federal exemption of ${fmt$M(fedExemptCap)}. Excess is taxable at 40% federal gift-tax marginal — confirm this is intentional (e.g., paying gift tax now to leverage rate vs. future estate tax).`,
+      fix: 'Section 3 → review Dynasty / SLAT / IDGT / QPRT funding amounts',
+    });
   }
 
   // ─── RENDER ────────────────────────────────────────────────────
