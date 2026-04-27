@@ -7284,6 +7284,28 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
     // Update the running total of inheritance share % so advisor can see
     // whether shares add to 100% (or whatever target).
     updateShareTotalDisplay();
+    // Auto-sync the edu-beneficiaries count to the number of college-eligible
+    // children/grandchildren entered. Advisor can still manually override.
+    syncEduBeneficiaryCount();
+  }
+
+  function syncEduBeneficiaryCount() {
+    const eduCountEl = document.getElementById('edu-beneficiaries');
+    if (!eduCountEl) return;
+    const COLLEGE_RELS = ['son','daughter','grandson','granddaughter'];
+    let kidCount = 0;
+    familyRowsEl.querySelectorAll('.list-editor-row').forEach(row => {
+      const rel = row.querySelector('[data-f="rel"]')?.value;
+      if (COLLEGE_RELS.includes(rel)) kidCount++;
+    });
+    // Sync up only — bump count to match # college-eligible kids in the
+    // list, but don't overwrite a manual count that's already higher
+    // (advisor may be planning for future children not yet in list).
+    const current = parseInt(eduCountEl.value, 10) || 0;
+    if (current < kidCount) {
+      eduCountEl.value = kidCount;
+      eduCountEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 
   function updateShareTotalDisplay() {
@@ -18073,10 +18095,20 @@ function renderRiskManagement(p) {
    ============================================================ */
 function renderEducationFunding(p) {
   const d = p.input;
-  const nBen = d.client.eduBeneficiaries || 0;
-  if (nBen <= 0) return '';
   const fmt$ = formatMoney;
   const fmt$M = formatMoneyShort;
+  // Prefer the per-beneficiary list (Family & Beneficiaries editor) when
+  // present — it carries actual university, start year, annual cost, years.
+  // Fall back to the simple eduBeneficiaries count + generic averages.
+  const benes = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+  const collegeBenes = benes.filter(b =>
+    ['son','daughter','grandson','granddaughter'].includes(b.rel)
+  );
+  const collegeBenesWithCost = collegeBenes.filter(b => b.annualCost > 0);
+  // Beneficiary count: prefer college-eligible kids from the list, else the manual field
+  const nBen = collegeBenes.length > 0 ? collegeBenes.length : (d.client.eduBeneficiaries || 0);
+  if (nBen <= 0) return '';
+  const usePerBeneData = collegeBenesWithCost.length > 0;
 
   // 2025 annual gift exclusion: $19,000 per donee per donor
   // 5-year superfunding: $19k × 5 = $95,000 per donee per donor
@@ -18153,8 +18185,50 @@ function renderEducationFunding(p) {
         <div class="kpi success"><div class="label">Projected at Age 18</div><div class="value">${fmt$M(superfundedFV)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">@${(growthRate*100).toFixed(1)}% growth × ${yearsToCollege} yrs</div></div>
       </div>
 
+      ${usePerBeneData ? (() => {
+        // Per-beneficiary actuals — sum total nominal + present value
+        const thisYear = new Date().getFullYear();
+        const rows = collegeBenesWithCost.map(b => {
+          const totalCost = b.annualCost * b.yearsOfCollege;
+          let pv = 0;
+          if (b.collegeStartYear >= thisYear) {
+            for (let i = 0; i < b.yearsOfCollege; i++) {
+              const t = (b.collegeStartYear - thisYear) + i;
+              pv += b.annualCost / Math.pow(1.05, t);
+            }
+          } else {
+            pv = totalCost;
+          }
+          return { b, totalCost, pv };
+        });
+        const totalNom = rows.reduce((s, r) => s + r.totalCost, 0);
+        const totalPV  = rows.reduce((s, r) => s + r.pv, 0);
+        return `
+        <div style="margin-top: 20px; padding: 18px; background: var(--cream-light); border-radius: 4px;">
+          <div style="font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 10px;">Per-Beneficiary College Costs (advisor-entered)</div>
+          <div style="font-size: 11px; color: var(--muted); margin-bottom: 10px; line-height: 1.5;">
+            Specific costs per heir as configured in <strong>Family &amp; Beneficiaries</strong>. Generic 4-year public/private projections shown below for reference.
+          </div>
+          <table class="plan-table" style="font-size: 12px;">
+            <thead><tr><th>Beneficiary</th><th>University</th><th class="num">Start Year</th><th class="num">Years</th><th class="num">Annual Cost</th><th class="num">Total Nominal</th><th class="num">PV (today's $)</th></tr></thead>
+            <tbody>
+              ${rows.map(r => `<tr><td><strong>${r.b.name}</strong></td><td>${r.b.college || '<span style="color: var(--muted); font-style: italic;">TBD</span>'}</td><td class="num">${r.b.collegeStartYear || '—'}</td><td class="num">${r.b.yearsOfCollege}</td><td class="num">${fmt$(r.b.annualCost)}</td><td class="num">${fmt$(r.totalCost)}</td><td class="num">${fmt$(r.pv)}</td></tr>`).join('')}
+              <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+                <td colspan="5" style="font-weight: 700;">Total Liability</td>
+                <td class="num" style="font-weight: 700;">${fmt$M(totalNom)}</td>
+                <td class="num" style="font-weight: 700;">${fmt$M(totalPV)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top: 10px; font-size: 11px; color: var(--ink); line-height: 1.5;">
+            <strong style="color: var(--gold-dark);">Funding gap analysis:</strong>
+            Total present value of <strong>${fmt$M(totalPV)}</strong> compared with planned 5-year superfunding of <strong>${fmt$(totalSuperfunded)}</strong>${totalSuperfunded >= totalPV ? ` — superfunding alone covers <strong style="color: var(--success);">${((totalSuperfunded / Math.max(1, totalPV)) * 100).toFixed(0)}%</strong> of the cost (excellent).` : ` — superfunding covers ${((totalSuperfunded / Math.max(1, totalPV)) * 100).toFixed(0)}%; bridge the gap with §2503(e) direct tuition payments (unlimited, paid directly to institution) or annual gift-exclusion stacking from grandparents.`}
+          </div>
+        </div>`;
+      })() : ''}
+
       <div style="margin-top: 20px; padding: 18px; background: var(--cream-light); border-radius: 4px;">
-        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 10px;">Projected 4-Year College Costs (at start year)</div>
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 10px;">${usePerBeneData ? 'Reference: Generic 4-Year Costs (compare to advisor-entered above)' : 'Projected 4-Year College Costs (at start year)'}</div>
         <table class="plan-table" style="font-size: 12px;">
           <thead><tr><th>School Type</th><th class="num">Per Year</th><th class="num">4-Year Total</th><th class="num">Per Beneficiary</th><th class="num">All ${nBen} Beneficiaries</th></tr></thead>
           <tbody>
