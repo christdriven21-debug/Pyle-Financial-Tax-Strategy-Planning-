@@ -11031,6 +11031,8 @@ function renderClientPortrait(p) {
       </div>
     </div>` : ''}
 
+    ${renderPlanHealthPanel(p)}
+
     <!-- Expand to full details + (team-only) polish button -->
     <div class="portrait-full-details">
       <p>Want to see every calculation, every strategy, every IRS citation?<br>The tabs above hold your complete supporting plan.</p>
@@ -11039,6 +11041,219 @@ function renderClientPortrait(p) {
         <p style="font-size: 12px; color: var(--muted);">Advisor tool: refine the narrative with AI polish (requires ANTHROPIC_API_KEY environment variable on Vercel).</p>
         <button class="btn-expand" style="background: var(--gold-dark);" onclick="window.__POLISH_NARRATIVE__ && window.__POLISH_NARRATIVE__()">✨ Polish Narrative with AI</button>
         <div id="polish-status" style="margin-top: 10px; font-size: 11px; color: var(--muted); font-style: italic;"></div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   PLAN HEALTH PANEL — surfaces data-completeness and consistency
+   warnings on the Portrait tab. Catches the subtle data-entry
+   mismatches advisors miss: spouse age = 0 when spouse name set,
+   retirement year before today, beneficiary % shares not summing
+   to 100, ILIT toggled on with no policies, concentrated position
+   without mitigation strategy, etc.
+
+   Hidden in client view (advisor tool only). Renders nothing when
+   there are zero issues — meaning a clean plan looks clean.
+   ============================================================ */
+function renderPlanHealthPanel(p) {
+  const d = p.input;
+  const fmt$ = formatMoney;
+  const issues = [];
+  const today = new Date().getFullYear();
+
+  // ─── DATA COMPLETENESS ────────────────────────────────────────
+  if (d.client.spouse && (d.client.spouseAge || 0) === 0) {
+    issues.push({
+      level: 'warn',
+      title: 'Spouse age missing',
+      detail: `${d.client.spouse} is named in Client Information but spouse age is 0. Joint life expectancy, spousal SS optimization, joint-survivorship insurance, and SLAT compute all need a non-zero spouse age.`,
+      fix: 'Section 1 → Spouse Age',
+    });
+  }
+
+  // Retirement year sanity
+  const pry = d.client.primaryRetireYear || 0;
+  if (pry > 0 && pry < today) {
+    issues.push({
+      level: 'info',
+      title: `${d.client.primary || 'Primary'} retirement year is in the past`,
+      detail: `Set to ${pry} (${today - pry} years ago). If already retired, this is fine — note it for SS-claiming and RMD-timing calcs.`,
+      fix: 'Section 1 → Year Husband Retiring',
+    });
+  }
+  const sry = d.client.spouseRetireYear || 0;
+  if (sry > 0 && sry < today) {
+    issues.push({
+      level: 'info',
+      title: `${d.client.spouse || 'Spouse'} retirement year is in the past`,
+      detail: `Set to ${sry} (${today - sry} years ago). Confirm intentional vs. data error.`,
+      fix: 'Section 1 → Year Wife Retiring',
+    });
+  }
+
+  // ─── BENEFICIARY SHARE CONSISTENCY ────────────────────────────
+  const benes = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+  const isHeir = (rel) => ['spouse','son','daughter','grandson','granddaughter',
+                            'son-in-law','daughter-in-law','partner'].includes(rel);
+  const heirRows = benes.filter(b => isHeir(b.rel) && b.sharePct > 0);
+  const totalShare = heirRows.reduce((s, r) => s + r.sharePct, 0);
+  if (heirRows.length > 0 && Math.abs(totalShare - 100) > 0.01) {
+    issues.push({
+      level: 'warn',
+      title: `Inheritance shares ${totalShare > 100 ? 'over' : 'under'}-allocated (${totalShare.toFixed(1)}%)`,
+      detail: totalShare > 100
+        ? `Heirs' % shares total ${totalShare.toFixed(1)}% — exceeds 100%. The will / trust cannot distribute more than the estate. Adjust shares so they sum to 100%.`
+        : `Heirs' % shares total ${totalShare.toFixed(1)}% — leaves ${(100-totalShare).toFixed(1)}% to fall to the residuary clause. Confirm intentional.`,
+      fix: 'Section 2 → Family & Beneficiaries → expand each heir → adjust % share',
+    });
+  }
+
+  // ─── ILIT CONFIGURATION ───────────────────────────────────────
+  if (d.use.ilit && (d.ilit.coverage || 0) === 0) {
+    issues.push({
+      level: 'error',
+      title: 'ILIT toggled ON but no death benefit configured',
+      detail: 'The ILIT strategy is enabled in the Builder but no policy (Husband / Wife / Joint) has a non-zero death benefit. The ILIT compute will produce zero estate-tax savings.',
+      fix: 'Section 3 → ILIT block → expand at least one policy panel and set Type + Death Benefit',
+    });
+  }
+
+  // ─── ILIT INCOME TIMING ───────────────────────────────────────
+  // If husband/wife policies have income but incomeStart is in the future,
+  // and the plan year is the start year, flag that the income won't show
+  // in current annualIncome — but show under "At Full Capacity"
+  if (d.use.ilit) {
+    const policies = [
+      { who: 'Husband', pol: d.ilit.husband },
+      { who: 'Wife',    pol: d.ilit.wife },
+      { who: 'Joint',   pol: d.ilit.joint },
+    ];
+    const pendingIncome = policies.filter(p =>
+      p.pol && p.pol.income > 0 && p.pol.incomeStart > today);
+    if (pendingIncome.length > 0) {
+      issues.push({
+        level: 'info',
+        title: `${pendingIncome.length} ILIT polic${pendingIncome.length === 1 ? 'y has' : 'ies have'} pending income (not yet started)`,
+        detail: pendingIncome.map(p => `${p.who}: ${fmt$(p.pol.income)}/yr starting ${p.pol.incomeStart}`).join(' · ') + '. Headline "Annual Income" reflects today; check Retirement Plan tab for full-capacity view.',
+        fix: 'Informational — confirm incomeStart years are correct',
+      });
+    }
+  }
+
+  // ─── CONCENTRATED POSITION WITHOUT MITIGATION ─────────────────
+  const concVal = d.client.concentratedValue || 0;
+  if (concVal > 0) {
+    const hasMitigation = d.use.collar || d.use.pvf || d.use.exchfund || d.use.daf || d.use.crat || d.use.crut;
+    if (!hasMitigation) {
+      issues.push({
+        level: 'warn',
+        title: 'Concentrated position without mitigation strategy',
+        detail: `${fmt$(concVal)} concentrated stock position entered, but no diversification / hedging strategy enabled. Consider Exchange Fund pooling, costless collar, prepaid variable forward, gradual diversification with tax-loss harvesting, or charitable contribution of appreciated shares.`,
+        fix: 'Section 3 → Concentrated Stock toolkit → enable Collar / PVF / Exchange Fund / DAF',
+      });
+    }
+  }
+
+  // ─── DATA OVERLAP — SIMPLE vs. DETAILED ───────────────────────
+  // If the BS has detailed retirement entries AND the simple retirement
+  // fields are also non-zero AND don't match, the user has entered both.
+  // The auto-classifier in recomputeAll handles this when it fires —
+  // but let's surface it if there's a mismatch.
+  if (d.balanceSheet && Array.isArray(d.balanceSheet.retirement) && d.balanceSheet.retirement.length > 0) {
+    const bsRetirementTotal = d.balanceSheet.retirement.reduce((s, r) => s + (r.value || 0), 0);
+    const simpleRetirementTotal = (d.retirement?.tradIRA || 0) + (d.retirement?.k401 || 0)
+                                + (d.retirement?.rothIRA || 0) + (d.retirement?.hsa || 0);
+    if (bsRetirementTotal > 0 && simpleRetirementTotal > 0
+        && Math.abs(bsRetirementTotal - simpleRetirementTotal) / Math.max(bsRetirementTotal, simpleRetirementTotal) > 0.05) {
+      issues.push({
+        level: 'warn',
+        title: 'Retirement totals mismatch — BS detail vs. simple fields',
+        detail: `Personal Balance Sheet retirement section sums to ${fmt$(bsRetirementTotal)}, but simple fields (Trad IRA + 401k + Roth + HSA) total ${fmt$(simpleRetirementTotal)}. The auto-classifier will sync these on next BS edit, but right now they disagree by ${fmt$(Math.abs(bsRetirementTotal - simpleRetirementTotal))}.`,
+        fix: 'Re-edit any BS retirement row to trigger auto-sync, OR clear simple fields to use BS totals',
+      });
+    }
+  }
+
+  // ─── EDUCATION FUNDING WITHOUT COLLEGE-AGE BENES ──────────────
+  if ((d.client.eduBeneficiaries || 0) > 0 && benes.filter(b =>
+    ['son','daughter','grandson','granddaughter'].includes(b.rel)).length === 0) {
+    issues.push({
+      level: 'info',
+      title: 'Education-funding count set but no college-age beneficiaries listed',
+      detail: `Education Beneficiaries count = ${d.client.eduBeneficiaries}, but no son/daughter/grandson/granddaughter rows in Family & Beneficiaries. Add the actual beneficiaries to get per-heir university + cost projections in the plan.`,
+      fix: 'Section 2 → Family & Beneficiaries → + Add Family Member',
+    });
+  }
+
+  // ─── BUSINESS SALE WITHOUT QSBS / QOZ FOR ELIGIBLE GAIN ───────
+  if (d.biz.sale > 0 && d.deal.cgEligiblePct > 0.5
+      && !d.use.qsbs && !d.use.qoz && !d.use.crat && !d.use.crut && !d.use.dynasty) {
+    issues.push({
+      level: 'warn',
+      title: 'Business sale with no eligible-gain mitigation',
+      detail: `${fmt$(d.biz.sale)} sale with ${(d.deal.cgEligiblePct*100).toFixed(0)}% capital-gain-eligible gain, but no QSBS / QOZ / CRAT / CRUT / Dynasty / §1031 exchange enabled. Capital gains tax exposure is unmitigated.`,
+      fix: 'Section 3 → enable QSBS § 1202 (if eligible), QOZ deferral, or charitable remainder trust',
+    });
+  }
+
+  // ─── BALANCE SHEET ALLOCATION INCOMPLETE ──────────────────────
+  if (d.balanceSheet && Array.isArray(d.balanceSheet.brokerage) && d.balanceSheet.brokerage.length > 0) {
+    const unclassified = d.balanceSheet.brokerage.filter(r => r.value > 0 && !r.assetClass).length;
+    if (unclassified > 0) {
+      issues.push({
+        level: 'info',
+        title: `${unclassified} brokerage row${unclassified > 1 ? 's' : ''} missing asset class`,
+        detail: 'Allocation breakdown card uses asset class + sector tags. Untagged rows fall into "Unclassified". Tag them for sharper concentration / sector / wrapper analysis.',
+        fix: 'Section 2 → Personal Balance Sheet → Brokerage rows → set asset-class dropdown',
+      });
+    }
+  }
+
+  // ─── RENDER ────────────────────────────────────────────────────
+  if (issues.length === 0) {
+    return `
+    <div class="card team-only" style="border-left: 4px solid var(--success); margin-top: 24px;">
+      <div class="card-title">✓ Plan Health — All Checks Passed</div>
+      <div class="card-sub">No data-completeness or consistency warnings. Plan inputs look clean.</div>
+    </div>`;
+  }
+
+  const LEVEL = {
+    error: { color: 'var(--crimson)', bg: '#FFF0F0', icon: '🚨', label: 'Error' },
+    warn:  { color: 'var(--gold-dark)', bg: '#FFF8F0', icon: '⚠️', label: 'Warning' },
+    info:  { color: 'var(--ink-soft)', bg: 'var(--cream-light)', icon: 'ℹ️', label: 'Info' },
+  };
+  const errorCount = issues.filter(i => i.level === 'error').length;
+  const warnCount  = issues.filter(i => i.level === 'warn').length;
+  const infoCount  = issues.filter(i => i.level === 'info').length;
+  const headline = errorCount > 0 ? `${errorCount} error${errorCount > 1 ? 's' : ''}, ${warnCount} warning${warnCount !== 1 ? 's' : ''}, ${infoCount} info`
+                : warnCount > 0 ? `${warnCount} warning${warnCount > 1 ? 's' : ''}, ${infoCount} info`
+                : `${infoCount} informational note${infoCount > 1 ? 's' : ''}`;
+  const headColor = errorCount > 0 ? 'var(--crimson)' : warnCount > 0 ? 'var(--gold-dark)' : 'var(--ink-soft)';
+
+  return `
+    <div class="card team-only" style="border-left: 4px solid ${headColor}; margin-top: 24px;">
+      <div class="card-title">⚕️ Plan Health — ${headline}</div>
+      <div class="card-sub">Advisor-only data-completeness and consistency checks (hidden in client view). Address errors before client meeting; warnings are advisory.</div>
+      <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;">
+        ${issues.map(i => `
+          <div style="padding: 12px 14px; background: ${LEVEL[i.level].bg}; border-left: 3px solid ${LEVEL[i.level].color}; border-radius: 3px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+              <div style="font-weight: 700; color: ${LEVEL[i.level].color}; font-size: 13px;">
+                ${LEVEL[i.level].icon} ${i.title}
+              </div>
+              <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: ${LEVEL[i.level].color}; opacity: 0.8;">
+                ${LEVEL[i.level].label}
+              </div>
+            </div>
+            <div style="margin-top: 6px; font-size: 12px; color: var(--ink); line-height: 1.5;">${i.detail}</div>
+            <div style="margin-top: 6px; font-size: 11px; color: var(--muted); font-style: italic;">
+              <strong style="font-style: normal; color: ${LEVEL[i.level].color};">→ Fix:</strong> ${i.fix}
+            </div>
+          </div>
+        `).join('')}
       </div>
     </div>
   `;
