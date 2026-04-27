@@ -19204,11 +19204,15 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (!modal || !result) {
       const msg = 'Internal error: extraction modal not found in page (taxdoc-modal=' + !!modal + ', taxdoc-result=' + !!result + ')';
       console.error('[ImportPDF]', msg);
-      alert(msg);
-      return;
+      throw new Error(msg);
     }
     modal.classList.remove('hidden');
-    console.log('[ImportPDF] modal opened');
+    // Verify the modal is actually visible — some CSS rule might force-hide it
+    const isVisible = modal.offsetParent !== null;
+    console.log('[ImportPDF] modal opened, visible =', isVisible);
+    if (!isVisible) {
+      throw new Error('Modal opened but is not visible on screen. CSS issue or display:none from another stylesheet.');
+    }
     result.innerHTML = `
       <div class="solver-progress">
         Uploading <strong>${esc(file.name)}</strong> (${(file.size/1024).toFixed(0)}KB) and asking Claude to read it…
@@ -19496,26 +19500,30 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
         try { input.click(); }
         catch (e) { console.error('[ImportPDF] file-picker open failed:', e); alert('Could not open file picker: ' + e.message); }
       });
-      input.addEventListener('change', (ev) => {
+      input.addEventListener('change', async (ev) => {
         console.log('[ImportPDF] file-input change fired for', inputId);
         const file = ev.target.files && ev.target.files[0];
         if (!file) {
-          console.warn('[ImportPDF] no file in change event');
+          alert('No file was selected. Try again — pick a PDF from your Mac.');
           return;
         }
         console.log('[ImportPDF] selected file:', { name: file.name, size: file.size, type: file.type });
         if (file.size > 10 * 1024 * 1024) {
-          alert('File is over 10MB. Compress with Preview > Export, or split multi-year docs.');
+          alert('File is over 10MB (' + (file.size/1024/1024).toFixed(1) + 'MB). Compress with Preview > Export, or split multi-year docs.');
           return;
         }
         // Visible status (above the form) so the advisor sees something even if
         // the modal fails to open
         if (typeof setStatus === 'function') setStatus(`📑 Reading "${file.name}" via Claude vision…`);
+        // Async error handling: extractTaxDoc returns a Promise. Sync try/catch
+        // can't catch async rejections — must use .catch() or await + try.
         try {
-          extractTaxDoc(file, docType);
+          await extractTaxDoc(file, docType);
         } catch (e) {
           console.error('[ImportPDF] extractTaxDoc threw:', e);
-          alert('PDF import failed: ' + e.message + '\n\nOpen DevTools console for details.');
+          // BIG visible alert so the advisor knows what went wrong without DevTools
+          alert('PDF IMPORT FAILED\n\n' + (e.message || 'Unknown error') + '\n\n' +
+                'If you don\'t see what went wrong, copy this whole alert and send it to support.');
           if (typeof setStatus === 'function') setStatus('PDF import failed: ' + e.message, 'err');
         }
         ev.target.value = ''; // allow re-uploading same file
