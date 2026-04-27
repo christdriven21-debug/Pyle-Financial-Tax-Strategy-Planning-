@@ -10204,11 +10204,29 @@ function computePlan(d) {
   const investmentIncome = withPlanningProceeds * 0.06; // Assume 6% yield on proceeds
   // ILIT projected withdrawal income — §72(e) basis-first / §7702 policy loans
   // on permanent policies (whole life, IUL, VUL) tagged with non-zero income
-  // amount in the per-policy editor. Sum across husband / wife / joint.
-  const ilitWithdrawalIncome = d.use.ilit
-    ? ((d.ilit.husband?.income || 0) + (d.ilit.wife?.income || 0) + (d.ilit.joint?.income || 0))
-    : 0;
-  const annualIncome = cratIncome + investmentIncome + (d.biz.income * 0.1) + ilitWithdrawalIncome; // + 10% from retained
+  // amount in the per-policy editor.
+  //
+  // Two views:
+  //   currentYearActive — only policies whose incomeStart year is at or
+  //     before the plan year (i.e., already producing income today). Used
+  //     for the headline "Annual Income" KPI.
+  //   eventualFullCapacity — all policies summed regardless of start, i.e.,
+  //     the income once every policy is online. Used in the retirement
+  //     stack to show capacity once the last policy starts producing.
+  const planYear = d.client.year || new Date().getFullYear();
+  const ilitPolicyIncomes = d.use.ilit ? [
+    { who: 'husband', income: d.ilit.husband?.income || 0, start: d.ilit.husband?.incomeStart || 0 },
+    { who: 'wife',    income: d.ilit.wife?.income    || 0, start: d.ilit.wife?.incomeStart    || 0 },
+    { who: 'joint',   income: d.ilit.joint?.income   || 0, start: d.ilit.joint?.incomeStart   || 0 },
+  ].filter(p => p.income > 0) : [];
+  const ilitWithdrawalIncomeCurrent = ilitPolicyIncomes
+    .filter(p => p.start === 0 || p.start <= planYear)  // start=0 means "started already"
+    .reduce((s, p) => s + p.income, 0);
+  const ilitWithdrawalIncomeEventual = ilitPolicyIncomes
+    .reduce((s, p) => s + p.income, 0);
+  // Backward-compat alias — older code uses ilitWithdrawalIncome
+  const ilitWithdrawalIncome = ilitWithdrawalIncomeCurrent;
+  const annualIncome = cratIncome + investmentIncome + (d.biz.income * 0.1) + ilitWithdrawalIncomeCurrent; // + 10% from retained
 
   // Comparison table
   const comparison = { scenNone, scenCratDaf, scenDyCratDaf, scenAll };
@@ -10644,7 +10662,9 @@ function computePlan(d) {
     nwWithout_netProceeds, nwWithout_total,
     withPlanningProceeds, withPlanningTotal,
     familyTotalNW, familyTotalProceeds,
-    cratIncome, investmentIncome, annualIncome, ilitWithdrawalIncome,
+    cratIncome, investmentIncome, annualIncome,
+    ilitWithdrawalIncome, ilitWithdrawalIncomeCurrent, ilitWithdrawalIncomeEventual,
+    ilitPolicyIncomes,
     projRows, dynastyRows, qozRows,
     taxableEstateNoPlan, estateTaxNoPlan,
     taxableEstateWithPlan, estateTaxWithPlan, estateTaxSavings,
@@ -15811,6 +15831,87 @@ function renderEstate(p) {
     </div>
   `;
 
+  // Per-heir distribution — splits "to heirs" by the % shares the advisor
+  // configured in Family & Beneficiaries. Renders only when the
+  // beneficiary editor has been populated AND at least one heir has a
+  // non-zero sharePct.
+  const benes = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+  const REL_LABEL_E = {
+    spouse: 'Spouse', son: 'Son', daughter: 'Daughter',
+    'son-in-law': 'Son-in-Law', 'daughter-in-law': 'Daughter-in-Law',
+    grandson: 'Grandson', granddaughter: 'Granddaughter',
+    father: 'Father', mother: 'Mother', brother: 'Brother', sister: 'Sister',
+    nephew: 'Nephew', niece: 'Niece', partner: 'Partner', other: 'Other',
+  };
+  const isHeir_E = (rel) => ['spouse','son','daughter','grandson','granddaughter',
+                              'son-in-law','daughter-in-law','partner'].includes(rel);
+  const heirRowsE = benes.filter(b => isHeir_E(b.rel) && b.sharePct > 0);
+  const totalShareE = heirRowsE.reduce((s, r) => s + r.sharePct, 0);
+  const heirCard = heirRowsE.length === 0 ? '' : `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">⚖️ Per-Heir Estate Distribution — At Joint Life Expectancy (Year ${d.client.year + horizon})</div>
+      <div class="card-sub">
+        Allocation of the <strong>${fmt$M(withPlanToHeirs)}</strong> "to-heirs" total per the % shares set in <strong>Family &amp; Beneficiaries</strong>. Use this to confirm beneficiary designations + trust documents reflect the intended distribution.
+      </div>
+
+      <div style="margin-top: 16px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 13px;">
+          <thead>
+            <tr>
+              <th>Heir</th>
+              <th>Relationship</th>
+              <th class="num">% Share</th>
+              <th class="num">Projected $</th>
+              <th>Allocation</th>
+              <th>Vehicle / Path</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${heirRowsE.map(r => {
+              const projected = withPlanToHeirs * (r.sharePct / 100);
+              // Suggested vehicle path based on relationship
+              const path = r.rel === 'spouse' ? 'Marital share — outright or QTIP / GST-exempt marital trust'
+                        : r.rel === 'son' || r.rel === 'daughter' ? `Through ${[d.use.dynasty && 'Dynasty Trust', d.use.slat && 'SLAT', d.use.idgt && 'IDGT', d.use.ilit && 'ILIT'].filter(Boolean).join(' · ') || 'will / revocable trust'}`
+                        : r.rel === 'grandson' || r.rel === 'granddaughter' ? `Skip-person — apply GST exemption · ${d.use.dynasty ? 'Dynasty Trust beneficiary' : 'GST trust recommended'}`
+                        : 'Direct gift / will share';
+              return `
+              <tr>
+                <td><strong>${r.name}</strong></td>
+                <td>${REL_LABEL_E[r.rel] || r.rel}</td>
+                <td class="num"><strong>${r.sharePct.toFixed(1)}%</strong></td>
+                <td class="num">${fmt$M(projected)}</td>
+                <td>
+                  <div style="background: rgba(201,169,97,0.15); height: 8px; border-radius: 2px; overflow: hidden;">
+                    <div style="background: var(--gold-dark); height: 100%; width: ${Math.min(100, r.sharePct).toFixed(1)}%;"></div>
+                  </div>
+                </td>
+                <td style="font-size: 11px; color: var(--ink-soft); line-height: 1.4;">${path}</td>
+              </tr>`;
+            }).join('')}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td colspan="2" style="font-weight: 700;">Total Allocated</td>
+              <td class="num" style="font-weight: 700; color: ${Math.abs(totalShareE-100) < 0.01 ? 'var(--success)' : 'var(--crimson)'};">${totalShareE.toFixed(1)}%</td>
+              <td class="num" style="font-weight: 700;">${fmt$M(withPlanToHeirs * (totalShareE / 100))}</td>
+              <td colspan="2" style="font-size: 11px; font-weight: 600; color: ${Math.abs(totalShareE-100) < 0.01 ? 'var(--success)' : 'var(--crimson)'};">
+                ${Math.abs(totalShareE-100) < 0.01 ? '✓ Fully allocated to heirs' : totalShareE > 100 ? '⚠ Over-allocated' : `⚠ Under-allocated by ${(100-totalShareE).toFixed(1)}% — residual to will residuary clause`}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--ink); line-height: 1.6;">
+        <strong style="color: var(--gold-dark);">Coordinating documents — checklist:</strong>
+        <ul style="margin: 6px 0 0 22px; padding: 0;">
+          <li><strong>Will / revocable trust</strong> — confirm distribution clauses match the % shares above; specify per-stirpes vs. per-capita</li>
+          <li><strong>Beneficiary designations</strong> — retirement accounts (IRA, 401k, HSA), life insurance, TOD/POD bank + brokerage. These <em>override</em> the will, so a stale designation can defeat your shares.</li>
+          <li><strong>ILIT, Dynasty, SLAT trust agreements</strong> — beneficiary classes and remainder-distribution provisions should align with these shares</li>
+          <li><strong>GST exemption allocation</strong> — for grandchildren shares, formally allocate GST exemption on Form 709 to avoid GSTT on the skip transfer</li>
+          <li><strong>Spendthrift / discretionary trust review</strong> — for any heir with creditor / divorce / addiction risk, hold the share in trust rather than outright</li>
+        </ul>
+      </div>
+    </div>`;
+
   // Multi-Year Family Estate Growth card — defaults to joint life expectancy
   // (or primary LE if single) so the chart naturally runs through the
   // end of the clients' expected lifetimes. The dropdown lets the user
@@ -15949,6 +16050,8 @@ function renderEstate(p) {
 
   return `
     ${legacyCard}
+
+    ${heirCard}
 
     ${estateExplorerHTML}
 
@@ -18122,7 +18225,10 @@ function renderRetirementIncomeStack(p) {
   const cratInc   = d.use.crat ? (p.cratIncome || 0) : 0;
   const crutInc   = d.use.crut ? (p.crutIncome || 0) : 0;
   const portYield = (p.withPlanningProceeds || 0) * 0.03 + ((d.client.otherAssets || 0) * 0.03);
-  const ilitInc   = p.ilitWithdrawalIncome || 0;
+  // ILIT income — currently active vs. full capacity once all policies online
+  const ilitIncCurrent  = p.ilitWithdrawalIncomeCurrent  || 0;
+  const ilitIncEventual = p.ilitWithdrawalIncomeEventual || 0;
+  const ilitInc   = ilitIncCurrent;  // headline = currently producing
   const bizResid  = (d.biz.income || 0) * 0.10;  // Conservative: 10% retained-business income
 
   const total = ss + rmd + cratInc + crutInc + portYield + ilitInc + bizResid;
@@ -18165,21 +18271,41 @@ function renderRetirementIncomeStack(p) {
   rows.forEach(r => { byStatus[r.taxStatus] = (byStatus[r.taxStatus] || 0) + r.amount; });
   const taxFreePct = ((byStatus['tax-free'] || 0) / total) * 100;
 
-  // Per-policy ILIT detail when withdrawals are active
-  const ilitDetail = ilitInc > 0 ? `
+  // Per-policy ILIT detail when ANY policy has projected withdrawals
+  // (even if not currently producing — show timing context)
+  const planYear = d.client.year || new Date().getFullYear();
+  const ilitDetail = (ilitIncEventual > 0) ? `
     <div style="margin-top: 14px; padding: 12px 14px; background: linear-gradient(135deg, #FFF, var(--cream-light)); border: 1px solid rgba(201,169,97,0.3); border-radius: 4px;">
       <div style="font-size: 11px; font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">🛡 ILIT Withdrawal Income Detail</div>
       <table class="plan-table" style="font-size: 12px; margin: 0;">
-        <thead><tr><th>Policy</th><th class="num">Annual Income</th><th class="num">Start Year</th><th>Source</th></tr></thead>
+        <thead><tr><th>Policy</th><th class="num">Annual Income</th><th class="num">Start Year</th><th>Status (${planYear})</th><th>Type</th></tr></thead>
         <tbody>
-          ${husbandInc > 0 ? `<tr><td><strong>Husband</strong>${d.client.primary ? ' — ' + d.client.primary : ''}</td><td class="num">${fmt$(husbandInc)}/yr</td><td class="num">${d.ilit.husband?.incomeStart || '—'}</td><td>${d.ilit.husband?.type || 'permanent life'}</td></tr>` : ''}
-          ${wifeInc > 0    ? `<tr><td><strong>Wife</strong>${d.client.spouse ? ' — ' + d.client.spouse : ''}</td><td class="num">${fmt$(wifeInc)}/yr</td><td class="num">${d.ilit.wife?.incomeStart || '—'}</td><td>${d.ilit.wife?.type || 'permanent life'}</td></tr>` : ''}
-          ${jointInc > 0   ? `<tr><td><strong>Joint Survivorship</strong></td><td class="num">${fmt$(jointInc)}/yr</td><td class="num">${d.ilit.joint?.incomeStart || '—'}</td><td>${d.ilit.joint?.type || 'survivorship permanent'}</td></tr>` : ''}
+          ${husbandInc > 0 ? (() => {
+            const start = d.ilit.husband?.incomeStart || 0;
+            const active = start === 0 || start <= planYear;
+            return `<tr style="${active ? '' : 'opacity: 0.6;'}"><td><strong>Husband</strong>${d.client.primary ? ' — ' + d.client.primary : ''}</td><td class="num">${fmt$(husbandInc)}/yr</td><td class="num">${start || '—'}</td><td><span style="color: ${active ? 'var(--success)' : 'var(--muted)'}; font-weight: 600;">${active ? '✓ Producing' : 'Pending'}</span></td><td>${d.ilit.husband?.type || 'permanent life'}</td></tr>`;
+          })() : ''}
+          ${wifeInc > 0    ? (() => {
+            const start = d.ilit.wife?.incomeStart || 0;
+            const active = start === 0 || start <= planYear;
+            return `<tr style="${active ? '' : 'opacity: 0.6;'}"><td><strong>Wife</strong>${d.client.spouse ? ' — ' + d.client.spouse : ''}</td><td class="num">${fmt$(wifeInc)}/yr</td><td class="num">${start || '—'}</td><td><span style="color: ${active ? 'var(--success)' : 'var(--muted)'}; font-weight: 600;">${active ? '✓ Producing' : 'Pending'}</span></td><td>${d.ilit.wife?.type || 'permanent life'}</td></tr>`;
+          })() : ''}
+          ${jointInc > 0   ? (() => {
+            const start = d.ilit.joint?.incomeStart || 0;
+            const active = start === 0 || start <= planYear;
+            return `<tr style="${active ? '' : 'opacity: 0.6;'}"><td><strong>Joint Survivorship</strong></td><td class="num">${fmt$(jointInc)}/yr</td><td class="num">${start || '—'}</td><td><span style="color: ${active ? 'var(--success)' : 'var(--muted)'}; font-weight: 600;">${active ? '✓ Producing' : 'Pending'}</span></td><td>${d.ilit.joint?.type || 'survivorship permanent'}</td></tr>`;
+          })() : ''}
           <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
-            <td style="font-weight: 700;">Total ILIT Income</td>
-            <td class="num" style="font-weight: 700;">${fmt$(ilitInc)}/yr</td>
-            <td colspan="2" style="font-size: 11px; color: var(--muted);">Tax-free until basis recovered or policy lapses (§72(e) / §7702)</td>
+            <td style="font-weight: 700;">Currently Producing (${planYear})</td>
+            <td class="num" style="font-weight: 700;">${fmt$(ilitIncCurrent)}/yr</td>
+            <td colspan="3" style="font-size: 11px; color: var(--muted);">Counts toward today's "Annual Income" headline</td>
           </tr>
+          ${ilitIncEventual > ilitIncCurrent ? `
+          <tr style="background: var(--cream-light);">
+            <td style="font-weight: 700;">At Full Capacity (all online)</td>
+            <td class="num" style="font-weight: 700;">${fmt$(ilitIncEventual)}/yr</td>
+            <td colspan="3" style="font-size: 11px; color: var(--muted);">+${fmt$(ilitIncEventual - ilitIncCurrent)}/yr once pending policies start</td>
+          </tr>` : ''}
         </tbody>
       </table>
       <div style="margin-top: 10px; font-size: 11px; color: var(--muted); line-height: 1.5;">
