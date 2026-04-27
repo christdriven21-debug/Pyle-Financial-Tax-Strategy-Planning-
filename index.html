@@ -1138,7 +1138,7 @@
   .atlas-subtitle { font-size: 12px; color: var(--muted); margin-top: 4px; max-width: 600px; line-height: 1.5; }
   .atlas-tabs { display: flex; gap: 4px; }
   .atlas-tab-btn {
-    padding: 8px 16px; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+    padding: 9px 18px; font-size: 13.5px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
     background: var(--cream-light); border: 1px solid rgba(201,169,97,0.4); color: var(--ink-soft);
     cursor: pointer; border-radius: 3px; transition: all 0.15s;
   }
@@ -1167,16 +1167,16 @@
   .atlas-status-badge.stub { background: #6C757D; }
 
   .atlas-grid {
-    display: grid; gap: 5px; padding: 4px;
-    grid-auto-rows: 76px;
+    display: grid; gap: 6px; padding: 4px;
+    grid-auto-rows: 88px;
   }
   .atlas-grid.grid-personal { grid-template-columns: repeat(7, 1fr); }
   .atlas-grid.grid-business { grid-template-columns: repeat(8, 1fr); }
 
   .atlas-cell {
-    position: relative; cursor: pointer; padding: 8px 6px;
-    color: white; font-size: 10.5px; font-weight: 600; letter-spacing: 0.3px;
-    text-align: center; line-height: 1.25;
+    position: relative; cursor: pointer; padding: 10px 8px;
+    color: white; font-size: 13px; font-weight: 600; letter-spacing: 0.3px;
+    text-align: center; line-height: 1.3;
     display: flex; align-items: center; justify-content: center;
     border-radius: 3px; transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
     overflow: hidden;
@@ -3673,6 +3673,13 @@
         <div class="list-editor" id="family-list-editor">
           <div class="list-editor-rows" id="family-rows"></div>
           <button type="button" class="btn btn-secondary btn-sm" id="family-add-btn" style="margin-top: 10px;">+ Add Family Member</button>
+          <div style="margin-top: 14px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; border: 1px solid rgba(201,169,97,0.3);">
+            <div>
+              <strong style="color: var(--ink); font-size: 11px; letter-spacing: 1px; text-transform: uppercase;">Total Inheritance Share</strong>
+              <div id="family-share-note" style="font-size: 11px; color: var(--muted); font-style: italic; margin-top: 2px;">Set each heir's % share — they should add to 100%. Leave 0% if not specifying shares.</div>
+            </div>
+            <div style="font-size: 18px; font-weight: 700; font-family: 'Courier New', monospace;" id="family-share-total">0.0%</div>
+          </div>
         </div>
         <!-- Backing store — hidden textarea kept in sync with the visual list above -->
         <textarea id="family-composition" rows="4" style="display: none;" aria-hidden="true"></textarea>
@@ -7192,15 +7199,68 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
   const familyTextarea = document.getElementById('family-composition');
   const familyAddBtn = document.getElementById('family-add-btn');
 
+  // Common universities for quick-pick (advisor can also free-type any school)
+  const UNIVERSITIES = [
+    '', 'Harvard University', 'Stanford University', 'MIT',
+    'Princeton University', 'Yale University', 'Columbia University',
+    'University of Pennsylvania', 'Dartmouth College', 'Brown University',
+    'Cornell University', 'Duke University', 'Northwestern University',
+    'Johns Hopkins University', 'University of Chicago',
+    'Notre Dame', 'Georgetown University', 'Vanderbilt University',
+    'Rice University', 'Emory University', 'Washington University in St. Louis',
+    'USC', 'NYU', 'Boston College', 'Boston University',
+    'Tufts University', 'Carnegie Mellon', 'Caltech',
+    'University of California, Berkeley', 'UCLA', 'UC San Diego', 'UC Davis',
+    'University of Michigan', 'University of Virginia', 'UNC Chapel Hill',
+    'University of Texas (Austin)', 'University of Wisconsin (Madison)',
+    'University of Florida', 'University of Washington',
+    'Penn State', 'Ohio State', 'Indiana University',
+    'Purdue University', 'Texas A&M', 'University of Illinois (Urbana-Champaign)',
+    'University of Georgia', 'University of Notre Dame',
+    'Wake Forest', 'Tulane University', 'Lehigh University',
+    'Davidson College', 'Williams College', 'Amherst College', 'Pomona College',
+    'Swarthmore College', 'Wellesley College', 'Bowdoin College',
+    'Middlebury College', 'Carleton College', 'Claremont McKenna',
+    'Other / Free-text',
+  ];
+  // Approx published 2026 cost-of-attendance for a private 4-year (tuition
+  // + room/board + fees). Advisor can override per-beneficiary in the
+  // editor — this is just a reasonable default.
+  const DEFAULT_PRIVATE_COST = 95000;
+  const DEFAULT_PUBLIC_COST  = 35000;
+
+  // Beneficiary serialization format — backward-compat:
+  //   v1: "Name (Year) — rel"
+  //   v2: "Name|Year|rel|college|collegeStart|annualCost|years|sharePct"
+  // Parser supports both. Serializer always writes v2.
   function parseFamilyTextarea() {
     const raw = (familyTextarea.value || '').trim();
     if (!raw) return [];
     return raw.split('\n').map(line => {
+      // v2: pipe-separated, ≥ 4 pipes
+      if ((line.match(/\|/g) || []).length >= 2) {
+        const parts = line.split('|').map(s => s.trim());
+        const [name, year, rel, college, collegeStart, annualCost, years, sharePct] = parts;
+        if (!name) return null;
+        return {
+          name,
+          year: year || '',
+          rel: (rel || 'other').toLowerCase(),
+          college: college || '',
+          collegeStart: collegeStart || '',
+          annualCost: parseFloat((annualCost || '').replace(/[$,\s]/g, '')) || 0,
+          years: parseInt(years, 10) || 4,
+          sharePct: parseFloat(sharePct) || 0,
+        };
+      }
+      // v1: legacy "Name (Year) — rel"
       const m = line.match(/^(.+?)\s*\((\d{4})\)\s*[—\-–]\s*(.+)$/);
-      if (m) return { name: m[1].trim(), year: m[2].trim(), rel: m[3].trim().toLowerCase() };
-      // Fallback — just put the whole line in name
-      return { name: line.trim(), year: '', rel: 'other' };
-    }).filter(b => b.name);
+      if (m) return { name: m[1].trim(), year: m[2].trim(), rel: m[3].trim().toLowerCase(),
+                       college: '', collegeStart: '', annualCost: 0, years: 4, sharePct: 0 };
+      // Fallback — whole line as name
+      return { name: line.trim(), year: '', rel: 'other',
+               college: '', collegeStart: '', annualCost: 0, years: 4, sharePct: 0 };
+    }).filter(b => b && b.name);
   }
 
   function serializeFamily() {
@@ -7208,33 +7268,146 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
     const lines = [];
     rows.forEach(row => {
       const name = row.querySelector('[data-f="name"]').value.trim();
-      const year = row.querySelector('[data-f="year"]').value.trim();
-      const rel = row.querySelector('[data-f="rel"]').value;
-      if (name) lines.push(year ? `${name} (${year}) — ${rel}` : `${name} — ${rel}`);
+      if (!name) return;
+      const year   = row.querySelector('[data-f="year"]').value.trim();
+      const rel    = row.querySelector('[data-f="rel"]').value;
+      const college = row.querySelector('[data-f="college"]')?.value.trim() || '';
+      const collegeStart = row.querySelector('[data-f="collegeStart"]')?.value.trim() || '';
+      const annualCostRaw = row.querySelector('[data-f="annualCost"]')?.value || '';
+      const annualCost = parseFloat(annualCostRaw.replace(/[$,\s]/g, '')) || 0;
+      const yrs = parseInt(row.querySelector('[data-f="years"]')?.value, 10) || 4;
+      const sharePct = parseFloat(row.querySelector('[data-f="sharePct"]')?.value) || 0;
+      lines.push(`${name}|${year}|${rel}|${college}|${collegeStart}|${annualCost}|${yrs}|${sharePct}`);
     });
     familyTextarea.value = lines.join('\n');
-    // Trigger any listeners (like the dirty-state tracker)
     familyTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+    // Update the running total of inheritance share % so advisor can see
+    // whether shares add to 100% (or whatever target).
+    updateShareTotalDisplay();
+  }
+
+  function updateShareTotalDisplay() {
+    const totalEl = document.getElementById('family-share-total');
+    if (!totalEl) return;
+    let total = 0;
+    familyRowsEl.querySelectorAll('[data-f="sharePct"]').forEach(el => {
+      total += parseFloat(el.value) || 0;
+    });
+    const ok = Math.abs(total - 100) < 0.01 || total === 0;
+    totalEl.textContent = total.toFixed(1) + '%';
+    totalEl.style.color = total === 0 ? 'var(--muted)'
+                        : ok ? 'var(--success)' : 'var(--crimson)';
+    const note = document.getElementById('family-share-note');
+    if (note) {
+      note.textContent = total === 0
+        ? 'Set each heir\'s % share — they should add to 100%. Leave 0% if not specifying shares.'
+        : ok ? '✓ Shares add to 100% — fully allocated.'
+             : `⚠ Shares total ${total.toFixed(1)}% — ${total > 100 ? 'over' : 'under'}-allocated by ${Math.abs(100-total).toFixed(1)}%.`;
+    }
+  }
+
+  function eligibleForCollege(rel) {
+    return ['son','daughter','grandson','granddaughter'].includes(rel);
   }
 
   function buildFamilyRow(b) {
     const row = document.createElement('div');
     row.className = 'list-editor-row family-row';
-    row.innerHTML = `
-      <input type="text" data-f="name" placeholder="Full name" value="${b.name.replace(/"/g, '&quot;')}">
-      <input type="number" data-f="year" placeholder="Year" min="1900" max="2099" value="${b.year}">
+    // Two-stack layout: top row = primary fields (name, birth year, rel, delete);
+    // expandable detail = college fields (when applicable) + inheritance share.
+    const topInputs = `
+      <input type="text" data-f="name" placeholder="Full name" value="${(b.name || '').replace(/"/g, '&quot;')}">
+      <input type="number" data-f="year" placeholder="Birth year" min="1900" max="2099" value="${b.year || ''}">
       <select data-f="rel">
         ${RELATIONSHIPS.map(r => `<option value="${r.v}"${b.rel === r.v ? ' selected' : ''}>${r.label}</option>`).join('')}
       </select>
       <button type="button" class="delete-btn" title="Remove">×</button>
     `;
-    row.querySelectorAll('input, select').forEach(el => el.addEventListener('input', serializeFamily));
+    const universityOpts = UNIVERSITIES.map(u => `<option value="${u.replace(/"/g, '&quot;')}"${b.college === u ? ' selected' : ''}>${u || '— Select university —'}</option>`).join('');
+    // The college section is hidden if the relationship isn't an "education-eligible" one,
+    // toggled via inline style updated when the relationship dropdown changes.
+    const showEdu = eligibleForCollege(b.rel) ? '' : 'display: none;';
+    row.innerHTML = `
+      <div class="family-row-top" style="display: grid; grid-template-columns: 2fr 1fr 1.2fr 30px; gap: 6px; align-items: center;">
+        ${topInputs}
+      </div>
+      <details class="family-row-detail" style="margin-top: 6px;">
+        <summary style="cursor: pointer; font-size: 11px; color: var(--gold-dark); font-weight: 600; padding: 4px 0; letter-spacing: 0.5px;">▸ Education &amp; Inheritance Detail</summary>
+        <div style="margin-top: 8px; padding: 10px 12px; background: var(--cream-light); border-radius: 3px; border: 1px solid rgba(201,169,97,0.25);">
+          <div data-f-section="education" style="${showEdu}">
+            <div style="font-size: 11px; font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">🎓 College / Education Funding</div>
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 6px; align-items: center;">
+              <select data-f="college" style="font-size: 12px; padding: 6px 8px;">${universityOpts}</select>
+              <input type="number" data-f="collegeStart" placeholder="Start year" min="2025" max="2099" value="${b.collegeStart || ''}" style="font-size: 12px; padding: 6px 8px;">
+              <input type="text" inputmode="numeric" class="money" data-f="annualCost" placeholder="Annual $" value="${b.annualCost ? '$' + Number(b.annualCost).toLocaleString('en-US') : ''}" style="font-size: 12px; padding: 6px 8px; text-align: right;">
+              <input type="number" data-f="years" placeholder="Yrs" min="1" max="10" value="${b.years || 4}" style="font-size: 12px; padding: 6px 8px;">
+            </div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.4;">
+              Annual cost defaults: ~$${DEFAULT_PRIVATE_COST.toLocaleString('en-US')}/yr private · ~$${DEFAULT_PUBLIC_COST.toLocaleString('en-US')}/yr public. Override per-beneficiary as needed. Years usually 4 (BA/BS); 5–7 for engineering/professional + grad school.
+            </div>
+            <div style="margin-top: 6px; font-size: 11px; font-weight: 600; color: var(--ink);">
+              <span data-f="totalCostLabel" style="color: var(--gold-dark);">Total cost: $0</span>
+              ·
+              <span data-f="presentValueLabel" style="color: var(--gold-dark);">Present value (today's $): $0</span>
+            </div>
+          </div>
+          <div data-f-section="inheritance" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(201,169,97,0.3);">
+            <div style="font-size: 11px; font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">⚖️ Inheritance Share</div>
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center;">
+              <input type="number" data-f="sharePct" placeholder="% of estate" min="0" max="100" step="0.5" value="${b.sharePct || ''}" style="font-size: 12px; padding: 6px 8px; text-align: right;">
+              <span style="font-size: 11px; color: var(--muted);">% of net estate (sum across heirs should = 100%)</span>
+            </div>
+          </div>
+        </div>
+      </details>
+    `;
+    // Wire all inputs/selects to recompute on input
+    row.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener('input', () => {
+        serializeFamily();
+        recomputeBeneficiaryDerived(row);
+      });
+    });
+    // Toggle education section visibility when relationship changes
+    const relSel = row.querySelector('[data-f="rel"]');
+    relSel.addEventListener('change', () => {
+      const eduSec = row.querySelector('[data-f-section="education"]');
+      if (eduSec) eduSec.style.display = eligibleForCollege(relSel.value) ? '' : 'none';
+    });
     row.querySelector('.delete-btn').addEventListener('click', () => {
       row.remove();
       serializeFamily();
       renderFamilyEmptyState();
     });
+    // Initial derived calc
+    setTimeout(() => recomputeBeneficiaryDerived(row), 0);
     return row;
+  }
+
+  function recomputeBeneficiaryDerived(row) {
+    // Compute total college cost + present value at 5% inflation, in-place
+    // labels. Pure UI — does not affect plan compute (that uses parsed snap).
+    const annualCostRaw = row.querySelector('[data-f="annualCost"]')?.value || '';
+    const annualCost = parseFloat(annualCostRaw.replace(/[$,\s]/g, '')) || 0;
+    const yrs = parseInt(row.querySelector('[data-f="years"]')?.value, 10) || 4;
+    const startYear = parseInt(row.querySelector('[data-f="collegeStart"]')?.value, 10) || 0;
+    const totalCost = annualCost * yrs;
+    const thisYear = new Date().getFullYear();
+    // Present value of the schedule of annual payments at 5% education inflation
+    let pv = 0;
+    if (annualCost > 0 && startYear >= thisYear) {
+      for (let i = 0; i < yrs; i++) {
+        const t = (startYear - thisYear) + i;  // years from now
+        pv += annualCost / Math.pow(1.05, t);
+      }
+    } else if (annualCost > 0) {
+      pv = totalCost; // fallback: just sum
+    }
+    const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
+    const totLabel = row.querySelector('[data-f="totalCostLabel"]');
+    const pvLabel  = row.querySelector('[data-f="presentValueLabel"]');
+    if (totLabel) totLabel.textContent = `Total cost: ${fmt(totalCost)}`;
+    if (pvLabel)  pvLabel.textContent  = `Present value (today's $): ${fmt(pv)}`;
   }
 
   function renderFamilyEmptyState() {
@@ -7251,6 +7424,7 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
     familyRowsEl.innerHTML = '';
     parseFamilyTextarea().forEach(b => familyRowsEl.appendChild(buildFamilyRow(b)));
     renderFamilyEmptyState();
+    updateShareTotalDisplay();
   }
 
   familyAddBtn?.addEventListener('click', () => {
@@ -7736,6 +7910,42 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
    Priority: must | important | aspirational
    Category: retirement | education | legacy | lifestyle | philanthropy | major_purchase
    ============================================================ */
+/* ============================================================
+   FAMILY / BENEFICIARY PARSER — structured data extracted from
+   the #family-composition textarea (pipe-separated v2 format,
+   with v1 "Name (Year) — rel" legacy fallback).
+   ============================================================ */
+function parseFamilyBeneficiaries(raw) {
+  if (!raw || typeof raw !== 'string') return [];
+  return raw.split('\n').map(line => {
+    line = line.trim();
+    if (!line) return null;
+    // v2 — pipe-separated (≥ 2 pipes)
+    if ((line.match(/\|/g) || []).length >= 2) {
+      const parts = line.split('|').map(s => s.trim());
+      const [name, year, rel, college, collegeStart, annualCost, years, sharePct] = parts;
+      if (!name) return null;
+      return {
+        name,
+        birthYear: parseInt(year, 10) || 0,
+        rel: (rel || 'other').toLowerCase(),
+        college: college || '',
+        collegeStartYear: parseInt(collegeStart, 10) || 0,
+        annualCost: parseFloat((annualCost || '').replace(/[$,\s]/g, '')) || 0,
+        yearsOfCollege: parseInt(years, 10) || 4,
+        sharePct: parseFloat(sharePct) || 0,
+      };
+    }
+    // v1 — legacy "Name (Year) — rel"
+    const m = line.match(/^(.+?)\s*\((\d{4})\)\s*[—\-–]\s*(.+)$/);
+    if (m) return { name: m[1].trim(), birthYear: parseInt(m[2], 10) || 0, rel: m[3].trim().toLowerCase(),
+                     college: '', collegeStartYear: 0, annualCost: 0, yearsOfCollege: 4, sharePct: 0 };
+    // Fallback — whole line as name
+    return { name: line.trim(), birthYear: 0, rel: 'other',
+             college: '', collegeStartYear: 0, annualCost: 0, yearsOfCollege: 4, sharePct: 0 };
+  }).filter(b => b && b.name);
+}
+
 function parseGoals(raw) {
   if (!raw || typeof raw !== 'string') return [];
   return raw.split('\n').map(line => {
@@ -7779,6 +7989,11 @@ function readForm() {
       eduBeneficiaries: n('edu-beneficiaries'),
       eduYearsToCollege: n('edu-years-to-college'),
       familyComposition: t('family-composition'),
+      // Structured beneficiary list (parsed from #family-composition).
+      // Each entry: { name, birthYear, rel, college, collegeStartYear,
+      // annualCost, yearsOfCollege, sharePct }. Used by renderBeneficiaries
+      // to show per-heir education funding + inheritance share allocation.
+      beneficiaries: parseFamilyBeneficiaries(t('family-composition')),
       goalsRaw: t('financial-goals'),
       concentratedValue: n('concentrated-value'),
       concentratedBasis: n('concentrated-basis'),
@@ -13640,6 +13855,180 @@ function renderAllocationBreakdown(p) {
 }
 
 /* ============================================================
+   BENEFICIARY DETAIL — per-heir education funding + inheritance
+   share allocation. Reads d.beneficiaries (parsed from
+   #family-composition by parseFamilyBeneficiaries). Renders:
+     1) Education-funding table per child/grandchild — university,
+        start year, annual cost, years, total cost, present value
+     2) Inheritance allocation pie — % share per heir, projected $
+        amount based on with-planning estate at horizon
+     3) Funding-vehicle recommendations (529, UTMA, direct tuition
+        §2503(e) gifting, education trust)
+   Renders nothing when no beneficiaries entered.
+   ============================================================ */
+function renderBeneficiaries(p) {
+  const d = p.input;
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+  const benes = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+  if (benes.length === 0) return '';
+
+  const thisYear = new Date().getFullYear();
+  const REL_LABEL = {
+    spouse: 'Spouse', son: 'Son', daughter: 'Daughter',
+    'son-in-law': 'Son-in-Law', 'daughter-in-law': 'Daughter-in-Law',
+    grandson: 'Grandson', granddaughter: 'Granddaughter',
+    father: 'Father', mother: 'Mother', brother: 'Brother', sister: 'Sister',
+    nephew: 'Nephew', niece: 'Niece', partner: 'Partner', other: 'Other',
+  };
+  const isHeir = (rel) => ['spouse','son','daughter','grandson','granddaughter',
+                            'son-in-law','daughter-in-law','partner'].includes(rel);
+  const isCollegeAge = (rel) => ['son','daughter','grandson','granddaughter'].includes(rel);
+
+  // Education-funding rollup
+  const eduRows = benes.filter(b => isCollegeAge(b.rel) && b.annualCost > 0).map(b => {
+    const totalCost = (b.annualCost || 0) * (b.yearsOfCollege || 4);
+    let pv = 0;
+    if (b.collegeStartYear >= thisYear) {
+      for (let i = 0; i < (b.yearsOfCollege || 4); i++) {
+        const t = (b.collegeStartYear - thisYear) + i;
+        pv += b.annualCost / Math.pow(1.05, t);
+      }
+    } else {
+      pv = totalCost;
+    }
+    return { ...b, totalCost, presentValue: pv };
+  });
+  const eduTotalNominal = eduRows.reduce((s, r) => s + r.totalCost, 0);
+  const eduTotalPV      = eduRows.reduce((s, r) => s + r.presentValue, 0);
+
+  // Inheritance share rollup — only entries with sharePct > 0
+  const heirRows = benes.filter(b => isHeir(b.rel) && b.sharePct > 0);
+  const totalShare = heirRows.reduce((s, r) => s + r.sharePct, 0);
+  // Projected estate $ — use familyTotalProceeds (with-planning total) less
+  // charitable amounts — fall back to withPlanningTotal if available.
+  const estateForHeirs = (p.withPlanToHeirs ?? p.familyTotalProceeds ?? p.withPlanningTotal ?? 0);
+
+  const eduCard = eduRows.length === 0 ? '' : `
+    <div style="margin-top: 14px;">
+      <h4 style="margin: 0 0 8px; font-size: 13px; color: var(--gold-dark); letter-spacing: 0.5px;">🎓 Education Funding by Beneficiary</h4>
+      <table class="plan-table" style="font-size: 12px;">
+        <thead>
+          <tr>
+            <th>Beneficiary</th>
+            <th>University</th>
+            <th class="num">Start Year</th>
+            <th class="num">Annual Cost</th>
+            <th class="num">Years</th>
+            <th class="num">Total (Nominal)</th>
+            <th class="num">PV (Today's $)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${eduRows.map(r => `
+            <tr>
+              <td><strong>${r.name}</strong> <span style="color: var(--muted); font-size: 11px;">(${REL_LABEL[r.rel] || r.rel})</span></td>
+              <td>${r.college || '<span style="color: var(--muted); font-style: italic;">TBD</span>'}</td>
+              <td class="num">${r.collegeStartYear || '—'}</td>
+              <td class="num">${fmt$(r.annualCost)}</td>
+              <td class="num">${r.yearsOfCollege}</td>
+              <td class="num">${fmt$(r.totalCost)}</td>
+              <td class="num">${fmt$(r.presentValue)}</td>
+            </tr>
+          `).join('')}
+          <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+            <td colspan="5" style="font-weight: 700;">Total Education Liability</td>
+            <td class="num" style="font-weight: 700;">${fmt$(eduTotalNominal)}</td>
+            <td class="num" style="font-weight: 700;">${fmt$(eduTotalPV)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top: 10px; padding: 12px 14px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--ink); line-height: 1.5;">
+        <strong style="color: var(--gold-dark);">Funding-vehicle recommendations:</strong>
+        <ul style="margin: 6px 0 0 22px; padding: 0;">
+          <li><strong>§529 Plan:</strong> tax-free growth + tax-free withdrawals for qualified higher-ed. Front-load with 5-year lump-sum gifting (5 × $19k annual exclusion = $95k per donor per beneficiary).${eduTotalPV > 0 ? ` Suggested 529 funding: <strong>${fmt$(Math.min(eduTotalPV, 95000 * eduRows.length))}/donor</strong>${eduRows.length > 1 ? ` across ${eduRows.length} beneficiaries` : ''}.` : ''}</li>
+          <li><strong>Direct §2503(e) tuition payments:</strong> tuition paid <em>directly</em> to the institution is unlimited and excluded from gift tax — does NOT count against $19k annual exclusion or lifetime exemption. Use this for the bulk of grandparent funding.</li>
+          <li><strong>Education trust (HEET / dynasty trust)</strong> for grandchildren if the funding window is &gt; 18 yrs out and the 529 cap is binding.</li>
+          <li><strong>UTMA / UGMA accounts</strong> only for small supplemental amounts — child gets full control at age of majority (which can be a problem).</li>
+        </ul>
+      </div>
+    </div>`;
+
+  // Inheritance rows including projected $ amount
+  const heirCard = heirRows.length === 0 ? '' : `
+    <div style="margin-top: 18px;">
+      <h4 style="margin: 0 0 8px; font-size: 13px; color: var(--gold-dark); letter-spacing: 0.5px;">⚖️ Inheritance Share Allocation</h4>
+      <table class="plan-table" style="font-size: 12px;">
+        <thead>
+          <tr>
+            <th>Heir</th>
+            <th>Relationship</th>
+            <th class="num">% of Estate</th>
+            <th class="num">Projected $ to Heir</th>
+            <th>Allocation</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${heirRows.map(r => {
+            const projected = estateForHeirs * (r.sharePct / 100);
+            return `
+            <tr>
+              <td><strong>${r.name}</strong></td>
+              <td>${REL_LABEL[r.rel] || r.rel}</td>
+              <td class="num"><strong>${r.sharePct.toFixed(1)}%</strong></td>
+              <td class="num">${fmt$M(projected)}</td>
+              <td>
+                <div style="background: rgba(201,169,97,0.15); height: 8px; border-radius: 2px; overflow: hidden;">
+                  <div style="background: var(--gold-dark); height: 100%; width: ${Math.min(100, r.sharePct).toFixed(1)}%;"></div>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+          <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+            <td colspan="2" style="font-weight: 700;">Total Allocated to Heirs</td>
+            <td class="num" style="font-weight: 700; color: ${Math.abs(totalShare-100) < 0.01 ? 'var(--success)' : 'var(--crimson)'};">${totalShare.toFixed(1)}%</td>
+            <td class="num" style="font-weight: 700;">${fmt$M(estateForHeirs * (totalShare / 100))}</td>
+            <td>
+              <div style="font-size: 11px; color: ${Math.abs(totalShare-100) < 0.01 ? 'var(--success)' : 'var(--crimson)'}; font-weight: 600;">
+                ${Math.abs(totalShare-100) < 0.01 ? '✓ Fully allocated' : totalShare > 100 ? '⚠ Over-allocated' : '⚠ Under-allocated'}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      ${Math.abs(totalShare-100) < 0.01 ? '' : `
+        <div style="margin-top: 8px; padding: 10px 14px; background: #FFF8F0; border-left: 3px solid var(--crimson); border-radius: 4px; font-size: 12px; color: var(--ink); line-height: 1.5;">
+          <strong style="color: var(--crimson);">⚠ Allocation gap:</strong> the heir % shares total <strong>${totalShare.toFixed(1)}%</strong>. Update individual %s in the Family &amp; Beneficiaries editor (Section 2 of the Builder) so they sum to 100%. Any unallocated portion will fall to the residuary clause of the will / trust.
+        </div>
+      `}
+      <div style="margin-top: 10px; padding: 12px 14px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--ink); line-height: 1.5;">
+        <strong style="color: var(--gold-dark);">Drafting & vehicle considerations:</strong>
+        <ul style="margin: 6px 0 0 22px; padding: 0;">
+          <li><strong>Per-stirpes vs. per-capita:</strong> if a child predeceases the grantor, per-stirpes flows the share to that child's descendants; per-capita redistributes among surviving heirs. Default in most states is per-stirpes; confirm in the will / trust.</li>
+          <li><strong>Spendthrift / discretionary trusts</strong> for younger heirs or heirs with creditor / divorce / addiction risk — share goes into trust, trustee distributes per ascertainable standard (HEMS).</li>
+          <li><strong>GST exemption planning</strong> for grandchildren shares — a generation-skipping transfer to a grandchild incurs GSTT unless GST exemption is allocated. Layer with Dynasty / SLAT structures already in this plan if applicable.</li>
+          <li><strong>Beneficiary designations</strong> on retirement accounts, life insurance, and TOD/POD accounts <em>override</em> the will. Sync those with this allocation table after every estate-document update.</li>
+        </ul>
+      </div>
+    </div>`;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">👨‍👩‍👧‍👦 Beneficiary Detail — Education Funding &amp; Inheritance Allocation</div>
+      <div class="card-sub">
+        Per-beneficiary education funding (university, start year, cost, years) and inheritance share (% of net estate to each heir). Refine each row in <strong>Family &amp; Beneficiaries</strong> in the Builder.
+      </div>
+      ${eduCard}
+      ${heirCard}
+      ${eduRows.length === 0 && heirRows.length === 0 ? `
+        <div style="margin-top: 14px; padding: 14px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+          ${benes.length} beneficiary${benes.length > 1 ? 'ies' : ''} entered, but no education-cost or inheritance-share data yet. Open the Family &amp; Beneficiaries editor and expand each row's "Education &amp; Inheritance Detail" panel to add university, annual cost, years of college, and % share of estate.
+        </div>` : ''}
+    </div>
+  `;
+}
+
+/* ============================================================
    CASH FLOW STATEMENT — annual income sources vs. expense categories,
    with sustainability check. Traditional financial planning deliverable.
    ============================================================ */
@@ -13765,6 +14154,8 @@ function renderFinancial(p) {
     </div>
 
     ${renderBalanceSheet(p)}
+
+    ${renderBeneficiaries(p)}
 
     ${renderCashFlow(p)}
 
