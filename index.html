@@ -2702,6 +2702,16 @@
     .card { box-shadow: none; page-break-inside: avoid; }
     table.plan-table { page-break-inside: avoid; }
     .kpi, .callout { page-break-inside: avoid; }
+    /* Newer cards introduced in Phase 4+ — keep their inner panels together */
+    .info-card { page-break-inside: avoid; }
+    .two-col, .three-col { page-break-inside: avoid; }
+    /* Hide the AI-chat composer area + the per-row delete buttons in print */
+    .bs-delete, .delete-btn { display: none !important; }
+    /* Preserve allocation bars + percentages in print (they're CSS grids
+       that can collapse in some Chrome print engines) */
+    [style*="background: rgba(201,169,97"] { page-break-inside: avoid; }
+    /* Tighten margins for info-card details (rows) so they stack cleanly */
+    .info-card .row { page-break-inside: avoid; }
 
     /* Apply the same flow layout on browser Print. */
     .timeline {
