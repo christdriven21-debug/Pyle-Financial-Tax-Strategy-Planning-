@@ -2484,6 +2484,26 @@
   @media print { #audit-panel { display: none !important; } }
   .print-layout #audit-panel { display: none !important; }
   /* Audit-log collapsible toggle */
+  /* Personal Balance Sheet — line-item assets/liabilities */
+  .balance-sheet-details > summary { list-style: none; }
+  .balance-sheet-details > summary::-webkit-details-marker { display: none; }
+  .balance-sheet-details[open] > summary { background: var(--gold) !important; color: white; }
+  .bs-section { margin-bottom: 14px; padding: 10px 12px; background: white; border-radius: 4px; border: 1px solid rgba(201,169,97,0.3); }
+  .bs-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: var(--ink); }
+  .bs-section-label { font-weight: 600; }
+  .bs-section-total { font-family: 'Courier New', monospace; color: var(--gold-dark); font-weight: 700; }
+  .bs-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .bs-row { display: grid; grid-template-columns: 2fr 1.2fr 30px; gap: 8px; align-items: center; }
+  .bs-row.bs-row-realestate { grid-template-columns: 2fr 1fr 1fr 30px; }  /* +mortgage column for real estate */
+  .bs-row input { padding: 6px 8px; font-size: 12px; border: 1px solid rgba(201,169,97,0.3); border-radius: 3px; background: var(--cream-light); }
+  .bs-row input.money { text-align: right; font-family: 'Courier New', monospace; }
+  .bs-row input:focus { border-color: var(--gold); outline: none; background: white; }
+  .bs-row .bs-delete { background: transparent; border: 1px solid rgba(139,26,26,0.3); color: var(--crimson); cursor: pointer; padding: 4px 6px; border-radius: 3px; font-size: 13px; line-height: 1; transition: all 0.15s; }
+  .bs-row .bs-delete:hover { background: var(--crimson); color: white; }
+  .bs-divider { height: 1px; background: var(--gold); margin: 14px 0; opacity: 0.4; }
+  .bs-empty { padding: 8px; text-align: center; color: var(--muted); font-size: 11px; font-style: italic; }
+  .bs-add { margin-top: 4px; }
+
   /* Interactive list editor (Family/Beneficiaries + Financial Goals) */
   .list-editor {
     margin-top: 6px; padding: 12px; background: var(--cream-light);
@@ -3528,8 +3548,106 @@
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="debt-other" value="0"></div>
       </div>
       <div class="field">
-        <label>Personal Property &amp; Collectibles <span class="hint">(art, jewelry, vehicles — rough estimate)</span></label>
+        <label>Personal Property &amp; Collectibles <span class="hint">(art, jewelry, vehicles — rough estimate; auto-fills from balance sheet below)</span></label>
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="personal-property" value="0"></div>
+      </div>
+      <div class="field" style="grid-column: 1 / -1;">
+        <details class="balance-sheet-details" id="balance-sheet-details">
+          <summary style="cursor: pointer; font-weight: 600; font-size: 14px; color: var(--ink); letter-spacing: 0.5px; padding: 12px 14px; background: var(--cream-light); border: 1px solid rgba(201,169,97,0.4); border-radius: 4px;">
+            ▸ Personal Balance Sheet <span style="font-weight: 400; color: var(--muted); font-size: 12px;">— line-item assets &amp; liabilities for full household net-worth detail (auto-syncs to fields above)</span>
+          </summary>
+          <div class="balance-sheet-body" style="margin-top: 14px; padding: 16px; background: var(--cream-light); border-radius: 4px;">
+            <p style="font-size: 12px; color: var(--muted); font-style: italic; margin: 0 0 16px; line-height: 1.5;">
+              Detail every account, property, and debt for a complete household balance sheet. Each category supports multiple rows. Totals auto-sum + populate the Pre-Sale Net Worth, Other Assets, Mortgage, and Other Debt fields above. Use this when you have a Net Worth Statement or want client-level detail; skip if the simple fields above are enough.
+            </p>
+
+            <!-- ASSETS -->
+            <h4 class="bs-heading" style="font-size: 13px; color: var(--gold-dark); letter-spacing: 1.5px; text-transform: uppercase; margin: 0 0 8px; font-weight: 700;">Assets</h4>
+
+            <div class="bs-section" data-bs-section="cash" data-bs-target-field="bs-total-cash">
+              <div class="bs-section-head"><span class="bs-section-label">Cash &amp; Cash Equivalents</span> <span class="bs-section-total" id="bs-total-cash">$0</span></div>
+              <div class="bs-rows" id="bs-rows-cash"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="cash">+ Add cash account</button>
+            </div>
+
+            <div class="bs-section" data-bs-section="brokerage" data-bs-target-field="bs-total-brokerage">
+              <div class="bs-section-head"><span class="bs-section-label">Taxable Investments &amp; Brokerage</span> <span class="bs-section-total" id="bs-total-brokerage">$0</span></div>
+              <div class="bs-rows" id="bs-rows-brokerage"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="brokerage">+ Add brokerage account</button>
+            </div>
+
+            <div class="bs-section" data-bs-section="retirement" data-bs-target-field="bs-total-retirement">
+              <div class="bs-section-head"><span class="bs-section-label">Retirement Accounts <span style="color: var(--muted); font-weight: 400; font-size: 11px;">(IRA · Roth · 401k · HSA — pre-tax basis)</span></span> <span class="bs-section-total" id="bs-total-retirement">$0</span></div>
+              <div class="bs-rows" id="bs-rows-retirement"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="retirement">+ Add retirement account</button>
+            </div>
+
+            <div class="bs-section" data-bs-section="real-estate" data-bs-target-field="bs-total-realestate">
+              <div class="bs-section-head"><span class="bs-section-label">Real Estate <span style="color: var(--muted); font-weight: 400; font-size: 11px;">(FMV — mortgage entered separately below)</span></span> <span class="bs-section-total" id="bs-total-realestate">$0</span></div>
+              <div class="bs-rows" id="bs-rows-real-estate"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="real-estate">+ Add property</button>
+            </div>
+
+            <div class="bs-section" data-bs-section="business" data-bs-target-field="bs-total-business">
+              <div class="bs-section-head"><span class="bs-section-label">Business Interests <span style="color: var(--muted); font-weight: 400; font-size: 11px;">(separate from sale-target above)</span></span> <span class="bs-section-total" id="bs-total-business">$0</span></div>
+              <div class="bs-rows" id="bs-rows-business"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="business">+ Add business interest</button>
+            </div>
+
+            <div class="bs-section" data-bs-section="personal-property" data-bs-target-field="bs-total-personal">
+              <div class="bs-section-head"><span class="bs-section-label">Personal Property &amp; Collectibles <span style="color: var(--muted); font-weight: 400; font-size: 11px;">(art, jewelry, vehicles, watches, wine, autographs)</span></span> <span class="bs-section-total" id="bs-total-personal">$0</span></div>
+              <div class="bs-rows" id="bs-rows-personal-property"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="personal-property">+ Add personal property</button>
+            </div>
+
+            <div class="bs-section" data-bs-section="other-assets" data-bs-target-field="bs-total-other">
+              <div class="bs-section-head"><span class="bs-section-label">Other Assets <span style="color: var(--muted); font-weight: 400; font-size: 11px;">(life insurance cash value, crypto, deferred comp, notes receivable)</span></span> <span class="bs-section-total" id="bs-total-other">$0</span></div>
+              <div class="bs-rows" id="bs-rows-other-assets"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="other-assets">+ Add other asset</button>
+            </div>
+
+            <div class="bs-divider"></div>
+            <div class="bs-grand-total" style="background: var(--cream); padding: 10px 14px; border-radius: 4px; margin: 8px 0; display: flex; justify-content: space-between; font-weight: 700; color: var(--success);">
+              <span>TOTAL ASSETS</span>
+              <span id="bs-total-assets">$0</span>
+            </div>
+
+            <!-- LIABILITIES -->
+            <h4 class="bs-heading" style="font-size: 13px; color: var(--crimson); letter-spacing: 1.5px; text-transform: uppercase; margin: 18px 0 8px; font-weight: 700;">Liabilities</h4>
+
+            <div class="bs-section" data-bs-section="mortgages" data-bs-target-field="bs-total-mortgages">
+              <div class="bs-section-head"><span class="bs-section-label">Mortgages</span> <span class="bs-section-total" id="bs-total-mortgages">$0</span></div>
+              <div class="bs-rows" id="bs-rows-mortgages"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="mortgages">+ Add mortgage</button>
+            </div>
+
+            <div class="bs-section" data-bs-section="margin" data-bs-target-field="bs-total-margin">
+              <div class="bs-section-head"><span class="bs-section-label">Margin Loans &amp; Securities-Backed Lines</span> <span class="bs-section-total" id="bs-total-margin">$0</span></div>
+              <div class="bs-rows" id="bs-rows-margin"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="margin">+ Add margin loan</button>
+            </div>
+
+            <div class="bs-section" data-bs-section="other-debt" data-bs-target-field="bs-total-other-debt">
+              <div class="bs-section-head"><span class="bs-section-label">Other Debt <span style="color: var(--muted); font-weight: 400; font-size: 11px;">(credit cards, personal loans, lines of credit)</span></span> <span class="bs-section-total" id="bs-total-other-debt">$0</span></div>
+              <div class="bs-rows" id="bs-rows-other-debt"></div>
+              <button type="button" class="btn btn-secondary btn-sm bs-add" data-bs-add="other-debt">+ Add debt</button>
+            </div>
+
+            <div class="bs-grand-total" style="background: var(--cream); padding: 10px 14px; border-radius: 4px; margin: 8px 0; display: flex; justify-content: space-between; font-weight: 700; color: var(--crimson);">
+              <span>TOTAL LIABILITIES</span>
+              <span id="bs-total-liabilities">$0</span>
+            </div>
+
+            <!-- NET WORTH -->
+            <div class="bs-net-worth" style="background: var(--gold); color: white; padding: 14px 18px; border-radius: 4px; margin-top: 12px; display: flex; justify-content: space-between; font-weight: 700; font-size: 16px; letter-spacing: 1px;">
+              <span>HOUSEHOLD NET WORTH</span>
+              <span id="bs-net-worth">$0</span>
+            </div>
+
+            <!-- Hidden backing store — JSON serialization of all rows -->
+            <textarea id="balance-sheet-data" style="display:none;" aria-hidden="true"></textarea>
+          </div>
+        </details>
       </div>
       <div class="field">
         <label># Education Beneficiaries <span class="hint">(children + grandchildren under 18)</span></label>
@@ -7063,6 +7181,210 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
   // visual list after they update the textarea.
   window.__REBUILD_FAMILY_LIST__ = rebuildFamilyFromTextarea;
   window.__REBUILD_GOALS_LIST__  = rebuildGoalsFromTextarea;
+})();
+
+/* ============================================================
+   PERSONAL BALANCE SHEET — line-item assets/liabilities editor
+   Line items per category (cash / brokerage / retirement / RE /
+   business / personal / other / mortgages / margin / debt). Auto-
+   totals each category + grand totals. Auto-syncs to existing
+   simple top-level fields (client-pnw, client-other, debt-mortgage,
+   debt-other, personal-property) so all downstream compute keeps
+   working without changes.
+   ============================================================ */
+(function () {
+  const fmtMoney = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
+  const parseMoney = (s) => Number(String(s || '').replace(/[$,\s]/g, '')) || 0;
+
+  // Section configs — grid layout differs for real estate (extra mortgage col)
+  const SECTIONS = {
+    'cash':              { label: 'Cash',           extraField: false },
+    'brokerage':         { label: 'Brokerage',      extraField: false },
+    'retirement':        { label: 'Retirement',     extraField: false },
+    'real-estate':       { label: 'Property',       extraField: 'mortgage' },
+    'business':          { label: 'Business interest', extraField: false },
+    'personal-property': { label: 'Personal property', extraField: false },
+    'other-assets':      { label: 'Other asset',    extraField: false },
+    'mortgages':         { label: 'Mortgage',       extraField: false },
+    'margin':            { label: 'Margin loan',    extraField: false },
+    'other-debt':        { label: 'Debt',           extraField: false },
+  };
+
+  const dataTextarea = document.getElementById('balance-sheet-data');
+  if (!dataTextarea) return;  // page may not have the section (shouldn't happen)
+
+  function buildRow(section, item) {
+    const config = SECTIONS[section];
+    const row = document.createElement('div');
+    row.className = 'bs-row' + (config.extraField === 'mortgage' ? ' bs-row-realestate' : '');
+    const labelPlaceholder = config.label === 'Property' ? 'Property name (e.g., Aspen home)'
+                            : config.label === 'Brokerage' ? 'Account name / institution'
+                            : config.label === 'Retirement' ? 'Account type (e.g., 401k Vanguard)'
+                            : config.label === 'Cash' ? 'Bank account name'
+                            : config.label === 'Mortgage' ? 'Property mortgage applies to'
+                            : config.label === 'Margin loan' ? 'Brokerage account'
+                            : config.label === 'Debt' ? 'Description'
+                            : config.label === 'Business interest' ? 'Entity name'
+                            : config.label === 'Personal property' ? 'Description (art, watches, etc.)'
+                            : 'Description';
+    if (config.extraField === 'mortgage') {
+      row.innerHTML = `
+        <input type="text" data-bs="label" placeholder="${labelPlaceholder}" value="${(item.label || '').replace(/"/g, '&quot;')}">
+        <input type="text" inputmode="numeric" class="money" data-bs="value" placeholder="FMV $" value="${item.value ? fmtMoney(item.value) : ''}">
+        <input type="text" inputmode="numeric" class="money" data-bs="extra" placeholder="Mortgage $" value="${item.extra ? fmtMoney(item.extra) : ''}">
+        <button type="button" class="bs-delete" title="Remove">×</button>
+      `;
+    } else {
+      row.innerHTML = `
+        <input type="text" data-bs="label" placeholder="${labelPlaceholder}" value="${(item.label || '').replace(/"/g, '&quot;')}">
+        <input type="text" inputmode="numeric" class="money" data-bs="value" placeholder="$" value="${item.value ? fmtMoney(item.value) : ''}">
+        <button type="button" class="bs-delete" title="Remove">×</button>
+      `;
+    }
+    row.querySelectorAll('input').forEach(el => el.addEventListener('input', () => {
+      // Re-format money on blur, recompute totals on every input
+      recomputeAll();
+    }));
+    row.querySelector('.bs-delete').addEventListener('click', () => {
+      row.remove();
+      recomputeAll();
+    });
+    return row;
+  }
+
+  function getSectionTotal(section) {
+    const rows = document.querySelectorAll(`#bs-rows-${section} .bs-row`);
+    let total = 0;
+    rows.forEach(r => {
+      total += parseMoney(r.querySelector('[data-bs="value"]').value);
+    });
+    return total;
+  }
+
+  // Real-estate mortgages are entered alongside the property — sum them
+  // separately so we can fold them into the Mortgages liability total.
+  function getRealEstateMortgageTotal() {
+    let total = 0;
+    document.querySelectorAll('#bs-rows-real-estate .bs-row').forEach(r => {
+      total += parseMoney(r.querySelector('[data-bs="extra"]')?.value || '0');
+    });
+    return total;
+  }
+
+  function recomputeAll() {
+    const totals = {};
+    Object.keys(SECTIONS).forEach(sec => { totals[sec] = getSectionTotal(sec); });
+
+    // Update per-section displays
+    const totalElements = {
+      'cash': 'bs-total-cash', 'brokerage': 'bs-total-brokerage',
+      'retirement': 'bs-total-retirement', 'real-estate': 'bs-total-realestate',
+      'business': 'bs-total-business', 'personal-property': 'bs-total-personal',
+      'other-assets': 'bs-total-other', 'mortgages': 'bs-total-mortgages',
+      'margin': 'bs-total-margin', 'other-debt': 'bs-total-other-debt',
+    };
+    Object.entries(totalElements).forEach(([sec, elId]) => {
+      const el = document.getElementById(elId);
+      if (el) el.textContent = fmtMoney(totals[sec]);
+    });
+
+    // Real-estate mortgages roll into the Mortgages total
+    const realEstateMortgage = getRealEstateMortgageTotal();
+    const totalAssets = totals['cash'] + totals['brokerage'] + totals['retirement']
+                      + totals['real-estate'] + totals['business']
+                      + totals['personal-property'] + totals['other-assets'];
+    const totalLiabs = totals['mortgages'] + realEstateMortgage + totals['margin'] + totals['other-debt'];
+    const netWorth = totalAssets - totalLiabs;
+
+    document.getElementById('bs-total-assets').textContent = fmtMoney(totalAssets);
+    document.getElementById('bs-total-liabilities').textContent = fmtMoney(totalLiabs);
+    document.getElementById('bs-net-worth').textContent = fmtMoney(netWorth);
+
+    // ─── Auto-sync to existing top-level fields ───
+    // Only sync if at least one row has a value > 0 (avoid clobbering manual entries
+    // when the balance sheet is empty/uninitialized)
+    if (totalAssets > 0 || totalLiabs > 0) {
+      const setField = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.value = String(Math.round(v));
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      };
+      // client-pnw = total net worth
+      setField('client-pnw', netWorth);
+      // client-other = liquid + retirement + business interests + life insurance
+      // (everything BUT real estate, personal property, and the sale-target business)
+      setField('client-other', totals['cash'] + totals['brokerage'] + totals['retirement']
+                              + totals['business'] + totals['other-assets']);
+      // debt-mortgage = explicit mortgages + real-estate mortgages
+      setField('debt-mortgage', totals['mortgages'] + realEstateMortgage);
+      // debt-other = margin + other debt
+      setField('debt-other', totals['margin'] + totals['other-debt']);
+      // personal-property = personal property total
+      setField('personal-property', totals['personal-property']);
+      // Re-format money inputs after bulk update
+      if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
+    }
+
+    // Serialize to backing store for save/load round-trip
+    const snap = {};
+    Object.keys(SECTIONS).forEach(sec => {
+      snap[sec] = Array.from(document.querySelectorAll(`#bs-rows-${sec} .bs-row`)).map(r => {
+        const item = {
+          label: r.querySelector('[data-bs="label"]').value,
+          value: parseMoney(r.querySelector('[data-bs="value"]').value),
+        };
+        const extra = r.querySelector('[data-bs="extra"]');
+        if (extra) item.extra = parseMoney(extra.value);
+        return item;
+      }).filter(i => i.label || i.value > 0);
+    });
+    dataTextarea.value = JSON.stringify(snap);
+    dataTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function addRow(section, item) {
+    const rowsEl = document.getElementById(`bs-rows-${section}`);
+    if (!rowsEl) return;
+    // Remove empty placeholder if present
+    const empty = rowsEl.querySelector('.bs-empty');
+    if (empty) empty.remove();
+    const row = buildRow(section, item || {});
+    rowsEl.appendChild(row);
+    // Focus the label input for fast entry
+    if (!item) row.querySelector('[data-bs="label"]').focus();
+    recomputeAll();
+  }
+
+  function rebuildFromTextarea() {
+    let snap;
+    try {
+      snap = JSON.parse(dataTextarea.value || '{}');
+    } catch {
+      snap = {};
+    }
+    Object.keys(SECTIONS).forEach(sec => {
+      const rowsEl = document.getElementById(`bs-rows-${sec}`);
+      if (!rowsEl) return;
+      rowsEl.innerHTML = '';
+      const items = Array.isArray(snap[sec]) ? snap[sec] : [];
+      items.forEach(item => rowsEl.appendChild(buildRow(sec, item)));
+    });
+    recomputeAll();
+  }
+
+  // Wire + Add buttons
+  document.querySelectorAll('.bs-add').forEach(btn => {
+    btn.addEventListener('click', () => addRow(btn.dataset.bsAdd));
+  });
+
+  // Initial render — empty state, then rebuild if textarea has data
+  rebuildFromTextarea();
+
+  // Expose hooks for hydrateForm + Import Client PDF flow
+  window.__REBUILD_BALANCE_SHEET__ = rebuildFromTextarea;
+  window.__BALANCE_SHEET_ADD_ROW__ = addRow;  // for programmatic adds from PDF import
 })();
 </script>
 
@@ -17803,7 +18125,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'plan-type',
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
       'client-primary-age','client-spouse-age',
-      'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college','family-composition','financial-goals',
+      'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college','family-composition','financial-goals','balance-sheet-data',
       'concentrated-value','concentrated-basis','concentrated-ticker','concentrated-insider','options-value','iso-bargain',
       'considering-move','target-state','reporting-currency',
       'ret-trad-ira','ret-401k','ret-roth-ira','ret-hsa','rmd-start-age',
@@ -17870,9 +18192,10 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const planTypeEl = document.getElementById('plan-type');
     if (planTypeEl) planTypeEl.dispatchEvent(new Event('change'));
     // Rebuild interactive list editors after textareas (#family-composition,
-    // #financial-goals) are hydrated from saved values.
+    // #financial-goals, #balance-sheet-data) are hydrated from saved values.
     if (window.__REBUILD_FAMILY_LIST__) window.__REBUILD_FAMILY_LIST__();
     if (window.__REBUILD_GOALS_LIST__)  window.__REBUILD_GOALS_LIST__();
+    if (window.__REBUILD_BALANCE_SHEET__) window.__REBUILD_BALANCE_SHEET__();
   }
 
   /* ---- Download current form state as a local JSON file (offline-safe) ---- */
