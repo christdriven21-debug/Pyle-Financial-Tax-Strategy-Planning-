@@ -12651,7 +12651,74 @@ function renderTransaction(p) {
     </div>
   `;
 
+  // ─── YEAR-OF-SALE TAX IMPACT CARD ──────────────────────────────
+  // Bottom-line view of THIS year's tax benefits from the strategies
+  // selected. Calls out the QOZ deferral as a separate line because
+  // it's a deferral, not a permanent reduction (paid back at 12/31/2026
+  // or earlier disposition). All other line items are permanent
+  // year-of-sale reductions.
+  const grossCGTaxNoPlanning = (p.scenarios?.scenNone?.totalCGTax) || 0;
+  const cgTaxAfterStrategies = (p.scenarios?.scenAll?.totalCGTax) || 0;
+  const cgTaxReduction = Math.max(0, grossCGTaxNoPlanning - cgTaxAfterStrategies);
+  const qozDeferralAmount = (p.scenarios?.scenAll?.qozDeferred) || 0;
+  // Year-of-sale ordinary tax savings (non-CG)
+  const yosOrdinarySavings = (p.oilgasYear1Saving || 0)
+                           + (p.captiveAnnualSaving || 0)
+                           + (p.crossPsAnnualSaving || 0)
+                           + (p.hsaAnnualSaving || 0)
+                           + (p.dbplanAnnualSaving || 0)
+                           + (p.qbiSavings || 0)
+                           + (p.ceasementYear1Saving || 0)
+                           + (p.pfYear1Saving || 0)
+                           + (p.serpAnnualSaving || 0)
+                           + (p.s41Credit || 0)
+                           + (p.s172TaxSaving || 0)
+                           + (p.s250TaxSaving || 0);
+  const yosCharitable = (p.cratIncomeTaxSavings || 0) + (p.dafTaxSavings || 0)
+                      + (p.crutIncomeTaxSavings || 0) + (p.cltTaxSavings || 0);
+  const yosTotalSaved = cgTaxReduction + yosOrdinarySavings + yosCharitable;
+
+  const yearOfSaleCard = d.biz.sale > 0 ? `
+    <div class="card sale-only" style="border-left: 4px solid var(--gold); background: linear-gradient(180deg, var(--cream) 0%, white 100%);">
+      <div class="card-title">📅 Year-of-Sale Tax Impact — ${esc(d.biz.date || 'Year of Transaction')}</div>
+      <div class="card-sub">The bottom-line tax picture for the calendar year of the sale only. Lifetime/multi-year impact (estate tax savings, dynasty growth, depletion shelter, etc.) is shown elsewhere in the plan.</div>
+
+      <div style="margin: 16px 0; overflow-x: auto;">
+        <table class="plan-table" style="width: 100%; font-size: 13px;">
+          <thead>
+            <tr style="background: var(--cream-light); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 10px; color: var(--gold-dark);">
+              <th style="padding: 10px 14px; text-align: left;">Line Item</th>
+              <th style="padding: 10px 14px; text-align: right;">Amount</th>
+              <th style="padding: 10px 14px; text-align: left; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); font-style: italic;">Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="padding: 8px 14px;">Capital gains tax — <strong>without planning</strong></td><td class="num" style="padding: 8px 14px; color: var(--crimson); font-weight: 700;">${fmt$(grossCGTaxNoPlanning)}</td><td style="padding: 8px 14px; font-size: 11px; color: var(--muted);">Gross gain × ${(p.combinedCGRate*100).toFixed(2)}% combined rate</td></tr>
+            <tr style="border-top: 1px solid var(--border);"><td style="padding: 8px 14px;">Capital gains tax — <strong>with planning</strong></td><td class="num" style="padding: 8px 14px; color: var(--success); font-weight: 700;">${fmt$(cgTaxAfterStrategies)}</td><td style="padding: 8px 14px; font-size: 11px; color: var(--muted);">After CRAT/DAF/QSBS reduction + QOZ deferral</td></tr>
+            <tr style="background: rgba(45,106,79,0.06);"><td style="padding: 10px 14px; font-weight: 700;">CG TAX REDUCTION</td><td class="num" style="padding: 10px 14px; color: var(--success); font-weight: 700; font-size: 15px;">${fmt$(cgTaxReduction)}</td><td style="padding: 10px 14px; font-size: 11px; color: var(--muted);">Year-of-sale CG savings vs. no-plan baseline</td></tr>
+            ${qozDeferralAmount > 0 ? `
+              <tr><td style="padding: 8px 14px; padding-left: 28px;"><em>↳ of which: QOZ deferral</em></td><td class="num" style="padding: 8px 14px;">${fmt$(qozDeferralAmount)}</td><td style="padding: 8px 14px; font-size: 11px; color: var(--muted);">§1400Z-2 — deferred to 12/31/2026 or disposition</td></tr>
+            ` : ''}
+            ${yosOrdinarySavings > 0 ? `
+              <tr><td style="padding: 8px 14px;">Ordinary-income tax savings (DB Plan / Oil &amp; Gas / Captive / etc.)</td><td class="num" style="padding: 8px 14px; color: var(--success); font-weight: 700;">${fmt$(yosOrdinarySavings)}</td><td style="padding: 8px 14px; font-size: 11px; color: var(--muted);">Year-1 deductions × marginal rate</td></tr>
+            ` : ''}
+            ${yosCharitable > 0 ? `
+              <tr><td style="padding: 8px 14px;">Charitable-deduction income-tax savings (CRAT / DAF / CRUT / CLT)</td><td class="num" style="padding: 8px 14px; color: var(--success); font-weight: 700;">${fmt$(yosCharitable)}</td><td style="padding: 8px 14px; font-size: 11px; color: var(--muted);">Pre-sale charitable contribution deductions</td></tr>
+            ` : ''}
+            <tr style="background: var(--gold); color: white;"><td style="padding: 14px 14px; font-weight: 700; letter-spacing: 1px;">TOTAL YEAR-OF-SALE TAX SAVED</td><td class="num" style="padding: 14px 14px; font-weight: 700; font-size: 18px;">${fmt$(yosTotalSaved)}</td><td style="padding: 14px 14px; font-size: 11px; opacity: 0.9;">Net cash retained in the year of the transaction</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="font-size: 12px; color: var(--ink-soft); padding: 10px 14px; background: var(--cream-light); border-radius: 4px; line-height: 1.5;">
+        <strong>What's NOT in this number:</strong> estate tax savings (Dynasty / SLAT / IDGT / GRAT — lifetime impact in the Estate Planning tab), tax-free growth on QOZ / QSBS appreciation (multi-year), §1042 ESOP step-up at death (deferred), §453 installment-sale deferral (recognized in later years), Cash Balance Plan growth (deferred), and PPLI internal growth (deferred). See the Tax Optimization tab for the full lifetime view.
+      </div>
+    </div>
+  ` : '';
+
   return `
+    ${yearOfSaleCard}
+
     ${timelineHTML}
 
     ${stepTransactionWarning}
@@ -14558,12 +14625,21 @@ function renderEstate(p) {
   const clientResidualToHeirs = Math.max(0, clientEstateAtDeath - withFedTax - withStateTax);
   const withPlanToHeirs = trustsToHeirs + ilitToHeirs + clientResidualToHeirs;
 
-  // Charity — conservative: use contribution amounts (the floor)
+  // Charity — conservative: use contribution amounts (the floor of what
+  // ultimately reaches charity). Includes every charitable strategy in the
+  // platform: CRAT, CRUT, DAF, CLT, NIMCRUT, Private Foundation, and
+  // Conservation Easement (FMV reduction = charitable contribution to land
+  // trust). Some are remainder-based (CRT-style — charity gets remainder
+  // at end of term) and some are direct (DAF, foundation, easement).
   const charityCRAT = d.use.crat ? d.crat.amount : 0;
   const charityCRUT = d.use.crut ? d.crut.amount : 0;
   const charityDAF  = d.use.daf  ? d.daf.amount  : 0;
   const charityCLT  = d.use.clt  ? p.cltCharityTotal : 0;
-  const withPlanToCharity = charityCRAT + charityCRUT + charityDAF + charityCLT;
+  const charityNIMCRUT = d.use.nimcrut ? d.nimcrut.amount : 0;
+  const charityPF    = d.use.privateFoundation ? d.privateFoundation.funding : 0;
+  const charityEasement = d.use.ceasement ? (p.ceasementValue || 0) : 0;
+  const withPlanToCharity = charityCRAT + charityCRUT + charityDAF + charityCLT
+                           + charityNIMCRUT + charityPF + charityEasement;
   const withPlanTotalTax = withFedTax + withStateTax;
 
   const heirsDelta   = withPlanToHeirs - noplanToHeirs;
@@ -14603,7 +14679,7 @@ function renderEstate(p) {
 
       <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 20px;">
         <div class="kpi success"><div class="label">Extra to Heirs</div><div class="value">${heirsDelta >= 0 ? '+' : ''}${fmt$(heirsDelta)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">vs. no-planning counterfactual</div></div>
-        <div class="kpi gold"><div class="label">Total Charitable Impact</div><div class="value">${fmt$(withPlanToCharity)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">CRAT · CRUT · DAF · CLT payouts</div></div>
+        <div class="kpi gold"><div class="label">Total Charitable Impact</div><div class="value">${fmt$(withPlanToCharity)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">${[d.use.crat && 'CRAT', d.use.crut && 'CRUT', d.use.daf && 'DAF', d.use.clt && 'CLT', d.use.nimcrut && 'NIMCRUT', d.use.privateFoundation && 'Private Foundation', d.use.ceasement && 'Conservation Easement'].filter(Boolean).join(' · ') || 'No charitable strategies enabled'}</div></div>
         <div class="kpi success"><div class="label">Estate Tax Saved</div><div class="value">${fmt$(taxDelta)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Federal + state combined</div></div>
       </div>
 
