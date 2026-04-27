@@ -9211,7 +9211,64 @@ function computePlan(d) {
   //     - "Life of Policy" means premiums continue for the full policy term
   //   Crummey gifts to fund annual premiums typically fit within the
   //   annual gift-tax exclusion (no exemption burned) — noted in disclaimer.
-  const ilitEstateSave = d.use.ilit ? d.ilit.coverage * d.tax.estate : 0;
+  // ──────────────────────────────────────────────────────────────────────
+  // Per-policy ILIT expected death benefit (mortality-adjusted).
+  //
+  // Term policies pay $0 if the insured outlives the policy term — current-
+  // year aggregation that assumes full DB always pays overstates estate-tax
+  // savings for term-only ILITs. Refined model:
+  //   • Permanent policies (term === 'life' OR survivor_*): full DB always
+  //     pays at insured's death (or 2nd death for survivorship).
+  //   • Term policies: P(death within term) × DB
+  //     where P is approximated as min(1, termYears / singleLifeExpectancy).
+  //
+  // Joint survivorship pays at second death — probability driven by joint
+  // last-survivor expectancy. Single-insured term pays at that insured's
+  // first death.
+  //
+  // When per-policy fields are absent (legacy plan), expected DB falls
+  // back to d.ilit.coverage so historical compute stays unchanged.
+  // ──────────────────────────────────────────────────────────────────────
+  const PERMANENT_TYPES = new Set(['whole','iul','vul','gul','ppli','survivor_whole','survivor_iul','survivor_vul']);
+  function ilitExpectedDB(policy, insuredAge, isJoint, otherAge) {
+    if (!policy || !policy.type || policy.type === 'none' || !(policy.coverage > 0)) return 0;
+    const termRaw = (policy.term || '').toString().toLowerCase();
+    const isPermanent = termRaw === 'life' || PERMANENT_TYPES.has(policy.type);
+    if (isPermanent) return policy.coverage;
+    const termYears = parseInt(termRaw, 10) || 20;
+    if (isJoint) {
+      const jointLE = (insuredAge > 0 && otherAge > 0)
+        ? jointLastSurvivorExpectancy(insuredAge, otherAge)
+        : (insuredAge > 0 ? singleLifeExpectancy(insuredAge) : 25);
+      return policy.coverage * Math.min(1, termYears / Math.max(1, jointLE));
+    }
+    const le = insuredAge > 0 ? singleLifeExpectancy(insuredAge) : 0;
+    if (le <= 0) return policy.coverage;  // unknown age — conservative: assume pays
+    return policy.coverage * Math.min(1, termYears / le);
+  }
+  // Sum expected DB across the three policies (his/hers/joint)
+  const husbandExpectedDB = d.use.ilit ? ilitExpectedDB(d.ilit.husband, d.client.primaryAge, false) : 0;
+  const wifeExpectedDB    = d.use.ilit ? ilitExpectedDB(d.ilit.wife,    d.client.spouseAge,  false) : 0;
+  const jointExpectedDB   = d.use.ilit ? ilitExpectedDB(d.ilit.joint,   d.client.primaryAge, true, d.client.spouseAge) : 0;
+  // If the per-policy structure is empty (no Type set on any policy), fall
+  // back to legacy aggregate so old plans continue to compute identically.
+  const anyPerPolicyConfigured = d.use.ilit && (
+       (d.ilit.husband?.type && d.ilit.husband.type !== 'none')
+    || (d.ilit.wife?.type    && d.ilit.wife.type    !== 'none')
+    || (d.ilit.joint?.type   && d.ilit.joint.type   !== 'none')
+  );
+  const ilitExpectedDeathBenefit = !d.use.ilit ? 0
+    : (anyPerPolicyConfigured
+        ? (husbandExpectedDB + wifeExpectedDB + jointExpectedDB)
+        : (d.ilit.coverage || 0));
+  const ilitMortalityAdjustmentFactor = (anyPerPolicyConfigured && d.ilit.coverage > 0)
+    ? ilitExpectedDeathBenefit / d.ilit.coverage
+    : 1;
+  // Estate-tax savings now uses expected DB (mortality-adjusted) instead of
+  // face amount. For permanent / unknown-age plans this equals legacy
+  // behavior; for term plans with known ages it adjusts down to reflect
+  // actuarial reality.
+  const ilitEstateSave = d.use.ilit ? ilitExpectedDeathBenefit * d.tax.estate : 0;
   const ilitPayYearsRaw = (d.ilit.payYears || '').toString().toLowerCase();
   const ilitPayYears = d.use.ilit
     ? (ilitPayYearsRaw === 'life' ? d.ilit.years : Math.min(Math.max(1, parseInt(ilitPayYearsRaw, 10) || 10), d.ilit.years))
@@ -10610,6 +10667,8 @@ function computePlan(d) {
     dynastyStateArbitrage,
     dynastyIncomeTaxGift, dynastyIncomeTaxGiftEstateSave, dynastyLeverageYears,
     ilitEstateSave, ilitPayYears, ilitTotalPremiums, ilitNetBenefit,
+    ilitExpectedDeathBenefit, ilitMortalityAdjustmentFactor,
+    husbandExpectedDB, wifeExpectedDB, jointExpectedDB, anyPerPolicyConfigured,
     rothIncomeTax, rothEstateSave, rothNetEstateSave, rothFutureValue, rothGrowthBenefit,
     gratRemainder, gratEstateSave, gratAnnuity,
     qsbsEligible, qsbsMaxExcl, qsbsActualExcl, qsbsExclPct, qsbsHoldStatus, qsbsIsPostOBBBA,
@@ -16583,14 +16642,25 @@ function renderEstate(p) {
             </div>
           </div>`;
       }
+      const expectedDB = p.ilitExpectedDeathBenefit || totalDB;
+      const mortalityAdj = p.ilitMortalityAdjustmentFactor || 1;
+      const isMortalityAdjusted = mortalityAdj < 0.9999;  // material adjustment
       const summaryRow = `
         <div class="info-card" style="background: linear-gradient(135deg, #FFF, var(--cream-light));">
           <h4 style="margin-bottom: 8px;">🛡 ILIT Aggregate Summary</h4>
-          <div class="row"><span class="k">Total Death Benefit:</span><span class="v" style="font-weight: 700;">${fmt$(totalDB)}</span></div>
+          <div class="row"><span class="k">Total Face Death Benefit:</span><span class="v" style="font-weight: 700;">${fmt$(totalDB)}</span></div>
           <div class="row"><span class="k">Total Annual Premium:</span><span class="v">${fmt$(totalAnnualPremium)}</span></div>
-          <div class="row"><span class="k">Total Estate-Tax Liquidity:</span><span class="v" style="color: var(--success); font-weight: 700;">${fmt$(totalDB * estateRate)}</span></div>
+          ${isMortalityAdjusted ? `
+          <div class="row"><span class="k">Expected DB (mortality-adjusted):</span><span class="v" style="color: var(--gold-dark); font-weight: 700;">${fmt$(expectedDB)} <span style="font-size: 10px; color: var(--muted);">(${(mortalityAdj*100).toFixed(0)}% of face)</span></span></div>` : ''}
+          <div class="row"><span class="k">Total Estate-Tax Liquidity:</span><span class="v" style="color: var(--success); font-weight: 700;">${fmt$(p.ilitEstateSave || expectedDB * estateRate)}</span></div>
           ${totalProjectedIncome > 0 ? `<div class="row"><span class="k">Total Projected Income:</span><span class="v" style="color: var(--success);">${fmt$(totalProjectedIncome)}/yr (combined)</span></div>` : ''}
           <div class="row"><span class="k">Net Benefit (vs. cost):</span><span class="v" style="color: var(--success);">${fmt$(p.ilitNetBenefit)}</span></div>
+          ${isMortalityAdjusted ? `
+          <div class="row" style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--cream);">
+            <span class="v" style="font-size: 10px; color: var(--muted); line-height: 1.5; font-weight: 400;">
+              <strong style="color: var(--gold-dark); font-weight: 700;">Mortality adjustment:</strong> Term policies pay $0 if the insured outlives the term. Expected DB = P(death within term) × face, using single life expectancy at the insured's age. Permanent policies (Life term) always pay full face.
+            </span>
+          </div>` : ''}
         </div>`;
       return `
     <div class="card">
