@@ -3934,57 +3934,223 @@
     </div>
 
     <div class="strategy-block hidden" id="block-ilit">
-      <h4>ILIT (Irrevocable Life Insurance Trust) Parameters</h4>
-      <div class="form-grid cols-4">
-        <div class="field">
-          <label>Death Benefit Coverage</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-coverage" value="10000000"></div>
+      <h4>ILIT (Irrevocable Life Insurance Trust) — His / Hers / Joint Policies</h4>
+      <p style="font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 14px;">
+        Configure up to three policies inside the ILIT: separate policy on the husband, separate policy on the wife, and/or a joint second-to-die survivorship policy. Term policies are pure death benefit; permanent policies (Whole Life, Indexed UL, Variable UL) build cash value and can produce projected income via policy loans / withdrawals. Add a loan-based split-dollar arrangement below the policy section if applicable.
+      </p>
+
+      <!-- HUSBAND POLICY -->
+      <details class="ilit-policy" open>
+        <summary style="cursor: pointer; font-weight: 600; font-size: 13px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px;">
+          ▸ Policy on Primary Client (Husband / Insured 1)
+          <span style="font-weight: 400; color: var(--muted); font-size: 11px;">— individual coverage</span>
+        </summary>
+        <div style="padding: 12px 14px;">
+          <div class="form-grid cols-4">
+            <div class="field">
+              <label>Policy Type</label>
+              <select id="ilit-h-type">
+                <option value="none" selected>— No husband policy —</option>
+                <option value="term">Term (level)</option>
+                <option value="whole">Whole Life (permanent)</option>
+                <option value="iul">Indexed Universal Life</option>
+                <option value="vul">Variable Universal Life</option>
+                <option value="ppli">Private Placement Life Ins.</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Death Benefit</label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-h-coverage" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Annual Premium</label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-h-premium" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Premium Pay Years</label>
+              <select id="ilit-h-pay-years">
+                <option value="1">1 (single)</option><option value="3">3</option>
+                <option value="5">5-pay</option><option value="7">7-pay</option>
+                <option value="10" selected>10-pay</option><option value="15">15</option>
+                <option value="20">20</option><option value="life">Pay-to-life</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid cols-3" style="margin-top: 10px;">
+            <div class="field">
+              <label>Policy Term <span class="hint">("Life" = permanent)</span></label>
+              <select id="ilit-h-term">
+                <option value="10">10-year term</option><option value="15">15-year term</option>
+                <option value="20" selected>20-year term</option><option value="25">25-year term</option>
+                <option value="30">30-year term</option><option value="life">Life (permanent)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Projected Annual Income from Withdrawals/Loans <span class="hint">(if permanent — tax-free via §72(e) basis-first + §7702 loan)</span></label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-h-income" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Income Start Year <span class="hint">(year withdrawals begin)</span></label>
+              <input type="number" id="ilit-h-income-start" value="0" min="0" max="2099">
+            </div>
+          </div>
         </div>
-        <div class="field">
-          <label>Annual Premium</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-premium" value="150000"></div>
+      </details>
+
+      <!-- WIFE POLICY -->
+      <details class="ilit-policy" style="margin-top: 12px;">
+        <summary style="cursor: pointer; font-weight: 600; font-size: 13px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px;">
+          ▸ Policy on Spouse (Wife / Insured 2)
+          <span style="font-weight: 400; color: var(--muted); font-size: 11px;">— individual coverage</span>
+        </summary>
+        <div style="padding: 12px 14px;">
+          <div class="form-grid cols-4">
+            <div class="field">
+              <label>Policy Type</label>
+              <select id="ilit-w-type">
+                <option value="none" selected>— No spouse policy —</option>
+                <option value="term">Term (level)</option>
+                <option value="whole">Whole Life (permanent)</option>
+                <option value="iul">Indexed Universal Life</option>
+                <option value="vul">Variable Universal Life</option>
+                <option value="ppli">Private Placement Life Ins.</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Death Benefit</label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-w-coverage" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Annual Premium</label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-w-premium" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Premium Pay Years</label>
+              <select id="ilit-w-pay-years">
+                <option value="1">1 (single)</option><option value="3">3</option>
+                <option value="5">5-pay</option><option value="7">7-pay</option>
+                <option value="10" selected>10-pay</option><option value="15">15</option>
+                <option value="20">20</option><option value="life">Pay-to-life</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid cols-3" style="margin-top: 10px;">
+            <div class="field">
+              <label>Policy Term</label>
+              <select id="ilit-w-term">
+                <option value="10">10-year term</option><option value="15">15-year term</option>
+                <option value="20" selected>20-year term</option><option value="25">25-year term</option>
+                <option value="30">30-year term</option><option value="life">Life (permanent)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Projected Annual Income from Withdrawals/Loans</label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-w-income" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Income Start Year</label>
+              <input type="number" id="ilit-w-income-start" value="0" min="0" max="2099">
+            </div>
+          </div>
         </div>
-        <div class="field">
-          <label>Policy Term (Years)</label>
-          <input type="number" id="ilit-years" value="20">
+      </details>
+
+      <!-- JOINT SURVIVORSHIP POLICY -->
+      <details class="ilit-policy" style="margin-top: 12px;">
+        <summary style="cursor: pointer; font-weight: 600; font-size: 13px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px;">
+          ▸ Joint Survivorship Policy (Second-to-Die)
+          <span style="font-weight: 400; color: var(--muted); font-size: 11px;">— pays death benefit only after both insureds have died; cheaper premium because mortality is jointly delayed</span>
+        </summary>
+        <div style="padding: 12px 14px;">
+          <div class="form-grid cols-4">
+            <div class="field">
+              <label>Policy Type</label>
+              <select id="ilit-j-type">
+                <option value="none" selected>— No joint policy —</option>
+                <option value="term">Joint Term</option>
+                <option value="whole">Survivorship Whole Life</option>
+                <option value="iul">Survivorship IUL</option>
+                <option value="vul">Survivorship VUL</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Death Benefit (paid at second death)</label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-j-coverage" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Annual Premium</label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-j-premium" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Premium Pay Years</label>
+              <select id="ilit-j-pay-years">
+                <option value="1">1 (single)</option><option value="3">3</option>
+                <option value="5">5-pay</option><option value="7">7-pay</option>
+                <option value="10" selected>10-pay</option><option value="15">15</option>
+                <option value="20">20</option><option value="life">Pay-to-life</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid cols-3" style="margin-top: 10px;">
+            <div class="field">
+              <label>Policy Term</label>
+              <select id="ilit-j-term">
+                <option value="20">20-year term</option><option value="30">30-year term</option>
+                <option value="life" selected>Life (permanent)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Projected Annual Income from Withdrawals/Loans</label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ilit-j-income" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Income Start Year</label>
+              <input type="number" id="ilit-j-income-start" value="0" min="0" max="2099">
+            </div>
+          </div>
         </div>
-        <div class="field">
-          <label>Premium Payment Years <span class="hint">(how many years to fund)</span></label>
-          <select id="ilit-pay-years">
-            <option value="1">1 year (single premium)</option>
-            <option value="2">2 years</option>
-            <option value="3">3 years</option>
-            <option value="4">4 years</option>
-            <option value="5">5 years (5-pay)</option>
-            <option value="6">6 years</option>
-            <option value="7">7 years (7-pay)</option>
-            <option value="8">8 years</option>
-            <option value="9">9 years</option>
-            <option value="10" selected>10 years (10-pay)</option>
-            <option value="11">11 years</option>
-            <option value="12">12 years</option>
-            <option value="13">13 years</option>
-            <option value="14">14 years</option>
-            <option value="15">15 years</option>
-            <option value="16">16 years</option>
-            <option value="17">17 years</option>
-            <option value="18">18 years</option>
-            <option value="19">19 years</option>
-            <option value="20">20 years</option>
-            <option value="21">21 years</option>
-            <option value="22">22 years</option>
-            <option value="23">23 years</option>
-            <option value="24">24 years</option>
-            <option value="25">25 years</option>
-            <option value="26">26 years</option>
-            <option value="27">27 years</option>
-            <option value="28">28 years</option>
-            <option value="29">29 years</option>
-            <option value="30">30 years</option>
-            <option value="life">Life of Policy (full term)</option>
-          </select>
+      </details>
+
+      <!-- LOAN-BASED SPLIT-DOLLAR -->
+      <details class="ilit-policy" style="margin-top: 14px;">
+        <summary style="cursor: pointer; font-weight: 600; font-size: 13px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px;">
+          ▸ Loan-Based Split-Dollar Arrangement <span style="font-weight: 400; color: var(--muted); font-size: 11px;">(employer/grantor lends premiums to ILIT at AFR; recovers from death benefit)</span>
+        </summary>
+        <div style="padding: 12px 14px;">
+          <p style="font-size: 12px; color: var(--muted); font-style: italic; margin: 0 0 10px;">
+            Loan-regime split-dollar (Reg §1.7872-15) — employer or grantor loans premium dollars to the ILIT at the AFR. Each year's loan is treated as a series of demand loans; ILIT pays interest at AFR or accrues. At death, employer recovers loan + accrued interest; remainder passes to ILIT beneficiaries estate-tax-free. Avoids economic-benefit-regime imputation. Requires written loan agreement + AFR documentation.
+          </p>
+          <div class="form-grid cols-4">
+            <div class="field">
+              <label>Annual Loan Amount <span class="hint">(premium paid via loan)</span></label>
+              <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="splitdollar-annual-loan" value="0"></div>
+            </div>
+            <div class="field">
+              <label>Loan Years</label>
+              <input type="number" id="splitdollar-years" value="10" min="1" max="40">
+            </div>
+            <div class="field">
+              <label>AFR Rate <span class="hint">(short/mid/long depending on demand-loan vs term)</span></label>
+              <div class="suffix-pct"><input type="number" id="splitdollar-rate" value="4.5" step="0.1"></div>
+            </div>
+            <div class="field">
+              <label>Interest Treatment</label>
+              <select id="splitdollar-interest">
+                <option value="accrue" selected>Accrue (compound until death)</option>
+                <option value="pay">Pay annually from ILIT</option>
+              </select>
+            </div>
+          </div>
         </div>
-      </div>
+      </details>
+
+      <!-- Backward-compat hidden inputs — old single-policy fields kept so
+           existing compute logic continues to work. The new his/hers/joint
+           policies aggregate into these on plan generation. -->
+      <input type="hidden" id="ilit-coverage" value="0">
+      <input type="hidden" id="ilit-premium" value="0">
+      <input type="hidden" id="ilit-years" value="20">
+      <input type="hidden" id="ilit-pay-years" value="10">
     </div>
 
     <div class="strategy-block hidden" id="block-roth">
@@ -7612,12 +7778,79 @@ function readForm() {
       businessType: t('qoz-business-type') || 'real_estate',
       improvement: t('qoz-improvement') || 'yes',
     },
-    ilit: {
-      coverage: n('ilit-coverage'),
-      premium:  n('ilit-premium'),
-      years:    n('ilit-years'),
-      payYears: t('ilit-pay-years'),   // string: '1'..'30' or 'life'
-    },
+    ilit: (() => {
+      // New three-policy structure (His + Hers + Joint Survivorship). The
+      // legacy single-policy fields (ilit-coverage / ilit-premium / etc.)
+      // are kept as hidden backward-compat inputs that aggregate to here.
+      const husband = {
+        type:        t('ilit-h-type') || 'none',
+        coverage:    n('ilit-h-coverage'),
+        premium:     n('ilit-h-premium'),
+        payYears:    t('ilit-h-pay-years') || '10',
+        term:        t('ilit-h-term') || '20',
+        income:      n('ilit-h-income'),
+        incomeStart: n('ilit-h-income-start') || 0,
+      };
+      const wife = {
+        type:        t('ilit-w-type') || 'none',
+        coverage:    n('ilit-w-coverage'),
+        premium:     n('ilit-w-premium'),
+        payYears:    t('ilit-w-pay-years') || '10',
+        term:        t('ilit-w-term') || '20',
+        income:      n('ilit-w-income'),
+        incomeStart: n('ilit-w-income-start') || 0,
+      };
+      const joint = {
+        type:        t('ilit-j-type') || 'none',
+        coverage:    n('ilit-j-coverage'),
+        premium:     n('ilit-j-premium'),
+        payYears:    t('ilit-j-pay-years') || '10',
+        term:        t('ilit-j-term') || 'life',
+        income:      n('ilit-j-income'),
+        incomeStart: n('ilit-j-income-start') || 0,
+      };
+      // Loan-based split-dollar arrangement
+      const splitDollar = {
+        annualLoan: n('splitdollar-annual-loan'),
+        years:      n('splitdollar-years') || 10,
+        rate:      (n('splitdollar-rate') || 4.5) / 100,
+        interest:   t('splitdollar-interest') || 'accrue',
+      };
+      // Aggregate for legacy compute paths — total death benefit, total
+      // annual premium across all enabled policies. Treats each policy
+      // type !== 'none' as enabled.
+      const enabled = (p) => p.type && p.type !== 'none';
+      const totalCoverage = (enabled(husband) ? husband.coverage : 0)
+                          + (enabled(wife) ? wife.coverage : 0)
+                          + (enabled(joint) ? joint.coverage : 0);
+      const totalPremium = (enabled(husband) ? husband.premium : 0)
+                         + (enabled(wife) ? wife.premium : 0)
+                         + (enabled(joint) ? joint.premium : 0);
+      // Use the longest pay-years across enabled policies for legacy
+      // ilit.payYears (or 'life' if any policy is pay-to-life).
+      const payYearsLegacy = [husband, wife, joint].filter(enabled).some(p => p.payYears === 'life')
+        ? 'life'
+        : Math.max(...[husband, wife, joint].filter(enabled).map(p => parseInt(p.payYears, 10) || 10), 10).toString();
+      // Use the longest term as the legacy ilit.years
+      const termYearsLegacy = [husband, wife, joint].filter(enabled).some(p => p.term === 'life')
+        ? 30  // permanent — model 30-yr horizon
+        : Math.max(...[husband, wife, joint].filter(enabled).map(p => parseInt(p.term, 10) || 20), 20);
+      // Total projected withdrawal income across all permanent policies
+      const totalIncome = (enabled(husband) ? husband.income : 0)
+                        + (enabled(wife) ? wife.income : 0)
+                        + (enabled(joint) ? joint.income : 0);
+      // Backward-compat fields that older compute code expects:
+      return {
+        // Legacy aggregated fields (compute reads these)
+        coverage: totalCoverage || n('ilit-coverage'),
+        premium:  totalPremium  || n('ilit-premium'),
+        years:    termYearsLegacy,
+        payYears: payYearsLegacy,
+        // New per-policy + split-dollar detail (rendering + future compute)
+        husband, wife, joint, splitDollar,
+        totalIncome,
+      };
+    })(),
     roth: { amount: n('roth-amount'), marginal: n('roth-marginal') / 100, years: n('roth-years') },
     grat: { transfer: n('grat-transfer'), term: n('grat-term'), hurdle: n('grat-7520') / 100, growth: n('grat-growth') / 100, discount: n('grat-discount') / 100 },
     qsbs: {
@@ -18269,6 +18502,11 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'daf-amount',
       'qoz-amount','qoz-defer','qoz-return','qoz-years',
       'ilit-coverage','ilit-premium','ilit-years','ilit-pay-years',
+      // Per-policy ILIT fields (his / hers / joint) + split-dollar
+      'ilit-h-type','ilit-h-coverage','ilit-h-premium','ilit-h-pay-years','ilit-h-term','ilit-h-income','ilit-h-income-start',
+      'ilit-w-type','ilit-w-coverage','ilit-w-premium','ilit-w-pay-years','ilit-w-term','ilit-w-income','ilit-w-income-start',
+      'ilit-j-type','ilit-j-coverage','ilit-j-premium','ilit-j-pay-years','ilit-j-term','ilit-j-income','ilit-j-income-start',
+      'splitdollar-annual-loan','splitdollar-years','splitdollar-rate','splitdollar-interest',
       'roth-amount','roth-marginal','roth-years',
       'grat-transfer','grat-term','grat-7520','grat-growth','grat-discount',
       'qsbs-basis','qsbs-years','qsbs-excl','qsbs-state-conforms','qsbs-regime',
