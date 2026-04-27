@@ -2484,6 +2484,67 @@
   @media print { #audit-panel { display: none !important; } }
   .print-layout #audit-panel { display: none !important; }
   /* Audit-log collapsible toggle */
+  /* Interactive list editor (Family/Beneficiaries + Financial Goals) */
+  .list-editor {
+    margin-top: 6px; padding: 12px; background: var(--cream-light);
+    border: 1px solid rgba(201,169,97,0.35); border-radius: 4px;
+  }
+  .list-editor-rows { display: flex; flex-direction: column; gap: 8px; }
+  .list-editor-row {
+    display: grid; gap: 8px; align-items: center;
+    padding: 8px 10px; background: white; border-radius: 3px;
+    border: 1px solid rgba(201,169,97,0.25);
+  }
+  .list-editor-row.family-row {
+    grid-template-columns: 2fr 90px 1.3fr 32px;
+  }
+  .list-editor-row.goal-row {
+    grid-template-columns: 2.4fr 1fr 90px 1fr 1fr 32px;
+  }
+  .list-editor-row input,
+  .list-editor-row select {
+    width: 100%; padding: 6px 8px; font-size: 12px;
+    border: 1px solid rgba(201,169,97,0.3); border-radius: 3px;
+    background: white;
+  }
+  .list-editor-row input.money {
+    text-align: right; font-family: 'Courier New', monospace;
+  }
+  .list-editor-row input:focus,
+  .list-editor-row select:focus {
+    border-color: var(--gold); outline: none;
+  }
+  .list-editor-row .delete-btn {
+    background: transparent; border: 1px solid rgba(139,26,26,0.3);
+    color: var(--crimson); cursor: pointer; padding: 4px 6px;
+    border-radius: 3px; font-size: 14px; line-height: 1;
+    transition: all 0.15s;
+  }
+  .list-editor-row .delete-btn:hover {
+    background: var(--crimson); color: white;
+  }
+  .list-editor-empty {
+    padding: 12px; text-align: center; color: var(--muted);
+    font-size: 12px; font-style: italic;
+  }
+  @media (max-width: 700px) {
+    .list-editor-row.family-row,
+    .list-editor-row.goal-row {
+      grid-template-columns: 1fr 32px;
+      grid-template-rows: auto;
+    }
+    .list-editor-row.family-row > input:not(:first-child),
+    .list-editor-row.family-row > select,
+    .list-editor-row.goal-row > input:not(:first-child),
+    .list-editor-row.goal-row > select {
+      grid-column: 1;
+    }
+    .list-editor-row.family-row > .delete-btn,
+    .list-editor-row.goal-row > .delete-btn {
+      grid-column: 2; grid-row: 1;
+    }
+  }
+
   .audit-toggle {
     width: 100%; display: flex; align-items: center; gap: 10px;
     background: transparent; border: none; padding: 6px 0;
@@ -3477,8 +3538,13 @@
         <input type="number" id="edu-years-to-college" value="10" min="0" max="22">
       </div>
       <div class="field" style="grid-column: 1 / -1;">
-        <label>Family &amp; Beneficiaries <span class="hint">(one per line: "Name (YYYY) — relationship". Used for client portrait + beneficiary tracking.)</span></label>
-        <textarea id="family-composition" rows="4" style="width: 100%; padding: 10px; font-family: 'Helvetica Neue', sans-serif; font-size: 13px; border: 1px solid rgba(201,169,97,0.4); border-radius: 3px;" placeholder="James Harrison (1998) — son&#10;Emma Harrison (2001) — daughter&#10;Olivia Harrison (2024) — granddaughter&#10;Lucas Harrison (2026) — grandson"></textarea>
+        <label>Family &amp; Beneficiaries <span class="hint">(used for client portrait, education funding, gifting schedules, and beneficiary designations)</span></label>
+        <div class="list-editor" id="family-list-editor">
+          <div class="list-editor-rows" id="family-rows"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="family-add-btn" style="margin-top: 10px;">+ Add Family Member</button>
+        </div>
+        <!-- Backing store — hidden textarea kept in sync with the visual list above -->
+        <textarea id="family-composition" rows="4" style="display: none;" aria-hidden="true"></textarea>
       </div>
 
       <div class="field">
@@ -3536,8 +3602,13 @@
       </div>
 
       <div class="field" style="grid-column: 1 / -1;">
-        <label>Financial Goals <span class="hint">(one per line: "Name | $Amount | TargetYear | Priority | Category". Priority = must / important / aspirational. Category = retirement / education / legacy / lifestyle / philanthropy / major_purchase)</span></label>
-        <textarea id="financial-goals" rows="6" style="width: 100%; padding: 10px; font-family: 'Helvetica Neue', sans-serif; font-size: 13px; border: 1px solid rgba(201,169,97,0.4); border-radius: 3px;" placeholder="Maintain lifestyle through retirement | 15000000 | 2055 | must | retirement&#10;Emma's Stanford education | 500000 | 2034 | must | education&#10;Olivia's college | 350000 | 2042 | important | education&#10;$10M to each child at death | 30000000 | 2055 | important | legacy&#10;Aspen vacation home | 3000000 | 2030 | aspirational | major_purchase&#10;$5M to the hospital foundation | 5000000 | 2040 | important | philanthropy"></textarea>
+        <label>Financial Goals <span class="hint">(scored vs projection in the Goals tab; flag must-haves separately from aspirations)</span></label>
+        <div class="list-editor" id="goals-list-editor">
+          <div class="list-editor-rows" id="goals-rows"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="goals-add-btn" style="margin-top: 10px;">+ Add Goal</button>
+        </div>
+        <!-- Backing store — hidden textarea kept in sync with the visual list above -->
+        <textarea id="financial-goals" rows="6" style="display: none;" aria-hidden="true"></textarea>
       </div>
     </div>
   </section>
@@ -6779,6 +6850,218 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
   history.replaceState(null, '', location.pathname);
   location.reload();
 });
+
+/* ============================================================
+   INTERACTIVE LIST EDITORS — Family/Beneficiaries + Financial Goals
+   These render structured rows on top of the existing textareas
+   (#family-composition, #financial-goals) which remain the data
+   backing store. Every row edit re-serializes back to the textarea
+   so existing parsers (parseGoals etc.) keep working unchanged.
+   ============================================================ */
+(function () {
+  const RELATIONSHIPS = [
+    { v: 'spouse', label: 'Spouse' },
+    { v: 'son', label: 'Son' },
+    { v: 'daughter', label: 'Daughter' },
+    { v: 'son-in-law', label: 'Son-in-Law' },
+    { v: 'daughter-in-law', label: 'Daughter-in-Law' },
+    { v: 'grandson', label: 'Grandson' },
+    { v: 'granddaughter', label: 'Granddaughter' },
+    { v: 'father', label: 'Father' },
+    { v: 'mother', label: 'Mother' },
+    { v: 'brother', label: 'Brother' },
+    { v: 'sister', label: 'Sister' },
+    { v: 'nephew', label: 'Nephew' },
+    { v: 'niece', label: 'Niece' },
+    { v: 'partner', label: 'Partner' },
+    { v: 'other', label: 'Other' },
+  ];
+  const PRIORITIES = [
+    { v: 'must',         label: 'Must-have' },
+    { v: 'important',    label: 'Important' },
+    { v: 'aspirational', label: 'Aspirational' },
+  ];
+  const CATEGORIES = [
+    { v: 'retirement',     label: 'Retirement' },
+    { v: 'education',      label: 'Education' },
+    { v: 'legacy',         label: 'Legacy / Heirs' },
+    { v: 'lifestyle',      label: 'Lifestyle' },
+    { v: 'philanthropy',   label: 'Philanthropy' },
+    { v: 'major_purchase', label: 'Major Purchase' },
+  ];
+
+  // ─── FAMILY / BENEFICIARIES ──────────────────────────────────
+  const familyRowsEl = document.getElementById('family-rows');
+  const familyTextarea = document.getElementById('family-composition');
+  const familyAddBtn = document.getElementById('family-add-btn');
+
+  function parseFamilyTextarea() {
+    const raw = (familyTextarea.value || '').trim();
+    if (!raw) return [];
+    return raw.split('\n').map(line => {
+      const m = line.match(/^(.+?)\s*\((\d{4})\)\s*[—\-–]\s*(.+)$/);
+      if (m) return { name: m[1].trim(), year: m[2].trim(), rel: m[3].trim().toLowerCase() };
+      // Fallback — just put the whole line in name
+      return { name: line.trim(), year: '', rel: 'other' };
+    }).filter(b => b.name);
+  }
+
+  function serializeFamily() {
+    const rows = familyRowsEl.querySelectorAll('.list-editor-row');
+    const lines = [];
+    rows.forEach(row => {
+      const name = row.querySelector('[data-f="name"]').value.trim();
+      const year = row.querySelector('[data-f="year"]').value.trim();
+      const rel = row.querySelector('[data-f="rel"]').value;
+      if (name) lines.push(year ? `${name} (${year}) — ${rel}` : `${name} — ${rel}`);
+    });
+    familyTextarea.value = lines.join('\n');
+    // Trigger any listeners (like the dirty-state tracker)
+    familyTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function buildFamilyRow(b) {
+    const row = document.createElement('div');
+    row.className = 'list-editor-row family-row';
+    row.innerHTML = `
+      <input type="text" data-f="name" placeholder="Full name" value="${b.name.replace(/"/g, '&quot;')}">
+      <input type="number" data-f="year" placeholder="Year" min="1900" max="2099" value="${b.year}">
+      <select data-f="rel">
+        ${RELATIONSHIPS.map(r => `<option value="${r.v}"${b.rel === r.v ? ' selected' : ''}>${r.label}</option>`).join('')}
+      </select>
+      <button type="button" class="delete-btn" title="Remove">×</button>
+    `;
+    row.querySelectorAll('input, select').forEach(el => el.addEventListener('input', serializeFamily));
+    row.querySelector('.delete-btn').addEventListener('click', () => {
+      row.remove();
+      serializeFamily();
+      renderFamilyEmptyState();
+    });
+    return row;
+  }
+
+  function renderFamilyEmptyState() {
+    if (familyRowsEl.children.length === 0) {
+      familyRowsEl.innerHTML = '<div class="list-editor-empty">No family members added yet — click "+ Add Family Member" below.</div>';
+    } else {
+      // Remove empty-state placeholder if present
+      const ph = familyRowsEl.querySelector('.list-editor-empty');
+      if (ph) ph.remove();
+    }
+  }
+
+  function rebuildFamilyFromTextarea() {
+    familyRowsEl.innerHTML = '';
+    parseFamilyTextarea().forEach(b => familyRowsEl.appendChild(buildFamilyRow(b)));
+    renderFamilyEmptyState();
+  }
+
+  familyAddBtn?.addEventListener('click', () => {
+    const ph = familyRowsEl.querySelector('.list-editor-empty');
+    if (ph) ph.remove();
+    const row = buildFamilyRow({ name: '', year: '', rel: 'son' });
+    familyRowsEl.appendChild(row);
+    row.querySelector('[data-f="name"]').focus();
+  });
+
+  // ─── FINANCIAL GOALS ─────────────────────────────────────────
+  const goalsRowsEl = document.getElementById('goals-rows');
+  const goalsTextarea = document.getElementById('financial-goals');
+  const goalsAddBtn = document.getElementById('goals-add-btn');
+
+  function parseGoalsTextarea() {
+    const raw = (goalsTextarea.value || '').trim();
+    if (!raw) return [];
+    return raw.split('\n').map(line => {
+      const parts = line.split('|').map(s => s.trim());
+      const [name, amountRaw, year, priority, category] = parts;
+      if (!name) return null;
+      const amount = parseFloat((amountRaw || '').replace(/[$,]/g, '')) || 0;
+      return {
+        name,
+        amount: amount || 0,
+        year: year || '',
+        priority: PRIORITIES.find(p => p.v === priority)?.v || 'important',
+        category: CATEGORIES.find(c => c.v === category)?.v || 'lifestyle',
+      };
+    }).filter(Boolean);
+  }
+
+  function serializeGoals() {
+    const rows = goalsRowsEl.querySelectorAll('.list-editor-row');
+    const lines = [];
+    rows.forEach(row => {
+      const name = row.querySelector('[data-g="name"]').value.trim();
+      const amountRaw = row.querySelector('[data-g="amount"]').value.replace(/[$,]/g, '').trim();
+      const amount = parseFloat(amountRaw) || 0;
+      const year = row.querySelector('[data-g="year"]').value.trim();
+      const priority = row.querySelector('[data-g="priority"]').value;
+      const category = row.querySelector('[data-g="category"]').value;
+      if (name) lines.push(`${name} | ${amount} | ${year} | ${priority} | ${category}`);
+    });
+    goalsTextarea.value = lines.join('\n');
+    goalsTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function buildGoalRow(g) {
+    const row = document.createElement('div');
+    row.className = 'list-editor-row goal-row';
+    row.innerHTML = `
+      <input type="text" data-g="name" placeholder="Goal name" value="${(g.name || '').replace(/"/g, '&quot;')}">
+      <input type="text" inputmode="numeric" class="money" data-g="amount" placeholder="Amount $" value="${g.amount ? '$' + Number(g.amount).toLocaleString('en-US') : ''}">
+      <input type="number" data-g="year" placeholder="Year" min="1900" max="2099" value="${g.year || ''}">
+      <select data-g="priority">
+        ${PRIORITIES.map(p => `<option value="${p.v}"${g.priority === p.v ? ' selected' : ''}>${p.label}</option>`).join('')}
+      </select>
+      <select data-g="category">
+        ${CATEGORIES.map(c => `<option value="${c.v}"${g.category === c.v ? ' selected' : ''}>${c.label}</option>`).join('')}
+      </select>
+      <button type="button" class="delete-btn" title="Remove">×</button>
+    `;
+    row.querySelectorAll('input, select').forEach(el => el.addEventListener('input', serializeGoals));
+    row.querySelectorAll('input, select').forEach(el => el.addEventListener('change', serializeGoals));
+    row.querySelector('.delete-btn').addEventListener('click', () => {
+      row.remove();
+      serializeGoals();
+      renderGoalsEmptyState();
+    });
+    return row;
+  }
+
+  function renderGoalsEmptyState() {
+    if (goalsRowsEl.children.length === 0) {
+      goalsRowsEl.innerHTML = '<div class="list-editor-empty">No financial goals added yet — click "+ Add Goal" below.</div>';
+    } else {
+      const ph = goalsRowsEl.querySelector('.list-editor-empty');
+      if (ph) ph.remove();
+    }
+  }
+
+  function rebuildGoalsFromTextarea() {
+    goalsRowsEl.innerHTML = '';
+    parseGoalsTextarea().forEach(g => goalsRowsEl.appendChild(buildGoalRow(g)));
+    renderGoalsEmptyState();
+  }
+
+  goalsAddBtn?.addEventListener('click', () => {
+    const ph = goalsRowsEl.querySelector('.list-editor-empty');
+    if (ph) ph.remove();
+    const row = buildGoalRow({ name: '', amount: 0, year: '', priority: 'important', category: 'lifestyle' });
+    goalsRowsEl.appendChild(row);
+    row.querySelector('[data-g="name"]').focus();
+  });
+
+  // ─── INITIAL RENDER + EXTERNAL HYDRATION HOOKS ────────────────
+  // On first load, parse whatever's in the textarea and render rows.
+  // (Saved plans hydrate the textarea via hydrateForm() — we re-render
+  // after that fires.)
+  rebuildFamilyFromTextarea();
+  rebuildGoalsFromTextarea();
+  // Expose hooks so saved-plan loader + import flows can rebuild the
+  // visual list after they update the textarea.
+  window.__REBUILD_FAMILY_LIST__ = rebuildFamilyFromTextarea;
+  window.__REBUILD_GOALS_LIST__  = rebuildGoalsFromTextarea;
+})();
 </script>
 
 <script>
@@ -17584,6 +17867,10 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     // change, so the plan-type IIFE's listener needs a manual trigger)
     const planTypeEl = document.getElementById('plan-type');
     if (planTypeEl) planTypeEl.dispatchEvent(new Event('change'));
+    // Rebuild interactive list editors after textareas (#family-composition,
+    // #financial-goals) are hydrated from saved values.
+    if (window.__REBUILD_FAMILY_LIST__) window.__REBUILD_FAMILY_LIST__();
+    if (window.__REBUILD_GOALS_LIST__)  window.__REBUILD_GOALS_LIST__();
   }
 
   /* ---- Download current form state as a local JSON file (offline-safe) ---- */
