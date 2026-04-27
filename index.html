@@ -10202,7 +10202,13 @@ function computePlan(d) {
   // Annual income calculation
   const cratIncome = d.use.crat ? crAmt * d.crat.rate : 0;
   const investmentIncome = withPlanningProceeds * 0.06; // Assume 6% yield on proceeds
-  const annualIncome = cratIncome + investmentIncome + (d.biz.income * 0.1); // 10% from retained
+  // ILIT projected withdrawal income — §72(e) basis-first / §7702 policy loans
+  // on permanent policies (whole life, IUL, VUL) tagged with non-zero income
+  // amount in the per-policy editor. Sum across husband / wife / joint.
+  const ilitWithdrawalIncome = d.use.ilit
+    ? ((d.ilit.husband?.income || 0) + (d.ilit.wife?.income || 0) + (d.ilit.joint?.income || 0))
+    : 0;
+  const annualIncome = cratIncome + investmentIncome + (d.biz.income * 0.1) + ilitWithdrawalIncome; // + 10% from retained
 
   // Comparison table
   const comparison = { scenNone, scenCratDaf, scenDyCratDaf, scenAll };
@@ -10638,7 +10644,7 @@ function computePlan(d) {
     nwWithout_netProceeds, nwWithout_total,
     withPlanningProceeds, withPlanningTotal,
     familyTotalNW, familyTotalProceeds,
-    cratIncome, investmentIncome, annualIncome,
+    cratIncome, investmentIncome, annualIncome, ilitWithdrawalIncome,
     projRows, dynastyRows, qozRows,
     taxableEstateNoPlan, estateTaxNoPlan,
     taxableEstateWithPlan, estateTaxWithPlan, estateTaxSavings,
@@ -14044,9 +14050,12 @@ function renderCashFlow(p) {
   const rmdIncome   = p.rmdRows && p.rmdRows.length > 0 ? (p.rmdRows[0].rmd || 0) : 0;
   const cratIncome  = d.use.crat ? p.cratIncome : 0;
   const crutIncome  = d.use.crut ? p.crutIncome : 0;
+  // ILIT projected withdrawal income (§72(e) basis-first / §7702 policy loans
+  // on permanent policies — tax-free until basis recovered, no AGI impact).
+  const ilitIncome  = p.ilitWithdrawalIncome || 0;
   const cltCharity  = d.use.clt ? d.clt.payout : 0;  // outflow
 
-  const totalIncome = bizIncome + portfolioYield + ssIncome + rmdIncome + cratIncome + crutIncome;
+  const totalIncome = bizIncome + portfolioYield + ssIncome + rmdIncome + cratIncome + crutIncome + ilitIncome;
 
   // Expenses
   const fixed    = d.budget.fixed || 0;
@@ -14067,6 +14076,7 @@ function renderCashFlow(p) {
     rmdIncome > 0       && { label: 'Required Minimum Distributions (first-yr)', amount: rmdIncome, pct: rmdIncome/totalIncome*100 },
     cratIncome > 0      && { label: 'CRAT Annuity', amount: cratIncome, pct: cratIncome/totalIncome*100 },
     crutIncome > 0      && { label: 'CRUT Unitrust (first-year)', amount: crutIncome, pct: crutIncome/totalIncome*100 },
+    ilitIncome > 0      && { label: 'ILIT Policy Withdrawals/Loans (§72(e) basis-first / §7702 — tax-free)', amount: ilitIncome, pct: ilitIncome/totalIncome*100 },
     { subtotal: 'Total Annual Income', amount: totalIncome, style: 'income-total' },
     { section: 'EXPENSES', color: 'var(--crimson)' },
     fixed > 0    && { label: 'Fixed Expenses (housing, utilities, insurance)', amount: fixed, pct: fixed/totalExpenses*100 },
@@ -16103,27 +16113,91 @@ function renderEstate(p) {
       if (sdEnabled) {
         const sdYears = sd.years || 10;
         const sdRate  = sd.rate  || 0.045;
+        const sdAccrue = sd.interest === 'accrue';
         const sdTotalLoan = (sd.annualLoan || 0) * sdYears;
-        // Approx loan balance at end of pay period if interest accrues
-        // (compounded annually at AFR on growing balance — straight-line
-        // approximation: average balance × rate × years).
-        const sdAvgBalance = sdTotalLoan / 2;
-        const sdAccruedInt = sd.interest === 'accrue' ? sdAvgBalance * sdRate * sdYears : 0;
-        const sdEndBalance = sdTotalLoan + sdAccruedInt;
+        // ─── Year-by-year amortization forecast ───
+        // During pay-in years (0..sdYears): each year's premium is added,
+        // then the running balance accrues interest at AFR (if accrue mode).
+        // After pay-in: balance continues to compound at AFR (accrue mode)
+        // or stays flat (pay-as-you-go mode) until second death.
+        const primaryAge  = d.client.primaryAge || 0;
+        const spouseAge   = d.client.spouseAge  || 0;
+        const jointLE = (typeof jointLastSurvivorExpectancy === 'function' && primaryAge > 0)
+          ? jointLastSurvivorExpectancy(primaryAge, spouseAge || primaryAge)
+          : 25;
+        const horizonYrs = Math.max(sdYears, Math.round(jointLE));
+        // Build amortization (yearly snapshot)
+        let bal = 0;
+        const amortRows = [];
+        for (let y = 1; y <= horizonYrs; y++) {
+          // Premium loan added at start of year (in pay-in years)
+          if (y <= sdYears) bal += (sd.annualLoan || 0);
+          // Interest applied at end-of-year on running balance
+          if (sdAccrue) bal *= (1 + sdRate);
+          else if (y > sdYears) { /* paid current — balance flat */ }
+          // For pay-as-you-go during pay-in years, ILIT pays interest
+          // out of cash value — balance still grows by principal only
+          amortRows.push({ year: y, balance: bal });
+        }
+        const sdAtSecondDeath = bal;
+        const sdAccruedTotal  = sdAccrue ? Math.max(0, bal - sdTotalLoan) : 0;
+        const totalDBForRecovery = totalDB > 0 ? totalDB : 0;
+        const ilitNetAfterRecovery = Math.max(0, totalDBForRecovery - sdAtSecondDeath);
+        const recoveryPct = totalDBForRecovery > 0 ? (sdAtSecondDeath / totalDBForRecovery) * 100 : 0;
+        // Imputed-interest gift each year for pay-as-you-go (interest paid by
+        // ILIT to lender) — for ACCRUE mode, the unpaid interest is treated
+        // as imputed interest income to the lender annually under §7872(a).
+        // Simplified estimate: avg balance × AFR.
+        const annualImputedInterest = sdAccrue ? ((sdTotalLoan/2) * sdRate) : 0;
+
+        // Sample 5 rows for the forecast table (Y1, Y(sdYears), Y(sdYears+5), Y(jointLE), and Y(jointLE+5))
+        const samplePts = [...new Set([1, sdYears, sdYears + 5, Math.round(jointLE), Math.round(jointLE) + 5]
+          .filter(y => y > 0 && y <= horizonYrs))].sort((a,b) => a-b);
+        const sampleRows = samplePts.map(y => amortRows[y-1]).filter(Boolean);
+
         splitDollarPanel = `
           <div class="info-card" style="background: linear-gradient(135deg, var(--cream-light), #FFF); border-left: 3px solid var(--gold);">
             <h4 style="margin-bottom: 8px;">💵 Loan-Based Split-Dollar (Reg §1.7872-15)</h4>
             <div class="row"><span class="k">Annual Premium Loan:</span><span class="v">${fmt$(sd.annualLoan)}</span></div>
             <div class="row"><span class="k">Loan Period:</span><span class="v">${sdYears} years</span></div>
             <div class="row"><span class="k">AFR Rate:</span><span class="v">${(sdRate*100).toFixed(2)}%</span></div>
-            <div class="row"><span class="k">Interest Treatment:</span><span class="v">${sd.interest === 'accrue' ? 'Accrue (compound)' : 'Pay annually from ILIT'}</span></div>
+            <div class="row"><span class="k">Interest Treatment:</span><span class="v">${sdAccrue ? 'Accrue (compound)' : 'Pay annually from ILIT'}</span></div>
             <div class="row"><span class="k">Total Premiums Funded:</span><span class="v">${fmt$(sdTotalLoan)}</span></div>
-            ${sd.interest === 'accrue' ? `<div class="row"><span class="k">Est. Accrued Interest:</span><span class="v">${fmt$(sdAccruedInt)}</span></div>
-            <div class="row"><span class="k">Est. End-of-Term Balance:</span><span class="v" style="color: var(--crimson);">${fmt$(sdEndBalance)}</span></div>` : ''}
-            <div class="row" style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--cream);">
-              <span class="v" style="font-size: 11px; color: var(--muted); line-height: 1.5; font-weight: 400;">
-                At second death: lender (employer or grantor) recovers loan + accrued interest from death benefit. Remainder passes to ILIT beneficiaries estate-tax-free. Avoids economic-benefit-regime imputation. Requires written loan agreement + AFR documentation.
-              </span>
+            <div class="row"><span class="k">Joint Life Expectancy:</span><span class="v">${jointLE.toFixed(0)} yrs</span></div>
+            ${sdAccrue
+              ? `<div class="row"><span class="k">Est. Accrued Interest @ Death:</span><span class="v">${fmt$(sdAccruedTotal)}</span></div>`
+              : `<div class="row"><span class="k">Annual Interest Paid by ILIT:</span><span class="v">${fmt$((sd.annualLoan || 0) * sdRate * (sdYears+1)/2)} (avg)</span></div>`
+            }
+            <div class="row"><span class="k">Loan Balance at 2nd Death:</span><span class="v" style="color: var(--crimson);">${fmt$(sdAtSecondDeath)}</span></div>
+            <div class="row"><span class="k">DB to Lender (recovery):</span><span class="v" style="color: var(--crimson);">${fmt$(Math.min(sdAtSecondDeath, totalDBForRecovery))} <span style="font-size: 10px; color: var(--muted);">(${recoveryPct.toFixed(0)}% of DB)</span></span></div>
+            <div class="row"><span class="k">DB to ILIT Beneficiaries:</span><span class="v" style="color: var(--success); font-weight: 700;">${fmt$(ilitNetAfterRecovery)}</span></div>
+
+            ${sampleRows.length > 0 ? `
+            <details style="margin-top: 10px;">
+              <summary style="cursor: pointer; font-size: 11px; font-weight: 700; color: var(--gold-dark); letter-spacing: 0.5px;">▸ Loan Balance Forecast (5-year sample)</summary>
+              <table class="plan-table" style="font-size: 11px; margin-top: 6px;">
+                <thead><tr><th>Year</th><th class="num">Cumulative Premiums</th><th class="num">Loan Balance</th><th>Note</th></tr></thead>
+                <tbody>
+                  ${sampleRows.map(r => {
+                    const cumPrem = (sd.annualLoan || 0) * Math.min(r.year, sdYears);
+                    const note = r.year === sdYears ? 'End of pay-in period'
+                              : r.year === Math.round(jointLE) ? '⚠ Joint LE — expected 2nd death'
+                              : r.year > sdYears ? 'Post-pay-in: balance ' + (sdAccrue ? 'compounds' : 'static')
+                              : 'Pay-in phase';
+                    return `<tr><td>Yr ${r.year}</td><td class="num">${fmt$(cumPrem)}</td><td class="num">${fmt$(r.balance)}</td><td style="font-size: 10px; color: var(--muted);">${note}</td></tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </details>` : ''}
+
+            <div style="margin-top: 10px; padding: 8px 10px; background: rgba(201,169,97,0.08); border-radius: 3px;">
+              <div style="font-size: 11px; color: var(--ink); line-height: 1.5;">
+                <strong style="color: var(--gold-dark);">Mechanics at second death:</strong>
+                Lender recovers <strong>${fmt$(Math.min(sdAtSecondDeath, totalDBForRecovery))}</strong> from the death benefit (loan principal + accrued interest); the remaining <strong style="color: var(--success);">${fmt$(ilitNetAfterRecovery)}</strong> passes to ILIT beneficiaries income-tax-free under §101(a) and estate-tax-free via the ILIT.
+                ${sdAccrue ? `<br><br><strong>§7872(a) imputed-interest income:</strong> the lender recognizes ~${fmt$(annualImputedInterest)}/yr of imputed interest income during the loan period (avg balance × AFR), even with accrue treatment — coordinate with lender's tax position.` : ''}
+                <br><br>
+                <strong>Required documentation:</strong> written loan agreement (term, AFR rate, demand or term-loan structure, security interest in policy), annual interest accrual schedule, AFR table for the issue month per Rev. Rul. publishing the AFR. Without this, the IRS treats the arrangement as economic-benefit-regime split-dollar (much worse tax result — the ILIT recognizes the term-cost of the death benefit annually as income).
+              </div>
             </div>
           </div>`;
       }
@@ -16245,6 +16319,12 @@ function renderCharts(p) {
     if (d.use.crat) { labels.push('CRAT Income'); data.push(p.cratIncome); colors.push(BRAND.gold); }
     labels.push('Investment Income'); data.push(p.investmentIncome); colors.push(BRAND.success);
     labels.push('Rental / Other'); data.push(365000); colors.push(BRAND.crimson);
+    // ILIT projected withdrawal income (tax-free §72(e)/§7702)
+    if ((p.ilitWithdrawalIncome || 0) > 0) {
+      labels.push('ILIT Tax-Free Withdrawals');
+      data.push(p.ilitWithdrawalIncome);
+      colors.push(BRAND.goldDark);
+    }
 
     window.__CHART_REGISTRY__.income = new Chart(incCanvas, {
       type: 'doughnut',
@@ -18024,6 +18104,149 @@ function renderEducationFunding(p) {
 }
 
 /* ============================================================
+   RETIREMENT INCOME STACK — layered post-retirement income
+   sources by year. Stacks: Social Security, RMDs, CRAT/CRUT,
+   portfolio yield, ILIT policy withdrawals (tax-free), business
+   residual. Highlights the tax-free vs. taxable split — critical
+   for retirement-tax planning.
+   ============================================================ */
+function renderRetirementIncomeStack(p) {
+  const d = p.input;
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+  const primary = d.client.primary || 'client';
+
+  // Pull income components
+  const ss        = p.ssAnnualHousehold || 0;
+  const rmd       = (p.rmdRows && p.rmdRows.length > 0) ? (p.rmdRows[0].rmd || 0) : 0;
+  const cratInc   = d.use.crat ? (p.cratIncome || 0) : 0;
+  const crutInc   = d.use.crut ? (p.crutIncome || 0) : 0;
+  const portYield = (p.withPlanningProceeds || 0) * 0.03 + ((d.client.otherAssets || 0) * 0.03);
+  const ilitInc   = p.ilitWithdrawalIncome || 0;
+  const bizResid  = (d.biz.income || 0) * 0.10;  // Conservative: 10% retained-business income
+
+  const total = ss + rmd + cratInc + crutInc + portYield + ilitInc + bizResid;
+  if (total === 0) return '';
+
+  // Per-policy ILIT income breakdown (when withdrawal income exists)
+  const husbandInc = d.use.ilit ? (d.ilit.husband?.income || 0) : 0;
+  const wifeInc    = d.use.ilit ? (d.ilit.wife?.income    || 0) : 0;
+  const jointInc   = d.use.ilit ? (d.ilit.joint?.income   || 0) : 0;
+
+  // Tax classification — labels on each row plus a tax-status summary
+  const rows = [
+    ss > 0        && { label: 'Social Security', amount: ss,   taxStatus: 'taxable',   note: 'Up to 85% may be taxed depending on combined income' },
+    rmd > 0       && { label: 'RMDs (first-year)', amount: rmd, taxStatus: 'ordinary', note: 'Taxed as ordinary income; SECURE 2.0 sets RMD age 73 (75 by 2033)' },
+    cratInc > 0   && { label: 'CRAT Annuity', amount: cratInc, taxStatus: 'tiered', note: '4-tier character per §664(b): ordinary first, then capital, then tax-exempt, then corpus' },
+    crutInc > 0   && { label: 'CRUT Unitrust (Year-1)', amount: crutInc, taxStatus: 'tiered', note: 'Same §664(b) tiering; payout grows with trust value (inflation-hedged)' },
+    portYield > 0 && { label: 'Portfolio Yield (3%)', amount: portYield, taxStatus: 'mixed', note: 'Mix: qualified dividends (20%/15%/0%), municipal interest (tax-free), interest (ordinary)' },
+    ilitInc > 0   && { label: 'ILIT Policy Withdrawals + Loans', amount: ilitInc, taxStatus: 'tax-free', note: '§72(e) basis-first up to cost basis, then §7702 non-MEC policy loans — tax-free until policy lapses' },
+    bizResid > 0  && { label: 'Business Residual / Consulting', amount: bizResid, taxStatus: 'ordinary', note: 'Ordinary income or §199A QBI if eligible' },
+  ].filter(Boolean);
+
+  // Tax-status palette
+  const STATUS_COLOR = {
+    'tax-free':   '#2D6A4F',
+    'taxable':    '#9C7A2B',
+    'ordinary':   '#7C3B47',
+    'tiered':     '#3A6A6E',
+    'mixed':      '#5B5246',
+  };
+  const STATUS_LABEL = {
+    'tax-free':   'Tax-Free',
+    'taxable':    'Taxable (partial)',
+    'ordinary':   'Ordinary Income',
+    'tiered':     '§664(b) Tiered',
+    'mixed':      'Mixed Treatment',
+  };
+
+  // Aggregate by tax status for summary
+  const byStatus = {};
+  rows.forEach(r => { byStatus[r.taxStatus] = (byStatus[r.taxStatus] || 0) + r.amount; });
+  const taxFreePct = ((byStatus['tax-free'] || 0) / total) * 100;
+
+  // Per-policy ILIT detail when withdrawals are active
+  const ilitDetail = ilitInc > 0 ? `
+    <div style="margin-top: 14px; padding: 12px 14px; background: linear-gradient(135deg, #FFF, var(--cream-light)); border: 1px solid rgba(201,169,97,0.3); border-radius: 4px;">
+      <div style="font-size: 11px; font-weight: 700; color: var(--gold-dark); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">🛡 ILIT Withdrawal Income Detail</div>
+      <table class="plan-table" style="font-size: 12px; margin: 0;">
+        <thead><tr><th>Policy</th><th class="num">Annual Income</th><th class="num">Start Year</th><th>Source</th></tr></thead>
+        <tbody>
+          ${husbandInc > 0 ? `<tr><td><strong>Husband</strong>${d.client.primary ? ' — ' + d.client.primary : ''}</td><td class="num">${fmt$(husbandInc)}/yr</td><td class="num">${d.ilit.husband?.incomeStart || '—'}</td><td>${d.ilit.husband?.type || 'permanent life'}</td></tr>` : ''}
+          ${wifeInc > 0    ? `<tr><td><strong>Wife</strong>${d.client.spouse ? ' — ' + d.client.spouse : ''}</td><td class="num">${fmt$(wifeInc)}/yr</td><td class="num">${d.ilit.wife?.incomeStart || '—'}</td><td>${d.ilit.wife?.type || 'permanent life'}</td></tr>` : ''}
+          ${jointInc > 0   ? `<tr><td><strong>Joint Survivorship</strong></td><td class="num">${fmt$(jointInc)}/yr</td><td class="num">${d.ilit.joint?.incomeStart || '—'}</td><td>${d.ilit.joint?.type || 'survivorship permanent'}</td></tr>` : ''}
+          <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+            <td style="font-weight: 700;">Total ILIT Income</td>
+            <td class="num" style="font-weight: 700;">${fmt$(ilitInc)}/yr</td>
+            <td colspan="2" style="font-size: 11px; color: var(--muted);">Tax-free until basis recovered or policy lapses (§72(e) / §7702)</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top: 10px; font-size: 11px; color: var(--muted); line-height: 1.5;">
+        <strong style="color: var(--ink);">Mechanics:</strong>
+        Withdrawals first return basis (premiums paid in) without tax under §72(e). Once basis is recovered, switch to <em>policy loans</em> against cash value — loans are not income (the IRS doesn't tax debt). At death, the loan is repaid from the death benefit; the remainder passes income-tax-free under §101 and estate-tax-free via the ILIT. Caveat: if the policy lapses or is surrendered while loans are outstanding, accrued interest above basis becomes taxable phantom income.
+      </div>
+    </div>` : '';
+
+  return `
+    <div class="card move-to-retirement" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📈 Retirement Income Stack — Annual Sources</div>
+      <div class="card-sub">
+        Layered post-retirement annual income for ${primary}, broken out by source and tax treatment. <strong>${fmt$(total)}/yr total</strong> with <strong style="color: var(--success);">${taxFreePct.toFixed(0)}% tax-free</strong>${taxFreePct >= 25 ? ' (excellent tax diversification)' : taxFreePct >= 10 ? ' — consider increasing tax-free buckets via Roth + ILIT cash-value' : ' — heavily taxable; lean into Roth conversions and ILIT cash-value buildups'}.
+      </div>
+
+      <div style="margin-top: 16px;">
+        <table class="plan-table" style="font-size: 13px;">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th class="num">Annual</th>
+              <th class="num">% of Total</th>
+              <th>Tax Treatment</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td><strong>${r.label}</strong></td>
+                <td class="num">${fmt$(r.amount)}</td>
+                <td class="num">${(r.amount / total * 100).toFixed(1)}%</td>
+                <td>
+                  <span style="display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: white; background: ${STATUS_COLOR[r.taxStatus]};">
+                    ${STATUS_LABEL[r.taxStatus]}
+                  </span>
+                </td>
+                <td style="font-size: 11px; color: var(--muted); line-height: 1.4;">${r.note}</td>
+              </tr>
+            `).join('')}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td style="font-weight: 700;">Total Annual Income</td>
+              <td class="num" style="font-weight: 700;">${fmt$(total)}</td>
+              <td class="num" style="font-weight: 700;">100%</td>
+              <td colspan="2" style="font-size: 11px; color: var(--muted);">Pre-tax / pre-NIIT; refine with CPA</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-top: 18px;">
+        <div class="kpi success"><div class="label">Tax-Free Portion</div><div class="value">${fmt$M(byStatus['tax-free'] || 0)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">${taxFreePct.toFixed(0)}% of total</div></div>
+        <div class="kpi"><div class="label">Ordinary Income</div><div class="value">${fmt$M((byStatus['ordinary'] || 0) + (byStatus['taxable'] || 0))}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">Marginal rate exposure</div></div>
+        <div class="kpi"><div class="label">§664(b) Tiered</div><div class="value">${fmt$M(byStatus['tiered'] || 0)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">CRT character pass-through</div></div>
+        <div class="kpi gold"><div class="label">Total Annual</div><div class="value">${fmt$M(total)}</div></div>
+      </div>
+
+      ${ilitDetail}
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic; line-height: 1.5;">
+        <strong>Methodology note:</strong> Year-1 figures shown — RMDs grow with portfolio + age, Social Security has COLA, CRAT is fixed for life, CRUT recomputes annually (inflation-hedged). ILIT withdrawal income depends on policy cash-value performance; the figure shown is the advisor's planned distribution — exceeding it without adequate cash value risks lapse + phantom-income taxation. Tax classifications are simplified; CPA review required for filing.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
    MONTE CARLO — RENDER card + SVG fan chart
    Pure SVG (no chart library), responsive, 10/50/90 bands +
    probability of success headline.
@@ -18623,6 +18846,7 @@ function generatePlan() {
         <div class="card-title">Retirement Income Plan</div>
         <div class="card-sub">Everything about ${primary}'s post-sale cash flow: the budget the portfolio must support, Social Security claiming, and Required Minimum Distributions once age 73 arrives.</div>
       </div>
+      ${renderRetirementIncomeStack(p)}
       ${renderMonteCarlo(p)}
       ${renderSocialSecurityOptimizer(p)}
     `;
