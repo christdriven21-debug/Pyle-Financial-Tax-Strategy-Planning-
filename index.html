@@ -2921,6 +2921,8 @@
       <input type="file" id="mgp-input" accept="application/json,.json" style="display:none">
       <button class="btn btn-secondary btn-sm" id="btn-mgp-import" title="Import a client fact-finder JSON from MoneyGuidePro">Import MGP</button>
       <!-- Tax-document OCR via Claude vision: 1040 + Schedule K-1 -->
+      <input type="file" id="client-doc-input" accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none">
+      <button class="btn btn-gold btn-sm" id="btn-client-doc-import" title="Upload ANY client document (Net Worth Statement, balance sheet, fact-finder, prior advisor's plan PDF). AI reads it and pre-populates the form for a new client.">📑 Import Client PDF</button>
       <input type="file" id="tax1040-input" accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none">
       <button class="btn btn-crimson btn-sm" id="btn-tax1040-import" title="Upload a Form 1040 tax return — AI extracts wages, AGI, capital gains, QBI, charitable, and prefills the relevant plan fields">📄 Import 1040</button>
       <input type="file" id="taxk1-input" accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none">
@@ -19245,6 +19247,47 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     { path: 'capital_account.ending',              formId: null,                  label: 'Ending capital account',                        help: 'Reference only — outside basis tracking.' },
   ];
 
+  // Generic client-doc map — for Net Worth Statements, fact-finders, prior plans.
+  // Each entry maps an extracted JSON path → a form input id.
+  const CLIENT_DOC_MAP = [
+    // Identity
+    { path: 'client_primary_name',        formId: 'client-primary',     label: 'Primary client name' },
+    { path: 'client_spouse_name',         formId: 'client-spouse',      label: 'Spouse name' },
+    { path: 'client_location',            formId: 'client-location',    label: 'Location (City, State)' },
+    { path: 'client_state',               formId: 'client-state',       label: 'State (2-letter)' },
+    { path: 'client_primary_age',         formId: 'client-primary-age', label: 'Primary client age' },
+    { path: 'client_spouse_age',          formId: 'client-spouse-age',  label: 'Spouse age' },
+    // Net worth — pre-sale NW = TOTAL net worth (BEFORE business sale event)
+    { path: 'net_worth.net_worth',        formId: 'client-pnw',         label: 'Total net worth → Pre-Sale Net Worth', help: 'Maps total NW from the statement to the pre-sale NW field used in plan compute.' },
+    // Asset breakdown
+    { path: 'assets.cash_and_equivalents', formId: null,                label: 'Cash & equivalents (reference)' },
+    { path: 'assets.investment_accounts',  formId: 'client-other',      label: 'Investment accounts → Existing Non-Business Assets', help: 'Maps non-retirement investment accounts (taxable brokerage) to the "other assets" pool.', combineAdd: true },
+    { path: 'assets.retirement_traditional', formId: null,              label: 'Traditional retirement (reference)' },
+    { path: 'assets.retirement_roth',     formId: null,                 label: 'Roth retirement (reference)' },
+    { path: 'assets.real_estate_primary', formId: null,                 label: 'Primary residence (reference)' },
+    { path: 'assets.real_estate_other',   formId: null,                 label: 'Other real estate (reference)' },
+    { path: 'assets.business_interests',  formId: null,                 label: 'Business interests (reference — set Sale Price below)' },
+    { path: 'assets.personal_property',   formId: 'personal-property',  label: 'Personal property → Personal Property field' },
+    { path: 'assets.life_insurance_cash_value', formId: null,           label: 'Life insurance cash value (reference)' },
+    // Liabilities
+    { path: 'liabilities.mortgage_primary', formId: 'debt-mortgage',    label: 'Primary mortgage → Mortgage Balance', combineAdd: true, help: 'Combines primary + other mortgage balances.' },
+    { path: 'liabilities.mortgage_other', formId: 'debt-mortgage',      label: '+ Other mortgage', combineAdd: true },
+    { path: 'liabilities.margin_loans',   formId: 'debt-other',         label: 'Margin loans → Other Debt', combineAdd: true },
+    { path: 'liabilities.other_debt',     formId: 'debt-other',         label: '+ Other consumer debt', combineAdd: true },
+    // Income
+    { path: 'income.business_income',     formId: 'biz-income',         label: 'Business income → Annual Business Income' },
+    // Insurance
+    { path: 'insurance.life_insurance_death_benefit_total', formId: 'ins-current', label: 'Life insurance death benefit → Insurance Coverage' },
+    // Business deal architecture
+    { path: 'business.business_name',     formId: 'biz-name',           label: 'Business entity name' },
+    { path: 'business.entity_type',       formId: 'biz-type',           label: 'Entity type (S-Corp / C-Corp / LLC / Partnership)' },
+    { path: 'business.ownership_pct',     formId: 'biz-ownership',      label: 'Ownership %' },
+    { path: 'business.expected_sale_price', formId: 'biz-sale',         label: 'Expected sale price → Sale Price' },
+    { path: 'business.tax_basis',         formId: 'biz-basis',          label: 'Tax basis → Sale Basis' },
+    { path: 'business.annual_revenue',    formId: 'corp-revenue',       label: 'Corp revenue (Section 2 Corporate Financials)' },
+    { path: 'business.ebitda',            formId: 'corp-ebitda',        label: 'Corp EBITDA' },
+  ];
+
   function getNested(obj, path) {
     return path.split('.').reduce((o, k) => (o && o[k] !== undefined) ? o[k] : null, obj);
   }
@@ -19252,7 +19295,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   function renderTaxExtraction(data, docType) {
     const result = document.getElementById('taxdoc-result');
     const ext = data.extracted || {};
-    const map = docType === '1040' ? TAX1040_MAP : K1_MAP;
+    const map = docType === '1040' ? TAX1040_MAP
+              : docType === 'k1'   ? K1_MAP
+              : CLIENT_DOC_MAP;
 
     const headerInfo = docType === '1040' ?
       `<div style="font-size: 13px; color: var(--ink-soft, #444); margin-bottom: 12px;">
@@ -19260,6 +19305,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
          · Tax year <strong>${esc(ext.plan_year || '?')}</strong>
          · Filing: <strong>${esc((ext.filing_status || '?').toString().toUpperCase())}</strong>
        </div>` :
+      docType === 'k1' ?
       `<div style="font-size: 13px; color: var(--ink-soft, #444); margin-bottom: 12px;">
          Partnership: <strong>${esc(ext.partnership_name || 'Unknown')}</strong>
          · EIN: <code>${esc(ext.partnership_ein_last4 || '—')}</code>
@@ -19269,6 +19315,15 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
          ${ext.ownership_pct_capital !== null && ext.ownership_pct_capital !== undefined
             ? '· Ownership: <strong>' + esc(ext.ownership_pct_capital) + '%</strong>'
             : ''}
+       </div>` :
+      `<div style="font-size: 13px; color: var(--ink-soft, #444); margin-bottom: 12px;">
+         <strong>${esc(ext.client_primary_name || 'Client')}</strong>${ext.client_spouse_name ? ' &amp; ' + esc(ext.client_spouse_name) : ''}
+         · ${esc(ext.client_location || ext.client_state || '—')}
+         · As of <strong>${esc(ext.as_of_date || '?')}</strong>
+         ${ext.net_worth?.net_worth ? '· Net worth <strong>' + fmt$(ext.net_worth.net_worth) + '</strong>' : ''}
+       </div>
+       <div style="font-size: 12px; color: var(--ink-soft); margin-bottom: 14px; padding: 10px; background: var(--cream-light); border-left: 3px solid var(--gold); border-radius: 3px;">
+         💡 <strong>For a NEW client</strong>, click <em>+ New Plan</em> first to clear the form, then come back and click Apply below.${ext.family && ext.family.length ? ' Family members detected (' + ext.family.length + ') — these will be added to the Family list.' : ''}${ext.goals && ext.goals.length ? ' Goals detected (' + ext.goals.length + ') — these will be added to the Goals list.' : ''}
        </div>`;
 
     const rows = map.map((entry, i) => {
@@ -19319,6 +19374,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     // Wire buttons
     document.getElementById('taxdoc-apply').addEventListener('click', () => {
       const applied = [];
+      // Track combineAdd accumulators so multiple paths can stack into one field.
+      const adders = {};
       map.forEach((entry, i) => {
         const cb = document.getElementById('ext-apply-' + i);
         if (!cb || !cb.checked || !entry.formId) return;
@@ -19327,21 +19384,68 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
         if (value === null || value === undefined) return;
         const el = document.getElementById(entry.formId);
         if (!el) return;
+        if (entry.combineAdd && typeof value === 'number') {
+          // Accumulate into adders bucket; apply at the end so we sum all
+          // checked combineAdd entries for the same target field.
+          adders[entry.formId] = (adders[entry.formId] || 0) + value;
+          applied.push(entry.label);
+          return;
+        }
         el.value = String(value);
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
         applied.push(entry.label);
       });
+      // Apply summed values from combineAdd buckets
+      Object.entries(adders).forEach(([formId, sum]) => {
+        const el = document.getElementById(formId);
+        if (!el) return;
+        el.value = String(sum);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      // Client doc: also populate Family + Goals lists if extracted
+      if (docType === 'client') {
+        // Family
+        if (Array.isArray(ext.family) && ext.family.length) {
+          const familyTextarea = document.getElementById('family-composition');
+          if (familyTextarea) {
+            const lines = ext.family
+              .filter(b => b && b.name)
+              .map(b => b.year ? `${b.name} (${b.year}) — ${b.relationship || 'other'}` : `${b.name} — ${b.relationship || 'other'}`);
+            familyTextarea.value = lines.join('\n');
+            familyTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+            if (window.__REBUILD_FAMILY_LIST__) window.__REBUILD_FAMILY_LIST__();
+            applied.push(`${ext.family.length} family member${ext.family.length === 1 ? '' : 's'}`);
+          }
+        }
+        // Goals
+        if (Array.isArray(ext.goals) && ext.goals.length) {
+          const goalsTextarea = document.getElementById('financial-goals');
+          if (goalsTextarea) {
+            const lines = ext.goals
+              .filter(g => g && g.name)
+              .map(g => `${g.name} | ${g.amount || 0} | ${g.year || ''} | ${g.priority || 'important'} | ${g.category || 'lifestyle'}`);
+            goalsTextarea.value = lines.join('\n');
+            goalsTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+            if (window.__REBUILD_GOALS_LIST__) window.__REBUILD_GOALS_LIST__();
+            applied.push(`${ext.goals.length} goal${ext.goals.length === 1 ? '' : 's'}`);
+          }
+        }
+      }
       // Auto-toggle QBI on if QBI was applied
       if (applied.some(l => l.includes('QBI'))) {
         const qbiCb = document.getElementById('use-qbi');
         if (qbiCb) { qbiCb.checked = true; qbiCb.dispatchEvent(new Event('change', { bubbles: true })); }
       }
+      // Re-format money inputs after bulk update
+      if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
       // Close + regenerate plan
       document.getElementById('taxdoc-modal').classList.add('hidden');
       const gen = document.getElementById('btn-generate');
       if (gen) gen.click();
-      setStatus(`✓ Applied ${applied.length} field${applied.length === 1 ? '' : 's'} from ${docType === '1040' ? '1040' : 'K-1'}`, 'ok');
+      const docLabel = docType === '1040' ? '1040' : docType === 'k1' ? 'K-1' : 'client document';
+      setStatus(`✓ Applied ${applied.length} field${applied.length === 1 ? '' : 's'} from ${docLabel}`, 'ok');
     });
     document.getElementById('taxdoc-cancel').addEventListener('click', () => {
       document.getElementById('taxdoc-modal').classList.add('hidden');
@@ -19351,8 +19455,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   // Wire file inputs + buttons
   (function bindTaxDocImport() {
     const handlers = [
-      { btnId: 'btn-tax1040-import', inputId: 'tax1040-input', docType: '1040' },
-      { btnId: 'btn-taxk1-import',   inputId: 'taxk1-input',   docType: 'k1'   },
+      { btnId: 'btn-client-doc-import', inputId: 'client-doc-input', docType: 'client' },
+      { btnId: 'btn-tax1040-import',    inputId: 'tax1040-input',    docType: '1040'   },
+      { btnId: 'btn-taxk1-import',      inputId: 'taxk1-input',      docType: 'k1'     },
     ];
     handlers.forEach(({ btnId, inputId, docType }) => {
       const btn = document.getElementById(btnId);

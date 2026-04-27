@@ -120,6 +120,86 @@ Schema (return JSON only, no commentary):
 
 Numeric fields as plain integers (no commas, no $, no quotes). Negative as -1234. Missing as null.`;
 
+const CLIENT_DOC_PROMPT = `You are a financial-planning assistant extracting client-profile data from any of these document types: Net Worth Statement, balance sheet, fact-finder, prior advisor's plan summary, account statement summary, hand-drafted client profile.
+
+Read the attached document and return a SINGLE JSON object with the schema below. If a field isn't visible, return null. Do NOT invent values. Do NOT include the client's SSN, full street address, phone, email, or full account numbers (last-4 only, if relevant).
+
+Schema (return JSON only, no commentary, no markdown fences):
+
+{
+  "as_of_date": "<date the statement was prepared, YYYY-MM-DD>",
+  "client_primary_name": "<full name of primary client>",
+  "client_spouse_name": "<full name of spouse, or null>",
+  "client_location": "<City, State only — no full address>",
+  "client_state": "<2-letter state abbreviation>",
+  "client_primary_age": <integer>,
+  "client_spouse_age": <integer>,
+
+  "net_worth": {
+    "total_assets": <total of all assets>,
+    "total_liabilities": <total of all liabilities>,
+    "net_worth": <total assets - total liabilities>
+  },
+
+  "assets": {
+    "cash_and_equivalents": <bank accounts + money market>,
+    "investment_accounts": <taxable brokerage + non-retirement>,
+    "retirement_traditional": <IRA + 401(k) traditional>,
+    "retirement_roth": <Roth IRA + Roth 401(k)>,
+    "retirement_hsa": <HSA balance>,
+    "real_estate_primary": <primary residence FMV>,
+    "real_estate_other": <vacation + investment properties>,
+    "business_interests": <closely-held business equity value>,
+    "personal_property": <art + jewelry + vehicles + collectibles>,
+    "life_insurance_cash_value": <cash value, NOT death benefit>,
+    "other_assets": <anything not above>
+  },
+
+  "liabilities": {
+    "mortgage_primary": <primary residence mortgage>,
+    "mortgage_other": <other property mortgages>,
+    "margin_loans": <brokerage margin balance>,
+    "other_debt": <credit cards, lines of credit, personal loans>
+  },
+
+  "income": {
+    "annual_salary_wages": <gross W-2 wages>,
+    "business_income": <K-1 / S-corp distributions>,
+    "investment_income": <dividends + interest annual>,
+    "rental_income": <annual gross from rentals>,
+    "social_security": <annual SS benefit>,
+    "pension": <annual pension>,
+    "agi": <if visible>
+  },
+
+  "insurance": {
+    "life_insurance_death_benefit_total": <combined DB across all policies>,
+    "long_term_care": <true if covered>
+  },
+
+  "business": {
+    "business_name": "<entity name if mentioned>",
+    "entity_type": "<S-Corp | C-Corp | LLC | Partnership | Sole Prop | null>",
+    "ownership_pct": <percent ownership>,
+    "annual_revenue": <if mentioned>,
+    "ebitda": <if mentioned>,
+    "expected_sale_price": <if mentioned>,
+    "tax_basis": <if mentioned>
+  },
+
+  "family": [
+    {"name": "<full name>", "year": <birth year>, "relationship": "<son|daughter|grandson|granddaughter|spouse|other>"}
+  ],
+
+  "goals": [
+    {"name": "<goal description>", "amount": <dollar amount>, "year": <target year>, "priority": "<must|important|aspirational>", "category": "<retirement|education|legacy|lifestyle|philanthropy|major_purchase>"}
+  ],
+
+  "notes": ["<anything flagged or unclear>"]
+}
+
+Numeric fields as plain integers (no commas, no $, no quotes). Missing as null. For arrays (family, goals, notes): empty array [] if nothing extractable.`;
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -141,8 +221,8 @@ export default async function handler(req, res) {
   if (!fileBase64 || !docType) {
     return res.status(400).json({ error: 'Missing docType or fileBase64' });
   }
-  if (!['1040', 'k1'].includes(docType)) {
-    return res.status(400).json({ error: 'docType must be "1040" or "k1"' });
+  if (!['1040', 'k1', 'client'].includes(docType)) {
+    return res.status(400).json({ error: 'docType must be "1040", "k1", or "client"' });
   }
   // Validate base64 size — base64 is ~33% larger than raw bytes
   if (fileBase64.length > 14_000_000) {
@@ -151,10 +231,12 @@ export default async function handler(req, res) {
     });
   }
 
-  const systemPrompt = docType === '1040' ? FORM_1040_PROMPT : K1_PROMPT;
-  const userInstr   = docType === '1040'
-    ? 'Extract the financial fields from this Form 1040 tax return. Return ONLY the JSON object — no markdown fences, no commentary.'
-    : 'Extract the financial fields from this Schedule K-1. Return ONLY the JSON object — no markdown fences, no commentary.';
+  const systemPrompt = docType === '1040' ? FORM_1040_PROMPT
+                     : docType === 'k1'   ? K1_PROMPT
+                     : CLIENT_DOC_PROMPT;
+  const userInstr   = docType === '1040' ? 'Extract the financial fields from this Form 1040 tax return. Return ONLY the JSON object — no markdown fences, no commentary.'
+                    : docType === 'k1'   ? 'Extract the financial fields from this Schedule K-1. Return ONLY the JSON object — no markdown fences, no commentary.'
+                    : 'Extract the client-profile fields from this document (Net Worth Statement, fact-finder, balance sheet, or similar). Return ONLY the JSON object — no markdown fences, no commentary.';
 
   const mediaType = fileMediaType || 'application/pdf';
   const isPdf = mediaType === 'application/pdf';
