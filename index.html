@@ -7850,6 +7850,32 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
       setField('debt-other', totals['margin'] + totals['other-debt']);
       // personal-property = personal property total
       setField('personal-property', totals['personal-property']);
+      // ─── Retirement-account auto-classification ───
+      // Walk the BS retirement rows and split by label keyword into the
+      // simple retirement fields the RMD calc / Roth conversion / SECURE
+      // 2.0 logic depends on. Roth → ret-roth-ira; 401k/403b/457 → ret-401k;
+      // HSA → ret-hsa; everything else (Traditional IRA, SEP, SIMPLE) →
+      // ret-trad-ira. This keeps the RMD calc accurate when the advisor
+      // enters detailed retirement holdings instead of the simple totals.
+      const retirementBuckets = { trad: 0, k401: 0, roth: 0, hsa: 0 };
+      let anyRetirementClassified = false;
+      document.querySelectorAll('#bs-rows-retirement .bs-row').forEach(r => {
+        const label = (r.querySelector('[data-bs="label"]')?.value || '').toLowerCase();
+        const value = parseMoney(r.querySelector('[data-bs="value"]')?.value || '0');
+        if (value <= 0) return;
+        anyRetirementClassified = true;
+        // Order matters — Roth first since "Roth 401(k)" should be Roth bucket
+        if (/\broth\b/.test(label))                         retirementBuckets.roth += value;
+        else if (/\b(401\s*\(?k\)?|403\s*\(?b\)?|457)\b/.test(label)) retirementBuckets.k401 += value;
+        else if (/\bhsa\b/.test(label))                     retirementBuckets.hsa += value;
+        else                                                 retirementBuckets.trad += value;
+      });
+      if (anyRetirementClassified) {
+        setField('ret-trad-ira', retirementBuckets.trad);
+        setField('ret-401k',     retirementBuckets.k401);
+        setField('ret-roth-ira', retirementBuckets.roth);
+        setField('ret-hsa',      retirementBuckets.hsa);
+      }
       // Re-format money inputs after bulk update
       if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
     }
