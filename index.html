@@ -3041,7 +3041,15 @@
       </div>
       <div class="field">
         <label>Spouse Age <span class="hint">(leave 0 if single)</span></label>
-        <input type="number" id="client-spouse-age" value="52" min="0" max="110">
+        <input type="number" id="client-spouse-age" value="0" min="0" max="110">
+      </div>
+      <div class="field">
+        <label>Primary Client Retirement Year <span class="hint">(leave 0 if N/A; drives RMD + SS timing)</span></label>
+        <input type="number" id="client-primary-retire-year" value="0" min="0" max="2099">
+      </div>
+      <div class="field">
+        <label>Spouse Retirement Year <span class="hint">(leave 0 if N/A or single)</span></label>
+        <input type="number" id="client-spouse-retire-year" value="0" min="0" max="2099">
       </div>
       <div class="field" style="grid-column: span 2;">
         <label>Plan Subtitle</label>
@@ -7435,6 +7443,8 @@ function readForm() {
       preSaleNW: n('client-pnw'), otherAssets: n('client-other'),
       primaryAge: n('client-primary-age'),
       spouseAge:  n('client-spouse-age'),
+      primaryRetireYear: n('client-primary-retire-year') || 0,
+      spouseRetireYear:  n('client-spouse-retire-year')  || 0,
       mortgage:  n('debt-mortgage'),
       otherDebt: n('debt-other'),
       personalProperty: n('personal-property'),
@@ -8280,6 +8290,15 @@ function computePlan(d) {
       ? Math.min(d.qoz.amount > 0 ? d.qoz.amount : baseTax, qozMaxDeferrable)
       : 0;
     const qozTaxDeferred = qozInvest * combinedCGRate;
+    // §1400Z-2 deferral: for the YEAR OF SALE, the deferred amount of CG
+    // is removed from current-year tax owed (deferred until 12/31/2026 or
+    // disposition). This is dollar-for-dollar reduction of the year-of-
+    // transaction CG tax liability — that's why QOZ shows up in the
+    // year-of-sale savings KPI alongside CRAT/QSBS/etc.
+    const cgTaxAfterQoz = Math.max(0, baseTax - qozTaxDeferred);
+    // Year-of-sale CG tax = gross gain × combined CG rate, MINUS the QOZ
+    // deferred amount. This is what the cgTaxSavings rollup compares
+    // against the no-plan scenario.
     return {
       name: 'Full Stack + QSBS',
       dynasty: dyAmt, crat: crAmt, daf: dafAmt, qoz: qozInvest,
@@ -8287,7 +8306,9 @@ function computePlan(d) {
       fedTax: gain * d.tax.fed,
       stateTax: gain * d.tax.state,
       medicareTax: gain * d.tax.medicare,
-      totalCGTax: baseTax,
+      totalCGTax: cgTaxAfterQoz,
+      // grossCGTax preserved for reference (some UI shows "gross CG before QOZ")
+      grossCGTax: baseTax,
       qozDeferred: qozTaxDeferred,
       qozInvestment: qozInvest,
       qoz10yrValue: qozInvest * Math.pow(1 + d.qoz.ret, d.qoz.years),
@@ -12344,16 +12365,40 @@ function renderTransaction(p) {
   //   • Dynasty/SLAT/IDGT funding: estate-tax levers (also affect CG
   //     in discount leverage and Rev. Rul. 2004-64 tax-burn)
   const taxSliderCatalog = [
-    d.biz.sale > 0 && { id: 'sale',    path: 'biz.sale',        label: 'Business Sale Price',          value: d.biz.sale,         step: 1_000_000, floor: Math.max(100_000_000, d.biz.sale * 2) },
-    d.use.crat     && { id: 'crat',    path: 'crat.amount',     label: 'CRAT Contribution',           value: d.crat.amount || 0, step: 500_000,   floor: 30_000_000 },
-    d.use.crut     && { id: 'crut',    path: 'crut.amount',     label: 'CRUT Contribution',           value: d.crut.amount || 0, step: 500_000,   floor: 30_000_000 },
-    d.use.daf      && { id: 'daf',     path: 'daf.amount',      label: 'DAF Contribution',            value: d.daf.amount  || 0, step: 250_000,   floor: 15_000_000 },
-    d.use.qoz      && { id: 'qoz',     path: 'qoz.amount',      label: `QOZ Investment (${d.qoz.years || 10}-yr hold)`, value: d.qoz.amount || 0, step: 500_000, floor: 30_000_000 },
-    d.use.exch1031 && { id: 'exch',    path: 'exch1031.sale',   label: '§1031 Exchange Sale Amount',  value: d.exch1031.sale || 0, step: 500_000, floor: 20_000_000 },
-    d.use.qbi      && { id: 'qbi',     path: 'qbi.income',      label: 'QBI Income',                  value: d.qbi.income || 0,  step: 100_000,   floor: 5_000_000 },
-    d.use.roth     && { id: 'roth',    path: 'roth.amount',     label: 'Roth Conversion Amount',      value: d.roth.amount || 0, step: 100_000,   floor: 10_000_000 },
-    d.use.dynasty  && { id: 'dynasty', path: 'dynasty.funding', label: 'Dynasty Trust Funding',       value: d.dynasty.funding || 0, step: 1_000_000, floor: 50_000_000 },
-    d.use.qsbs     && { id: 'qsbs',    path: 'qsbs.yearsHeld',  label: 'QSBS Holding Period (years)', value: d.qsbs.yearsHeld || 0, max: 10, step: 1, isInteger: true },
+    d.biz.sale > 0       && { id: 'sale',    path: 'biz.sale',        label: 'Business Sale Price',          value: d.biz.sale,         step: 1_000_000, floor: Math.max(100_000_000, d.biz.sale * 2) },
+    d.use.crat           && { id: 'crat',    path: 'crat.amount',     label: 'CRAT Contribution',           value: d.crat.amount || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.crut           && { id: 'crut',    path: 'crut.amount',     label: 'CRUT Contribution',           value: d.crut.amount || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.daf            && { id: 'daf',     path: 'daf.amount',      label: 'DAF Contribution',            value: d.daf.amount  || 0, step: 250_000,   floor: 15_000_000 },
+    d.use.qoz            && { id: 'qoz',     path: 'qoz.amount',      label: `QOZ Investment (${d.qoz.years || 10}-yr hold)`, value: d.qoz.amount || 0, step: 500_000, floor: 30_000_000 },
+    d.use.exch1031       && { id: 'exch',    path: 'exch1031.sale',   label: '§1031 Exchange Sale Amount',  value: d.exch1031.sale || 0, step: 500_000, floor: 20_000_000 },
+    d.use.qbi            && { id: 'qbi',     path: 'qbi.income',      label: 'QBI Income',                  value: d.qbi.income || 0,  step: 100_000,   floor: 5_000_000 },
+    d.use.roth           && { id: 'roth',    path: 'roth.amount',     label: 'Roth Conversion Amount',      value: d.roth.amount || 0, step: 100_000,   floor: 10_000_000 },
+    d.use.dynasty        && { id: 'dynasty', path: 'dynasty.funding', label: 'Dynasty Trust Funding',       value: d.dynasty.funding || 0, step: 1_000_000, floor: 50_000_000 },
+    d.use.qsbs           && { id: 'qsbs',    path: 'qsbs.yearsHeld',  label: 'QSBS Holding Period (years)', value: d.qsbs.yearsHeld || 0, max: 10, step: 1, isInteger: true },
+    // Phase 1 strategies that were missing
+    d.use.dbplan         && { id: 'dbplan',  path: 'dbplan.contribution', label: 'DB / Cash Balance Annual', value: d.dbplan.contribution || 0, step: 25_000, floor: 500_000 },
+    d.use.ceasement      && { id: 'ceasement', path: 'ceasement.fmvBefore', label: 'Conservation Easement FMV (before)', value: d.ceasement.fmvBefore || 0, step: 250_000, floor: 20_000_000 },
+    d.use.oilgas         && { id: 'oilgas',  path: 'oilgas.amount',   label: 'Oil & Gas WI Investment',     value: d.oilgas.amount || 0, step: 250_000, floor: 10_000_000 },
+    // Phase 2 strategies
+    d.use.esop1042       && { id: 'esop',    path: 'esop1042.amount', label: '§1042 ESOP Sale Amount',      value: d.esop1042.amount || 0, step: 1_000_000, floor: 50_000_000 },
+    d.use.monInstall     && { id: 'mon',     path: 'monInstall.amount', label: 'Monetized Installment Sale', value: d.monInstall.amount || 0, step: 500_000, floor: 30_000_000 },
+    d.use.captive        && { id: 'cap',     path: 'captive.premium', label: 'Captive Annual Premium',      value: d.captive.premium || 0, step: 100_000, floor: 3_000_000 },
+    d.use.pf             && { id: 'pf',      path: 'pf.deathBenefit', label: 'Premium Finance Death Benefit', value: d.pf.deathBenefit || 0, step: 1_000_000, floor: 50_000_000 },
+    d.use.nimcrut        && { id: 'nimcrut', path: 'nimcrut.amount',  label: 'NIMCRUT Contribution',        value: d.nimcrut.amount || 0, step: 500_000, floor: 30_000_000 },
+    d.use.waltonGrat     && { id: 'walton',  path: 'waltonGrat.amount', label: 'Walton GRAT Funding',       value: d.waltonGrat.amount || 0, step: 250_000, floor: 20_000_000 },
+    // Phase 3 strategies
+    d.use.dapt           && { id: 'dapt',    path: 'dapt.amount',     label: 'DAPT Funding',                value: d.dapt.amount || 0, step: 500_000, floor: 25_000_000 },
+    d.use.qsbs1045       && { id: '1045',    path: 'qsbs1045.sold',   label: '§1045 QSBS Rollover',         value: d.qsbs1045.sold || 0, step: 500_000, floor: 25_000_000 },
+    d.use.scin           && { id: 'scin',    path: 'scin.amount',     label: 'SCIN Sale Amount',            value: d.scin.amount || 0, step: 500_000, floor: 30_000_000 },
+    d.use.pplife         && { id: 'ppli',    path: 'pplife.premium',  label: 'PPLI Total Premium',          value: d.pplife.premium || 0, step: 1_000_000, floor: 50_000_000 },
+    d.use.crossPs        && { id: 'crossPs', path: 'crossPs.ownerContrib', label: 'Cross-Tested PS Owner Allocation', value: d.crossPs.ownerContrib || 0, step: 5_000, floor: 200_000 },
+    // Phase 4 strategies
+    d.use.buysell        && { id: 'buysell', path: 'buysell.value',   label: 'Buy-Sell Insured Value',      value: d.buysell.value || 0, step: 500_000, floor: 30_000_000 },
+    d.use.familyLlc      && { id: 'fllc',    path: 'familyLlc.funding', label: 'Family LLC Funding',        value: d.familyLlc.funding || 0, step: 500_000, floor: 30_000_000 },
+    d.use.intraLoan      && { id: 'iloan',   path: 'intraLoan.amount', label: 'Intra-Family Loan Amount',   value: d.intraLoan.amount || 0, step: 500_000, floor: 25_000_000 },
+    d.use.privateFoundation && { id: 'pfdn', path: 'privateFoundation.funding', label: 'Private Foundation Funding', value: d.privateFoundation.funding || 0, step: 500_000, floor: 30_000_000 },
+    d.use.serp           && { id: 'serp',    path: 'serp.contribution', label: 'SERP Annual Contribution',  value: d.serp.contribution || 0, step: 50_000, floor: 2_000_000 },
+    d.use.ing            && { id: 'ing',     path: 'ingTrust.income', label: 'ING Trust Investment Income', value: d.ingTrust.income || 0, step: 100_000, floor: 5_000_000 },
   ].filter(Boolean).map(s => ({
     ...s,
     max: s.max !== undefined ? s.max : Math.max((s.value || 0) * 2, s.floor),
@@ -14639,18 +14684,29 @@ function renderEstate(p) {
   // so a modestly-funded strategy still has enough upper headroom to let
   // the advisor explore what would happen with more aggressive funding.
   const sliderCatalog = [
-    d.use.dynasty && { id: 'dynasty', path: 'dynasty.funding', label: 'Dynasty Trust Funding',  value: d.dynasty.funding || 0, step: 1_000_000, floor: 50_000_000 },
-    d.use.slat    && { id: 'slat',    path: 'slat.funding',    label: 'SLAT Funding',           value: d.slat.funding    || 0, step: 500_000,   floor: 30_000_000 },
-    d.use.idgt    && { id: 'idgt',    path: 'idgt.amount',     label: 'IDGT Sale Amount',       value: d.idgt.amount     || 0, step: 500_000,   floor: 30_000_000 },
-    d.use.grat    && { id: 'grat',    path: 'grat.transfer',   label: `GRAT Transfer (${d.grat.term || 0}-yr)`, value: d.grat.transfer || 0, step: 500_000, floor: 30_000_000 },
-    d.use.qprt    && { id: 'qprt',    path: 'qprt.residence',  label: `QPRT Residence (${d.qprt.term || 0}-yr)`, value: d.qprt.residence || 0, step: 250_000, floor: 15_000_000 },
-    d.use.qoz     && { id: 'qoz',     path: 'qoz.amount',      label: `QOZ Investment (${d.qoz.years || 10}-yr hold)`, value: d.qoz.amount || 0, step: 500_000, floor: 30_000_000 },
-    d.use.ilit    && { id: 'ilit',    path: 'ilit.coverage',   label: 'ILIT Death Benefit',     value: d.ilit.coverage   || 0, step: 500_000,   floor: 30_000_000 },
-    d.use.crut    && { id: 'crut',    path: 'crut.amount',     label: 'CRUT Contribution',      value: d.crut.amount     || 0, step: 500_000,   floor: 30_000_000 },
-    d.use.crat    && { id: 'crat',    path: 'crat.amount',     label: 'CRAT Contribution',      value: d.crat.amount     || 0, step: 500_000,   floor: 30_000_000 },
-    d.use.daf     && { id: 'daf',     path: 'daf.amount',      label: 'DAF Contribution',       value: d.daf.amount      || 0, step: 100_000,   floor: 10_000_000 },
-    d.use.clt     && { id: 'clt',     path: 'clt.amount',      label: `CLT Contribution (${d.clt.term || 0}-yr)`, value: d.clt.amount || 0, step: 500_000, floor: 30_000_000 },
-    d.use.roth    && { id: 'roth',    path: 'roth.amount',     label: 'Roth Conversion Amount', value: d.roth.amount     || 0, step: 100_000,   floor: 10_000_000 },
+    d.use.dynasty       && { id: 'dynasty', path: 'dynasty.funding', label: 'Dynasty Trust Funding',  value: d.dynasty.funding || 0, step: 1_000_000, floor: 50_000_000 },
+    d.use.slat          && { id: 'slat',    path: 'slat.funding',    label: 'SLAT Funding',           value: d.slat.funding    || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.idgt          && { id: 'idgt',    path: 'idgt.amount',     label: 'IDGT Sale Amount',       value: d.idgt.amount     || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.grat          && { id: 'grat',    path: 'grat.transfer',   label: `GRAT Transfer (${d.grat.term || 0}-yr)`, value: d.grat.transfer || 0, step: 500_000, floor: 30_000_000 },
+    d.use.qprt          && { id: 'qprt',    path: 'qprt.residence',  label: `QPRT Residence (${d.qprt.term || 0}-yr)`, value: d.qprt.residence || 0, step: 250_000, floor: 15_000_000 },
+    d.use.qoz           && { id: 'qoz',     path: 'qoz.amount',      label: `QOZ Investment (${d.qoz.years || 10}-yr hold)`, value: d.qoz.amount || 0, step: 500_000, floor: 30_000_000 },
+    d.use.ilit          && { id: 'ilit',    path: 'ilit.coverage',   label: 'ILIT Death Benefit',     value: d.ilit.coverage   || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.crut          && { id: 'crut',    path: 'crut.amount',     label: 'CRUT Contribution',      value: d.crut.amount     || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.crat          && { id: 'crat',    path: 'crat.amount',     label: 'CRAT Contribution',      value: d.crat.amount     || 0, step: 500_000,   floor: 30_000_000 },
+    d.use.daf           && { id: 'daf',     path: 'daf.amount',      label: 'DAF Contribution',       value: d.daf.amount      || 0, step: 100_000,   floor: 10_000_000 },
+    d.use.clt           && { id: 'clt',     path: 'clt.amount',      label: `CLT Contribution (${d.clt.term || 0}-yr)`, value: d.clt.amount || 0, step: 500_000, floor: 30_000_000 },
+    d.use.roth          && { id: 'roth',    path: 'roth.amount',     label: 'Roth Conversion Amount', value: d.roth.amount     || 0, step: 100_000,   floor: 10_000_000 },
+    // Phase 1-4 strategies — estate-relevant
+    d.use.waltonGrat    && { id: 'walton',  path: 'waltonGrat.amount', label: 'Walton GRAT Funding',  value: d.waltonGrat.amount || 0, step: 250_000, floor: 20_000_000 },
+    d.use.dapt          && { id: 'dapt',    path: 'dapt.amount',     label: 'DAPT Funding',           value: d.dapt.amount || 0, step: 500_000, floor: 25_000_000 },
+    d.use.scin          && { id: 'scin',    path: 'scin.amount',     label: 'SCIN Sale Amount',       value: d.scin.amount || 0, step: 500_000, floor: 30_000_000 },
+    d.use.familyLlc     && { id: 'fllc',    path: 'familyLlc.funding', label: 'Family LLC Funding',   value: d.familyLlc.funding || 0, step: 500_000, floor: 30_000_000 },
+    d.use.intraLoan     && { id: 'iloan',   path: 'intraLoan.amount', label: 'Intra-Family Loan',     value: d.intraLoan.amount || 0, step: 500_000, floor: 25_000_000 },
+    d.use.privateFoundation && { id: 'pfdn', path: 'privateFoundation.funding', label: 'Private Foundation Funding', value: d.privateFoundation.funding || 0, step: 500_000, floor: 30_000_000 },
+    d.use.pf            && { id: 'pf',      path: 'pf.deathBenefit', label: 'Premium Finance Death Benefit', value: d.pf.deathBenefit || 0, step: 1_000_000, floor: 50_000_000 },
+    d.use.nimcrut       && { id: 'nimcrut', path: 'nimcrut.amount',  label: 'NIMCRUT Contribution',   value: d.nimcrut.amount || 0, step: 500_000, floor: 30_000_000 },
+    d.use.pplife        && { id: 'ppli',    path: 'pplife.premium',  label: 'PPLI Total Premium',     value: d.pplife.premium || 0, step: 1_000_000, floor: 50_000_000 },
+    d.use.buysell       && { id: 'buysell', path: 'buysell.value',   label: 'Buy-Sell Insured Value', value: d.buysell.value || 0, step: 500_000, floor: 30_000_000 },
   ].filter(Boolean).map(s => ({
     ...s,
     max: Math.max(s.value * 2, s.floor),
@@ -18124,7 +18180,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const ids = [
       'plan-type',
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
-      'client-primary-age','client-spouse-age',
+      'client-primary-age','client-spouse-age','client-primary-retire-year','client-spouse-retire-year',
       'debt-mortgage','debt-other','personal-property','edu-beneficiaries','edu-years-to-college','family-composition','financial-goals','balance-sheet-data',
       'concentrated-value','concentrated-basis','concentrated-ticker','concentrated-insider','options-value','iso-bargain',
       'considering-move','target-state','reporting-currency',
