@@ -2495,9 +2495,12 @@
   .bs-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
   .bs-row { display: grid; grid-template-columns: 2fr 1.2fr 30px; gap: 8px; align-items: center; }
   .bs-row.bs-row-realestate { grid-template-columns: 2fr 1fr 1fr 30px; }  /* +mortgage column for real estate */
-  .bs-row input { padding: 6px 8px; font-size: 12px; border: 1px solid rgba(201,169,97,0.3); border-radius: 3px; background: var(--cream-light); }
+  .bs-row.bs-row-investment { grid-template-columns: 1.6fr 1fr 1.1fr 1.3fr 30px; } /* +asset-class +sector for investment accounts */
+  .bs-row input,
+  .bs-row select { padding: 6px 8px; font-size: 12px; border: 1px solid rgba(201,169,97,0.3); border-radius: 3px; background: var(--cream-light); }
   .bs-row input.money { text-align: right; font-family: 'Courier New', monospace; }
-  .bs-row input:focus { border-color: var(--gold); outline: none; background: white; }
+  .bs-row input:focus,
+  .bs-row select:focus { border-color: var(--gold); outline: none; background: white; }
   .bs-row .bs-delete { background: transparent; border: 1px solid rgba(139,26,26,0.3); color: var(--crimson); cursor: pointer; padding: 4px 6px; border-radius: 3px; font-size: 13px; line-height: 1; transition: all 0.15s; }
   .bs-row .bs-delete:hover { background: var(--crimson); color: white; }
   .bs-divider { height: 1px; background: var(--gold); margin: 14px 0; opacity: 0.4; }
@@ -7370,19 +7373,146 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
   const fmtMoney = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
   const parseMoney = (s) => Number(String(s || '').replace(/[$,\s]/g, '')) || 0;
 
-  // Section configs — grid layout differs for real estate (extra mortgage col)
+  // Section configs — grid layout differs for real estate (extra mortgage col).
+  // `investment: true` adds asset-class + sector dropdowns to each row so we
+  // can roll up household allocation by asset class and sector for the plan.
   const SECTIONS = {
     'cash':              { label: 'Cash',           extraField: false },
-    'brokerage':         { label: 'Brokerage',      extraField: false },
-    'retirement':        { label: 'Retirement',     extraField: false },
+    'brokerage':         { label: 'Brokerage',      extraField: false, investment: true },
+    'retirement':        { label: 'Retirement',     extraField: false, investment: true },
     'real-estate':       { label: 'Property',       extraField: 'mortgage' },
     'business':          { label: 'Business interest', extraField: false },
     'personal-property': { label: 'Personal property', extraField: false },
-    'other-assets':      { label: 'Other asset',    extraField: false },
+    'other-assets':      { label: 'Other asset',    extraField: false, investment: true },
     'mortgages':         { label: 'Mortgage',       extraField: false },
     'margin':            { label: 'Margin loan',    extraField: false },
     'other-debt':        { label: 'Debt',           extraField: false },
   };
+
+  // Asset classes drive sector menu. "Mixed" = balanced/target-date funds;
+  // sector breakdown not meaningful so the sector dropdown is hidden.
+  const ASSET_CLASSES = [
+    { id: '',                label: '— Asset class —' },
+    { id: 'equities',        label: 'Equities (Stocks)' },
+    { id: 'fixed_income',    label: 'Fixed Income (Bonds)' },
+    { id: 'alternatives',    label: 'Alternatives' },
+    { id: 'real_estate',     label: 'Real Estate (REITs/Funds)' },
+    { id: 'cash_mmf',        label: 'Cash / Money Market' },
+    { id: 'crypto',          label: 'Crypto / Digital Assets' },
+    { id: 'commodities',     label: 'Commodities / Gold' },
+    { id: 'private_equity',  label: 'Private Equity / VC' },
+    { id: 'hedge_funds',     label: 'Hedge Funds' },
+    { id: 'private_credit',  label: 'Private Credit' },
+    { id: 'cash_value_life', label: 'Cash-Value Life Ins.' },
+    { id: 'mixed',           label: 'Mixed / Allocation Fund' },
+    { id: 'concentrated',    label: 'Concentrated Position' },
+    { id: 'other',           label: 'Other' },
+  ];
+
+  // Sector menu by asset class — only for those classes where sector
+  // breakdown is meaningful.
+  const SECTORS_BY_CLASS = {
+    equities: [
+      { id: '',                  label: '— Sector / Sub-class —' },
+      { id: 'us_large_cap',      label: 'US Large Cap' },
+      { id: 'us_mid_cap',        label: 'US Mid Cap' },
+      { id: 'us_small_cap',      label: 'US Small Cap' },
+      { id: 'intl_developed',    label: 'International Developed' },
+      { id: 'emerging_markets',  label: 'Emerging Markets' },
+      { id: 'us_growth',         label: 'US Growth' },
+      { id: 'us_value',          label: 'US Value' },
+      { id: 'tech',              label: 'Technology' },
+      { id: 'healthcare',        label: 'Healthcare' },
+      { id: 'financials',        label: 'Financials' },
+      { id: 'energy',            label: 'Energy' },
+      { id: 'consumer',          label: 'Consumer' },
+      { id: 'industrials',       label: 'Industrials' },
+      { id: 'utilities',         label: 'Utilities' },
+      { id: 'reit_equity',       label: 'REIT / Real Estate' },
+      { id: 'concentrated_stock',label: 'Concentrated Single Stock' },
+      { id: 'esg',               label: 'ESG / Thematic' },
+      { id: 'sector_other',      label: 'Other / Mixed' },
+    ],
+    fixed_income: [
+      { id: '',                label: '— Sub-class —' },
+      { id: 'us_treasury',     label: 'US Treasury' },
+      { id: 'tips',            label: 'TIPS / Inflation-Linked' },
+      { id: 'us_municipal',    label: 'Municipal (Tax-Exempt)' },
+      { id: 'corporate_ig',    label: 'Corporate Investment Grade' },
+      { id: 'corporate_hy',    label: 'High Yield (Junk)' },
+      { id: 'mbs_abs',         label: 'MBS / ABS' },
+      { id: 'intl_bonds',      label: 'International Bonds' },
+      { id: 'short_duration',  label: 'Short Duration / Cash Plus' },
+      { id: 'private_credit_fi',label: 'Private Credit' },
+      { id: 'preferred',       label: 'Preferred Stock' },
+      { id: 'fi_other',        label: 'Other / Mixed' },
+    ],
+    alternatives: [
+      { id: '',                label: '— Sub-class —' },
+      { id: 'hedge_macro',     label: 'Hedge — Global Macro' },
+      { id: 'hedge_long_short',label: 'Hedge — Long/Short Equity' },
+      { id: 'hedge_event',     label: 'Hedge — Event Driven' },
+      { id: 'pe_buyout',       label: 'Private Equity — Buyout' },
+      { id: 'pe_growth',       label: 'Private Equity — Growth' },
+      { id: 'venture',         label: 'Venture Capital' },
+      { id: 'private_re',      label: 'Private Real Estate' },
+      { id: 'private_credit_alt',label: 'Private Credit / Direct Lending' },
+      { id: 'commodities',     label: 'Commodities / Managed Futures' },
+      { id: 'art_collectibles',label: 'Art / Collectibles Funds' },
+      { id: 'alt_other',       label: 'Other Alternative' },
+    ],
+    real_estate: [
+      { id: '',                label: '— Sub-class —' },
+      { id: 'reit_public',     label: 'Public REIT' },
+      { id: 'reit_private',    label: 'Private / Non-Traded REIT' },
+      { id: 're_fund',         label: 'Real Estate Fund' },
+      { id: 're_dst',          label: '§1031 DST' },
+      { id: 're_qof',          label: 'QOF (Opportunity Zone)' },
+      { id: 're_other',        label: 'Other RE Vehicle' },
+    ],
+    crypto: [
+      { id: '',                label: '— Token —' },
+      { id: 'btc',             label: 'Bitcoin (BTC)' },
+      { id: 'eth',             label: 'Ethereum (ETH)' },
+      { id: 'stablecoin',      label: 'Stablecoin (USDC/USDT)' },
+      { id: 'altcoin',         label: 'Other Altcoin / Token' },
+      { id: 'crypto_fund',     label: 'Crypto Fund / ETF' },
+    ],
+  };
+
+  function buildClassSelect(currentVal) {
+    const sel = document.createElement('select');
+    sel.setAttribute('data-bs', 'class');
+    ASSET_CLASSES.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.label;
+      if (c.id === currentVal) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    return sel;
+  }
+
+  function buildSectorSelect(classId, currentVal) {
+    const sel = document.createElement('select');
+    sel.setAttribute('data-bs', 'sector');
+    const opts = SECTORS_BY_CLASS[classId];
+    if (!opts) {
+      // No sector menu for this class — render a disabled placeholder.
+      const o = document.createElement('option');
+      o.value = ''; o.textContent = '—';
+      sel.appendChild(o);
+      sel.disabled = true;
+      return sel;
+    }
+    sel.disabled = false;
+    opts.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.id; opt.textContent = o.label;
+      if (o.id === currentVal) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    return sel;
+  }
 
   const dataTextarea = document.getElementById('balance-sheet-data');
   if (!dataTextarea) return;  // page may not have the section (shouldn't happen)
@@ -7390,16 +7520,20 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
   function buildRow(section, item) {
     const config = SECTIONS[section];
     const row = document.createElement('div');
-    row.className = 'bs-row' + (config.extraField === 'mortgage' ? ' bs-row-realestate' : '');
+    let classMod = '';
+    if (config.extraField === 'mortgage') classMod = ' bs-row-realestate';
+    else if (config.investment)            classMod = ' bs-row-investment';
+    row.className = 'bs-row' + classMod;
     const labelPlaceholder = config.label === 'Property' ? 'Property name (e.g., Aspen home)'
-                            : config.label === 'Brokerage' ? 'Account name / institution'
-                            : config.label === 'Retirement' ? 'Account type (e.g., 401k Vanguard)'
+                            : config.label === 'Brokerage' ? 'Account/holding (e.g., Vanguard Total Stock)'
+                            : config.label === 'Retirement' ? 'Account/holding (e.g., 401k Fidelity Index)'
                             : config.label === 'Cash' ? 'Bank account name'
                             : config.label === 'Mortgage' ? 'Property mortgage applies to'
                             : config.label === 'Margin loan' ? 'Brokerage account'
                             : config.label === 'Debt' ? 'Description'
                             : config.label === 'Business interest' ? 'Entity name'
                             : config.label === 'Personal property' ? 'Description (art, watches, etc.)'
+                            : config.label === 'Other asset' ? 'Description (deferred comp, note, etc.)'
                             : 'Description';
     if (config.extraField === 'mortgage') {
       row.innerHTML = `
@@ -7408,6 +7542,29 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
         <input type="text" inputmode="numeric" class="money" data-bs="extra" placeholder="Mortgage $" value="${item.extra ? fmtMoney(item.extra) : ''}">
         <button type="button" class="bs-delete" title="Remove">×</button>
       `;
+    } else if (config.investment) {
+      // Investment rows: label, value, asset-class dropdown, sector dropdown, delete
+      row.innerHTML = `
+        <input type="text" data-bs="label" placeholder="${labelPlaceholder}" value="${(item.label || '').replace(/"/g, '&quot;')}">
+        <input type="text" inputmode="numeric" class="money" data-bs="value" placeholder="$" value="${item.value ? fmtMoney(item.value) : ''}">
+        <span data-bs-slot="class"></span>
+        <span data-bs-slot="sector"></span>
+        <button type="button" class="bs-delete" title="Remove">×</button>
+      `;
+      const classSlot  = row.querySelector('[data-bs-slot="class"]');
+      const sectorSlot = row.querySelector('[data-bs-slot="sector"]');
+      const classSel   = buildClassSelect(item.assetClass || '');
+      const sectorSel  = buildSectorSelect(item.assetClass || '', item.sector || '');
+      classSlot.replaceWith(classSel);
+      sectorSlot.replaceWith(sectorSel);
+      // Rebuild sector dropdown when asset class changes
+      classSel.addEventListener('change', () => {
+        const newSec = buildSectorSelect(classSel.value, '');
+        // Remove the old sector select and insert the new one in the same place
+        const oldSec = row.querySelector('[data-bs="sector"]');
+        if (oldSec) oldSec.replaceWith(newSec);
+        recomputeAll();
+      });
     } else {
       row.innerHTML = `
         <input type="text" data-bs="label" placeholder="${labelPlaceholder}" value="${(item.label || '').replace(/"/g, '&quot;')}">
@@ -7415,7 +7572,7 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
         <button type="button" class="bs-delete" title="Remove">×</button>
       `;
     }
-    row.querySelectorAll('input').forEach(el => el.addEventListener('input', () => {
+    row.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => {
       // Re-format money on blur, recompute totals on every input
       recomputeAll();
     }));
@@ -7511,6 +7668,11 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
         };
         const extra = r.querySelector('[data-bs="extra"]');
         if (extra) item.extra = parseMoney(extra.value);
+        // Investment rows carry asset-class + sector for allocation rollup
+        const cls = r.querySelector('[data-bs="class"]');
+        const sct = r.querySelector('[data-bs="sector"]');
+        if (cls) item.assetClass = cls.value || '';
+        if (sct) item.sector     = sct.value || '';
         return item;
       }).filter(i => i.label || i.value > 0);
     });
@@ -8097,6 +8259,18 @@ function readForm() {
       taxes:    n('budget-taxes'),
       safeRate: n('budget-safe-rate') / 100,
     },
+    // Detailed balance-sheet line items (set by the Personal Balance Sheet
+    // editor in Section 2). Each section is an array of { label, value,
+    // assetClass?, sector?, extra? } objects. Used by renderBalanceSheet
+    // to compute asset-class + sector allocation breakdowns.
+    balanceSheet: (() => {
+      try {
+        const raw = t('balance-sheet-data');
+        if (!raw) return null;
+        const snap = JSON.parse(raw);
+        return (snap && typeof snap === 'object') ? snap : null;
+      } catch { return null; }
+    })(),
   };
 }
 
@@ -13151,6 +13325,315 @@ function renderBalanceSheet(p) {
 
       <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
         <strong>Methodology note:</strong> Real-estate values split from "Existing Non-Business Assets" at 40% RE / 40% liquid / 20% other — refine in Section 2 if actual breakdown known. Insurance cash value estimated at 30% of face (typical for 10-pay whole life at mid-policy); refine with insurer's statement. Trust balances reflect transferred value, not grantor ownership — technically not on grantor's own balance sheet but shown here for total-family-wealth visibility.
+      </div>
+    </div>
+
+    ${renderAllocationBreakdown(p)}
+  `;
+}
+
+/* ============================================================
+   ASSET ALLOCATION BREAKDOWN — by asset class and sector.
+   Reads d.balanceSheet (line-item snapshot from the Personal
+   Balance Sheet editor). Builds three views:
+     1) By asset class (Equities / Fixed Income / Alternatives / etc.)
+     2) By tax wrapper (Taxable / Pre-tax retirement / Roth / Other)
+     3) By sector / sub-class (only for Equities, Fixed Income,
+        Alternatives, Real Estate, and Crypto where the rollup is
+        meaningful)
+   Renders nothing when no detail rows have been entered.
+   ============================================================ */
+function renderAllocationBreakdown(p) {
+  const d = p.input;
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+  const bs = d.balanceSheet;
+  if (!bs || typeof bs !== 'object') return '';
+
+  // Class + sector labels (must match the editor menus)
+  const CLASS_LABEL = {
+    equities: 'Equities (Stocks)',
+    fixed_income: 'Fixed Income (Bonds)',
+    alternatives: 'Alternatives',
+    real_estate: 'Real Estate',
+    cash_mmf: 'Cash / Money Market',
+    crypto: 'Crypto / Digital Assets',
+    commodities: 'Commodities / Gold',
+    private_equity: 'Private Equity / VC',
+    hedge_funds: 'Hedge Funds',
+    private_credit: 'Private Credit',
+    cash_value_life: 'Cash-Value Life Insurance',
+    mixed: 'Mixed / Allocation Fund',
+    concentrated: 'Concentrated Position',
+    other: 'Other',
+    '':       'Unclassified',
+  };
+  const CLASS_COLOR = {
+    equities:        '#2D6A4F',
+    fixed_income:    '#1F4E79',
+    alternatives:    '#8B7640',
+    real_estate:     '#5B5246',
+    cash_mmf:        '#7A7A7A',
+    crypto:          '#A4582E',
+    commodities:     '#B89968',
+    private_equity:  '#6B3A4F',
+    hedge_funds:     '#5B6B3A',
+    private_credit:  '#3A5B6B',
+    cash_value_life: '#A42E2E',
+    mixed:           '#9B8B6E',
+    concentrated:    '#8B1A1A',
+    other:           '#9E9E9E',
+    '':              '#BDB59C',
+  };
+  const SECTOR_LABEL = {
+    us_large_cap: 'US Large Cap',
+    us_mid_cap: 'US Mid Cap',
+    us_small_cap: 'US Small Cap',
+    intl_developed: 'International Developed',
+    emerging_markets: 'Emerging Markets',
+    us_growth: 'US Growth',
+    us_value: 'US Value',
+    tech: 'Technology',
+    healthcare: 'Healthcare',
+    financials: 'Financials',
+    energy: 'Energy',
+    consumer: 'Consumer',
+    industrials: 'Industrials',
+    utilities: 'Utilities',
+    reit_equity: 'REIT / Real Estate',
+    concentrated_stock: 'Concentrated Single Stock',
+    esg: 'ESG / Thematic',
+    sector_other: 'Other / Mixed Equity',
+    us_treasury: 'US Treasury',
+    tips: 'TIPS / Inflation-Linked',
+    us_municipal: 'Municipal (Tax-Exempt)',
+    corporate_ig: 'Corporate IG',
+    corporate_hy: 'High Yield',
+    mbs_abs: 'MBS / ABS',
+    intl_bonds: 'International Bonds',
+    short_duration: 'Short Duration',
+    private_credit_fi: 'Private Credit',
+    preferred: 'Preferred Stock',
+    fi_other: 'Other / Mixed FI',
+    hedge_macro: 'Hedge — Global Macro',
+    hedge_long_short: 'Hedge — Long/Short',
+    hedge_event: 'Hedge — Event Driven',
+    pe_buyout: 'PE — Buyout',
+    pe_growth: 'PE — Growth',
+    venture: 'Venture Capital',
+    private_re: 'Private Real Estate',
+    private_credit_alt: 'Private Credit / Direct Lending',
+    commodities: 'Commodities / Managed Futures',
+    art_collectibles: 'Art / Collectibles',
+    alt_other: 'Other Alternative',
+    reit_public: 'Public REIT',
+    reit_private: 'Private / Non-Traded REIT',
+    re_fund: 'Real Estate Fund',
+    re_dst: '§1031 DST',
+    re_qof: 'QOF (Opportunity Zone)',
+    re_other: 'Other RE',
+    btc: 'Bitcoin',
+    eth: 'Ethereum',
+    stablecoin: 'Stablecoin',
+    altcoin: 'Other Altcoin',
+    crypto_fund: 'Crypto Fund / ETF',
+    '':           'Unclassified',
+  };
+
+  // Investment sections that carry asset-class + sector
+  const INV_SECTIONS = ['brokerage','retirement','other-assets'];
+  // Tax wrappers per section — drives "by tax wrapper" view
+  const TAX_WRAPPER = {
+    'brokerage':         'taxable',     // taxable brokerage
+    'retirement':        'pretax',      // assume traditional unless labeled Roth
+    'other-assets':      'other',       // crypto, cash-value, deferred comp
+    'cash':              'taxable',
+    'real-estate':       'real_estate',
+    'business':          'business',
+    'personal-property': 'personal',
+  };
+  const TAX_WRAPPER_LABEL = {
+    taxable:    'Taxable Brokerage',
+    pretax:     'Pre-Tax Retirement (IRA / 401k)',
+    roth:       'Roth (Tax-Free)',
+    real_estate:'Real Estate',
+    business:   'Business / Closely-Held',
+    personal:   'Personal Property',
+    other:      'Other (Crypto / CV Life / Deferred Comp)',
+  };
+
+  // Aggregations
+  const byClass = {};         // { classId: total }
+  const bySector = {};        // { classId: { sectorId: total } }
+  const byWrapper = {};       // { wrapperId: total }
+  const concentrated = [];    // { label, value }
+  const investmentRows = [];  // { label, value, classId, sectorId, section }
+  let investableTotal = 0;    // brokerage + retirement + other-assets
+
+  Object.keys(TAX_WRAPPER).forEach(sec => {
+    const arr = bs[sec];
+    if (!Array.isArray(arr)) return;
+    arr.forEach(item => {
+      const v = Number(item.value || 0);
+      if (v <= 0) return;
+      // Tax wrapper. Detect "Roth" in retirement labels.
+      let wrapper = TAX_WRAPPER[sec];
+      if (sec === 'retirement' && /roth/i.test(item.label || '')) wrapper = 'roth';
+      byWrapper[wrapper] = (byWrapper[wrapper] || 0) + v;
+      // Asset-class & sector breakdown for investment sections
+      if (INV_SECTIONS.includes(sec)) {
+        const classId = item.assetClass || '';
+        const sectorId = item.sector || '';
+        byClass[classId] = (byClass[classId] || 0) + v;
+        bySector[classId] = bySector[classId] || {};
+        bySector[classId][sectorId] = (bySector[classId][sectorId] || 0) + v;
+        investableTotal += v;
+        investmentRows.push({ label: item.label || '(unnamed)', value: v, classId, sectorId, section: sec });
+        if (classId === 'concentrated' || sectorId === 'concentrated_stock') {
+          concentrated.push({ label: item.label || '(unnamed)', value: v });
+        }
+      }
+    });
+  });
+
+  // If no investment detail entered, skip the card entirely.
+  if (investableTotal === 0) return '';
+
+  // Sort classes by descending dollars so dominant exposures lead.
+  const classOrder = Object.keys(byClass).sort((a,b) => byClass[b] - byClass[a]);
+
+  // Top concentrated by single position (>10% of investable)
+  const concentrationFlags = investmentRows
+    .filter(r => r.value / investableTotal > 0.10)
+    .sort((a,b) => b.value - a.value)
+    .slice(0, 5);
+
+  // --- HTML output ---
+  const classRows = classOrder.map(c => {
+    const total = byClass[c];
+    const pct = (total / investableTotal) * 100;
+    const color = CLASS_COLOR[c] || '#9E9E9E';
+    return `
+      <tr>
+        <td><span style="display: inline-block; width: 10px; height: 10px; background: ${color}; border-radius: 2px; margin-right: 8px; vertical-align: middle;"></span>${CLASS_LABEL[c] || c}</td>
+        <td class="num">${fmt$M(total)}</td>
+        <td class="num">${pct.toFixed(1)}%</td>
+        <td>
+          <div style="background: rgba(201,169,97,0.15); height: 8px; border-radius: 2px; overflow: hidden;">
+            <div style="background: ${color}; height: 100%; width: ${Math.min(100, pct).toFixed(1)}%;"></div>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  // Sector breakdown — show only classes with multiple sectors used
+  const sectorTables = classOrder.filter(c => {
+    const sectorIds = Object.keys(bySector[c] || {});
+    return c && sectorIds.length > 1 && byClass[c] > 0;
+  }).map(c => {
+    const total = byClass[c];
+    const sectors = Object.entries(bySector[c]).sort((a,b) => b[1] - a[1]);
+    return `
+      <div style="margin-top: 18px;">
+        <h4 style="margin: 0 0 8px; font-size: 13px; color: ${CLASS_COLOR[c] || 'var(--ink)'}; letter-spacing: 0.5px;">${CLASS_LABEL[c]} — Sector Detail</h4>
+        <table class="plan-table" style="font-size: 12px;">
+          <thead><tr><th>Sector / Sub-class</th><th class="num">Amount</th><th class="num">% of ${CLASS_LABEL[c]}</th><th class="num">% of Investable</th></tr></thead>
+          <tbody>
+            ${sectors.map(([sid, val]) => `
+              <tr>
+                <td>${SECTOR_LABEL[sid] || sid || '(unclassified)'}</td>
+                <td class="num">${fmt$M(val)}</td>
+                <td class="num">${(val / total * 100).toFixed(1)}%</td>
+                <td class="num">${(val / investableTotal * 100).toFixed(1)}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }).join('');
+
+  const wrapperOrder = ['taxable','pretax','roth','real_estate','business','personal','other'];
+  const wrapperTotal = Object.values(byWrapper).reduce((a,b) => a+b, 0);
+  const wrapperRows = wrapperOrder
+    .filter(w => byWrapper[w])
+    .map(w => `
+      <tr>
+        <td>${TAX_WRAPPER_LABEL[w]}</td>
+        <td class="num">${fmt$M(byWrapper[w])}</td>
+        <td class="num">${wrapperTotal > 0 ? (byWrapper[w] / wrapperTotal * 100).toFixed(1) : 0}%</td>
+      </tr>
+    `).join('');
+
+  // Concentration flags (>10% in a single position)
+  const concentrationCard = concentrationFlags.length ? `
+    <div style="margin-top: 18px; padding: 14px 16px; background: #FFF8F0; border-left: 4px solid var(--gold-dark); border-radius: 4px;">
+      <div style="font-weight: 700; color: var(--gold-dark); font-size: 13px; letter-spacing: 0.5px; margin-bottom: 8px;">⚠️ Concentration Flags — single positions exceeding 10% of investable assets</div>
+      <table class="plan-table" style="font-size: 12px;">
+        <thead><tr><th>Position</th><th class="num">Value</th><th class="num">% of Investable</th><th>Class</th></tr></thead>
+        <tbody>
+          ${concentrationFlags.map(r => `
+            <tr>
+              <td>${r.label}</td>
+              <td class="num">${fmt$M(r.value)}</td>
+              <td class="num" style="color: var(--crimson); font-weight: 700;">${(r.value / investableTotal * 100).toFixed(1)}%</td>
+              <td>${CLASS_LABEL[r.classId] || 'Unclassified'}${r.sectorId ? ' · ' + (SECTOR_LABEL[r.sectorId] || r.sectorId) : ''}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div style="margin-top: 10px; font-size: 11px; color: var(--muted); line-height: 1.5;">
+        Single-position concentration above 10% of investable assets is a planning trigger. Consider exchange-fund pooling (§1031-style for stock baskets — see Exchange Fund strategy), pre-paid variable forwards, covered-call collars, or stepped diversification with embedded tax-loss harvesting.
+      </div>
+    </div>` : '';
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📊 Asset Allocation by Class &amp; Sector</div>
+      <div class="card-sub">
+        Detailed allocation rollup of <strong>${fmt$M(investableTotal)}</strong> in investable assets (taxable brokerage + retirement + other liquid investments). Drives sector-overweight checks, concentration flags, and tax-wrapper diversification. Refine each row's class and sector in the Personal Balance Sheet (Section 2) for sharper results.
+      </div>
+
+      <div style="margin-top: 18px;">
+        <h4 style="margin: 0 0 8px; font-size: 13px; color: var(--gold-dark); letter-spacing: 0.5px;">By Asset Class</h4>
+        <table class="plan-table" style="font-size: 13px;">
+          <thead><tr><th>Asset Class</th><th class="num">Amount</th><th class="num">%</th><th style="width: 35%;">Allocation</th></tr></thead>
+          <tbody>
+            ${classRows}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td style="font-weight: 700;">Total Investable</td>
+              <td class="num" style="font-weight: 700;">${fmt$M(investableTotal)}</td>
+              <td class="num" style="font-weight: 700;">100%</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      ${sectorTables}
+
+      ${wrapperRows ? `
+      <div style="margin-top: 18px;">
+        <h4 style="margin: 0 0 8px; font-size: 13px; color: var(--gold-dark); letter-spacing: 0.5px;">By Tax Wrapper</h4>
+        <table class="plan-table" style="font-size: 13px;">
+          <thead><tr><th>Wrapper</th><th class="num">Amount</th><th class="num">% of Total Family Assets</th></tr></thead>
+          <tbody>
+            ${wrapperRows}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td style="font-weight: 700;">Total</td>
+              <td class="num" style="font-weight: 700;">${fmt$M(wrapperTotal)}</td>
+              <td class="num" style="font-weight: 700;">100%</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top: 8px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+          Tax-wrapper diversification matters: pre-tax retirement assets distribute as ordinary income, taxable brokerage gets §1014 step-up at death (eliminating CG), and Roth grows tax-free with no RMDs. A balanced mix gives the client withdrawal flexibility across tax regimes during retirement.
+        </div>
+      </div>` : ''}
+
+      ${concentrationCard}
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
+        <strong>Methodology note:</strong> Allocation pulled from line-item entries in the Personal Balance Sheet editor. Each brokerage / retirement / other-asset row carries an asset-class tag and (where applicable) a sector / sub-class tag. Cash, real estate, business interests, and personal property are excluded from "investable" total — they appear in the household balance sheet above and in the tax-wrapper view but are not part of the investable allocation pie. Refine tags as portfolio data is entered or updated.
       </div>
     </div>
   `;
