@@ -19198,9 +19198,17 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   }
 
   async function extractTaxDoc(file, docType) {
+    console.log('[ImportPDF] extractTaxDoc start', { docType, fileName: file.name });
     const modal = document.getElementById('taxdoc-modal');
     const result = document.getElementById('taxdoc-result');
+    if (!modal || !result) {
+      const msg = 'Internal error: extraction modal not found in page (taxdoc-modal=' + !!modal + ', taxdoc-result=' + !!result + ')';
+      console.error('[ImportPDF]', msg);
+      alert(msg);
+      return;
+    }
     modal.classList.remove('hidden');
+    console.log('[ImportPDF] modal opened');
     result.innerHTML = `
       <div class="solver-progress">
         Uploading <strong>${esc(file.name)}</strong> (${(file.size/1024).toFixed(0)}KB) and asking Claude to read it…
@@ -19209,18 +19217,35 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     `;
     try {
       const fileBase64 = await fileToBase64(file);
-      const resp = await authedFetch('/api/extract-tax-doc', {
+      console.log('[ImportPDF] base64 ready, calling /api/extract-tax-doc');
+      // Verify authedFetch exists; if not, fall back to plain fetch and warn
+      const fetcher = (typeof authedFetch === 'function') ? authedFetch : fetch;
+      if (typeof authedFetch !== 'function') {
+        console.warn('[ImportPDF] authedFetch missing — using plain fetch (auth may fail)');
+      }
+      const resp = await fetcher('/api/extract-tax-doc', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ docType, fileBase64, fileMediaType: file.type || 'application/pdf' }),
       });
-      const data = await resp.json();
+      console.log('[ImportPDF] API responded with status', resp.status);
+      const data = await resp.json().catch(() => ({ error: 'Response was not JSON' }));
       if (!resp.ok) {
-        result.innerHTML = `<div class="solver-progress" style="color: var(--crimson); border-color: var(--crimson);">${esc(data.error || ('HTTP ' + resp.status))}${data.detail ? '<br><small>' + esc(String(data.detail)) + '</small>' : ''}</div>`;
+        const errMsg = data.error || ('HTTP ' + resp.status);
+        const detail = data.detail ? '<br><small>' + esc(String(data.detail)) + '</small>' : '';
+        const hint = resp.status === 401 ? '<br><small style="color:var(--gold-dark);">Sign in via the auth chip in the top-right before importing.</small>'
+                  : resp.status === 403 ? '<br><small style="color:var(--gold-dark);">Origin not allowed by /api/_lib/auth.js — verify Vercel deploy host.</small>'
+                  : resp.status === 503 ? '<br><small style="color:var(--gold-dark);">ANTHROPIC_API_KEY missing on Vercel. Set it in Settings → Environment Variables, then redeploy.</small>'
+                  : '';
+        result.innerHTML = `<div class="solver-progress" style="color: var(--crimson); border-color: var(--crimson);">${esc(errMsg)}${detail}${hint}</div>`;
+        console.error('[ImportPDF] API error:', resp.status, data);
         return;
       }
+      console.log('[ImportPDF] extracted fields:', Object.keys(data.extracted || {}));
       renderTaxExtraction(data, docType);
     } catch (e) {
-      result.innerHTML = `<div class="solver-progress" style="color: var(--crimson); border-color: var(--crimson);">Upload failed: ${esc(e.message)}</div>`;
+      console.error('[ImportPDF] caught exception:', e);
+      result.innerHTML = `<div class="solver-progress" style="color: var(--crimson); border-color: var(--crimson);">Upload failed: ${esc(e.message)}<br><small>Open DevTools console for details.</small></div>`;
     }
   }
 
@@ -19462,16 +19487,37 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     handlers.forEach(({ btnId, inputId, docType }) => {
       const btn = document.getElementById(btnId);
       const input = document.getElementById(inputId);
-      if (!btn || !input) return;
-      btn.addEventListener('click', () => input.click());
+      if (!btn || !input) {
+        console.warn('[ImportPDF] missing button or input:', { btnId, inputId, btn: !!btn, input: !!input });
+        return;
+      }
+      btn.addEventListener('click', () => {
+        console.log('[ImportPDF] button clicked:', btnId);
+        try { input.click(); }
+        catch (e) { console.error('[ImportPDF] file-picker open failed:', e); alert('Could not open file picker: ' + e.message); }
+      });
       input.addEventListener('change', (ev) => {
+        console.log('[ImportPDF] file-input change fired for', inputId);
         const file = ev.target.files && ev.target.files[0];
-        if (!file) return;
+        if (!file) {
+          console.warn('[ImportPDF] no file in change event');
+          return;
+        }
+        console.log('[ImportPDF] selected file:', { name: file.name, size: file.size, type: file.type });
         if (file.size > 10 * 1024 * 1024) {
           alert('File is over 10MB. Compress with Preview > Export, or split multi-year docs.');
           return;
         }
-        extractTaxDoc(file, docType);
+        // Visible status (above the form) so the advisor sees something even if
+        // the modal fails to open
+        if (typeof setStatus === 'function') setStatus(`📑 Reading "${file.name}" via Claude vision…`);
+        try {
+          extractTaxDoc(file, docType);
+        } catch (e) {
+          console.error('[ImportPDF] extractTaxDoc threw:', e);
+          alert('PDF import failed: ' + e.message + '\n\nOpen DevTools console for details.');
+          if (typeof setStatus === 'function') setStatus('PDF import failed: ' + e.message, 'err');
+        }
         ev.target.value = ''; // allow re-uploading same file
       });
     });
