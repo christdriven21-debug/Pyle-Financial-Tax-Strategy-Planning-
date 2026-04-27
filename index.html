@@ -10734,10 +10734,16 @@ function renderClientPortrait(p) {
   // 4 headline numbers
   const taxSaved = p.totalImmediate || 0;
   const toHeirs = (p.dynasty20yr || 0) + (p.familyTotalNW || 0);
+  // Lifetime charitable impact — includes EVERY charitable strategy in the
+  // platform so the Client Portrait headline reflects what the rest of the
+  // plan reports (kept aligned with renderEstate's charity rollup).
   const toCharity = (d.use.crat ? d.crat.amount : 0)
                  + (d.use.crut ? d.crut.amount : 0)
                  + (d.use.daf  ? d.daf.amount  : 0)
-                 + (d.use.clt  ? p.cltCharityTotal : 0);
+                 + (d.use.clt  ? p.cltCharityTotal : 0)
+                 + (d.use.nimcrut ? d.nimcrut.amount : 0)
+                 + (d.use.privateFoundation ? d.privateFoundation.funding : 0)
+                 + (d.use.ceasement ? (p.ceasementValue || 0) : 0);
   const insurance = (d.ins.current || 0) + (d.use.ilit ? d.ilit.coverage : 0);
 
   // Narrative auto-generation — plain-English summary of enabled strategies
@@ -16610,7 +16616,13 @@ function analyzeGoals(p, d) {
 
   const totalRetirement = p.withPlanningTotal || 0;
   const dynasty = p.dynasty20yr || 0;
-  const charitableCapacity = (d.use.crat ? d.crat.amount : 0) + (d.use.crut ? d.crut.amount : 0) + (d.use.daf ? d.daf.amount : 0) + (d.use.clt ? d.clt.amount : 0);
+  const charitableCapacity = (d.use.crat ? d.crat.amount : 0)
+                            + (d.use.crut ? d.crut.amount : 0)
+                            + (d.use.daf  ? d.daf.amount  : 0)
+                            + (d.use.clt  ? d.clt.amount  : 0)
+                            + (d.use.nimcrut ? d.nimcrut.amount : 0)
+                            + (d.use.privateFoundation ? d.privateFoundation.funding : 0)
+                            + (d.use.ceasement ? (p.ceasementValue || 0) : 0);
 
   const analyzed = goals.map(g => {
     const yearsOut = Math.max(0, g.year - startYear);
