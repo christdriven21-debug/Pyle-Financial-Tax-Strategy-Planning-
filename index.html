@@ -16967,14 +16967,76 @@ function analyzeGoals(p, d) {
         break;
 
       case 'education':
-        // 5-year superfunding per beneficiary + growth
-        const nBen = d.client.eduBeneficiaries || 1;
+        // ─── Two-track sizing ───
+        //
+        // 1) Funded capacity (what 5-year superfunding can grow to by goal year)
+        //    Per-beneficiary, both donors superfund up to $95k each → $190k/bene
+        //    Capacity grows at portfolio equity rate.
+        //
+        // 2) Actual liability (when per-beneficiary actuals are configured —
+        //    sum of annualCost × yearsOfCollege per college-age beneficiary,
+        //    discounted to PV at 5% education-inflation rate). This gives the
+        //    advisor a real "is the goal target right?" reality check.
+        //
+        // The goal's `amount` field is what the advisor entered as the target.
+        // We compare funded capacity to that target for the probability score,
+        // but separately surface the actual liability when known.
+        const benesEdu = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+        const collegeBenes = benesEdu.filter(b =>
+          ['son','daughter','grandson','granddaughter'].includes(b.rel));
+        const collegeBenesWithCost = collegeBenes.filter(b => b.annualCost > 0);
+        const usePerBene = collegeBenesWithCost.length > 0;
+
+        const nBen = collegeBenes.length || d.client.eduBeneficiaries || 1;
         const superfund = 95_000 * 2 * nBen;   // $95k × 2 donors × beneficiaries
         funded = superfund * Math.pow(1 + growth, yearsOut);
-        probability = funded >= g.amount ? 0.95 : Math.min(0.9, funded / g.amount);
+
+        // Compute actual education liability when per-bene actuals exist
+        let actualLiabilityNominal = 0;
+        let actualLiabilityPV = 0;
+        if (usePerBene) {
+          const planYear = d.client.year || new Date().getFullYear();
+          collegeBenesWithCost.forEach(b => {
+            const totalCost = (b.annualCost || 0) * (b.yearsOfCollege || 4);
+            actualLiabilityNominal += totalCost;
+            // PV at 5% education inflation back to plan year
+            if (b.collegeStartYear >= planYear) {
+              for (let i = 0; i < (b.yearsOfCollege || 4); i++) {
+                const t = (b.collegeStartYear - planYear) + i;
+                actualLiabilityPV += b.annualCost / Math.pow(1.05, t);
+              }
+            } else {
+              actualLiabilityPV += totalCost;
+            }
+          });
+        }
+
+        // Use actual liability as the "true" target if it's available and the
+        // advisor's goal target seems generic / understated. Otherwise the
+        // advisor's goal amount is what we compare against.
+        const probabilityTarget = usePerBene ? Math.max(g.amount, actualLiabilityNominal) : g.amount;
+        probability = funded >= probabilityTarget ? 0.95 : Math.min(0.9, funded / probabilityTarget);
+
+        // Strategy attribution — more specific when per-bene actuals exist
         strategiesAttributed = ['529 superfunding', 'Annual gift-exclusion stacking'];
         if (d.use.dynasty) strategiesAttributed.push('Dynasty Trust education provisions');
-        detail = `$${Math.round(superfund/1000)}k funded today grows to $${Math.round(funded/1000)}k by ${g.year} at ${(growth*100).toFixed(1)}% return.`;
+        if (usePerBene) {
+          strategiesAttributed.push('§2503(e) direct tuition gifting (unlimited, no exemption used)');
+          // Highlight any beneficiary with a specific university name
+          const namedSchools = collegeBenesWithCost.filter(b => b.college).slice(0, 3);
+          if (namedSchools.length > 0) {
+            const schoolList = namedSchools.map(b => `${b.name}@${b.college}`).join(', ');
+            strategiesAttributed.push(`Tracking: ${schoolList}`);
+          }
+        }
+
+        // Build a richer detail string
+        if (usePerBene) {
+          const fundingGap = Math.max(0, actualLiabilityPV - superfund);
+          detail = `${nBen} college-age beneficiary${nBen === 1 ? '' : 'ies'} with actual liability of $${Math.round(actualLiabilityNominal/1000)}k nominal ($${Math.round(actualLiabilityPV/1000)}k PV). 5-yr superfunding capacity: $${Math.round(superfund/1000)}k → projects to $${Math.round(funded/1000)}k by ${g.year}. ${fundingGap > 0 ? `<strong>Gap of $${Math.round(fundingGap/1000)}k</strong> — bridge with §2503(e) direct tuition or ongoing annual gifting.` : '<strong>Superfunding alone covers actual liability.</strong>'}`;
+        } else {
+          detail = `$${Math.round(superfund/1000)}k funded today grows to $${Math.round(funded/1000)}k by ${g.year} at ${(growth*100).toFixed(1)}% return.`;
+        }
         break;
 
       case 'legacy':
