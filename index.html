@@ -14758,6 +14758,74 @@ function renderBeneficiaries(p) {
    CASH FLOW STATEMENT — annual income sources vs. expense categories,
    with sustainability check. Traditional financial planning deliverable.
    ============================================================ */
+/* ============================================================
+   MULTI-YEAR CASH FLOW HELPER — used by both renderCashFlow
+   (year-by-year table) and renderCharts (line chart visualization).
+   Returns array of { year, age, incomeYr, expenseYr, netYr,
+   cumNet, tuitionThis, phases } for `horizonYears` years starting
+   at d.client.year (defaults to 15).
+   ============================================================ */
+function computeMultiYearCashFlow(p, d, horizonYears = 15) {
+  const planYear = d.client.year || new Date().getFullYear();
+  const primaryAge = d.client.primaryAge || 0;
+  const ssClaimAge = (d.ss && d.ss.claimAge) || 67;
+  const rmdStartAge = (d.retirement && d.retirement.rmdStartAge) || 73;
+  const retireYr = d.client.primaryRetireYear || 0;
+  const inflation = d.proj.inflation || 0.025;
+  const equity = d.proj.equity || 0.06;
+  const baseInvestable = (p.withPlanningProceeds || 0) + (d.client.otherAssets || 0);
+  const fixedBase = d.budget.fixed || 0;
+  const variableBase = d.budget.variable || 0;
+  const taxesBase = d.budget.taxes || 0;
+  const mortgageBase = d.client.mortgage ? d.client.mortgage * 0.06 : 0;
+  const ilitPolicies = d.use.ilit ? [
+    { income: d.ilit.husband?.income || 0, start: d.ilit.husband?.incomeStart || 0 },
+    { income: d.ilit.wife?.income    || 0, start: d.ilit.wife?.incomeStart    || 0 },
+    { income: d.ilit.joint?.income   || 0, start: d.ilit.joint?.incomeStart   || 0 },
+  ] : [];
+  const yearRows = [];
+  let cumNet = 0;
+  for (let off = 0; off < horizonYears; off++) {
+    const y = planYear + off;
+    const ageNow = primaryAge + off;
+    const inflFactor = Math.pow(1 + inflation, off);
+    const equityGrowth = Math.pow(1 + equity, off);
+    const bizThis = (retireYr > 0 && y >= retireYr) ? 0 : (d.biz.income || 0);
+    const ssOn = primaryAge > 0 && ageNow >= ssClaimAge;
+    const ssThis = ssOn ? ((p.ssAnnualHousehold || 0) * Math.pow(1.025, off)) : 0;
+    const rmdOn = primaryAge > 0 && ageNow >= rmdStartAge;
+    const rmdThis = rmdOn ? ((p.rmdRows && p.rmdRows[Math.max(0, ageNow - rmdStartAge)]?.rmd) || 0) : 0;
+    const portThis = baseInvestable * 0.03 * equityGrowth;
+    const cratThis = d.use.crat ? ((d.crat.amount || 0) * (d.crat.rate || 0)) : 0;
+    const crutThis = d.use.crut ? ((d.crut.amount || 0) * (d.crut.rate || 0) * equityGrowth) : 0;
+    const ilitThis = ilitPolicies
+      .filter(pol => pol.income > 0 && (pol.start === 0 || pol.start <= y))
+      .reduce((s, pol) => s + pol.income, 0);
+    const incomeYr = bizThis + ssThis + rmdThis + portThis + cratThis + crutThis + ilitThis;
+    const fixedThis = fixedBase * inflFactor;
+    const varThis = variableBase * inflFactor;
+    const taxThis = taxesBase * inflFactor;
+    const mortThis = mortgageBase;
+    const tuitionThis = (Array.isArray(d.beneficiaries) ? d.beneficiaries : [])
+      .filter(b => ['son','daughter','grandson','granddaughter'].includes(b.rel)
+                 && b.annualCost > 0 && b.collegeStartYear > 0
+                 && y >= b.collegeStartYear && y < b.collegeStartYear + (b.yearsOfCollege || 4))
+      .reduce((s, b) => s + b.annualCost, 0);
+    const cltThis = d.use.clt ? (d.clt.payout || 0) : 0;
+    const expenseYr = fixedThis + varThis + taxThis + mortThis + tuitionThis + cltThis;
+    const netYr = incomeYr - expenseYr;
+    cumNet += netYr;
+    const phases = [];
+    if (retireYr > 0 && y === retireYr) phases.push('retire');
+    if (primaryAge > 0 && ageNow === ssClaimAge) phases.push('ss');
+    if (primaryAge > 0 && ageNow === rmdStartAge) phases.push('rmd');
+    if (tuitionThis > 0 && off > 0 && yearRows[off-1] && (yearRows[off-1].tuitionThis || 0) === 0) phases.push('college-start');
+    if ((yearRows[off-1]?.tuitionThis || 0) > 0 && tuitionThis === 0) phases.push('college-end');
+    yearRows.push({ year: y, age: ageNow, incomeYr, expenseYr, netYr, cumNet, tuitionThis, phases });
+  }
+  return yearRows;
+}
+
 function renderCashFlow(p) {
   const d = p.input;
   const fmt$ = formatMoney;
@@ -14980,90 +15048,11 @@ function renderCashFlow(p) {
 
       ${(() => {
         // ─── 15-YEAR INTEGRATED CASH FLOW PROJECTION ───
-        // Year-by-year income vs expenses, capturing every transition that
-        // changes the household's cash flow over the planning horizon:
-        //   • Business income drops to zero at primaryRetireYear
-        //   • Social Security starts at primary's SS claim age
-        //   • RMDs start at age 73 (or rmdStartAge)
-        //   • CRAT income is fixed; CRUT grows with trust value
-        //   • ILIT income starts at incomeStart per policy
-        //   • Education tuition flows in/out based on per-bene college years
-        //   • Fixed/variable expenses inflate at proj.inflation rate
-        const horizonYears = 15;
-        const primaryAge = d.client.primaryAge || 0;
-        const startYear = planYearCF;
-        const ssClaimAge = (d.ss && d.ss.claimAge) || 67;
-        const rmdStartAge = (d.retirement && d.retirement.rmdStartAge) || 73;
-        const retireYr = d.client.primaryRetireYear || 0;
-        const inflation = d.proj.inflation || 0.025;
-        const equity = d.proj.equity || 0.06;
-        const baseInvestable = (p.withPlanningProceeds || 0) + (d.client.otherAssets || 0);
-        const fixedBase = d.budget.fixed || 0;
-        const variableBase = d.budget.variable || 0;
-        const taxesBase = d.budget.taxes || 0;
-        const mortgageBase = d.client.mortgage ? d.client.mortgage * 0.06 : 0;
-        // ILIT per-policy incomes for year-gating
-        const ilitPolicies = d.use.ilit ? [
-          { income: d.ilit.husband?.income || 0, start: d.ilit.husband?.incomeStart || 0 },
-          { income: d.ilit.wife?.income    || 0, start: d.ilit.wife?.incomeStart    || 0 },
-          { income: d.ilit.joint?.income   || 0, start: d.ilit.joint?.incomeStart   || 0 },
-        ] : [];
-
-        const yearRows = [];
-        let cumNet = 0;
-        for (let off = 0; off < horizonYears; off++) {
-          const y = startYear + off;
-          const ageNow = primaryAge + off;
-          const inflFactor = Math.pow(1 + inflation, off);
-          const equityGrowth = Math.pow(1 + equity, off);
-
-          // ─── Income ───
-          const bizThis = (retireYr > 0 && y >= retireYr) ? 0 : (d.biz.income || 0);
-          // SS starts when primary reaches claim age
-          const ssOn = primaryAge > 0 && ageNow >= ssClaimAge;
-          const ssThis = ssOn ? ((p.ssAnnualHousehold || 0) * Math.pow(1.025, off)) : 0;  // ~2.5% COLA
-          // RMD starts at age 73
-          const rmdOn = primaryAge > 0 && ageNow >= rmdStartAge;
-          const rmdThis = rmdOn ? ((p.rmdRows && p.rmdRows[Math.max(0, ageNow - rmdStartAge)]?.rmd) || 0) : 0;
-          // Portfolio yield grows with assets (rough — 3% of compounded base)
-          const portThis = baseInvestable * 0.03 * equityGrowth;
-          // CRAT — fixed nominal annuity for term
-          const cratThis = d.use.crat ? ((d.crat.amount || 0) * (d.crat.rate || 0)) : 0;
-          // CRUT — % of growing trust value
-          const crutThis = d.use.crut ? ((d.crut.amount || 0) * (d.crut.rate || 0) * equityGrowth) : 0;
-          // ILIT income — only counts policies whose start year has been reached
-          const ilitThis = ilitPolicies
-            .filter(pol => pol.income > 0 && (pol.start === 0 || pol.start <= y))
-            .reduce((s, pol) => s + pol.income, 0);
-          const incomeYr = bizThis + ssThis + rmdThis + portThis + cratThis + crutThis + ilitThis;
-
-          // ─── Expenses ───
-          const fixedThis = fixedBase * inflFactor;
-          const varThis = variableBase * inflFactor;
-          const taxThis = taxesBase * inflFactor;
-          const mortThis = mortgageBase;  // typically fixed dollar P&I; ignoring inflation
-          // Tuition for any beneficiary in school this year
-          const tuitionThis = (Array.isArray(d.beneficiaries) ? d.beneficiaries : [])
-            .filter(b => ['son','daughter','grandson','granddaughter'].includes(b.rel)
-                       && b.annualCost > 0 && b.collegeStartYear > 0
-                       && y >= b.collegeStartYear && y < b.collegeStartYear + (b.yearsOfCollege || 4))
-            .reduce((s, b) => s + b.annualCost, 0);
-          const cltThis = d.use.clt ? (d.clt.payout || 0) : 0;
-          const expenseYr = fixedThis + varThis + taxThis + mortThis + tuitionThis + cltThis;
-
-          const netYr = incomeYr - expenseYr;
-          cumNet += netYr;
-
-          // Phase markers
-          const phases = [];
-          if (retireYr > 0 && y === retireYr) phases.push('retire');
-          if (primaryAge > 0 && ageNow === ssClaimAge) phases.push('ss');
-          if (primaryAge > 0 && ageNow === rmdStartAge) phases.push('rmd');
-          if (tuitionThis > 0 && off > 0 && yearRows[off-1] && (yearRows[off-1].tuitionThis || 0) === 0) phases.push('college-start');
-          if ((yearRows[off-1]?.tuitionThis || 0) > 0 && tuitionThis === 0) phases.push('college-end');
-
-          yearRows.push({ year: y, age: ageNow, incomeYr, expenseYr, netYr, cumNet, tuitionThis, phases });
-        }
+        // Pulls year-by-year data from computeMultiYearCashFlow helper so
+        // the chart visualization (renderCharts → chart-cashflow-projection)
+        // uses identical data. See helper above for transition logic.
+        const yearRows = computeMultiYearCashFlow(p, d, 15);
+        const horizonYears = yearRows.length;
 
         // Return early if no meaningful data (all zeroes)
         if (yearRows.every(r => r.incomeYr === 0 && r.expenseYr === 0)) return '';
@@ -15080,6 +15069,9 @@ function renderCashFlow(p) {
         <div style="margin-top: 18px; padding: 14px 16px; background: linear-gradient(135deg, var(--cream-light), #FFF); border-left: 4px solid var(--success); border-radius: 4px;">
           <div style="font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">
             📊 ${horizonYears}-Year Cash Flow Projection — Income vs. Expenses
+          </div>
+          <div class="chart-container" style="height: 300px; margin-bottom: 14px;">
+            <canvas id="chart-cashflow-projection"></canvas>
           </div>
           <div style="overflow-x: auto;">
             <table class="plan-table" style="font-size: 11px; margin: 0;">
@@ -17477,6 +17469,91 @@ function renderCharts(p) {
         }
       }
     });
+  }
+
+  // 15-Year Cash Flow Projection line chart (Cash Flow card) — visual
+  // companion to the per-year table. Two lines: income vs expenses, with
+  // shaded fill indicating surplus / shortfall and phase-transition
+  // annotations as vertical dashed markers.
+  const cfCanvas = document.getElementById('chart-cashflow-projection');
+  if (cfCanvas && typeof computeMultiYearCashFlow === 'function') {
+    const rows = computeMultiYearCashFlow(p, d, 15);
+    if (rows.length > 0 && rows.some(r => r.incomeYr > 0 || r.expenseYr > 0)) {
+      const labels = rows.map(r => String(r.year));
+      // Phase-transition markers — annotate by adding a faux "Phase" annotation.
+      // Chart.js doesn't have native vertical lines without the annotation
+      // plugin, so we approximate by including a very subtle 3rd dataset
+      // showing zero-line + tooltips will surface phase events.
+      window.__CHART_REGISTRY__.cashflowProjection = new Chart(cfCanvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Income',
+              data: rows.map(r => r.incomeYr),
+              borderColor: BRAND.success,
+              backgroundColor: 'rgba(45, 106, 79, 0.15)',
+              borderWidth: 2.5,
+              tension: 0.25,
+              fill: '+1',  // fill toward expenses line
+              pointRadius: rows.map(r => r.phases.length > 0 ? 5 : 2),
+              pointBackgroundColor: rows.map(r => r.phases.length > 0 ? BRAND.gold : BRAND.success),
+              pointBorderColor: BRAND.panel,
+              pointBorderWidth: 1.5,
+            },
+            {
+              label: 'Expenses',
+              data: rows.map(r => r.expenseYr),
+              borderColor: BRAND.crimson,
+              backgroundColor: 'rgba(139, 26, 26, 0.10)',
+              borderWidth: 2.5,
+              tension: 0.25,
+              fill: false,
+              pointRadius: rows.map(r => r.phases.length > 0 ? 5 : 2),
+              pointBackgroundColor: rows.map(r => r.phases.length > 0 ? BRAND.gold : BRAND.crimson),
+              pointBorderColor: BRAND.panel,
+              pointBorderWidth: 1.5,
+            },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top', labels: { color: BRAND.ink, font: { family: 'Helvetica Neue', size: 12 } } },
+            tooltip: {
+              callbacks: {
+                label: (c) => `${c.dataset.label}: ${fmt$(c.parsed.y)}`,
+                afterBody: (items) => {
+                  const idx = items[0].dataIndex;
+                  const row = rows[idx];
+                  const lines = [];
+                  lines.push(`Net: ${row.netYr >= 0 ? '+' : ''}${fmt$(row.netYr)}`);
+                  lines.push(`Cumulative: ${row.cumNet >= 0 ? '+' : ''}${fmt$(row.cumNet)}`);
+                  if (row.phases.length > 0) {
+                    const PHASE_LABELS = {
+                      retire: '🏖 Retirement begins',
+                      ss: '✓ SS claiming starts',
+                      rmd: '⚠ RMDs begin (age 73)',
+                      'college-start': '🎓 College starts',
+                      'college-end': '🎓 College ends',
+                    };
+                    lines.push('');
+                    row.phases.forEach(ph => lines.push(PHASE_LABELS[ph] || ph));
+                  }
+                  return lines;
+                },
+              },
+            },
+          },
+          scales: {
+            x: { ticks: { color: BRAND.muted, maxRotation: 0 }, grid: { color: 'rgba(139, 118, 64, 0.08)' } },
+            y: { ticks: { color: BRAND.muted, callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: 'rgba(139, 118, 64, 0.1)' } },
+          },
+        },
+      });
+    }
   }
 
   // Per-heir distribution donut (Estate tab) — renders only when at least
@@ -20500,11 +20577,12 @@ document.getElementById('btn-pptx').addEventListener('click', async () => {
   // Slides 4+ — Embed each chart as image (best-effort — canvas.toDataURL
   // captures the rendered Chart.js)
   const chartIds = [
-    { id: 'chart-allocation',       title: 'Post-Sale Asset Allocation' },
-    { id: 'chart-income',           title: 'Post-Sale Income Sources' },
-    { id: 'chart-projection',       title: 'Wealth Projection (Deterministic)' },
-    { id: 'chart-estate-growth',    title: 'Multi-Year Family Estate Growth' },
-    { id: 'chart-heir-distribution', title: 'Per-Heir Estate Distribution' },
+    { id: 'chart-allocation',         title: 'Post-Sale Asset Allocation' },
+    { id: 'chart-income',             title: 'Post-Sale Income Sources' },
+    { id: 'chart-projection',         title: 'Wealth Projection (Deterministic)' },
+    { id: 'chart-estate-growth',      title: 'Multi-Year Family Estate Growth' },
+    { id: 'chart-heir-distribution',  title: 'Per-Heir Estate Distribution' },
+    { id: 'chart-cashflow-projection', title: '15-Year Cash Flow Projection' },
   ];
   for (const c of chartIds) {
     const canvas = document.getElementById(c.id);
