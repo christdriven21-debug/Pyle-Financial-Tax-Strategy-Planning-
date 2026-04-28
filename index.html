@@ -17411,6 +17411,8 @@ function renderEstate(p) {
 
     ${heirCard}
 
+    ${renderGratLadder(p)}
+
     ${estateExplorerHTML}
 
     ${estateGrowthCard}
@@ -20176,6 +20178,145 @@ function renderRothLadder(p) {
 
       <div style="margin-top: 12px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
         <strong>Methodology:</strong> Even-split conversion across ${years} years (${fmt$(annualConvert)}/yr). Tax paid out-of-pocket each year (NOT from converted balance — paying from the converted amount loses tax-deferred space and effectively reduces conversion). Both Traditional and Roth balances grow at the projection equity rate (${(equity*100).toFixed(1)}%). RMD avoided uses IRS Uniform Lifetime Table approximation — actual divisor varies. Roth conversion is permanent; once executed, no recharacterization (TCJA repealed §408A(d)(6)).
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   GRAT LADDER — year-by-year breakdown for Grantor Retained
+   Annuity Trust on Estate tab.
+
+   Walton-style zeroed-out GRAT model:
+     • Year 0: fund GRAT with d.grat.transfer; trust value = funding
+     • Each year, GRAT pays grantor a level annuity sized so that PV
+       at §7520 rate = funding (Walton zero gift)
+     • Trust assets grow at d.grat.growth rate; pay annuity from
+       remaining; net = "leftover" = wealth transferred to heirs
+     • At term-end, residual passes to remainder beneficiaries
+       gift-tax-free
+     • Mortality risk: if grantor dies during term, full GRAT pulled
+       back into estate under §2036(a)(1)
+   ============================================================ */
+function renderGratLadder(p) {
+  const d = p.input;
+  if (!d.use.grat || !(d.grat.transfer > 0)) return '';
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+
+  const transfer = d.grat.transfer;
+  const term = Math.max(2, d.grat.term || 5);
+  const hurdle = d.grat.hurdle || 0.045;  // §7520 rate
+  const growth = d.grat.growth || (d.proj.equity || 0.08);
+  const planYear = d.client.year || new Date().getFullYear();
+  const primaryAge = d.client.primaryAge || 0;
+
+  // Walton level annuity factor: payment such that PV(payments) = funding
+  // Annuity factor a_n at hurdle = (1 - (1+r)^-n) / r
+  // Annuity = funding / a_n
+  const ann = (1 - Math.pow(1 + hurdle, -term)) / hurdle;
+  const annuity = transfer / ann;
+
+  // Year-by-year GRAT balance walk
+  let bal = transfer;
+  const rows = [];
+  for (let yi = 1; yi <= term; yi++) {
+    // Apply growth to balance, then pay annuity
+    const balBeforePayment = bal * (1 + growth);
+    const paymentThis = annuity;
+    const balAfterPayment = balBeforePayment - paymentThis;
+    rows.push({
+      year: planYear + yi,
+      ageNow: primaryAge ? primaryAge + yi : 0,
+      yi,
+      balStart: bal,
+      balBeforePayment,
+      paymentThis,
+      balAfterPayment: Math.max(0, balAfterPayment),
+    });
+    bal = Math.max(0, balAfterPayment);
+  }
+  const remainderToHeirs = bal;
+  const totalAnnuityPaid = annuity * term;
+  // Mortality risk — if grantor dies during term, full GRAT pulled back
+  const mortalityFactor = primaryAge > 0
+    ? Math.max(0, Math.min(1, 1 - term / Math.max(1, 110 - primaryAge)))
+    : 0.95;
+  const expectedRemainder = remainderToHeirs * mortalityFactor;
+  const estateSave = expectedRemainder * d.tax.estate;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📈 GRAT Ladder — ${term}-Year Walton Zero (Year-by-Year)</div>
+      <div class="card-sub">
+        Funded with <strong>${fmt$M(transfer)}</strong> at §7520 hurdle <strong>${(hurdle*100).toFixed(2)}%</strong>, expected growth <strong>${(growth*100).toFixed(1)}%</strong>. Walton-style zeroed-out structure — taxable gift is $0 at funding. Any appreciation above the hurdle passes to heirs gift-tax-free at term-end. Annual annuity to grantor: <strong>${fmt$(annuity)}/yr</strong> (${term} years, total ${fmt$(totalAnnuityPaid)} returned to grantor).
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Funding</div><div class="value">${fmt$M(transfer)}</div></div>
+        <div class="kpi"><div class="label">Annual Annuity</div><div class="value">${fmt$(annuity)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">to grantor for ${term} yrs</div></div>
+        <div class="kpi success"><div class="label">Remainder to Heirs</div><div class="value">${fmt$M(remainderToHeirs)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">at term-end (gross)</div></div>
+        <div class="kpi gold"><div class="label">Mortality-Adj Transfer</div><div class="value">${fmt$M(expectedRemainder)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">${(mortalityFactor*100).toFixed(0)}% survival prob</div></div>
+        <div class="kpi success"><div class="label">Estate-Tax Saved</div><div class="value">${fmt$M(estateSave)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">@ ${(d.tax.estate*100).toFixed(0)}% rate</div></div>
+      </div>
+
+      <div style="margin-top: 18px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 12px;">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th class="num">Age</th>
+              <th class="num">Balance (Start)</th>
+              <th class="num">+ Growth (${(growth*100).toFixed(1)}%)</th>
+              <th class="num">− Annuity Paid</th>
+              <th class="num">Balance (EOY)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td><strong>${r.year}</strong></td>
+                <td class="num">${r.ageNow || '—'}</td>
+                <td class="num">${fmt$M(r.balStart)}</td>
+                <td class="num" style="color: var(--success);">+${fmt$M(r.balBeforePayment - r.balStart)}</td>
+                <td class="num" style="color: var(--crimson);">−${fmt$(r.paymentThis)}</td>
+                <td class="num" style="font-weight: 600;">${fmt$M(r.balAfterPayment)}</td>
+              </tr>
+            `).join('')}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td colspan="5" style="font-weight: 700;">Term-End Remainder (to Heirs)</td>
+              <td class="num" style="font-weight: 700; color: var(--success);">${fmt$M(remainderToHeirs)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: #FFF8F0; border-left: 3px solid var(--crimson); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--crimson); margin-bottom: 6px;">
+          ⚠ §2036 Mortality Risk
+        </div>
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+          If the grantor dies during the ${term}-year term, the entire GRAT is pulled back into the taxable estate under §2036(a)(1) — the strategy fails completely with zero benefit. Survival probability over the term is ${(mortalityFactor*100).toFixed(0)}% at age ${primaryAge || '?'}. Mitigation: <strong>rolling short-term GRATs</strong> (2-3 yr each) reduce per-GRAT mortality exposure; if one GRAT fails, the others still complete.
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 6px;">
+          🎯 Optimal GRAT Conditions
+        </div>
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+          <ul style="margin: 0 0 0 22px; padding: 0;">
+            <li><strong>Volatile assets</strong> — GRATs win when growth exceeds §7520 hurdle. Pre-IPO equity, recovering assets, and stocks with high upside potential are ideal.</li>
+            <li><strong>Low §7520 environment</strong> — current rate ${(hurdle*100).toFixed(2)}% sets a low bar; GRATs funded in low-rate periods compound the win.</li>
+            <li><strong>Younger grantor</strong> — survival probability over a 3-5 yr term is materially higher under age 70.</li>
+            <li><strong>Roll the ladder</strong> — execute consecutive 2-3 yr GRATs in series (NOT in parallel) to capture appreciation in chunks while limiting per-GRAT mortality risk.</li>
+            <li><strong>Pre-sale timing</strong> — fund GRAT 12+ months before any LOI to defeat step-transaction doctrine (Holman v. Comm'r).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+        <strong>Methodology:</strong> Walton-style level annuity computed as funding / annuity-factor at §7520 rate, where annuity-factor = (1 − (1+r)^−n) / r. Each year the GRAT balance grows at advisor's assumed growth rate (${(growth*100).toFixed(1)}%), then pays the annuity to grantor. Term-end residual passes to remainder beneficiaries gift-tax-free. Mortality factor = max(0, 1 − term / (110 − age)) — rough actuarial proxy; IRS Table 2010CM used in practice.
       </div>
     </div>
   `;
