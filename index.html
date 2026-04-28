@@ -17952,6 +17952,65 @@ function renderCharts(p) {
     }
   }
 
+  // Multi-Year Retirement Income stacked-area chart (Retirement Plan tab)
+  // — visual companion to renderRetirementIncomeMultiYear. Sources
+  // stacked vertically, total height = annual income.
+  const retIncCanvas = document.getElementById('chart-retirement-income-multiyear');
+  if (retIncCanvas && typeof computeRetirementIncomeMultiYear === 'function') {
+    const rows = computeRetirementIncomeMultiYear(p, d, 20);
+    if (rows.length > 0 && rows.some(r => r.total > 0)) {
+      const labels = rows.map(r => String(r.year));
+      // Source order (bottom → top) chosen so stable sources are at base
+      const sources = [
+        { key: 'biz',       label: 'Business / Ordinary',       color: '#7C3B47', fill: 'rgba(124, 59, 71, 0.85)' },
+        { key: 'ss',        label: 'Social Security',           color: '#C9A961', fill: 'rgba(201, 169, 97, 0.85)' },
+        { key: 'rmd',       label: 'RMDs',                      color: '#9B5A3C', fill: 'rgba(155, 90, 60, 0.85)' },
+        { key: 'portfolio', label: 'Portfolio Yield',           color: '#3B5C7C', fill: 'rgba(59, 92, 124, 0.85)' },
+        { key: 'crat',      label: 'CRAT Annuity',              color: '#3A6A6E', fill: 'rgba(58, 106, 110, 0.85)' },
+        { key: 'crut',      label: 'CRUT Unitrust',             color: '#4A6B5C', fill: 'rgba(74, 107, 92, 0.85)' },
+        { key: 'ilit',      label: 'ILIT Withdrawals (tax-free)', color: '#2D6A4F', fill: 'rgba(45, 106, 79, 0.85)' },
+      ];
+      // Filter sources that have any non-zero values
+      const visibleSources = sources.filter(s => rows.some(r => r[s.key] > 0));
+      window.__CHART_REGISTRY__.retirementIncomeMultiYear = new Chart(retIncCanvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: visibleSources.map(s => ({
+            label: s.label,
+            data: rows.map(r => r[s.key]),
+            borderColor: s.color,
+            backgroundColor: s.fill,
+            borderWidth: 1,
+            tension: 0.2,
+            fill: true,
+            pointRadius: 0,
+          })),
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top', labels: { color: BRAND.ink, font: { family: 'Helvetica Neue', size: 11 }, boxWidth: 16, padding: 10 } },
+            tooltip: {
+              callbacks: {
+                label: (c) => `${c.dataset.label}: ${fmt$(c.parsed.y)}`,
+                footer: (items) => {
+                  const total = items.reduce((s, c) => s + c.parsed.y, 0);
+                  return `Total: ${fmt$(total)}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: BRAND.muted, maxRotation: 0 }, grid: { color: 'rgba(139, 118, 64, 0.08)' } },
+            y: { stacked: true, ticks: { color: BRAND.muted, callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: 'rgba(139, 118, 64, 0.1)' } },
+          },
+        },
+      });
+    }
+  }
+
   // Per-heir distribution donut (Estate tab) — renders only when at least
   // one heir has a non-zero sharePct. Uses the same withPlanToHeirs total
   // as the Per-Heir Estate Distribution table for consistency.
@@ -20971,6 +21030,82 @@ function renderQprtLadder(p) {
 }
 
 /* ============================================================
+   MULTI-YEAR RETIREMENT INCOME — helper function returning
+   per-year breakdown of every income source. Used by both the
+   render card (for table/methodology) and the chart code.
+   ============================================================ */
+function computeRetirementIncomeMultiYear(p, d, horizon = 20) {
+  const planYear = d.client.year || new Date().getFullYear();
+  const primaryAge = d.client.primaryAge || 0;
+  const ssClaimAge = (d.ss && d.ss.claimAge) || 67;
+  const rmdStartAge = (d.retirement && d.retirement.rmdStartAge) || 73;
+  const retireYr = d.client.primaryRetireYear || 0;
+  const equity = d.proj.equity || 0.06;
+  const baseInvestable = (p.withPlanningProceeds || 0) + (d.client.otherAssets || 0);
+  const ilitPolicies = d.use.ilit ? [
+    { income: d.ilit.husband?.income || 0, start: d.ilit.husband?.incomeStart || 0 },
+    { income: d.ilit.wife?.income    || 0, start: d.ilit.wife?.incomeStart    || 0 },
+    { income: d.ilit.joint?.income   || 0, start: d.ilit.joint?.incomeStart   || 0 },
+  ] : [];
+  const rows = [];
+  for (let off = 0; off < horizon; off++) {
+    const y = planYear + off;
+    const ageNow = primaryAge ? primaryAge + off : 0;
+    const equityGrowth = Math.pow(1 + equity, off);
+    const bizThis = (retireYr > 0 && y >= retireYr) ? 0 : (d.biz.income || 0);
+    const ssOn = primaryAge > 0 && ageNow >= ssClaimAge;
+    const ssThis = ssOn ? ((p.ssAnnualHousehold || 0) * Math.pow(1.025, off)) : 0;
+    const rmdOn = primaryAge > 0 && ageNow >= rmdStartAge;
+    const rmdThis = rmdOn ? ((p.rmdRows && p.rmdRows[Math.max(0, ageNow - rmdStartAge)]?.rmd) || 0) : 0;
+    const portThis = baseInvestable * 0.03 * equityGrowth;
+    const cratThis = d.use.crat ? ((d.crat.amount || 0) * (d.crat.rate || 0)) : 0;
+    const crutThis = d.use.crut ? ((d.crut.amount || 0) * (d.crut.rate || 0) * equityGrowth) : 0;
+    const ilitThis = ilitPolicies
+      .filter(pol => pol.income > 0 && (pol.start === 0 || pol.start <= y))
+      .reduce((s, pol) => s + pol.income, 0);
+    rows.push({
+      year: y, age: ageNow,
+      biz: bizThis, ss: ssThis, rmd: rmdThis,
+      portfolio: portThis, crat: cratThis, crut: crutThis, ilit: ilitThis,
+      total: bizThis + ssThis + rmdThis + portThis + cratThis + crutThis + ilitThis,
+    });
+  }
+  return rows;
+}
+
+/* ============================================================
+   MULTI-YEAR RETIREMENT INCOME CHART — visual companion to
+   single-year Income Stack. Renders a stacked area chart showing
+   year-by-year retirement income sources. Hidden when no income.
+   ============================================================ */
+function renderRetirementIncomeMultiYear(p) {
+  const d = p.input;
+  const horizon = 20;
+  const detailRows = computeRetirementIncomeMultiYear(p, d, horizon);
+  if (detailRows.length === 0 || detailRows.every(r => r.total === 0)) return '';
+  const ssClaimAge = (d.ss && d.ss.claimAge) || 67;
+  const rmdStartAge = (d.retirement && d.retirement.rmdStartAge) || 73;
+  const retireYr = d.client.primaryRetireYear || 0;
+
+  return `
+    <div class="card move-to-retirement" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📈 Multi-Year Retirement Income Sources — ${horizon}-Year Stack</div>
+      <div class="card-sub">
+        Year-by-year stacked breakdown of every income source as components kick in / drop off. Watch for the transitions: business income drops at retirement (${retireYr || 'TBD'}), Social Security at claim age (${ssClaimAge}), RMDs at age ${rmdStartAge}, ILIT withdrawals at each policy's start year.
+      </div>
+
+      <div class="chart-container" style="height: 360px; margin-top: 18px;">
+        <canvas id="chart-retirement-income-multiyear"></canvas>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+        <strong>Methodology:</strong> Income sources stacked vertically; total height is annual income before expenses/taxes. Business income runs until retirement year. SS includes 2.5% COLA. RMDs use first-year proxy from p.rmdRows; actual RMDs grow with age + portfolio. CRAT is fixed; CRUT recomputes annually with trust value. Portfolio yield = 3% of compounded post-sale assets. ILIT income gated by per-policy incomeStart.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
    FAMILY LLC LADDER — year-by-year breakdown for Family Limited
    Liability Company (estate-planning structure).
 
@@ -21735,6 +21870,7 @@ function generatePlan() {
         <div class="card-sub">Everything about ${primary}'s post-sale cash flow: the budget the portfolio must support, Social Security claiming, and Required Minimum Distributions once age 73 arrives.</div>
       </div>
       ${renderRetirementIncomeStack(p)}
+      ${renderRetirementIncomeMultiYear(p)}
       ${renderRothLadder(p)}
       ${renderMonteCarlo(p)}
       ${renderSocialSecurityOptimizer(p)}
@@ -22071,6 +22207,7 @@ document.getElementById('btn-pptx').addEventListener('click', async () => {
     { id: 'chart-estate-growth',      title: 'Multi-Year Family Estate Growth' },
     { id: 'chart-heir-distribution',  title: 'Per-Heir Estate Distribution' },
     { id: 'chart-cashflow-projection', title: '15-Year Cash Flow Projection' },
+    { id: 'chart-retirement-income-multiyear', title: '20-Year Retirement Income Sources' },
   ];
   for (const c of chartIds) {
     const canvas = document.getElementById(c.id);
