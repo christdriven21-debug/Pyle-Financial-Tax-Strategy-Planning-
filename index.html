@@ -16750,6 +16750,50 @@ function renderEstate(p) {
             </span>
           </div>` : ''}
         </div>`;
+      // Legacy-plan fallback — if no per-policy data is configured but the
+      // legacy ilit-coverage / ilit-premium fields have values, show a
+      // single aggregate panel instead of three empty "No policy selected"
+      // panels. Includes a migration prompt directing the advisor to the
+      // new per-policy editor.
+      const isLegacyAggregate = !p.anyPerPolicyConfigured && (d.ilit.coverage || 0) > 0;
+      if (isLegacyAggregate) {
+        const legacyEstateSave = (d.ilit.coverage || 0) * estateRate;
+        return `
+    <div class="card" style="border-left: 4px solid var(--gold-dark);">
+      <div class="card-title">🛡 ILIT Configuration — Legacy Aggregate (Migration Available)</div>
+      <div class="card-sub">This plan was configured before the per-policy ILIT editor (His / Hers / Joint Survivorship). The aggregate fields below are still valid for compute, but you can split into individual policies for sharper estate-tax + income projections.</div>
+      <div class="two-col">
+        <div class="info-card">
+          <h4 style="margin-bottom: 8px;">Legacy Aggregate Policy</h4>
+          <div class="row"><span class="k">Death Benefit:</span><span class="v">${fmt$(d.ilit.coverage)}</span></div>
+          <div class="row"><span class="k">Annual Premium:</span><span class="v">${fmt$(d.ilit.premium)}</span></div>
+          <div class="row"><span class="k">Term:</span><span class="v">${d.ilit.years} yrs</span></div>
+          <div class="row"><span class="k">Pay Schedule:</span><span class="v">${d.ilit.payYears}</span></div>
+          <div class="row"><span class="k">Total Premiums:</span><span class="v">${fmt$(p.ilitTotalPremiums || 0)}</span></div>
+          <div class="row"><span class="k">Estate-Tax Saved:</span><span class="v" style="color: var(--success); font-weight: 700;">${fmt$(legacyEstateSave)}</span></div>
+          <div class="row"><span class="k">Net Benefit:</span><span class="v" style="color: var(--success);">${fmt$(p.ilitNetBenefit || 0)}</span></div>
+        </div>
+        <div class="info-card" style="background: linear-gradient(135deg, var(--cream-light), #FFF); border-left: 3px solid var(--gold);">
+          <h4 style="margin-bottom: 8px;">Migrate to Per-Policy Structure?</h4>
+          <div style="font-size: 12px; color: var(--ink); line-height: 1.5;">
+            The per-policy editor lets you configure separate policies on the husband, wife, and a joint survivorship — each with its own death benefit, premium, term, and projected withdrawal income. Benefits:
+            <ul style="margin: 8px 0 8px 20px; padding: 0; font-size: 11px;">
+              <li><strong>Mortality-adjusted expected DB</strong> — term policies pay $0 if insured outlives term; aggregate model overstates savings</li>
+              <li><strong>Per-insured income tracking</strong> — withdrawal income from permanent policies (§72(e)/§7702 tax-free)</li>
+              <li><strong>Loan-based split-dollar</strong> economics with year-by-year balance forecast at second death</li>
+              <li><strong>Survivorship policy</strong> at second death (typically lower premium per million than two individual policies)</li>
+            </ul>
+            <strong>To migrate:</strong> open Section 3 → ILIT block, expand each policy panel, and split the legacy ${fmt$(d.ilit.coverage)} face / ${fmt$(d.ilit.premium)} premium across husband / wife / joint as appropriate.
+          </div>
+        </div>
+        ${splitDollarPanel}
+      </div>
+      <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); line-height: 1.6;">
+        <strong style="color: var(--gold-dark);">Compute behavior:</strong>
+        Estate-tax savings uses face amount (no mortality adjustment) when running on legacy data. After migrating to per-policy, the engine will compute mortality-adjusted expected DB based on each insured's age and policy term.
+      </div>
+    </div>`;
+      }
       return `
     <div class="card">
       <div class="card-title">🛡 ILIT Per-Policy Breakdown — His · Hers · Joint Survivorship</div>
