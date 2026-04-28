@@ -14978,6 +14978,150 @@ function renderCashFlow(p) {
         </div>
       </div>` : ''}
 
+      ${(() => {
+        // ─── 15-YEAR INTEGRATED CASH FLOW PROJECTION ───
+        // Year-by-year income vs expenses, capturing every transition that
+        // changes the household's cash flow over the planning horizon:
+        //   • Business income drops to zero at primaryRetireYear
+        //   • Social Security starts at primary's SS claim age
+        //   • RMDs start at age 73 (or rmdStartAge)
+        //   • CRAT income is fixed; CRUT grows with trust value
+        //   • ILIT income starts at incomeStart per policy
+        //   • Education tuition flows in/out based on per-bene college years
+        //   • Fixed/variable expenses inflate at proj.inflation rate
+        const horizonYears = 15;
+        const primaryAge = d.client.primaryAge || 0;
+        const startYear = planYearCF;
+        const ssClaimAge = (d.ss && d.ss.claimAge) || 67;
+        const rmdStartAge = (d.retirement && d.retirement.rmdStartAge) || 73;
+        const retireYr = d.client.primaryRetireYear || 0;
+        const inflation = d.proj.inflation || 0.025;
+        const equity = d.proj.equity || 0.06;
+        const baseInvestable = (p.withPlanningProceeds || 0) + (d.client.otherAssets || 0);
+        const fixedBase = d.budget.fixed || 0;
+        const variableBase = d.budget.variable || 0;
+        const taxesBase = d.budget.taxes || 0;
+        const mortgageBase = d.client.mortgage ? d.client.mortgage * 0.06 : 0;
+        // ILIT per-policy incomes for year-gating
+        const ilitPolicies = d.use.ilit ? [
+          { income: d.ilit.husband?.income || 0, start: d.ilit.husband?.incomeStart || 0 },
+          { income: d.ilit.wife?.income    || 0, start: d.ilit.wife?.incomeStart    || 0 },
+          { income: d.ilit.joint?.income   || 0, start: d.ilit.joint?.incomeStart   || 0 },
+        ] : [];
+
+        const yearRows = [];
+        let cumNet = 0;
+        for (let off = 0; off < horizonYears; off++) {
+          const y = startYear + off;
+          const ageNow = primaryAge + off;
+          const inflFactor = Math.pow(1 + inflation, off);
+          const equityGrowth = Math.pow(1 + equity, off);
+
+          // ─── Income ───
+          const bizThis = (retireYr > 0 && y >= retireYr) ? 0 : (d.biz.income || 0);
+          // SS starts when primary reaches claim age
+          const ssOn = primaryAge > 0 && ageNow >= ssClaimAge;
+          const ssThis = ssOn ? ((p.ssAnnualHousehold || 0) * Math.pow(1.025, off)) : 0;  // ~2.5% COLA
+          // RMD starts at age 73
+          const rmdOn = primaryAge > 0 && ageNow >= rmdStartAge;
+          const rmdThis = rmdOn ? ((p.rmdRows && p.rmdRows[Math.max(0, ageNow - rmdStartAge)]?.rmd) || 0) : 0;
+          // Portfolio yield grows with assets (rough — 3% of compounded base)
+          const portThis = baseInvestable * 0.03 * equityGrowth;
+          // CRAT — fixed nominal annuity for term
+          const cratThis = d.use.crat ? ((d.crat.amount || 0) * (d.crat.rate || 0)) : 0;
+          // CRUT — % of growing trust value
+          const crutThis = d.use.crut ? ((d.crut.amount || 0) * (d.crut.rate || 0) * equityGrowth) : 0;
+          // ILIT income — only counts policies whose start year has been reached
+          const ilitThis = ilitPolicies
+            .filter(pol => pol.income > 0 && (pol.start === 0 || pol.start <= y))
+            .reduce((s, pol) => s + pol.income, 0);
+          const incomeYr = bizThis + ssThis + rmdThis + portThis + cratThis + crutThis + ilitThis;
+
+          // ─── Expenses ───
+          const fixedThis = fixedBase * inflFactor;
+          const varThis = variableBase * inflFactor;
+          const taxThis = taxesBase * inflFactor;
+          const mortThis = mortgageBase;  // typically fixed dollar P&I; ignoring inflation
+          // Tuition for any beneficiary in school this year
+          const tuitionThis = (Array.isArray(d.beneficiaries) ? d.beneficiaries : [])
+            .filter(b => ['son','daughter','grandson','granddaughter'].includes(b.rel)
+                       && b.annualCost > 0 && b.collegeStartYear > 0
+                       && y >= b.collegeStartYear && y < b.collegeStartYear + (b.yearsOfCollege || 4))
+            .reduce((s, b) => s + b.annualCost, 0);
+          const cltThis = d.use.clt ? (d.clt.payout || 0) : 0;
+          const expenseYr = fixedThis + varThis + taxThis + mortThis + tuitionThis + cltThis;
+
+          const netYr = incomeYr - expenseYr;
+          cumNet += netYr;
+
+          // Phase markers
+          const phases = [];
+          if (retireYr > 0 && y === retireYr) phases.push('retire');
+          if (primaryAge > 0 && ageNow === ssClaimAge) phases.push('ss');
+          if (primaryAge > 0 && ageNow === rmdStartAge) phases.push('rmd');
+          if (tuitionThis > 0 && off > 0 && yearRows[off-1] && (yearRows[off-1].tuitionThis || 0) === 0) phases.push('college-start');
+          if ((yearRows[off-1]?.tuitionThis || 0) > 0 && tuitionThis === 0) phases.push('college-end');
+
+          yearRows.push({ year: y, age: ageNow, incomeYr, expenseYr, netYr, cumNet, tuitionThis, phases });
+        }
+
+        // Return early if no meaningful data (all zeroes)
+        if (yearRows.every(r => r.incomeYr === 0 && r.expenseYr === 0)) return '';
+
+        const PHASE_LABEL = {
+          'retire': '🏖 Retirement begins',
+          'ss': '✓ SS claiming starts',
+          'rmd': '⚠ RMDs begin (age 73)',
+          'college-start': '🎓 College tuition starts',
+          'college-end': '🎓 College ends',
+        };
+
+        return `
+        <div style="margin-top: 18px; padding: 14px 16px; background: linear-gradient(135deg, var(--cream-light), #FFF); border-left: 4px solid var(--success); border-radius: 4px;">
+          <div style="font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">
+            📊 ${horizonYears}-Year Cash Flow Projection — Income vs. Expenses
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="plan-table" style="font-size: 11px; margin: 0;">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th class="num">Age</th>
+                  <th class="num">Income</th>
+                  <th class="num">Expenses</th>
+                  <th class="num">Tuition</th>
+                  <th class="num">Net</th>
+                  <th class="num">Cumulative</th>
+                  <th>Phase</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${yearRows.map(r => {
+                  const netColor = r.netYr >= 0 ? 'var(--success)' : 'var(--crimson)';
+                  const phaseHTML = r.phases.length ? r.phases.map(ph => `<span style="display:inline-block;padding:1px 6px;margin-right:3px;font-size:9px;background:${ph === 'rmd' ? '#FFF0F0' : ph === 'retire' ? '#FFF8F0' : '#F0F7F3'};border-radius:2px;color:var(--ink);font-weight:600;">${PHASE_LABEL[ph]}</span>`).join('') : '';
+                  const rowBg = r.phases.length ? 'background: rgba(201,169,97,0.06);' : '';
+                  return `
+                    <tr style="${rowBg}">
+                      <td><strong>${r.year}</strong></td>
+                      <td class="num">${r.age || '—'}</td>
+                      <td class="num">${fmt$(r.incomeYr)}</td>
+                      <td class="num">${fmt$(r.expenseYr)}</td>
+                      <td class="num">${r.tuitionThis > 0 ? fmt$(r.tuitionThis) : '—'}</td>
+                      <td class="num" style="color: ${netColor}; font-weight: 700;">${r.netYr >= 0 ? '+' : ''}${fmt$(r.netYr)}</td>
+                      <td class="num" style="color: ${r.cumNet >= 0 ? 'var(--success)' : 'var(--crimson)'}; font-size: 10px;">${r.cumNet >= 0 ? '+' : ''}${fmt$M(r.cumNet)}</td>
+                      <td>${phaseHTML}</td>
+                    </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top: 10px; font-size: 10px; color: var(--muted); line-height: 1.5;">
+            <strong style="color: var(--gold-dark);">Notes:</strong>
+            Income inflates at portfolio-equity rate (CRUT, portfolio yield) or COLA (Social Security ~2.5%). Expenses inflate at the projection inflation rate (${(inflation*100).toFixed(1)}%). Mortgage shown as level P&amp;I (no inflation). RMDs from p.rmdRows when age ≥ ${rmdStartAge}. SS starts at claim age ${ssClaimAge}. Phase markers identify the year of each transition; cumulative net flow tracks running surplus/deficit through the horizon. ${yearRows.some(r => r.netYr < 0) ? '<strong style="color: var(--crimson);">⚠ Years with negative net cash flow require portfolio drawdown</strong> — Monte Carlo will reflect the impact.' : '<strong style="color: var(--success);">✓ Positive net cash flow every year</strong> — surplus compounds.'}
+          </div>
+        </div>`;
+      })()}
+
       <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
         <strong>Methodology note:</strong> Portfolio yield uses a 3% conservative proxy — actual depends on asset mix (bonds higher, tax-efficient equity lower). Mortgage expense estimated at 6% of balance (P&amp;I + property tax + homeowners insurance — refine with actual). RMD shown is first-year; rises annually. DAF is a one-time contribution (not recurring) and excluded from annual outflow. CRAT/CRUT income is before the 4-tier character tax treatment (see §664(b) in Technical Appendix). Taxes shown are the advisor-entered budget line — actual liability varies year-to-year with strategy execution. Education Tuition reflects beneficiaries currently in college (collegeStartYear ≤ planYear &lt; collegeStartYear + yearsOfCollege); future tuition shown separately above.
       </div>
