@@ -17413,6 +17413,8 @@ function renderEstate(p) {
 
     ${renderGratLadder(p)}
 
+    ${renderIdgtLadder(p)}
+
     ${estateExplorerHTML}
 
     ${estateGrowthCard}
@@ -20317,6 +20319,149 @@ function renderGratLadder(p) {
 
       <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
         <strong>Methodology:</strong> Walton-style level annuity computed as funding / annuity-factor at §7520 rate, where annuity-factor = (1 − (1+r)^−n) / r. Each year the GRAT balance grows at advisor's assumed growth rate (${(growth*100).toFixed(1)}%), then pays the annuity to grantor. Term-end residual passes to remainder beneficiaries gift-tax-free. Mortality factor = max(0, 1 − term / (110 − age)) — rough actuarial proxy; IRS Table 2010CM used in practice.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   IDGT LADDER — year-by-year breakdown for Intentionally Defective
+   Grantor Trust installment sale on Estate tab.
+
+   Structure:
+     • Year 0: ~10% seed gift to IDGT (uses lifetime exemption)
+     • Year 0: grantor sells appreciating asset to IDGT for promissory
+       note at AFR (§7872)
+     • Each year: trust pays grantor interest at AFR; principal balloons
+       OR amortizes at term end
+     • Asset grows at advisor's growth rate inside trust
+     • Grantor-trust status (§§671-679): grantor pays trust's income
+       tax → additional tax-free wealth transfer (Rev. Rul. 2004-64)
+     • Term-end: trust pays off note (or note expires), remainder is
+       outside grantor's estate
+     • If interest >7520 hurdle, all appreciation above AFR transfers
+       gift-tax-free to heirs
+   ============================================================ */
+function renderIdgtLadder(p) {
+  const d = p.input;
+  if (!d.use.idgt || !(d.idgt.amount > 0)) return '';
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+
+  const principal = d.idgt.amount;
+  const term = Math.max(2, d.idgt.term || 9);  // 9-yr most common (mid-term AFR)
+  const afr = d.idgt.afr || 0.045;
+  const growth = d.idgt.growth || (d.proj.equity || 0.08);
+  const planYear = d.client.year || new Date().getFullYear();
+  const primaryAge = d.client.primaryAge || 0;
+  const seedGift = principal * 0.10;  // ~10% seed required to avoid sham-loan attack
+
+  // Year-by-year balance walk
+  // Trust holds asset growing at growth rate; pays interest at AFR each year
+  // (interest comes from inside-trust assets — typically reduces growth or
+  // sold-off pieces. Simple model: net growth = growth - AFR)
+  let trustValue = principal;  // asset value held by trust
+  const noteBalance = principal;  // promissory note (constant in interest-only)
+  const interestAnnual = principal * afr;
+  const rows = [];
+  let cumInterestPaid = 0;
+  let cumGrantorTaxBurn = 0;  // approximation: trust income × marginal
+  for (let yi = 1; yi <= term; yi++) {
+    const trustValBeforeGrowth = trustValue;
+    trustValue *= (1 + growth);
+    // Trust pays interest to grantor (out of trust's income/principal)
+    trustValue -= interestAnnual;
+    cumInterestPaid += interestAnnual;
+    // Estimate grantor tax burn — trust's annual gain ~ growth × prior balance
+    // taxed at grantor's marginal rate; this is the "Rev. Rul. 2004-64 leverage"
+    const trustIncomeThis = trustValBeforeGrowth * (growth * 0.30);  // ~30% of growth realized as income
+    const grantorTaxBurnThis = trustIncomeThis * (d.tax.marginal || 0.32);
+    cumGrantorTaxBurn += grantorTaxBurnThis;
+    rows.push({
+      year: planYear + yi,
+      ageNow: primaryAge ? primaryAge + yi : 0,
+      yi,
+      trustValBeforeGrowth,
+      growthAmt: trustValue + interestAnnual - trustValBeforeGrowth,
+      interestPaid: interestAnnual,
+      trustValEoy: Math.max(0, trustValue),
+      grantorTaxBurn: grantorTaxBurnThis,
+    });
+  }
+  const finalTrustValue = Math.max(0, trustValue);
+  const remainderToHeirs = Math.max(0, finalTrustValue - noteBalance);  // trust pays off note at term-end
+  // If note paid off before term end (amortizing), remainder = trust value
+  // For simplicity: assume balloon at end → remainder = trustValue - principal
+  const idgtTotalTransfer = remainderToHeirs + cumGrantorTaxBurn;  // Rev. Rul. 2004-64 leverage
+  const estateSave = idgtTotalTransfer * d.tax.estate;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">🔒 IDGT Installment Sale Ladder — ${term}-Year Note (Year-by-Year)</div>
+      <div class="card-sub">
+        Sell <strong>${fmt$M(principal)}</strong> of appreciating assets to a pre-funded IDGT (~10% seed gift = <strong>${fmt$(seedGift)}</strong>) for a <strong>${term}-year promissory note</strong> at AFR <strong>${(afr*100).toFixed(2)}%</strong>. Asset grows at <strong>${(growth*100).toFixed(1)}%</strong> inside the trust; appreciation above AFR transfers gift-tax-free. Grantor-trust status (§§671-679) means grantor pays trust's income tax — additional tax-free leverage per Rev. Rul. 2004-64.
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Sale Price</div><div class="value">${fmt$M(principal)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">@ AFR ${(afr*100).toFixed(2)}%</div></div>
+        <div class="kpi"><div class="label">Annual Interest</div><div class="value">${fmt$(interestAnnual)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">paid to grantor</div></div>
+        <div class="kpi success"><div class="label">Trust Value at Term</div><div class="value">${fmt$M(finalTrustValue)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">${term} yrs @ ${(growth*100).toFixed(1)}%</div></div>
+        <div class="kpi success"><div class="label">Remainder to Heirs</div><div class="value">${fmt$M(remainderToHeirs)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">net of note payoff</div></div>
+        <div class="kpi gold"><div class="label">Tax Burn (Rev. Rul. 2004-64)</div><div class="value">${fmt$M(cumGrantorTaxBurn)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">grantor pays trust's tax</div></div>
+        <div class="kpi success"><div class="label">Total Transfer</div><div class="value">${fmt$M(idgtTotalTransfer)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">remainder + tax burn</div></div>
+      </div>
+
+      <div style="margin-top: 18px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 12px;">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th class="num">Age</th>
+              <th class="num">Trust Value (Start)</th>
+              <th class="num">+ Growth</th>
+              <th class="num">− Interest to Grantor</th>
+              <th class="num">Trust Value (EOY)</th>
+              <th class="num">Tax Burn</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td><strong>${r.year}</strong></td>
+                <td class="num">${r.ageNow || '—'}</td>
+                <td class="num">${fmt$M(r.trustValBeforeGrowth)}</td>
+                <td class="num" style="color: var(--success);">+${fmt$M(r.growthAmt)}</td>
+                <td class="num" style="color: var(--crimson);">−${fmt$(r.interestPaid)}</td>
+                <td class="num" style="font-weight: 600;">${fmt$M(r.trustValEoy)}</td>
+                <td class="num" style="color: var(--gold-dark); font-size: 10px;">${fmt$(r.grantorTaxBurn)}</td>
+              </tr>
+            `).join('')}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td colspan="3" style="font-weight: 700;">Term-End: Trust pays off ${fmt$M(noteBalance)} note</td>
+              <td class="num" style="color: var(--success); font-weight: 700;">+${fmt$M(rows.reduce((s, r) => s + r.growthAmt, 0))}</td>
+              <td class="num" style="color: var(--crimson); font-weight: 700;">−${fmt$(cumInterestPaid)}</td>
+              <td class="num" style="font-weight: 700; color: var(--success);">${fmt$M(remainderToHeirs)}</td>
+              <td class="num" style="font-weight: 700;">${fmt$M(cumGrantorTaxBurn)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 6px;">
+          🎯 IDGT Mechanics
+        </div>
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+          <strong>Why "intentionally defective":</strong> The trust is a grantor trust for income-tax purposes (so grantor pays trust's tax) but NOT a grantor trust for estate-tax purposes (so trust assets sit outside grantor's estate). The "defect" is intentional — typically achieved by giving the grantor a power of substitution under §675(4)(C) without retaining §2036/2038 strings.
+          <br><br>
+          <strong>Wealth transfer math:</strong> If the asset grows at <strong>${(growth*100).toFixed(1)}%</strong> and the note rate is <strong>${(afr*100).toFixed(2)}%</strong>, every ${(growth*100 - afr*100).toFixed(1)} percentage points of spread compounds inside the trust gift-tax-free. ${fmt$(interestAnnual)} of interest income each year is taxed to the GRANTOR (not the trust), reducing grantor's estate by an additional ${fmt$M(cumGrantorTaxBurn)} over ${term} years (Rev. Rul. 2004-64 leverage).
+          <br><br>
+          <strong>Step-transaction safe harbor:</strong> Fund the seed gift + execute the sale at least 12 months before any LOI to defeat IRS recharacterization (Holman v. Comm'r 130 T.C. 170). Use a qualified independent appraisal under §170(f)(11) to defend valuation discounts.
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+        <strong>Methodology:</strong> Interest-only note (typical IDGT structure); principal balloons at term-end. Trust value grows at advisor's projection equity rate (${(growth*100).toFixed(1)}%); interest paid to grantor reduces trust balance. Grantor tax burn approximated as 30% of growth realized as income × marginal rate (${((d.tax.marginal||0.32)*100).toFixed(0)}%) — actual amount depends on character of income (LTCG vs ordinary) and rebalancing inside the trust. Total transfer = trust remainder after note payoff + cumulative tax burn (a conservative estimate; the actual Rev. Rul. 2004-64 benefit may be higher with active income generation).
       </div>
     </div>
   `;
