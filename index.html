@@ -19859,6 +19859,156 @@ function renderRetirementIncomeStack(p) {
 }
 
 /* ============================================================
+   ROTH CONVERSION LADDER — year-by-year breakdown
+   Renders only when use.roth + amount > 0. Shows year-by-year
+   conversion amount, tax cost, growing Roth balance (tax-free),
+   shrinking traditional balance, and RMD avoided.
+
+   Model:
+     • Even-split conversion: convert d.roth.amount / years per year
+     • Tax cost: convert × marginal rate
+     • Roth balance grows at d.proj.equity each year
+     • Traditional balance starts at d.retirement.tradIRA + d.retirement.k401
+       (if available), decreases by conversion each year, grows at equity
+     • RMD avoided: starts age 73; Roth balances exempt from RMDs
+       (SECURE 2.0 made Roth 401(k) RMD-free in 2024)
+   ============================================================ */
+function renderRothLadder(p) {
+  const d = p.input;
+  if (!d.use.roth || !(d.roth.amount > 0)) return '';
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+
+  const years = Math.max(1, d.roth.years || 5);
+  const totalConvert = d.roth.amount;
+  const annualConvert = totalConvert / years;
+  const marginal = d.roth.marginal || d.tax.marginal || 0.32;
+  const equity = d.proj.equity || 0.06;
+  const primaryAge = d.client.primaryAge || 0;
+  const planYear = d.client.year || new Date().getFullYear();
+  const rmdAge = (d.retirement && d.retirement.rmdStartAge) || 73;
+  // Pre-tax IRA / 401k starting balance (used to compute traditional shrink)
+  const tradStart = (d.retirement?.tradIRA || 0) + (d.retirement?.k401 || 0);
+
+  // Build year-by-year ladder for `years` conversion years + 5 trailing
+  // years to show post-conversion compounding + RMD-avoided picture.
+  const showYears = Math.min(years + 5, 15);
+  const rows = [];
+  let rothBalance = d.retirement?.rothIRA || 0;  // starting Roth balance
+  let tradBalance = tradStart;
+  let cumulativeConverted = 0;
+  let cumulativeTaxPaid = 0;
+  for (let yi = 0; yi < showYears; yi++) {
+    const y = planYear + yi;
+    const ageNow = primaryAge ? primaryAge + yi : 0;
+    const isConvertingThisYear = yi < years;
+    const convertThis = isConvertingThisYear ? Math.min(annualConvert, tradBalance) : 0;
+    const taxThis = convertThis * marginal;
+    cumulativeConverted += convertThis;
+    cumulativeTaxPaid += taxThis;
+    // Apply conversion: traditional drops, Roth gains
+    tradBalance = Math.max(0, tradBalance - convertThis);
+    rothBalance += convertThis;
+    // Apply year's growth (both grow at equity)
+    rothBalance *= (1 + equity);
+    tradBalance *= (1 + equity);
+    // RMD avoided — Traditional RMD divisor at age. Use IRS Uniform
+    // Lifetime Table 2022+ approx: divisor ≈ 27.4 - (age-72)*0.78 (rough).
+    let rmdAvoided = 0;
+    if (ageNow >= rmdAge && cumulativeConverted > 0) {
+      // Rough RMD divisor — at 73 it's 26.5, at 80 it's 20.2, at 85 it's 16.0
+      const divisor = Math.max(7, 27.4 - (ageNow - 72) * 0.78);
+      // Without conversion, the converted-portion would have been
+      // subject to RMDs at ageNow. Approximation: cumulativeConverted
+      // would have grown alongside but in trad — RMD = balance / divisor.
+      rmdAvoided = cumulativeConverted / divisor;
+    }
+    rows.push({
+      year: y,
+      age: ageNow,
+      convertThis,
+      taxThis,
+      cumulativeConverted,
+      cumulativeTaxPaid,
+      rothBalance,
+      tradBalance,
+      rmdAvoided,
+      isConverting: isConvertingThisYear,
+    });
+  }
+
+  const finalRothBalance = rows[rows.length - 1].rothBalance;
+  const finalTaxPaid = cumulativeTaxPaid;
+  const totalRMDAvoidedAcrossYears = rows.reduce((s, r) => s + r.rmdAvoided, 0);
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">🔄 Roth Conversion Ladder — Year-by-Year</div>
+      <div class="card-sub">
+        Converting <strong>${fmt$M(totalConvert)}</strong> from Traditional IRA/401(k) to Roth over <strong>${years} years</strong> at <strong>${(marginal*100).toFixed(0)}% marginal rate</strong>. Pay income tax now (${fmt$(totalConvert * marginal)} total) → escape future RMDs forever, leave Roth growth tax-free to heirs (no inherited-RMD issue under SECURE 2.0 once 10-yr rule applies — Roth still tax-free).
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Total Converted</div><div class="value">${fmt$M(totalConvert)}</div></div>
+        <div class="kpi"><div class="label">Tax Cost</div><div class="value">${fmt$(finalTaxPaid)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">@ ${(marginal*100).toFixed(0)}% marginal</div></div>
+        <div class="kpi success"><div class="label">Roth at Year ${showYears}</div><div class="value">${fmt$M(finalRothBalance)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">Tax-free forever</div></div>
+        ${totalRMDAvoidedAcrossYears > 0 ? `<div class="kpi gold"><div class="label">Cumulative RMD Avoided</div><div class="value">${fmt$M(totalRMDAvoidedAcrossYears)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">Years 73+</div></div>` : ''}
+      </div>
+
+      <div style="margin-top: 18px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 12px;">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th class="num">Age</th>
+              <th class="num">Convert This Year</th>
+              <th class="num">Tax Cost</th>
+              <th class="num">Cumulative Tax</th>
+              <th class="num">Trad Balance (EOY)</th>
+              <th class="num">Roth Balance (EOY)</th>
+              <th class="num">RMD Avoided</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr style="${r.isConverting ? 'background: rgba(201,169,97,0.04);' : ''}">
+                <td><strong>${r.year}</strong>${r.isConverting ? ' <span style="font-size: 10px; color: var(--gold-dark);">⟳</span>' : ''}</td>
+                <td class="num">${r.age || '—'}</td>
+                <td class="num">${r.convertThis > 0 ? fmt$(r.convertThis) : '—'}</td>
+                <td class="num">${r.taxThis > 0 ? fmt$(r.taxThis) : '—'}</td>
+                <td class="num" style="color: var(--crimson);">${fmt$(r.cumulativeTaxPaid)}</td>
+                <td class="num">${fmt$M(r.tradBalance)}</td>
+                <td class="num" style="color: var(--success); font-weight: 600;">${fmt$M(r.rothBalance)}</td>
+                <td class="num" style="color: var(--gold-dark);">${r.rmdAvoided > 0 ? fmt$(r.rmdAvoided) : '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">
+          🎯 Optimal-Year Conversion Sequencing
+        </div>
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+          The most efficient years for Roth conversions are <strong>low-income gap years</strong> — typically post-sale (when business income drops) but pre-RMD (before age 73). In those years:
+          <ul style="margin: 6px 0 0 22px; padding: 0;">
+            <li><strong>Marginal rate is artificially low</strong> — fill up the 24%/32%/35% brackets without tipping into 37%</li>
+            <li><strong>No RMD interference</strong> — conversion adds to ordinary income but doesn't stack on top of unavoidable RMDs</li>
+            <li><strong>State arbitrage</strong> — if planning to relocate to a no-income-tax state (FL/TX/NV/etc.), do conversions AFTER move to skip state tax on conversion</li>
+            <li><strong>NIIT planning</strong> — conversion itself isn't NIIT (§1411 excludes IRA distributions), but pushes AGI which can affect other NIIT calcs; coordinate with portfolio income</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+        <strong>Methodology:</strong> Even-split conversion across ${years} years (${fmt$(annualConvert)}/yr). Tax paid out-of-pocket each year (NOT from converted balance — paying from the converted amount loses tax-deferred space and effectively reduces conversion). Both Traditional and Roth balances grow at the projection equity rate (${(equity*100).toFixed(1)}%). RMD avoided uses IRS Uniform Lifetime Table approximation — actual divisor varies. Roth conversion is permanent; once executed, no recharacterization (TCJA repealed §408A(d)(6)).
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
    MONTE CARLO — RENDER card + SVG fan chart
    Pure SVG (no chart library), responsive, 10/50/90 bands +
    probability of success headline.
@@ -20459,6 +20609,7 @@ function generatePlan() {
         <div class="card-sub">Everything about ${primary}'s post-sale cash flow: the budget the portfolio must support, Social Security claiming, and Required Minimum Distributions once age 73 arrives.</div>
       </div>
       ${renderRetirementIncomeStack(p)}
+      ${renderRothLadder(p)}
       ${renderMonteCarlo(p)}
       ${renderSocialSecurityOptimizer(p)}
     `;
