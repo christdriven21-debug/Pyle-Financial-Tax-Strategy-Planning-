@@ -15789,6 +15789,217 @@ function renderTax(p) {
 
     ${slatReciprocalWarning}
 
+    ${(() => {
+      // ─── STRATEGY-BY-STRATEGY TAX SAVINGS BAR CHART ───
+      // Computes total $ savings per enabled strategy (across all tax
+      // buckets) and renders a sorted horizontal bar chart so the advisor
+      // sees exactly where the headline savings number comes from.
+      const strats = [];
+      if (d.use.dynasty) strats.push({
+        label: 'Dynasty Trust',
+        savings: (p.dynastyEstateSave || 0) + (p.dynastyDiscountSave || 0) + (p.dynastyIncomeTaxGiftEstateSave || 0),
+        bucket: 'estate',
+      });
+      if (d.use.slat) strats.push({
+        label: 'SLAT',
+        savings: (p.slatEstateSave || 0),
+        bucket: 'estate',
+      });
+      if (d.use.idgt) strats.push({
+        label: 'IDGT Installment Sale',
+        savings: (p.idgtEstateSave || 0),
+        bucket: 'estate',
+      });
+      if (d.use.grat) strats.push({
+        label: 'GRAT',
+        savings: (p.gratEstateSave || 0),
+        bucket: 'estate',
+      });
+      if (d.use.qprt) strats.push({
+        label: 'QPRT',
+        savings: (p.qprtEstateSave || 0),
+        bucket: 'estate',
+      });
+      if (d.use.ilit) strats.push({
+        label: 'ILIT (Life Insurance)',
+        savings: (p.ilitEstateSave || 0),
+        bucket: 'estate',
+      });
+      if (d.use.crat) strats.push({
+        label: 'CRAT',
+        savings: ((d.crat.amount || 0) * (p.combinedCGRate || 0)) + ((p.cratDeduction || 0) * d.tax.marginal) + (p.cratEstateSave || 0),
+        bucket: 'cap-gains',
+      });
+      if (d.use.crut) strats.push({
+        label: 'CRUT',
+        savings: ((d.crut.amount || 0) * (p.combinedCGRate || 0)) + ((p.crutDeduction || 0) * d.tax.marginal) + (p.crutEstateSave || 0),
+        bucket: 'cap-gains',
+      });
+      if (d.use.daf) strats.push({
+        label: 'Donor Advised Fund',
+        savings: ((d.daf.amount || 0) * d.tax.marginal) + (p.dafEstateSave || 0),
+        bucket: 'fed-income',
+      });
+      if (d.use.clt) strats.push({
+        label: 'CLT',
+        savings: (p.cltEstateSave || 0) + ((p.cltTaxSavings || 0)),
+        bucket: 'estate',
+      });
+      if (d.use.qoz) strats.push({
+        label: 'QOZ Deferral',
+        savings: (p.scenarios?.scenAll?.qozDeferred || 0),
+        bucket: 'cap-gains',
+      });
+      if (d.use.qsbs && p.qsbsEligible) strats.push({
+        label: '§1202 QSBS',
+        savings: (p.qsbsTotalSaving || 0),
+        bucket: 'cap-gains',
+      });
+      if (d.use.exch1031) strats.push({
+        label: '§1031 Exchange',
+        savings: (p.exch1031TaxDeferred || 0),
+        bucket: 'cap-gains',
+      });
+      if (d.use.qbi) strats.push({
+        label: '§199A QBI',
+        savings: (p.qbiSavings || 0),
+        bucket: 'fed-income',
+      });
+      if (d.use.roth) strats.push({
+        label: 'Roth Conversion',
+        savings: (p.rothNetEstateSave || 0) + (p.rothGrowthBenefit || 0) * d.tax.marginal,  // tax-free growth ≈ marginal × growth
+        bucket: 'fed-income',
+      });
+      if (d.use.dbplan) strats.push({
+        label: 'DB / Cash Balance Plan',
+        savings: (p.dbplanLifetimeSaving || 0),
+        bucket: 'fed-income',
+      });
+      if (d.use.ceasement) strats.push({
+        label: 'Conservation Easement',
+        savings: (p.ceasementSaving || 0) + (p.ceasement2031cDiscount || 0),
+        bucket: 'fed-income',
+      });
+      if (d.use.oilgas) strats.push({
+        label: 'Oil &amp; Gas (§263(c) IDC)',
+        savings: (p.oilgasYear1Saving || 0) + (p.oilgasDepletionShelter || 0),
+        bucket: 'fed-income',
+      });
+      if (d.use.esop1042) strats.push({
+        label: '§1042 ESOP Rollover',
+        savings: (p.esop1042TaxDeferred || 0) + (p.esop1042PermanentSavings || 0),
+        bucket: 'cap-gains',
+      });
+      if (d.use.captive) strats.push({
+        label: 'Captive Insurance §831(b)',
+        savings: (p.captiveLifetimeSaving || 0),
+        bucket: 'fed-income',
+      });
+      if (d.use.pf) strats.push({
+        label: 'Premium Finance',
+        savings: (p.pfEstateSaving || 0),
+        bucket: 'estate',
+      });
+      if (d.use.nimcrut) strats.push({
+        label: 'NIMCRUT',
+        savings: (p.nimcrutCgEliminated || 0) + (p.nimcrutEstateSaving || 0) + ((p.nimcrutDeduction || 0) * d.tax.marginal),
+        bucket: 'cap-gains',
+      });
+      if (d.use.privateFoundation) strats.push({
+        label: 'Private Foundation',
+        savings: (p.pfYear1Saving || 0),
+        bucket: 'fed-income',
+      });
+      if (d.use.ing) strats.push({
+        label: 'ING Trust',
+        savings: (p.ingLifetimeSaving || 0),
+        bucket: 'state',
+      });
+      if (d.use.familyLlc) strats.push({
+        label: 'Family LLC',
+        savings: (p.familyLlcEstateSaving || 0),
+        bucket: 'estate',
+      });
+      if (d.use.intraLoan) strats.push({
+        label: 'Intra-Family Loan',
+        savings: (p.intraLoanEstateSaving || 0),
+        bucket: 'estate',
+      });
+      if (d.use.serp) strats.push({
+        label: 'Funded SERP',
+        savings: (p.serpLifetimeSaving || 0),
+        bucket: 'fed-income',
+      });
+      if (d.use.pplife) strats.push({
+        label: 'PPLI',
+        savings: (p.ppliTaxSavings || 0) + (p.ppliEstateSaving || 0),
+        bucket: 'fed-income',
+      });
+
+      // Filter zero-savings entries, sort descending
+      const visibleStrats = strats.filter(s => s.savings > 0).sort((a, b) => b.savings - a.savings);
+      if (visibleStrats.length === 0) return '';
+
+      const totalSavings = visibleStrats.reduce((s, x) => s + x.savings, 0);
+      const maxSavings = visibleStrats[0].savings;
+      const BUCKET_COLOR = {
+        'fed-income': '#7C3B47',   // burgundy
+        'cap-gains':  '#2D6A4F',   // forest green
+        'state':      '#3B5C7C',   // slate blue
+        'estate':     '#8B7640',   // bronze
+      };
+      const BUCKET_LABEL = {
+        'fed-income': 'Federal Income',
+        'cap-gains':  'Capital Gains',
+        'state':      'State Income',
+        'estate':     'Estate Transfer',
+      };
+
+      return `
+        <div class="card" style="border-left: 4px solid var(--gold);">
+          <div class="card-title">📊 Strategy-by-Strategy Tax Savings — ${fmt$M(totalSavings)} Total</div>
+          <div class="card-sub">Each enabled strategy's contribution to total tax savings, sorted by impact. Color-coded by tax bucket. Zero-savings strategies are hidden.</div>
+
+          <div style="margin-top: 18px;">
+            ${visibleStrats.map((s) => {
+              const widthPct = Math.max(2, (s.savings / maxSavings) * 100);
+              const pct = (s.savings / totalSavings) * 100;
+              return `
+                <div style="margin-bottom: 10px;">
+                  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px;">
+                    <span style="font-weight: 600; color: var(--ink); font-size: 13px;">${s.label}</span>
+                    <span style="font-family: 'Courier New', monospace; font-size: 12px; color: var(--ink); font-weight: 700;">
+                      ${fmt$(s.savings)} <span style="color: var(--muted); font-weight: 400;">(${pct.toFixed(1)}%)</span>
+                    </span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="flex: 1; background: rgba(201,169,97,0.10); height: 18px; border-radius: 3px; overflow: hidden;">
+                      <div style="background: ${BUCKET_COLOR[s.bucket] || '#8B7640'}; height: 100%; width: ${widthPct.toFixed(1)}%; transition: width 0.3s; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: white; font-size: 10px; font-weight: 600; letter-spacing: 0.5px;">
+                        ${widthPct >= 25 ? BUCKET_LABEL[s.bucket] : ''}
+                      </div>
+                    </div>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+
+          <div style="margin-top: 16px; padding: 12px 14px; background: var(--cream-light); border-radius: 4px; display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px;">
+            ${Object.entries(BUCKET_LABEL).map(([k, v]) => `
+              <span style="display: inline-flex; align-items: center; gap: 6px;">
+                <span style="display: inline-block; width: 12px; height: 12px; background: ${BUCKET_COLOR[k]}; border-radius: 2px;"></span>
+                <span style="color: var(--ink); font-weight: 600;">${v}</span>
+                <span style="color: var(--muted);">${fmt$M(visibleStrats.filter(s => s.bucket === k).reduce((sum, s) => sum + s.savings, 0))}</span>
+              </span>
+            `).join('')}
+          </div>
+
+          <div style="margin-top: 12px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+            <strong>Note:</strong> Savings are gross of advisor implementation fees. Some buckets overlap (e.g., QSBS = federal cap-gains AND potentially state if conforming) — primary bucket attribution shown. CRAT/CRUT savings combine CG-elimination + charitable deduction + estate removal. Roth conversion includes growth × marginal rate as a future-tax-saved proxy.
+          </div>
+        </div>
+      `;
+    })()}
+
     <div class="card">
       <div class="card-title">Comprehensive Tax Optimization Strategy</div>
       <div class="card-sub">Strategy-by-strategy breakdown of all tax benefits.</div>
