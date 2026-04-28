@@ -17415,6 +17415,8 @@ function renderEstate(p) {
 
     ${renderIdgtLadder(p)}
 
+    ${renderSlatLadder(p)}
+
     ${renderCrtLadder(p)}
 
     ${estateExplorerHTML}
@@ -20671,6 +20673,153 @@ function renderCrtLadder(p) {
 
       <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
         <strong>Methodology:</strong> Trust assets grow at the projection equity rate (${(equity*100).toFixed(1)}%). CRAT pays a fixed dollar annuity each year (funding × rate). CRUT recomputes payout annually as (start-of-year balance × rate). Both stop early if trust corpus is exhausted (probability check is part of §664(d)(1) for CRATs — Rev. Rul. 77-374). Payouts use §664(b) 4-tier character: ordinary income first, then capital gains, then tax-exempt income, then return of corpus. CRT-eliminates-CG on the contributed asset because the charitable trust is tax-exempt; deduction at funding ≈ §7520 PV of charitable remainder.
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   SLAT LADDER — Spousal Lifetime Access Trust year-by-year on
+   Estate tab.
+
+   Mechanics:
+     • Grantor funds SLAT with portion of lifetime exemption
+     • Spouse is discretionary beneficiary (indirect access for grantor)
+     • Trust assets grow outside grantor's estate forever
+     • Grantor-trust status: grantor pays trust's income tax
+       (Rev. Rul. 2004-64 leverage)
+     • If discount applied (non-voting LLC interest, etc.), reported
+       gift = funding × (1 - discount)
+
+   Risks:
+     • Reciprocal trust doctrine — if both spouses fund SLATs with
+       similar terms, IRS may collapse them back into respective estates
+       (Estate of Grace, Estate of Bischoff). Material differences in
+       terms (timing, beneficiary classes, distribution standards,
+       trustee, situs) defeat the doctrine.
+     • Divorce risk — non-grantor spouse loses access if marriage ends
+   ============================================================ */
+function renderSlatLadder(p) {
+  const d = p.input;
+  if (!d.use.slat || !(d.slat.funding > 0)) return '';
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+
+  const funding = d.slat.funding;
+  const horizon = Math.max(5, d.slat.years || 20);
+  const growth = d.slat.growth || (d.proj.equity || 0.06);
+  const discount = d.slat.discount || 0;
+  const planYear = d.client.year || new Date().getFullYear();
+  const primaryAge = d.client.primaryAge || 0;
+  const reportedGift = funding * (1 - discount);
+  const exemptionUsed = reportedGift;
+
+  // Year-by-year balance walk (no distributions; spouse takes only as needed)
+  let bal = funding;
+  const rows = [];
+  let cumGrantorTaxBurn = 0;
+  for (let yi = 1; yi <= horizon; yi++) {
+    const balStart = bal;
+    bal *= (1 + growth);
+    const trustGrowth = bal - balStart;
+    // Grantor pays trust's income tax (Rev. Rul. 2004-64) — approx
+    // 30% of growth realized as income × marginal rate
+    const trustIncomeRealized = trustGrowth * 0.30;
+    const taxBurnThis = trustIncomeRealized * (d.tax.marginal || 0.32);
+    cumGrantorTaxBurn += taxBurnThis;
+    rows.push({
+      year: planYear + yi,
+      ageNow: primaryAge ? primaryAge + yi : 0,
+      balStart,
+      growthAmt: trustGrowth,
+      balEoy: bal,
+      taxBurn: taxBurnThis,
+      cumTaxBurn: cumGrantorTaxBurn,
+    });
+  }
+  const finalBalance = bal;
+  const totalTransfer = finalBalance + cumGrantorTaxBurn;
+  const estateSave = totalTransfer * d.tax.estate;
+  const giftDiscount = funding - reportedGift;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">👥 SLAT Ladder — Spousal Lifetime Access Trust (${horizon}-Year)</div>
+      <div class="card-sub">
+        Funded with <strong>${fmt$M(funding)}</strong>${discount > 0 ? ` at <strong>${(discount*100).toFixed(0)}% discount</strong> (reported gift ${fmt$M(reportedGift)})` : ''}. Spouse is discretionary beneficiary — grantor retains <em>indirect</em> access via spouse-distributions. Assets grow outside grantor's estate forever; grantor-trust status means grantor pays trust's income tax (additional Rev. Rul. 2004-64 leverage).
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Initial Funding</div><div class="value">${fmt$M(funding)}</div></div>
+        <div class="kpi"><div class="label">Reported Gift</div><div class="value">${fmt$M(reportedGift)}</div>${discount > 0 ? `<div style="font-size: 11px; color: var(--success); margin-top: 6px;">−${fmt$M(giftDiscount)} discount</div>` : ''}</div>
+        <div class="kpi success"><div class="label">Trust Value at Year ${horizon}</div><div class="value">${fmt$M(finalBalance)}</div></div>
+        <div class="kpi gold"><div class="label">Tax Burn (Rev. Rul. 2004-64)</div><div class="value">${fmt$M(cumGrantorTaxBurn)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">grantor pays</div></div>
+        <div class="kpi success"><div class="label">Estate-Tax Saved</div><div class="value">${fmt$M(estateSave)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">@ ${(d.tax.estate*100).toFixed(0)}%</div></div>
+      </div>
+
+      <div style="margin-top: 18px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 12px;">
+          <thead>
+            <tr><th>Year</th><th class="num">Age</th><th class="num">Balance Start</th><th class="num">+ Growth</th><th class="num">Balance EOY</th><th class="num">Annual Tax Burn</th><th class="num">Cumulative Tax Burn</th></tr>
+          </thead>
+          <tbody>
+            ${rows.slice(0, Math.min(horizon, rows.length)).map(r => `
+              <tr>
+                <td><strong>${r.year}</strong></td>
+                <td class="num">${r.ageNow || '—'}</td>
+                <td class="num">${fmt$M(r.balStart)}</td>
+                <td class="num" style="color: var(--success);">+${fmt$M(r.growthAmt)}</td>
+                <td class="num" style="font-weight: 600;">${fmt$M(r.balEoy)}</td>
+                <td class="num" style="color: var(--gold-dark); font-size: 10px;">${fmt$(r.taxBurn)}</td>
+                <td class="num" style="color: var(--gold-dark); font-size: 10px;">${fmt$(r.cumTaxBurn)}</td>
+              </tr>
+            `).join('')}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td colspan="2" style="font-weight: 700;">${horizon}-Year Totals</td>
+              <td class="num" style="font-weight: 700;">${fmt$M(funding)}</td>
+              <td class="num" style="color: var(--success); font-weight: 700;">+${fmt$M(finalBalance - funding)}</td>
+              <td class="num" style="font-weight: 700; color: var(--success);">${fmt$M(finalBalance)}</td>
+              <td colspan="2" class="num" style="font-weight: 700; color: var(--gold-dark);">${fmt$M(cumGrantorTaxBurn)} burned</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: #FFF0F0; border-left: 3px solid var(--crimson); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--crimson); margin-bottom: 6px;">
+          ⚠ Reciprocal Trust Doctrine — Critical Drafting Issue
+        </div>
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+          If both spouses fund SLATs with substantially similar terms, the IRS will invoke the <em>reciprocal trust doctrine</em> (Estate of Grace, Estate of Bischoff) and collapse both trusts back into the respective estates — defeating the strategy entirely. Required differences to defeat the doctrine:
+          <ul style="margin: 6px 0 0 22px; padding: 0;">
+            <li><strong>Different funding amounts</strong> (e.g., one spouse funds 25% more)</li>
+            <li><strong>Different beneficiary classes</strong> (one trust includes children, other doesn't)</li>
+            <li><strong>Different distribution standards</strong> (HEMS vs. discretionary)</li>
+            <li><strong>Different trustees</strong></li>
+            <li><strong>Different situs / governing law</strong> (DE vs. NV)</li>
+            <li><strong>Different funding timing</strong> (12+ months apart)</li>
+          </ul>
+          Have estate attorney review trust drafts side-by-side BEFORE either is funded.
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 6px;">
+          🎯 SLAT Considerations
+        </div>
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+          <ul style="margin: 0 0 0 22px; padding: 0;">
+            <li><strong>Divorce risk:</strong> Non-grantor spouse loses access to SLAT distributions if marriage ends. Grantor must accept that spouse-access is contingent on marital harmony. Consider a "divorce floater" provision OR fund only what household can afford to lose access to.</li>
+            <li><strong>Spouse's death first:</strong> If non-grantor spouse predeceases grantor, indirect access ends. Plan should include backup beneficiaries (children) so trust continues outside estate; consider lifetime power of appointment to grantor's spouse to redirect.</li>
+            <li><strong>Pre-funding sequence:</strong> Fund 12+ months before any LOI/sale to defeat step-transaction doctrine and reciprocal-trust doctrine simultaneously.</li>
+            <li><strong>Discount capture:</strong> Funding with non-voting LLC interests captures lack-of-marketability + minority discounts (typically 25-35% combined). Get qualified appraisal under §170(f)(11) before funding.</li>
+            <li><strong>2026 sunset urgency:</strong> TCJA-doubled exemption sunsets 12/31/2026 (unless OBBBA extends). Use it or lose it — funded SLATs are grandfathered under "anti-clawback" Reg §20.2010-1(c) so the gift stays exemption-free even if exemption shrinks.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+        <strong>Methodology:</strong> Trust assets grow at advisor's projection equity rate (${(growth*100).toFixed(1)}%). No distributions modeled — spouse takes only as needed (real-world drawdown is opportunistic). Tax burn approximated as 30% of annual growth realized as income × grantor's marginal rate (${((d.tax.marginal||0.32)*100).toFixed(0)}%); actual amount depends on character of income (LTCG vs. ordinary), turnover, and dividend yield. Total transfer = trust value at horizon + cumulative tax burn. Estate savings = total transfer × estate rate.
       </div>
     </div>
   `;
