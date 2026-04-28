@@ -11565,6 +11565,83 @@ function renderPlanHealthPanel(p) {
     }
   }
 
+  // ─── CASH-FLOW SUSTAINABILITY ─────────────────────────────────
+  // p.budgetSustainable is the core sustainability flag; surface it in
+  // Plan Health so advisor can see it in one place. Provide more context
+  // than the dedicated card — what's the shortfall in $/yr, what years
+  // does it cover, and what's the safe fix.
+  if (p.budgetShortfall > 0) {
+    const shortfallPct = p.annualBudget > 0 ? (p.budgetShortfall / p.annualBudget * 100) : 0;
+    issues.push({
+      level: 'warn',
+      title: `Annual budget exceeds safe withdrawal rate by ${fmt$(p.budgetShortfall)}/yr`,
+      detail: `Budget ${fmt$(p.annualBudget || 0)}/yr requires ${shortfallPct.toFixed(0)}% more than the ${(d.budget.safeRate*100).toFixed(1)}% safe-withdrawal rate of investable assets supports. Portfolio drawdown will accelerate; Monte Carlo success rate is at risk. Either reduce variable expenses, extend working years, or increase portfolio yield assumption (carefully — reaching for yield raises risk).`,
+      fix: 'Section 4 → Annual Budget — review fixed/variable splits, OR Section 1 → bump retirement years',
+    });
+  }
+
+  // ─── EDUCATION TUITION VS. NET CASH FLOW ──────────────────────
+  // When household is currently funding education, check that tuition
+  // doesn't dominate the cash flow. Threshold: tuition > 30% of total
+  // expenses signals concentration risk.
+  if (Array.isArray(d.beneficiaries)) {
+    const planYearH = d.client.year || new Date().getFullYear();
+    const inSchool = d.beneficiaries.filter(b =>
+      ['son','daughter','grandson','granddaughter'].includes(b.rel)
+      && b.annualCost > 0 && b.collegeStartYear > 0
+      && b.collegeStartYear <= planYearH
+      && planYearH < b.collegeStartYear + (b.yearsOfCollege || 4)
+    );
+    const tuitionThisYear = inSchool.reduce((s, b) => s + b.annualCost, 0);
+    const totalExp = (d.budget.fixed || 0) + (d.budget.variable || 0) + (d.budget.taxes || 0) + tuitionThisYear;
+    if (tuitionThisYear > 0 && totalExp > 0 && tuitionThisYear / totalExp > 0.30) {
+      issues.push({
+        level: 'warn',
+        title: `Education tuition is ${(tuitionThisYear/totalExp*100).toFixed(0)}% of annual expenses (${fmt$(tuitionThisYear)}/yr)`,
+        detail: `${inSchool.length} beneficiar${inSchool.length === 1 ? 'y' : 'ies'} currently in school: ${inSchool.map(b => b.name).join(', ')}. Tuition is concentrated and represents a multi-year cash-flow obligation. Confirm 529 funding capacity OR earmark portfolio income (or §2503(e) grandparent direct-pay) to avoid drawing on growth assets during the funding window.`,
+        fix: 'Confirm 529 balance covers ≥50% of total liability; flag remainder for §2503(e) direct-pay sourcing',
+      });
+    }
+  }
+
+  // ─── EDUCATION FUNDING WINDOW VS. RETIREMENT YEAR ─────────────
+  // If kids in college overlap with retirement transition, the gap year
+  // (income drops, tuition continues) is a known stress point.
+  if (Array.isArray(d.beneficiaries) && d.client.primaryRetireYear > 0) {
+    const retYr = d.client.primaryRetireYear;
+    const overlapping = d.beneficiaries.filter(b =>
+      ['son','daughter','grandson','granddaughter'].includes(b.rel)
+      && b.annualCost > 0 && b.collegeStartYear > 0
+      && b.collegeStartYear <= retYr + 2  // 2-yr window of overlap concern
+      && retYr <= b.collegeStartYear + (b.yearsOfCollege || 4) - 1
+    );
+    if (overlapping.length > 0) {
+      const overlapTotal = overlapping.reduce((s, b) => s + b.annualCost, 0);
+      issues.push({
+        level: 'info',
+        title: `Education funding overlaps retirement transition (${overlapping.length} beneficiar${overlapping.length === 1 ? 'y' : 'ies'})`,
+        detail: `${overlapping.map(b => b.name).join(', ')} ${overlapping.length === 1 ? 'is' : 'are'} in college during/near the planned retirement year (${retYr}). Tuition outflow ~${fmt$(overlapTotal)}/yr coincides with the income transition (loss of W-2; SS may not have started; bridge years rely on portfolio). Pre-fund 529s or sequence retirement timing to reduce stress.`,
+        fix: 'Coordinate Section 1 retirement-year settings with college-start years',
+      });
+    }
+  }
+
+  // ─── ANNUAL INCOME MUCH BELOW BUDGET (RETIRED PHASE) ──────────
+  // Strict check: if income < 60% of budget AND business income is 0
+  // (i.e., presumed retired), flag the gap. p.annualIncome is the
+  // headline post-sale / ongoing income KPI.
+  if ((d.biz.income || 0) === 0 && (p.annualIncome || 0) > 0 && (p.annualBudget || 0) > 0) {
+    const incomeCoverage = p.annualIncome / p.annualBudget;
+    if (incomeCoverage < 0.60) {
+      issues.push({
+        level: 'warn',
+        title: `Annual income covers only ${(incomeCoverage*100).toFixed(0)}% of budget (${fmt$(p.annualIncome)} vs. ${fmt$(p.annualBudget)})`,
+        detail: `Headline annual income (CRAT/CRUT + portfolio yield + ILIT withdrawals + retained business) lands at ${fmt$(p.annualIncome)}/yr against a budget of ${fmt$(p.annualBudget)}/yr. The ${fmt$(p.annualBudget - p.annualIncome)}/yr gap requires portfolio drawdown — confirm Monte Carlo success rate and consider Roth conversion of pre-tax retirement balances during this gap.`,
+        fix: 'Section 3 → enable Roth conversion ladder, OR Section 4 → review budget',
+      });
+    }
+  }
+
   // ─── RENDER ────────────────────────────────────────────────────
   if (issues.length === 0) {
     return `
