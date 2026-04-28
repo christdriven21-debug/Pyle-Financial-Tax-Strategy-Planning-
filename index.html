@@ -16000,6 +16000,179 @@ function renderTax(p) {
       `;
     })()}
 
+    ${(() => {
+      // ─── TAX BRACKET OPTIMIZATION VIEW ───
+      // Year-by-year projected ordinary income vs. 2025 MFJ federal tax
+      // brackets. Surfaces "bracket headroom" — the unused capacity in
+      // each year's current bracket — which is the prime target for
+      // Roth conversions, capital-gain harvesting at 0%/15%/20%, and
+      // DAF bunching. Plain HTML grid (no chart library).
+      //
+      // 2025 MFJ federal brackets (TCJA — sunsets 2026, OBBBA pending):
+      //   10%: $0 – $23,850
+      //   12%: $23,850 – $96,950
+      //   22%: $96,950 – $206,700
+      //   24%: $206,700 – $394,600
+      //   32%: $394,600 – $501,050
+      //   35%: $501,050 – $751,600
+      //   37%: $751,600+
+      const BRACKETS_MFJ_2025 = [
+        { label: '10%', top: 23850,  rate: 0.10 },
+        { label: '12%', top: 96950,  rate: 0.12 },
+        { label: '22%', top: 206700, rate: 0.22 },
+        { label: '24%', top: 394600, rate: 0.24 },
+        { label: '32%', top: 501050, rate: 0.32 },
+        { label: '35%', top: 751600, rate: 0.35 },
+        { label: '37%', top: Infinity, rate: 0.37 },
+      ];
+      const BRACKET_COLOR = {
+        '10%': '#A8C9A0', '12%': '#7CA67D', '22%': '#5C8C66',
+        '24%': '#4A7150', '32%': '#9C7A2B', '35%': '#7C3B47',
+        '37%': '#8B1A1A',
+      };
+
+      // Use the multi-year cash flow helper to estimate each year's
+      // ordinary income (biz + SS + RMDs only — exclude tax-free and
+      // capital-gains items). Roth conversion is added as a planned
+      // overlay so advisor can see what "with conversion" looks like.
+      if (typeof computeMultiYearCashFlow !== 'function') return '';
+      const yearsCF = computeMultiYearCashFlow(p, d, 12);
+      if (yearsCF.length === 0) return '';
+
+      // Build per-year ordinary income figure
+      const planYearTB = d.client.year || new Date().getFullYear();
+      const primaryAgeTB = d.client.primaryAge || 0;
+      const ssClaimAgeTB = (d.ss && d.ss.claimAge) || 67;
+      const rmdStartAgeTB = (d.retirement && d.retirement.rmdStartAge) || 73;
+      const retireYrTB = d.client.primaryRetireYear || 0;
+      const rothAnnualConv = (d.use.roth && d.roth.amount > 0)
+        ? d.roth.amount / Math.max(1, d.roth.years || 5)
+        : 0;
+      const rothYears = (d.roth && d.roth.years) || 0;
+
+      const yearRows = yearsCF.map((cf, off) => {
+        const y = cf.year;
+        const ageNow = cf.age;
+        // Ordinary-income components only (exclude portfolio yield/CRAT
+        // capital portion, focus on what fills brackets)
+        const bizThis = (retireYrTB > 0 && y >= retireYrTB) ? 0 : (d.biz.income || 0);
+        const ssOn = primaryAgeTB > 0 && ageNow >= ssClaimAgeTB;
+        const ssThis = ssOn ? ((p.ssAnnualHousehold || 0) * 0.85 * Math.pow(1.025, off)) : 0;
+        // 85% of SS taxable for high-income clients
+        const rmdOn = primaryAgeTB > 0 && ageNow >= rmdStartAgeTB;
+        const rmdThis = rmdOn ? ((p.rmdRows && p.rmdRows[Math.max(0, ageNow - rmdStartAgeTB)]?.rmd) || 0) : 0;
+        const baseOrdinary = bizThis + ssThis + rmdThis;
+        const isRothConvYr = off < rothYears && rothAnnualConv > 0;
+        const ordinaryWithConv = baseOrdinary + (isRothConvYr ? rothAnnualConv : 0);
+        // Find which bracket the income lands in
+        let bracketIdx = 0;
+        for (let i = 0; i < BRACKETS_MFJ_2025.length; i++) {
+          if (ordinaryWithConv <= BRACKETS_MFJ_2025[i].top) { bracketIdx = i; break; }
+        }
+        const currentBracket = BRACKETS_MFJ_2025[bracketIdx];
+        const headroomTo24 = Math.max(0, BRACKETS_MFJ_2025[3].top - ordinaryWithConv);
+        const headroomTo32 = Math.max(0, BRACKETS_MFJ_2025[4].top - ordinaryWithConv);
+        return { year: y, age: ageNow, baseOrdinary, ordinaryWithConv,
+                 isRothConvYr, currentBracket, headroomTo24, headroomTo32, off };
+      });
+
+      const minIncome = Math.min(...yearRows.map(r => r.ordinaryWithConv));
+      const maxIncome = Math.max(...yearRows.map(r => r.ordinaryWithConv), 800_000);
+      const scale = 100 / maxIncome;  // % per dollar for stacked bar widths
+
+      return `
+        <div class="card" style="border-left: 4px solid var(--gold);">
+          <div class="card-title">📐 Tax Bracket Optimization — Multi-Year Headroom</div>
+          <div class="card-sub">
+            Year-by-year projected ordinary income (business + 85% of SS + RMDs ${rothAnnualConv > 0 ? `+ Roth conversion ${fmt$(rothAnnualConv)}/yr` : ''}) plotted against 2025 MFJ federal tax brackets. <strong style="color: var(--gold-dark);">Bracket headroom</strong> identifies prime years for Roth conversions, LTCG harvesting at 0%/15%/20%, and DAF bunching.
+          </div>
+
+          <div style="margin-top: 18px;">
+            <table class="plan-table" style="font-size: 12px;">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th class="num">Age</th>
+                  <th class="num">Ordinary Income</th>
+                  <th class="num">Bracket</th>
+                  <th>Position in Brackets</th>
+                  <th class="num">Headroom to 24%</th>
+                  <th class="num">Headroom to 32%</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${yearRows.map(r => {
+                  const widthPct = Math.max(2, r.ordinaryWithConv * scale);
+                  // Build the stacked bracket bar
+                  let cumStart = 0;
+                  const segs = BRACKETS_MFJ_2025.map(b => {
+                    const top = Math.min(b.top, maxIncome);
+                    const segWidth = Math.max(0, (top - cumStart) * scale);
+                    const seg = { color: BRACKET_COLOR[b.label], widthPct: segWidth };
+                    cumStart = top;
+                    return seg;
+                  });
+                  const incomePosPct = Math.min(100, r.ordinaryWithConv * scale);
+                  return `
+                    <tr style="${r.isRothConvYr ? 'background: rgba(201,169,97,0.04);' : ''}">
+                      <td><strong>${r.year}</strong>${r.isRothConvYr ? ' <span style="font-size: 10px; color: var(--gold-dark);">⟳</span>' : ''}</td>
+                      <td class="num">${r.age || '—'}</td>
+                      <td class="num">${fmt$(r.ordinaryWithConv)}${r.isRothConvYr ? ` <span style="font-size: 10px; color: var(--muted);">(+conv ${fmt$(rothAnnualConv)})</span>` : ''}</td>
+                      <td class="num"><span style="display: inline-block; padding: 2px 8px; background: ${BRACKET_COLOR[r.currentBracket.label]}; color: white; border-radius: 2px; font-size: 10px; font-weight: 700;">${r.currentBracket.label}</span></td>
+                      <td>
+                        <div style="position: relative; background: rgba(201,169,97,0.06); height: 16px; border-radius: 2px; overflow: hidden;">
+                          <div style="display: flex; height: 100%; opacity: 0.5;">
+                            ${segs.map(s => `<div style="background: ${s.color}; width: ${s.widthPct.toFixed(2)}%;"></div>`).join('')}
+                          </div>
+                          <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${incomePosPct.toFixed(1)}%; background: rgba(0,0,0,0.0); border-right: 2px solid var(--ink);"></div>
+                        </div>
+                      </td>
+                      <td class="num" style="color: ${r.headroomTo24 > 0 ? 'var(--success)' : 'var(--muted)'};">${r.headroomTo24 > 0 ? fmt$(r.headroomTo24) : '—'}</td>
+                      <td class="num" style="color: ${r.headroomTo32 > 0 ? 'var(--success)' : 'var(--muted)'};">${r.headroomTo32 > 0 ? fmt$(r.headroomTo32) : '—'}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px;">
+            ${BRACKETS_MFJ_2025.map(b => `
+              <span style="display: inline-flex; align-items: center; gap: 6px;">
+                <span style="display: inline-block; width: 14px; height: 14px; background: ${BRACKET_COLOR[b.label]}; border-radius: 2px;"></span>
+                <span style="color: var(--ink); font-weight: 600;">${b.label}</span>
+                <span style="color: var(--muted);">≤ ${b.top === Infinity ? '∞' : '$' + Math.round(b.top/1000) + 'k'}</span>
+              </span>
+            `).join('')}
+          </div>
+
+          <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px;">
+            <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">
+              💡 Bracket-Headroom Opportunities
+            </div>
+            <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+              ${(() => {
+                const sweetSpot24 = yearRows.find(r => r.headroomTo24 > 50_000 && !r.isRothConvYr);
+                const sweetSpot32 = yearRows.find(r => r.headroomTo32 > 100_000 && r.headroomTo24 === 0);
+                const messages = [];
+                if (sweetSpot24) messages.push(`<strong>Year ${sweetSpot24.year}</strong> has <strong>${fmt$(sweetSpot24.headroomTo24)}</strong> headroom in the 24% bracket — prime year for Roth conversion or appreciated-stock DAF gift (push deduction into a high-bracket year, harvest gain at lower rate).`);
+                if (sweetSpot32) messages.push(`<strong>Year ${sweetSpot32.year}</strong> sits in the 24% bracket with <strong>${fmt$(sweetSpot32.headroomTo32)}</strong> until 32% — extra Roth conversion stays at 24% marginal.`);
+                if (rothAnnualConv > 0) messages.push(`Current Roth ladder converts <strong>${fmt$(rothAnnualConv)}/yr</strong> — adjust to match available headroom in low-income years (post-retirement, pre-RMD).`);
+                if (yearRows.some(r => r.currentBracket.label === '37%')) messages.push(`<strong style="color: var(--crimson);">⚠ Some years land in the 37% top bracket</strong> — defer ordinary income (DB plan contribution, deferred comp), lean into charitable deduction (DAF/CRT/foundation), and accelerate any §1231 / §1250 recapture into lower-bracket years.`);
+                return messages.length > 0
+                  ? '<ul style="margin: 0 0 0 22px; padding: 0;">' + messages.map(m => `<li style="margin-bottom: 6px;">${m}</li>`).join('') + '</ul>'
+                  : '<em>No clear bracket-headroom signals — current plan utilizes brackets evenly.</em>';
+              })()}
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+            <strong>Methodology:</strong> Ordinary income = business income (until retirement year) + 85% of Social Security (taxable portion at high incomes) + RMDs (age 73+) + Roth conversion if active. Excludes portfolio yield (taxed as qualified dividends / LTCG, separate brackets) and tax-free items (Roth withdrawals, ILIT distributions). 2025 MFJ brackets shown — TCJA sunsets 12/31/2026 (pre-TCJA brackets resume unless OBBBA renewal); coordinate timing with sunset.
+          </div>
+        </div>
+      `;
+    })()}
+
     <div class="card">
       <div class="card-title">Comprehensive Tax Optimization Strategy</div>
       <div class="card-sub">Strategy-by-strategy breakdown of all tax benefits.</div>
