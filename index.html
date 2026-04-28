@@ -17415,6 +17415,8 @@ function renderEstate(p) {
 
     ${renderIdgtLadder(p)}
 
+    ${renderCrtLadder(p)}
+
     ${estateExplorerHTML}
 
     ${estateGrowthCard}
@@ -20462,6 +20464,213 @@ function renderIdgtLadder(p) {
 
       <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
         <strong>Methodology:</strong> Interest-only note (typical IDGT structure); principal balloons at term-end. Trust value grows at advisor's projection equity rate (${(growth*100).toFixed(1)}%); interest paid to grantor reduces trust balance. Grantor tax burn approximated as 30% of growth realized as income × marginal rate (${((d.tax.marginal||0.32)*100).toFixed(0)}%) — actual amount depends on character of income (LTCG vs ordinary) and rebalancing inside the trust. Total transfer = trust remainder after note payoff + cumulative tax burn (a conservative estimate; the actual Rev. Rul. 2004-64 benefit may be higher with active income generation).
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   CRT LADDER — year-by-year breakdown for CRAT + CRUT on Estate tab.
+
+   CRAT (§664(d)(1)): fixed annuity for life or term ≤20 yr.
+     • Annual payout = funding × rate (FIXED — no inflation hedge)
+     • §664(d)(1) tests: 5-50% payout band, ≥10% remainder PV,
+       <5% probability of corpus exhaustion (Rev. Rul. 77-374)
+     • At term-end: charity gets whatever remains in the trust
+
+   CRUT (§664(d)(2)): re-valued annually.
+     • Annual payout = current trust value × rate (INFLATION-HEDGED)
+     • §664(d)(2) tests: 5-50% payout band, ≥10% remainder PV
+     • Payout grows with trust value — better than CRAT in most cases
+
+   Both eliminate CG on contributed asset (donor's contribution
+   = full FMV, charity tax-exempt) and provide a charitable income
+   tax deduction at funding ≈ §7520 PV of remainder.
+   ============================================================ */
+function renderCrtLadder(p) {
+  const d = p.input;
+  const showCrat = d.use.crat && d.crat.amount > 0;
+  const showCrut = d.use.crut && d.crut.amount > 0;
+  if (!showCrat && !showCrut) return '';
+
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+  const planYear = d.client.year || new Date().getFullYear();
+  const primaryAge = d.client.primaryAge || 0;
+  const equity = d.proj.equity || 0.06;
+  const horizon = 20;  // standard CRT modeling horizon
+
+  // ─── CRAT model ───
+  let cratRows = null;
+  if (showCrat) {
+    const fund = d.crat.amount;
+    const rate = d.crat.rate || 0.05;
+    const annuity = fund * rate;  // FIXED
+    let bal = fund;
+    cratRows = [];
+    for (let yi = 1; yi <= horizon; yi++) {
+      const balBeforeGrowth = bal;
+      bal *= (1 + equity);
+      const payThis = Math.min(annuity, bal);  // can't pay more than balance
+      bal -= payThis;
+      cratRows.push({
+        year: planYear + yi,
+        ageNow: primaryAge ? primaryAge + yi : 0,
+        balStart: balBeforeGrowth,
+        growthAmt: bal + payThis - balBeforeGrowth,
+        payout: payThis,
+        balEoy: Math.max(0, bal),
+      });
+      if (bal <= 0) break;
+    }
+  }
+
+  // ─── CRUT model ───
+  let crutRows = null;
+  if (showCrut) {
+    const fund = d.crut.amount;
+    const rate = d.crut.rate || 0.05;
+    let bal = fund;
+    crutRows = [];
+    for (let yi = 1; yi <= horizon; yi++) {
+      const balBeforeGrowth = bal;
+      bal *= (1 + equity);
+      // Re-valued annual payout: % of trust value at start of year
+      const payThis = balBeforeGrowth * rate;
+      bal -= payThis;
+      crutRows.push({
+        year: planYear + yi,
+        ageNow: primaryAge ? primaryAge + yi : 0,
+        balStart: balBeforeGrowth,
+        growthAmt: bal + payThis - balBeforeGrowth,
+        payout: payThis,
+        balEoy: Math.max(0, bal),
+      });
+      if (bal <= 0) break;
+    }
+  }
+
+  // Aggregate metrics
+  const cratTotalPayout = cratRows ? cratRows.reduce((s, r) => s + r.payout, 0) : 0;
+  const crutTotalPayout = crutRows ? crutRows.reduce((s, r) => s + r.payout, 0) : 0;
+  const cratRemainder = cratRows ? (cratRows[cratRows.length - 1]?.balEoy || 0) : 0;
+  const crutRemainder = crutRows ? (crutRows[crutRows.length - 1]?.balEoy || 0) : 0;
+
+  // CRAT qualification flag (5-50% payout band)
+  const cratPayoutPct = showCrat ? (d.crat.rate * 100) : 0;
+  const cratInBand = cratPayoutPct >= 5 && cratPayoutPct <= 50;
+  const crutPayoutPct = showCrut ? (d.crut.rate * 100) : 0;
+  const crutInBand = crutPayoutPct >= 5 && crutPayoutPct <= 50;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">🤝 CRT Ladder — ${horizon}-Year Charitable Remainder Trust Projection</div>
+      <div class="card-sub">
+        ${showCrat && showCrut ? 'Both CRAT and CRUT modeled side-by-side. ' : ''}
+        ${showCrat ? `<strong>CRAT</strong>: fixed annuity ${fmt$(d.crat.amount * d.crat.rate)}/yr (${cratPayoutPct.toFixed(1)}% × ${fmt$M(d.crat.amount)}). ` : ''}
+        ${showCrut ? `<strong>CRUT</strong>: re-valued annually ${crutPayoutPct.toFixed(1)}% of trust value (Year-1 income ~${fmt$(d.crut.amount * d.crut.rate)}). ` : ''}
+        Both eliminate capital-gains tax on the contributed asset (charity is tax-exempt) and provide a charitable income-tax deduction equal to the §7520 PV of the remainder at funding. Payouts to grantor follow §664(b) 4-tier character (ordinary → capital → tax-exempt → corpus).
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 16px;">
+        ${showCrat ? `
+        <div class="kpi"><div class="label">CRAT Total Payout (${horizon}yr)</div><div class="value">${fmt$M(cratTotalPayout)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">Fixed annuity</div></div>
+        <div class="kpi success"><div class="label">CRAT to Charity</div><div class="value">${fmt$M(cratRemainder)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">Year-${horizon} balance</div></div>` : ''}
+        ${showCrut ? `
+        <div class="kpi"><div class="label">CRUT Total Payout (${horizon}yr)</div><div class="value">${fmt$M(crutTotalPayout)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">Inflation-hedged</div></div>
+        <div class="kpi success"><div class="label">CRUT to Charity</div><div class="value">${fmt$M(crutRemainder)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">Year-${horizon} balance</div></div>` : ''}
+      </div>
+
+      ${(!cratInBand && showCrat) ? `
+      <div style="margin-top: 14px; padding: 12px 16px; background: #FFF0F0; border-left: 3px solid var(--crimson); border-radius: 4px;">
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.5;">
+          <strong style="color: var(--crimson);">⚠ §664(d)(1) Failure:</strong> CRAT payout rate ${cratPayoutPct.toFixed(1)}% is outside the 5–50% qualification band. Charitable deduction is disallowed; trust loses its tax-exempt status. Adjust rate within the band or restructure.
+        </div>
+      </div>` : ''}
+      ${(!crutInBand && showCrut) ? `
+      <div style="margin-top: 14px; padding: 12px 16px; background: #FFF0F0; border-left: 3px solid var(--crimson); border-radius: 4px;">
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.5;">
+          <strong style="color: var(--crimson);">⚠ §664(d)(2) Failure:</strong> CRUT payout rate ${crutPayoutPct.toFixed(1)}% is outside the 5–50% qualification band.
+        </div>
+      </div>` : ''}
+
+      ${showCrat && cratInBand ? `
+      <div style="margin-top: 18px;">
+        <h4 style="font-size: 13px; color: var(--gold-dark); margin: 0 0 8px;">CRAT — Fixed Annuity Schedule</h4>
+        <div style="overflow-x: auto;">
+          <table class="plan-table" style="font-size: 12px;">
+            <thead>
+              <tr><th>Year</th><th class="num">Age</th><th class="num">Balance Start</th><th class="num">+ Growth</th><th class="num">− Annuity</th><th class="num">Balance EOY</th></tr>
+            </thead>
+            <tbody>
+              ${cratRows.slice(0, Math.min(horizon, cratRows.length)).map(r => `
+                <tr>
+                  <td><strong>${r.year}</strong></td>
+                  <td class="num">${r.ageNow || '—'}</td>
+                  <td class="num">${fmt$M(r.balStart)}</td>
+                  <td class="num" style="color: var(--success);">+${fmt$(r.growthAmt)}</td>
+                  <td class="num" style="color: var(--crimson);">−${fmt$(r.payout)}</td>
+                  <td class="num" style="font-weight: 600;">${fmt$M(r.balEoy)}</td>
+                </tr>
+              `).join('')}
+              <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+                <td colspan="2" style="font-weight: 700;">CRAT Totals</td>
+                <td class="num" style="font-weight: 700;">${fmt$M(cratRows[0]?.balStart || 0)}</td>
+                <td colspan="2" class="num" style="font-weight: 700; color: var(--crimson);">−${fmt$M(cratTotalPayout)} to grantor</td>
+                <td class="num" style="font-weight: 700; color: var(--success);">${fmt$M(cratRemainder)} to charity</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>` : ''}
+
+      ${showCrut && crutInBand ? `
+      <div style="margin-top: 18px;">
+        <h4 style="font-size: 13px; color: var(--gold-dark); margin: 0 0 8px;">CRUT — Re-Valued Unitrust Schedule</h4>
+        <div style="overflow-x: auto;">
+          <table class="plan-table" style="font-size: 12px;">
+            <thead>
+              <tr><th>Year</th><th class="num">Age</th><th class="num">Balance Start</th><th class="num">+ Growth</th><th class="num">− Unitrust ${crutPayoutPct.toFixed(1)}%</th><th class="num">Balance EOY</th></tr>
+            </thead>
+            <tbody>
+              ${crutRows.slice(0, Math.min(horizon, crutRows.length)).map(r => `
+                <tr>
+                  <td><strong>${r.year}</strong></td>
+                  <td class="num">${r.ageNow || '—'}</td>
+                  <td class="num">${fmt$M(r.balStart)}</td>
+                  <td class="num" style="color: var(--success);">+${fmt$(r.growthAmt)}</td>
+                  <td class="num" style="color: var(--crimson);">−${fmt$(r.payout)}</td>
+                  <td class="num" style="font-weight: 600;">${fmt$M(r.balEoy)}</td>
+                </tr>
+              `).join('')}
+              <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+                <td colspan="2" style="font-weight: 700;">CRUT Totals</td>
+                <td class="num" style="font-weight: 700;">${fmt$M(crutRows[0]?.balStart || 0)}</td>
+                <td colspan="2" class="num" style="font-weight: 700; color: var(--crimson);">−${fmt$M(crutTotalPayout)} to grantor</td>
+                <td class="num" style="font-weight: 700; color: var(--success);">${fmt$M(crutRemainder)} to charity</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>` : ''}
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 6px;">
+          🎯 CRAT vs. CRUT — Choosing the Right Vehicle
+        </div>
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+          <ul style="margin: 0 0 0 22px; padding: 0;">
+            <li><strong>CRAT (fixed):</strong> better when interest rates are HIGH at funding (annuity locks in the high rate); simpler administration; better in inflationary collapse scenarios. Predictable income for budgeting.</li>
+            <li><strong>CRUT (re-valued):</strong> better when growth EXCEEDS the payout rate (trust + payout both grow); inflation-hedged; charitable remainder typically larger. Most HNW practitioners default to CRUT.</li>
+            <li><strong>NIMCRUT (§664(d)(3)):</strong> CRUT variant where payout = lesser-of (% × trust value) or actual income. Pre-sale low income, post-sale catch-up — lets the grantor optimize the timing of trust income recognition.</li>
+            <li><strong>Term selection:</strong> CRT can run for life (1-2 measuring lives) or fixed term ≤ 20 years. Life CRTs win when grantor has long life expectancy; term CRTs win when grantor wants charity to receive remainder sooner.</li>
+            <li><strong>§7520 timing:</strong> high §7520 → larger annual payout from same funding; low §7520 → larger charitable deduction at funding (PV of remainder is higher).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+        <strong>Methodology:</strong> Trust assets grow at the projection equity rate (${(equity*100).toFixed(1)}%). CRAT pays a fixed dollar annuity each year (funding × rate). CRUT recomputes payout annually as (start-of-year balance × rate). Both stop early if trust corpus is exhausted (probability check is part of §664(d)(1) for CRATs — Rev. Rul. 77-374). Payouts use §664(b) 4-tier character: ordinary income first, then capital gains, then tax-exempt income, then return of corpus. CRT-eliminates-CG on the contributed asset because the charitable trust is tax-exempt; deduction at funding ≈ §7520 PV of charitable remainder.
       </div>
     </div>
   `;
