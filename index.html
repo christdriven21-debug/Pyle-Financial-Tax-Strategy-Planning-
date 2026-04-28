@@ -14707,7 +14707,31 @@ function renderCashFlow(p) {
   const mortgage = d.client.mortgage ? d.client.mortgage * 0.06 : 0;  // rough 6% combined P&I + tax + insurance
   const charitable = cltCharity + (d.use.daf ? 0 : 0);  // DAF is one-time, not recurring
 
-  const totalExpenses = fixed + variable + taxes + mortgage + charitable;
+  // Education tuition for current year — sum of annualCost for any
+  // beneficiary whose collegeStartYear ≤ planYear ≤ start + years - 1.
+  // Uses per-beneficiary actuals from the Family & Beneficiaries editor.
+  const planYearCF = d.client.year || new Date().getFullYear();
+  const benesCF = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+  const inSchoolBenes = benesCF.filter(b => {
+    if (!['son','daughter','grandson','granddaughter'].includes(b.rel)) return false;
+    if (!b.annualCost || !b.collegeStartYear) return false;
+    const yrs = b.yearsOfCollege || 4;
+    return b.collegeStartYear <= planYearCF && planYearCF < b.collegeStartYear + yrs;
+  });
+  const educationTuitionThisYear = inSchoolBenes.reduce((s, b) => s + (b.annualCost || 0), 0);
+  // Future tuition preview — beneficiaries whose college starts after planYear
+  const upcomingBenes = benesCF.filter(b => {
+    if (!['son','daughter','grandson','granddaughter'].includes(b.rel)) return false;
+    return b.annualCost > 0 && b.collegeStartYear > planYearCF;
+  }).map(b => ({
+    name: b.name,
+    startYear: b.collegeStartYear,
+    annualCost: b.annualCost,
+    years: b.yearsOfCollege || 4,
+    yearsOut: b.collegeStartYear - planYearCF,
+  }));
+
+  const totalExpenses = fixed + variable + taxes + mortgage + charitable + educationTuitionThisYear;
   const netCashFlow = totalIncome - totalExpenses;
   const surplusPct = totalIncome > 0 ? (netCashFlow / totalIncome) * 100 : 0;
 
@@ -14726,6 +14750,7 @@ function renderCashFlow(p) {
     variable > 0 && { label: 'Variable (food, travel, entertainment, discretionary)', amount: variable, pct: variable/totalExpenses*100 },
     taxes > 0    && { label: 'Projected Income &amp; Property Taxes', amount: taxes, pct: taxes/totalExpenses*100 },
     mortgage > 0 && { label: 'Mortgage P&amp;I (6% of balance)', amount: mortgage, pct: mortgage/totalExpenses*100 },
+    educationTuitionThisYear > 0 && { label: `Education Tuition (${inSchoolBenes.map(b => b.name).join(', ')} — ${inSchoolBenes.length} in school)`, amount: educationTuitionThisYear, pct: educationTuitionThisYear/totalExpenses*100 },
     cltCharity > 0 && { label: 'CLT Annual Charitable Payout', amount: cltCharity, pct: cltCharity/totalExpenses*100 },
     { subtotal: 'Total Annual Expenses', amount: totalExpenses, style: 'expense-total' },
   ].filter(Boolean);
@@ -14772,8 +14797,46 @@ function renderCashFlow(p) {
         <div class="kpi gold"><div class="label">Savings Rate</div><div class="value">${surplusPct >= 0 ? '+' : ''}${surplusPct.toFixed(0)}%</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic;">Of total income</div></div>
       </div>
 
+      ${upcomingBenes.length > 0 ? `
+      <div style="margin-top: 16px; padding: 14px 16px; background: linear-gradient(135deg, var(--cream-light), #FFF); border-left: 4px solid var(--gold-dark); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">
+          🎓 Upcoming Tuition Outflows — ${upcomingBenes.length} Beneficiar${upcomingBenes.length === 1 ? 'y' : 'ies'} Yet to Start
+        </div>
+        <table class="plan-table" style="font-size: 12px; margin: 0;">
+          <thead>
+            <tr><th>Beneficiary</th><th class="num">Starts</th><th class="num">Years Out</th><th class="num">Annual Cost</th><th class="num">Years</th><th class="num">Total Nominal</th></tr>
+          </thead>
+          <tbody>
+            ${upcomingBenes.map(b => `
+              <tr>
+                <td><strong>${b.name}</strong></td>
+                <td class="num">${b.startYear}</td>
+                <td class="num">${b.yearsOut} yr${b.yearsOut !== 1 ? 's' : ''}</td>
+                <td class="num">${fmt$(b.annualCost)}/yr</td>
+                <td class="num">${b.years}</td>
+                <td class="num">${fmt$(b.annualCost * b.years)}</td>
+              </tr>
+            `).join('')}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td colspan="5" style="font-weight: 700;">Total Future Tuition (nominal)</td>
+              <td class="num" style="font-weight: 700;">${fmt$M(upcomingBenes.reduce((s, b) => s + b.annualCost * b.years, 0))}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top: 10px; font-size: 11px; color: var(--ink); line-height: 1.5;">
+          <strong style="color: var(--gold-dark);">Cash-flow planning:</strong>
+          ${(() => {
+            const peakYear = upcomingBenes.reduce((min, b) => Math.min(min, b.startYear), Infinity);
+            const peakAnnual = upcomingBenes
+              .filter(b => peakYear >= b.startYear && peakYear < b.startYear + b.years)
+              .reduce((s, b) => s + b.annualCost, 0);
+            return `Peak tuition year ${peakYear} requires <strong>${fmt$(peakAnnual)}/yr</strong> in tuition outflow. Front-load 529 superfunding now or earmark portfolio income for those years. Grandparent-paid §2503(e) direct tuition is unlimited and bypasses the 60%-of-AGI charitable cap.`;
+          })()}
+        </div>
+      </div>` : ''}
+
       <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px; font-size: 12px; color: var(--muted); font-style: italic;">
-        <strong>Methodology note:</strong> Portfolio yield uses a 3% conservative proxy — actual depends on asset mix (bonds higher, tax-efficient equity lower). Mortgage expense estimated at 6% of balance (P&amp;I + property tax + homeowners insurance — refine with actual). RMD shown is first-year; rises annually. DAF is a one-time contribution (not recurring) and excluded from annual outflow. CRAT/CRUT income is before the 4-tier character tax treatment (see §664(b) in Technical Appendix). Taxes shown are the advisor-entered budget line — actual liability varies year-to-year with strategy execution.
+        <strong>Methodology note:</strong> Portfolio yield uses a 3% conservative proxy — actual depends on asset mix (bonds higher, tax-efficient equity lower). Mortgage expense estimated at 6% of balance (P&amp;I + property tax + homeowners insurance — refine with actual). RMD shown is first-year; rises annually. DAF is a one-time contribution (not recurring) and excluded from annual outflow. CRAT/CRUT income is before the 4-tier character tax treatment (see §664(b) in Technical Appendix). Taxes shown are the advisor-entered budget line — actual liability varies year-to-year with strategy execution. Education Tuition reflects beneficiaries currently in college (collegeStartYear ≤ planYear &lt; collegeStartYear + yearsOfCollege); future tuition shown separately above.
       </div>
     </div>
   `;
