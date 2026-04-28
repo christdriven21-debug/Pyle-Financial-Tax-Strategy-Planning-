@@ -11368,6 +11368,203 @@ function renderPlanHealthPanel(p) {
     });
   }
 
+  // ─── QSBS ATTESTATIONS INCOMPLETE ─────────────────────────────
+  // §1202 exclusion requires ALL FOUR attestations confirmed (C-Corp,
+  // active business, ≤$50M gross assets at issuance, original issuance
+  // to seller). Without them, the exclusion is at audit risk.
+  if (d.use.qsbs && d.qsbs) {
+    const missing = [];
+    if (!d.qsbs.attestCCorp)       missing.push('C-Corp status');
+    if (!d.qsbs.attestActive)      missing.push('Active business test');
+    if (!d.qsbs.attestGrossAssets) missing.push('≤$50M gross assets at issuance');
+    if (!d.qsbs.attestOriginal)    missing.push('Original issuance to seller');
+    if (missing.length > 0) {
+      issues.push({
+        level: 'error',
+        title: `§1202 QSBS attestations incomplete — ${missing.length}/4 missing`,
+        detail: `QSBS strategy ON but missing: ${missing.join(', ')}. Without all four §1202(c) attestations confirmed, the IRS treats the exclusion as audit-vulnerable. Each unconfirmed test is a likely failure point.`,
+        fix: 'Section 3 → §1202 QSBS block → check all four eligibility-attestation boxes after CPA legal-opinion review',
+      });
+    }
+  }
+
+  // ─── HIGH AGI CAP UTILIZATION ─────────────────────────────────
+  // Charitable contribution AGI caps: 60% for cash to public charity,
+  // 30% for appreciated stock to public, 30%/20% for foundations.
+  // Stacking multiple strategies risks hitting the cap with carryforward
+  // burden. Estimate: AGI ≈ marginal-rate × (biz income + portfolio income).
+  if ((d.use.crat || d.use.crut || d.use.daf || d.use.privateFoundation || d.use.ceasement) && d.tax.marginal > 0) {
+    const estAGI = (d.biz.income || 0) + (p.investmentIncome || 0);
+    if (estAGI > 0) {
+      const charDed = (d.use.crat ? p.cratDeduction || 0 : 0)
+                    + (d.use.crut ? p.crutDeduction || 0 : 0)
+                    + (d.use.daf  ? d.daf.amount     || 0 : 0)
+                    + (d.use.privateFoundation ? d.privateFoundation.funding || 0 : 0)
+                    + (d.use.ceasement ? p.ceasementValue || 0 : 0);
+      const ratio = charDed / estAGI;
+      if (ratio > 0.60) {
+        issues.push({
+          level: 'warn',
+          title: `Charitable deductions may exceed AGI cap (${(ratio*100).toFixed(0)}% of est. AGI)`,
+          detail: `Combined charitable contributions estimated at ${fmt$M(charDed)} vs. AGI ${fmt$M(estAGI)} = ${(ratio*100).toFixed(0)}%. §170(b) caps at 60% (cash to public), 30% (appreciated stock or foundations). Excess carries forward 5 years — may not all be usable. Consider sequencing contributions across years.`,
+          fix: 'Section 3 → review CRAT / CRUT / DAF / Foundation / Easement amounts vs. expected AGI',
+        });
+      }
+    }
+  }
+
+  // ─── §1031 EXCHANGE — REPLACEMENT < RELINQUISHED ──────────────
+  // §1031 exchange requires equal-or-greater value replacement to fully
+  // defer; "boot" (cash difference) is taxable in year of exchange.
+  if (d.use.exch1031 && d.exch1031.sale > 0) {
+    const replacement = d.exch1031.replacement || 0;
+    if (replacement > 0 && replacement < d.exch1031.sale) {
+      const boot = d.exch1031.sale - replacement;
+      issues.push({
+        level: 'warn',
+        title: `§1031 replacement value < relinquished — ${fmt$M(boot)} of "boot" recognized`,
+        detail: `Sale price ${fmt$M(d.exch1031.sale)} but replacement ${fmt$M(replacement)} → ${fmt$M(boot)} difference is recognized as boot, taxable as capital gain in the exchange year. To fully defer, increase replacement value or take ${fmt$M(boot)} less in cash distribution.`,
+        fix: 'Section 3 → §1031 Exchange → increase Replacement Property Value',
+      });
+    }
+  }
+
+  // ─── ROTH CONVERSION YEARS BEYOND RMD AGE ─────────────────────
+  // Conversions are most efficient in low-income gap years (post-sale,
+  // pre-RMD age 73). Conversions after age 73 still work but the
+  // ordinary-income hit stacks with the unavoidable RMD income.
+  if (d.use.roth && d.roth.amount > 0 && d.client.primaryAge > 0) {
+    const conversionEndAge = d.client.primaryAge + (d.roth.years || 0);
+    if (conversionEndAge > 73) {
+      const overshootYears = Math.min(d.roth.years || 0, conversionEndAge - 73);
+      issues.push({
+        level: 'info',
+        title: `Roth conversion ladder runs ${overshootYears} year${overshootYears > 1 ? 's' : ''} past RMD age 73`,
+        detail: `Conversion plan has ${d.roth.years} years from age ${d.client.primaryAge}, ending at age ${conversionEndAge}. RMD-age conversions stack ordinary income on top of unavoidable RMDs — generally suboptimal vs. compressing into pre-RMD years. Consider front-loading.`,
+        fix: 'Section 3 → Roth Conversion → reduce years OR start earlier',
+      });
+    }
+  }
+
+  // ─── DAPT WITHOUT FAVORABLE SITUS ─────────────────────────────
+  // DAPT requires a state with self-settled spendthrift legislation
+  // (DE, NV, AK, SD, WY, OH, TN, MO, RI, NH, MS, UT, VA, HI, WV, CT, IN, OK, MI).
+  // CA, NY, IL, etc. are NOT DAPT states — funding a "DAPT" there
+  // gives no creditor protection.
+  if (d.use.dapt && d.dapt) {
+    const DAPT_STATES = new Set(['DE','NV','AK','SD','WY','OH','TN','MO','RI','NH','MS','UT','VA','HI','WV','CT','IN','OK','MI']);
+    const situs = (d.dapt.situs || '').toUpperCase();
+    if (situs && !DAPT_STATES.has(situs)) {
+      issues.push({
+        level: 'error',
+        title: `DAPT situs "${situs}" is not a DAPT-friendly state`,
+        detail: `DAPT requires self-settled spendthrift legislation. ${situs} does NOT qualify. Funding a "DAPT" in a non-DAPT state provides no creditor protection — the trust assets remain reachable by grantor's creditors. Move situs to DE/NV/SD/WY/AK or similar.`,
+        fix: 'Section 3 → DAPT → select DE / NV / AK / SD / WY (best statutes)',
+      });
+    }
+  }
+
+  // ─── §831(b) MICRO-CAPTIVE PREMIUM CAP ────────────────────────
+  // §831(b) election caps tax-deductible premium at $2.65M per year
+  // (2024 figure, indexed). Above that, captive loses §831(b)
+  // benefit and reverts to §831(a) corporate tax treatment.
+  if (d.use.captive && d.captive) {
+    const premium = (d.captive.premium || 0) * 1; // single year
+    const capLimit = 2_650_000;  // 2024-25 indexed
+    if (premium > capLimit) {
+      issues.push({
+        level: 'warn',
+        title: `Captive annual premium exceeds §831(b) cap (${fmt$M(premium)} vs. ${fmt$M(capLimit)})`,
+        detail: `§831(b) election allows tax-free reserves only on first ${fmt$M(capLimit)} of annual premium. Excess ${fmt$M(premium - capLimit)} is taxable to the captive at corporate rates — defeats the strategy.`,
+        fix: 'Section 3 → Domestic Captive → reduce annual premium below cap, or split into multiple §831(b) captives',
+      });
+    }
+  }
+
+  // ─── ESOP §1042 STAKE BELOW 30% THRESHOLD ─────────────────────
+  // §1042 deferral requires post-sale ESOP ownership ≥ 30% of total
+  // outstanding stock. Below 30%, the deferral is unavailable.
+  if (d.use.esop1042 && d.esop1042) {
+    const stakePct = (d.esop1042.stake || 0) * 100;
+    if (stakePct > 0 && stakePct < 30) {
+      issues.push({
+        level: 'error',
+        title: `§1042 ESOP stake (${stakePct.toFixed(0)}%) below 30% threshold`,
+        detail: `§1042(b)(1) requires the ESOP to own at least 30% of total outstanding stock immediately after the sale. ${stakePct.toFixed(0)}% does NOT qualify — the entire deferral is disallowed. Must sell additional shares to reach 30% threshold.`,
+        fix: 'Section 3 → §1042 ESOP Rollover → increase ESOP stake to ≥30%',
+      });
+    }
+  }
+
+  // ─── FAMILY LLC / FLP DISCOUNT > 40% ──────────────────────────
+  // Discounts above ~40% (combined lack-of-control + lack-of-marketability)
+  // are aggressive and trigger IRS audit attention. Tax court has rejected
+  // discounts >50% in most cases (Estate of Astleford, Holman v. Comm'r).
+  if (d.use.familyLlc && d.familyLlc) {
+    const discountPct = (d.familyLlc.discount || 0) * 100;
+    if (discountPct > 40) {
+      issues.push({
+        level: 'warn',
+        title: `Family LLC discount (${discountPct.toFixed(0)}%) exceeds typical defensible range`,
+        detail: `Combined LOC + LOM discounts above 40% are aggressive. Tax court (Astleford, Holman) has rejected most >40% discounts. Without a strong qualified appraisal under §170(f)(11), the IRS will likely revalue at non-discounted FMV.`,
+        fix: 'Section 3 → Family LLC → reduce discount to 30-40% range OR document appraisal rigor',
+      });
+    }
+  }
+
+  // ─── CLT REMAINDER < 10% (DISQUALIFIES §664(d)) ───────────────
+  // CRT (CLT relative) requires remainder ≥ 10% PV of contribution.
+  // Same test applies in spirit to CLT remainder calc.
+  if (d.use.crut && p.crutRemainderPct !== undefined) {
+    const remainderPct = p.crutRemainderPct * 100;
+    if (remainderPct > 0 && remainderPct < 10) {
+      issues.push({
+        level: 'error',
+        title: `CRUT remainder ${remainderPct.toFixed(1)}% — fails §664(d)(2) ≥10% test`,
+        detail: `CRUT must have remainder PV ≥ 10% of contribution at funding. Current ${remainderPct.toFixed(1)}% disqualifies the trust under §664(d)(2). Reduce payout rate or shorten term.`,
+        fix: 'Section 3 → CRUT → lower Payout Rate, OR reduce Term Length',
+      });
+    }
+  }
+  if (d.use.crat && p.cratQualified === false) {
+    issues.push({
+      level: 'error',
+      title: 'CRAT fails §664(d)(1) qualification (5%-50% payout band or 5% probability test)',
+      detail: 'CRAT must satisfy: (a) annual payout 5-50% of initial value, (b) charitable remainder ≥ 10% PV, (c) <5% probability of corpus exhaustion (Rev. Rul. 77-374). Current configuration fails one or more — CRAT is non-qualified, charitable deduction disallowed.',
+      fix: 'Section 3 → CRAT → adjust Payout Rate (target 5-7%) or Term Length',
+    });
+  }
+
+  // ─── §170(f)(11) QUALIFIED APPRAISAL FOR EASEMENT ─────────────
+  // Conservation easement >$5k requires §170(f)(11)(C) qualified
+  // appraisal. >$500k requires Form 8283 Section B + appraisal attached.
+  if (d.use.ceasement && (p.ceasementValue || 0) > 5_000) {
+    if (d.ceasement && d.ceasement.appraisal !== 'qualified') {
+      issues.push({
+        level: 'warn',
+        title: `Conservation easement ${fmt$M(p.ceasementValue || 0)} requires §170(f)(11) qualified appraisal`,
+        detail: `Easement contributions >$5k require a qualified appraisal at funding (and Form 8283 Section B for >$500k). Missing/inadequate appraisal is the #1 audit failure mode (see Notice 2017-10 listed-transaction trap).`,
+        fix: 'Section 3 → Conservation Easement → set Qualified Appraisal status to "qualified" + retain appraisal documentation',
+      });
+    }
+  }
+
+  // ─── LIFE INSURANCE GAP ───────────────────────────────────────
+  // Recommended-min coverage (advisor entry) vs. current — flag if
+  // gap is large. Doesn't fire when ILIT is configured (would
+  // double-count).
+  if (!d.use.ilit && d.ins.recMin > 0 && d.ins.current > 0) {
+    const insGap = Math.max(0, d.ins.recMin - d.ins.current);
+    if (insGap > 0 && insGap > d.ins.recMin * 0.20) {  // gap > 20% of recommended
+      issues.push({
+        level: 'warn',
+        title: `Life-insurance coverage gap of ${fmt$M(insGap)} (${(insGap/d.ins.recMin*100).toFixed(0)}% short of recommended minimum)`,
+        detail: `Current coverage ${fmt$M(d.ins.current)} vs. advisor-recommended minimum ${fmt$M(d.ins.recMin)}. Estate-liquidity, family-replacement, and key-person needs may be undercovered. Consider ILIT-owned term layer to close the gap (bypasses §2042 estate inclusion).`,
+        fix: 'Section 3 → enable ILIT and add policy on grantor / spouse',
+      });
+    }
+  }
+
   // ─── RENDER ────────────────────────────────────────────────────
   if (issues.length === 0) {
     return `
@@ -19978,7 +20175,12 @@ document.getElementById('btn-pptx').addEventListener('click', async () => {
     { x: 0.5, y: 1.4, w: 9, h: 4, fontSize: 12, fontFace: 'Helvetica', color: INK, valign: 'top' });
 
   const fileName = `Pyle Plan — ${primary} — ${d.client.year}.pptx`.replace(/[/\\:*?"<>|]/g, '-');
-  await pptx.writeFile({ fileName });
+  try {
+    await pptx.writeFile({ fileName });
+  } catch (e) {
+    console.error('PPTX export failed:', e);
+    alert(`PowerPoint export failed: ${e.message || 'unknown error'}.\n\nIf the file is open in another application, close it and try again. If disk is full or permissions are restricted, try a different download location.`);
+  }
 });
 
 /* ============================================================
