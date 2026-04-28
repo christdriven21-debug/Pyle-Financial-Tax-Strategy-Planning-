@@ -16187,6 +16187,11 @@ function renderEstate(p) {
     : 0;
   const clientResidualToHeirs = Math.max(0, clientEstateAtDeath - withFedTax - withStateTax);
   const withPlanToHeirs = trustsToHeirs + ilitToHeirs + clientResidualToHeirs;
+  // Stash on p so renderCharts (which runs after renderEstate) and
+  // renderBeneficiaries (which uses the fallback chain) can both read
+  // the same horizon-adjusted total. Keeps Per-Heir donut chart values
+  // in sync with the Per-Heir Distribution table.
+  p.withPlanToHeirs = withPlanToHeirs;
 
   // Charity — conservative: use contribution amounts (the floor of what
   // ultimately reaches charity). Includes every charitable strategy in the
@@ -16946,7 +16951,9 @@ function renderCharts(p) {
         'son-in-law': '#6B5A47', 'daughter-in-law': '#5B5246',
         partner: '#8B7640', other: '#9C7A2B',
       };
-      const totalHToHeirs = p.withPlanToHeirs || 0;
+      // Use withPlanToHeirs (horizon-adjusted) if renderEstate has stashed
+      // it, otherwise fall back through familyTotalProceeds → withPlanningTotal.
+      const totalHToHeirs = (p.withPlanToHeirs ?? p.familyTotalProceeds ?? p.withPlanningTotal) || 0;
       const labels = heirRowsH.map(b => `${b.name} (${b.sharePct.toFixed(1)}%)`);
       const data   = heirRowsH.map(b => totalHToHeirs * (b.sharePct / 100));
       const colors = heirRowsH.map(b => REL_COLOR[b.rel] || '#9E9E9E');
