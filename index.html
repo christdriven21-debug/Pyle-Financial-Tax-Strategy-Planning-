@@ -14823,6 +14823,72 @@ function renderCashFlow(p) {
             </tr>
           </tbody>
         </table>
+        ${(() => {
+          // Multi-year tuition timeline: build year-by-year totals showing
+          // when each beneficiary is in school + when tuition overlaps.
+          const allInSchool = [...inSchoolBenes, ...upcomingBenes.map(b => ({
+            name: b.name, annualCost: b.annualCost,
+            collegeStartYear: b.startYear, yearsOfCollege: b.years
+          }))];
+          if (allInSchool.length === 0) return '';
+          // Window: from earliest start to latest end, capped at 16 years
+          const earliestStart = Math.min(...allInSchool.map(b => b.collegeStartYear));
+          const latestEnd = Math.max(...allInSchool.map(b => b.collegeStartYear + b.yearsOfCollege - 1));
+          const windowStart = Math.min(planYearCF, earliestStart);
+          const windowEnd = Math.min(latestEnd, windowStart + 15);
+          const yearsList = [];
+          for (let y = windowStart; y <= windowEnd; y++) yearsList.push(y);
+          // Per-year totals + which beneficiaries contribute
+          const yearTotals = yearsList.map(y => {
+            const contributingBenes = allInSchool.filter(b =>
+              y >= b.collegeStartYear && y < b.collegeStartYear + b.yearsOfCollege);
+            const total = contributingBenes.reduce((s, b) => s + (b.annualCost || 0), 0);
+            return { year: y, total, contributingBenes };
+          });
+          const peakAnnual = Math.max(...yearTotals.map(yt => yt.total), 0);
+          if (peakAnnual === 0) return '';
+          // Color palette per beneficiary (rotate)
+          const PALETTE = ['#8B1A1A','#2D6A4F','#8B7640','#4A6B5C','#9C7A2B','#7C3B47'];
+          const colorByBene = {};
+          allInSchool.forEach((b, i) => { colorByBene[b.name] = PALETTE[i % PALETTE.length]; });
+          // Total cumulative
+          const totalCumulative = yearTotals.reduce((s, yt) => s + yt.total, 0);
+          return `
+          <div style="margin-top: 16px; padding: 12px; background: rgba(255,255,255,0.6); border: 1px solid rgba(201,169,97,0.3); border-radius: 4px;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 8px;">
+              Tuition Timeline · ${windowStart}–${windowEnd} (${fmt$M(totalCumulative)} total)
+            </div>
+            <div style="display: grid; grid-template-columns: 60px repeat(${yearsList.length}, 1fr); gap: 2px; font-size: 10px;">
+              <div></div>
+              ${yearsList.map(y => `<div style="text-align: center; color: var(--muted); font-weight: 600;">${y.toString().slice(-2)}</div>`).join('')}
+              ${allInSchool.map(b => `
+                <div style="font-size: 10px; color: var(--ink); font-weight: 600; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${b.name}">${b.name.split(' ')[0]}</div>
+                ${yearsList.map(y => {
+                  const inSchool = y >= b.collegeStartYear && y < b.collegeStartYear + b.yearsOfCollege;
+                  return inSchool
+                    ? `<div style="background: ${colorByBene[b.name]}; height: 18px; border-radius: 2px;" title="${b.name} — ${y}: ${fmt$(b.annualCost)}"></div>`
+                    : `<div style="background: rgba(201,169,97,0.08); height: 18px; border-radius: 2px;"></div>`;
+                }).join('')}
+              `).join('')}
+              <div style="font-size: 10px; color: var(--gold-dark); font-weight: 700; padding: 6px 0; border-top: 1px solid rgba(201,169,97,0.3);">$/yr</div>
+              ${yearTotals.map(yt => {
+                const heightPct = peakAnnual > 0 ? Math.max(8, (yt.total / peakAnnual) * 100) : 0;
+                return `<div style="font-size: 9px; color: var(--ink); text-align: center; font-weight: 600; padding-top: 4px; border-top: 1px solid rgba(201,169,97,0.3);">${yt.total > 0 ? '$' + Math.round(yt.total/1000) + 'k' : '—'}</div>`;
+              }).join('')}
+            </div>
+            <div style="margin-top: 8px; font-size: 10px; color: var(--muted); line-height: 1.5;">
+              Peak annual outflow: <strong style="color: var(--crimson);">${fmt$(peakAnnual)}</strong> in
+              ${(() => {
+                const peakYears = yearTotals.filter(yt => yt.total === peakAnnual).map(yt => yt.year);
+                return peakYears.length === 1 ? `year ${peakYears[0]}` : `years ${peakYears.join(', ')}`;
+              })()}.
+              ${yearTotals.some(yt => yt.contributingBenes.length >= 2)
+                ? '<strong style="color: var(--gold-dark);">⚠ Overlapping years</strong> — multiple beneficiaries in school simultaneously; consider sequencing 529 distributions or §2503(e) grandparent direct-tuition payments to avoid bunching.'
+                : 'No overlap — beneficiaries spread across years; cash-flow stress is manageable.'}
+            </div>
+          </div>`;
+        })()}
+
         <div style="margin-top: 10px; font-size: 11px; color: var(--ink); line-height: 1.5;">
           <strong style="color: var(--gold-dark);">Cash-flow planning:</strong>
           ${(() => {
