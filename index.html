@@ -16280,6 +16280,10 @@ function renderEstate(p) {
         Allocation of the <strong>${fmt$M(withPlanToHeirs)}</strong> "to-heirs" total per the % shares set in <strong>Family &amp; Beneficiaries</strong>. Use this to confirm beneficiary designations + trust documents reflect the intended distribution.
       </div>
 
+      <div class="chart-container" style="height: 280px; margin-top: 20px; max-width: 480px; margin-left: auto; margin-right: auto;">
+        <canvas id="chart-heir-distribution"></canvas>
+      </div>
+
       <div style="margin-top: 16px; overflow-x: auto;">
         <table class="plan-table" style="font-size: 13px;">
           <thead>
@@ -16921,6 +16925,45 @@ function renderCharts(p) {
         }
       }
     });
+  }
+
+  // Per-heir distribution donut (Estate tab) — renders only when at least
+  // one heir has a non-zero sharePct. Uses the same withPlanToHeirs total
+  // as the Per-Heir Estate Distribution table for consistency.
+  const heirCanvas = document.getElementById('chart-heir-distribution');
+  if (heirCanvas) {
+    const benesH = Array.isArray(d.beneficiaries) ? d.beneficiaries : [];
+    const isHeirH = (rel) => ['spouse','son','daughter','grandson','granddaughter',
+                               'son-in-law','daughter-in-law','partner'].includes(rel);
+    const heirRowsH = benesH.filter(b => isHeirH(b.rel) && b.sharePct > 0);
+    if (heirRowsH.length > 0) {
+      // Color palette by relationship — spouse gold, kids in graduated
+      // crimson/burgundy, grandkids in graduated forest, others slate
+      const REL_COLOR = {
+        spouse: '#C9A961',
+        son: '#7C3B47', daughter: '#8B1A1A',
+        grandson: '#4A6B5C', granddaughter: '#2D6A4F',
+        'son-in-law': '#6B5A47', 'daughter-in-law': '#5B5246',
+        partner: '#8B7640', other: '#9C7A2B',
+      };
+      const totalHToHeirs = p.withPlanToHeirs || 0;
+      const labels = heirRowsH.map(b => `${b.name} (${b.sharePct.toFixed(1)}%)`);
+      const data   = heirRowsH.map(b => totalHToHeirs * (b.sharePct / 100));
+      const colors = heirRowsH.map(b => REL_COLOR[b.rel] || '#9E9E9E');
+      window.__CHART_REGISTRY__.heirDistribution = new Chart(heirCanvas, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: BRAND.panel, borderWidth: 3 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          cutout: '55%',
+          plugins: {
+            legend: { position: 'right', labels: { color: BRAND.ink, font: { family: 'Helvetica Neue', size: 11 }, padding: 10 } },
+            tooltip: { callbacks: { label: c => `${c.label.split(' (')[0]}: ${fmt$(c.parsed)}` } },
+            title: { display: true, text: `Total to Heirs: ${formatMoneyShort(totalHToHeirs)}`, color: BRAND.ink, font: { family: 'Playfair Display', size: 14, weight: 'normal' }, padding: { bottom: 10 } }
+          }
+        }
+      });
+    }
   }
 
   // 20-year wealth projection line chart
@@ -19903,10 +19946,11 @@ document.getElementById('btn-pptx').addEventListener('click', async () => {
   // Slides 4+ — Embed each chart as image (best-effort — canvas.toDataURL
   // captures the rendered Chart.js)
   const chartIds = [
-    { id: 'chart-allocation',    title: 'Post-Sale Asset Allocation' },
-    { id: 'chart-income',        title: 'Post-Sale Income Sources' },
-    { id: 'chart-projection',    title: 'Wealth Projection (Deterministic)' },
-    { id: 'chart-estate-growth', title: 'Multi-Year Family Estate Growth' },
+    { id: 'chart-allocation',       title: 'Post-Sale Asset Allocation' },
+    { id: 'chart-income',           title: 'Post-Sale Income Sources' },
+    { id: 'chart-projection',       title: 'Wealth Projection (Deterministic)' },
+    { id: 'chart-estate-growth',    title: 'Multi-Year Family Estate Growth' },
+    { id: 'chart-heir-distribution', title: 'Per-Heir Estate Distribution' },
   ];
   for (const c of chartIds) {
     const canvas = document.getElementById(c.id);
