@@ -40,6 +40,41 @@
         integrity="sha384-+VfUPEb0PdtChMwmBcBmykRMDd+v6D/oFmB3rZM/puCMDYcIvF968OimRh4KQY9a"
         crossorigin="anonymous"></script>
 <script src="./config.js"></script>
+<!-- Global JS error catcher — surfaces ANY uncaught JS error or unhandled
+     promise rejection in a yellow banner at the top of the page. Critical
+     for debugging silent failures (where the user clicks something and
+     "nothing happens"). Stays inline + minimal so it loads before the
+     bug-catching becomes useful. -->
+<script>
+(function () {
+  var bannerHTML = '';
+  function showBanner(msg) {
+    var existing = document.getElementById('__global-error-banner');
+    if (existing) {
+      existing.innerHTML += '<br>' + msg;
+      return;
+    }
+    if (!document.body) {
+      bannerHTML = msg;
+      document.addEventListener('DOMContentLoaded', function () { showBanner(bannerHTML); });
+      return;
+    }
+    var b = document.createElement('div');
+    b.id = '__global-error-banner';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#FFF8F0;border-bottom:3px solid #8B1A1A;color:#1a1a1a;padding:12px 18px;font-family:-apple-system,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.5;box-shadow:0 4px 12px rgba(0,0,0,0.18);max-height:40vh;overflow:auto;';
+    b.innerHTML = '<div style="font-weight:700;color:#8B1A1A;letter-spacing:0.5px;text-transform:uppercase;font-size:11px;margin-bottom:6px;">⚠ JavaScript Error — share this with support</div>' + msg + '<button onclick="this.parentNode.remove()" style="position:absolute;top:8px;right:12px;background:transparent;border:none;font-size:18px;cursor:pointer;color:#8B1A1A;">×</button>';
+    document.body.insertBefore(b, document.body.firstChild);
+  }
+  window.addEventListener('error', function (e) {
+    var src = e.filename ? (' [' + e.filename.split('/').pop() + ':' + e.lineno + ']') : '';
+    showBanner('<strong>' + (e.message || 'Unknown error') + '</strong>' + src);
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var reason = e.reason && (e.reason.message || e.reason.toString()) || 'Unknown promise rejection';
+    showBanner('<strong>Unhandled promise:</strong> ' + reason);
+  });
+})();
+</script>
 <!-- Sentry error monitoring. Loads only if SENTRY_DSN is set in config.js.
      Captures JS exceptions + unhandled promise rejections + performance
      issues. Free tier is 5k errors/month — plenty for a single-advisor
