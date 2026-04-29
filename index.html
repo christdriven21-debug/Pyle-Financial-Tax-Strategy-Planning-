@@ -2956,10 +2956,19 @@
   // proper flow truly didn't engage.
   setTimeout(function () {
     if (window.__AUTH_BAR_WIRED__) return;
+    console.warn('[auth-fallback] proper handler did not attach within 3s — engaging fallback diagnostic');
     var btn = document.getElementById('btn-auth-signin');
     var emailEl = document.getElementById('auth-email');
     var msgEl = document.getElementById('auth-msg');
-    if (!btn || !emailEl || !msgEl) return;
+    if (!btn || !emailEl || !msgEl) {
+      console.error('[auth-fallback] auth-bar DOM elements missing:',
+        { btn: !!btn, emailEl: !!emailEl, msgEl: !!msgEl });
+      // Last-resort alert so the user gets SOMETHING
+      if (btn) btn.addEventListener('click', function () {
+        alert('Sign-in is broken — auth-bar elements not found in DOM. Open DevTools console for details.');
+      });
+      return;
+    }
     function diag(e) {
       // Re-check wiring at click time — if it attached late, defer to it.
       if (window.__AUTH_BAR_WIRED__) return;
@@ -24220,9 +24229,47 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     return;
   }
 
-  const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
-    auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
-  });
+  // ─── PRE-FLIGHT GUARD: window.supabase must exist ────
+  // The Supabase JS SDK loads from cdn.jsdelivr.net (line 17). If that
+  // CDN is blocked (by CSP, network, ad-blocker, corporate proxy), the
+  // global is undefined and the next line throws synchronously, which
+  // bails the entire IIFE before the auth bar gets wired.
+  // Surface the failure with an actionable message and a manually-
+  // attached click handler so "nothing happens" becomes "here's why."
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+    const errMsg = 'Supabase JS SDK failed to load (CDN blocked by browser, ad-blocker, or corporate proxy). Sign-in unavailable.';
+    console.error('[auth] ' + errMsg);
+    setStatus(errMsg, 'err');
+    const authMsgEl = document.getElementById('auth-msg');
+    if (authMsgEl) {
+      authMsgEl.className = 'auth-msg err';
+      authMsgEl.innerHTML = '<strong>Sign-in unavailable.</strong> The Supabase JS SDK failed to load from <code>cdn.jsdelivr.net</code>. Check Network tab for blocked requests; if you have an ad-blocker, allow-list <code>cdn.jsdelivr.net</code> + <code>*.supabase.co</code>. On corporate networks, add these to your firewall allow-list.';
+    }
+    // Attach a diagnostic click handler so users get feedback
+    const btn = document.getElementById('btn-auth-signin');
+    if (btn) btn.addEventListener('click', () => {
+      alert('Sign-in is not available because the Supabase JS SDK did not load. Open DevTools → Network tab → look for blocked requests to cdn.jsdelivr.net or *.supabase.co.');
+    });
+    window.__AUTH_BAR_WIRED__ = true;  // prevent fallback double-firing
+    return;
+  }
+
+  let sb;
+  try {
+    sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+      auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+    });
+  } catch (e) {
+    console.error('[auth] createClient threw:', e);
+    setStatus('Supabase client init failed: ' + (e.message || 'unknown'), 'err');
+    const authMsgEl = document.getElementById('auth-msg');
+    if (authMsgEl) {
+      authMsgEl.className = 'auth-msg err';
+      authMsgEl.innerHTML = '<strong>Sign-in unavailable.</strong> Supabase client initialization failed: ' + (e.message || 'unknown error') + '. Most likely a malformed URL or anon key in config.js.';
+    }
+    window.__AUTH_BAR_WIRED__ = true;
+    return;
+  }
   const TABLE = cfg.TABLE_NAME || 'plans';
   const TEAM_DOMAIN = (cfg.TEAM_DOMAIN || 'pfs4u.com').toLowerCase();
 
