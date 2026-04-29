@@ -18851,9 +18851,12 @@ function renderStateDomicileAnalyzer(p) {
   const jointLE = primaryAge > 0 ? jointLastSurvivorExpectancy(primaryAge, spouseAge) : 25;
   const income = d.biz.income || 0;
   const annualOrdSavings = Math.max(0, income * (currentStateOrdRate - target.ordinary));
-  // Discount to present value at inflation rate
+  // Discount to present value at inflation rate (guard divide-by-zero
+  // when advisor clears the inflation field — falls back to nominal sum)
   const inflation = d.proj.inflation || 0.025;
-  const lifetimeOrdSavings = annualOrdSavings * ((1 - Math.pow(1 + inflation, -jointLE)) / inflation || jointLE);
+  const lifetimeOrdSavings = annualOrdSavings * (inflation > 0
+    ? ((1 - Math.pow(1 + inflation, -jointLE)) / inflation)
+    : jointLE);
 
   // 3. State estate tax savings
   // Most non-tax states also have no estate tax (already in STATE_TAX_TABLE)
