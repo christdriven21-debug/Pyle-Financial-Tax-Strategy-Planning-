@@ -2944,6 +2944,34 @@
   </div>
   <div class="auth-msg" id="auth-msg"></div>
 </div>
+<!-- Fallback diagnostic: if the main auth IIFE fails to wire the
+     button click handler, this listener takes over and reports
+     "nothing happens" symptoms with actionable detail. Runs after a
+     1-second delay so the proper handler has time to attach first. -->
+<script>
+(function () {
+  setTimeout(function () {
+    if (window.__AUTH_BAR_WIRED__) return;  // proper handler attached
+    var btn = document.getElementById('btn-auth-signin');
+    var emailEl = document.getElementById('auth-email');
+    var msgEl = document.getElementById('auth-msg');
+    if (!btn || !emailEl || !msgEl) return;
+    function diag() {
+      var diagnosis = [];
+      if (!window.supabase) diagnosis.push('Supabase JS SDK failed to load (CDN blocked?)');
+      else if (!window.__PYLE_CONFIG__) diagnosis.push('config.js failed to load');
+      else if (!window.__PYLE_CONFIG__.SUPABASE_URL) diagnosis.push('SUPABASE_URL missing in config.js');
+      else if (!window.__PYLE_CONFIG__.SUPABASE_ANON_KEY) diagnosis.push('SUPABASE_ANON_KEY missing in config.js');
+      else diagnosis.push('Auth IIFE crashed before wiring (check browser console)');
+      console.error('[auth-fallback] handler not wired:', diagnosis);
+      msgEl.className = 'auth-msg err';
+      msgEl.innerHTML = '<strong>Sign-in unavailable.</strong> Diagnosis: ' + diagnosis.join('; ') + '. Open browser DevTools console (F12 → Console tab) for the underlying error and share with support.';
+    }
+    btn.addEventListener('click', diag);
+    emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') diag(); });
+  }, 1000);
+})();
+</script>
 
 <!-- ========== MODE NAV ========== -->
 <nav class="mode-nav">
@@ -24549,6 +24577,11 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   document.getElementById('btn-auth-signin').addEventListener('click', () => signIn(authEmailEl.value.trim()));
   authEmailEl.addEventListener('keydown', e => { if (e.key === 'Enter') signIn(authEmailEl.value.trim()); });
   document.getElementById('btn-auth-signout').addEventListener('click', signOut);
+  // Mark wiring complete so the diagnostic fallback (inline script below
+  // the auth bar) knows the proper handler attached. If this flag never
+  // gets set, the fallback fires its own diagnostic so "nothing happens"
+  // becomes "here's why it failed".
+  window.__AUTH_BAR_WIRED__ = true;
 
   /* ---- Client view toggle -----------------------------------------
      Signed-in clients (not team) always see the simplified view.
