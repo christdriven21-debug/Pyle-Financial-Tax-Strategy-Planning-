@@ -2950,26 +2950,32 @@
      1-second delay so the proper handler has time to attach first. -->
 <script>
 (function () {
+  // Wait 3 seconds — generous timeout for slow page loads. Even if the
+  // proper handler eventually attaches, this fallback re-checks the
+  // wiring flag at click time so the diagnostic only fires when the
+  // proper flow truly didn't engage.
   setTimeout(function () {
-    if (window.__AUTH_BAR_WIRED__) return;  // proper handler attached
+    if (window.__AUTH_BAR_WIRED__) return;
     var btn = document.getElementById('btn-auth-signin');
     var emailEl = document.getElementById('auth-email');
     var msgEl = document.getElementById('auth-msg');
     if (!btn || !emailEl || !msgEl) return;
-    function diag() {
+    function diag(e) {
+      // Re-check wiring at click time — if it attached late, defer to it.
+      if (window.__AUTH_BAR_WIRED__) return;
       var diagnosis = [];
       if (!window.supabase) diagnosis.push('Supabase JS SDK failed to load (CDN blocked?)');
       else if (!window.__PYLE_CONFIG__) diagnosis.push('config.js failed to load');
       else if (!window.__PYLE_CONFIG__.SUPABASE_URL) diagnosis.push('SUPABASE_URL missing in config.js');
       else if (!window.__PYLE_CONFIG__.SUPABASE_ANON_KEY) diagnosis.push('SUPABASE_ANON_KEY missing in config.js');
-      else diagnosis.push('Auth IIFE crashed before wiring (check browser console)');
+      else diagnosis.push('Auth IIFE crashed before wiring (check browser console for the throwing line)');
       console.error('[auth-fallback] handler not wired:', diagnosis);
       msgEl.className = 'auth-msg err';
       msgEl.innerHTML = '<strong>Sign-in unavailable.</strong> Diagnosis: ' + diagnosis.join('; ') + '. Open browser DevTools console (F12 → Console tab) for the underlying error and share with support.';
     }
     btn.addEventListener('click', diag);
-    emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') diag(); });
-  }, 1000);
+    emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') diag(e); });
+  }, 3000);
 })();
 </script>
 
