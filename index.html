@@ -16173,6 +16173,170 @@ function renderTax(p) {
       `;
     })()}
 
+    ${(() => {
+      // ─── MULTI-STRATEGY EXECUTION CALENDAR ───
+      // Year-by-year unified action calendar across every enabled
+      // strategy. Builds a master to-do list the advisor can use as
+      // their implementation roadmap.
+      const planYear = d.client.year || new Date().getFullYear();
+      const primaryAge = d.client.primaryAge || 0;
+      const ssClaim = (d.ss && d.ss.claimAge) || 67;
+      const rmdAge = (d.retirement && d.retirement.rmdStartAge) || 73;
+      const retireYr = d.client.primaryRetireYear || 0;
+      const horizonCal = 12;
+
+      const events = {};  // { year: [{ icon, label, strategy }] }
+      const addEvent = (year, ev) => {
+        if (!events[year]) events[year] = [];
+        events[year].push(ev);
+      };
+
+      // Year-of-plan events (all funded in plan year)
+      if (d.use.dynasty)  addEvent(planYear, { icon: '🏛️', label: 'Fund Dynasty Trust', strategy: 'Dynasty', amount: d.dynasty.funding });
+      if (d.use.slat)     addEvent(planYear, { icon: '👥', label: 'Fund SLAT (file Form 709)', strategy: 'SLAT', amount: d.slat.funding });
+      if (d.use.idgt)     addEvent(planYear, { icon: '🔒', label: 'IDGT seed gift + installment sale', strategy: 'IDGT', amount: d.idgt.amount });
+      if (d.use.qprt)     addEvent(planYear, { icon: '🏠', label: `Transfer residence to ${d.qprt.term}-yr QPRT`, strategy: 'QPRT', amount: d.qprt.residence });
+      if (d.use.crat)     addEvent(planYear, { icon: '🤝', label: 'Fund CRAT + claim charitable deduction', strategy: 'CRAT', amount: d.crat.amount });
+      if (d.use.crut)     addEvent(planYear, { icon: '🤝', label: 'Fund CRUT + claim charitable deduction', strategy: 'CRUT', amount: d.crut.amount });
+      if (d.use.daf)      addEvent(planYear, { icon: '💝', label: 'DAF contribution + bunched deduction', strategy: 'DAF', amount: d.daf.amount });
+      if (d.use.clt)      addEvent(planYear, { icon: '💝', label: `Fund CLT (${d.clt.term}-yr term)`, strategy: 'CLT', amount: d.clt.amount });
+      if (d.use.qoz)      addEvent(planYear, { icon: '🌐', label: '180-day window: invest in QOF', strategy: 'QOZ', amount: d.qoz.amount });
+      if (d.use.familyLlc) addEvent(planYear, { icon: '🏢', label: 'Fund Family LLC + gift non-voting interests', strategy: 'Family LLC', amount: d.familyLlc.funding });
+      if (d.use.ilit)     addEvent(planYear, { icon: '🛡', label: 'Establish ILIT + fund initial premiums', strategy: 'ILIT', amount: d.ilit.coverage });
+
+      // GRAT — annual annuity payment for term yrs
+      if (d.use.grat && d.grat.transfer > 0) {
+        addEvent(planYear, { icon: '📈', label: `Fund ${d.grat.term}-yr GRAT (Year 1 of ${d.grat.term})`, strategy: 'GRAT', amount: d.grat.transfer });
+        const ann = (d.grat.transfer / ((1 - Math.pow(1 + (d.grat.hurdle || 0.045), -d.grat.term)) / (d.grat.hurdle || 0.045)));
+        for (let y = 1; y <= Math.min(d.grat.term, horizonCal); y++) {
+          addEvent(planYear + y, { icon: '📈', label: `GRAT annuity payment ${y}/${d.grat.term} (${formatMoneyShort(ann)})`, strategy: 'GRAT' });
+        }
+        addEvent(planYear + d.grat.term, { icon: '🎯', label: 'GRAT term ends — residual to heirs', strategy: 'GRAT' });
+      }
+
+      // QPRT — term end event
+      if (d.use.qprt && d.qprt.term > 0) {
+        addEvent(planYear + d.qprt.term, { icon: '🏠', label: `QPRT term ends — residence to remainder beneficiaries`, strategy: 'QPRT' });
+        addEvent(planYear + d.qprt.term + 1, { icon: '🏠', label: 'Begin paying FMV rent to remainder beneficiaries', strategy: 'QPRT' });
+      }
+
+      // ILIT — annual Crummey notices
+      if (d.use.ilit && d.ilit.premium > 0) {
+        for (let y = 1; y <= Math.min(d.ilit.years || 20, horizonCal); y++) {
+          addEvent(planYear + y, { icon: '🛡', label: `ILIT premium ${formatMoneyShort(d.ilit.premium)} + Crummey notices`, strategy: 'ILIT' });
+        }
+      }
+
+      // Roth conversion ladder
+      if (d.use.roth && d.roth.amount > 0 && d.roth.years > 0) {
+        const conv = d.roth.amount / d.roth.years;
+        for (let y = 0; y < Math.min(d.roth.years, horizonCal); y++) {
+          addEvent(planYear + y, { icon: '🔄', label: `Roth conversion ${y+1}/${d.roth.years} (${formatMoneyShort(conv)})`, strategy: 'Roth' });
+        }
+      }
+
+      // CRAT/CRUT — annual payouts
+      if (d.use.crat) {
+        const cratPay = (d.crat.amount || 0) * (d.crat.rate || 0);
+        for (let y = 1; y <= Math.min(20, horizonCal); y++) {
+          addEvent(planYear + y, { icon: '🤝', label: `CRAT annuity ${formatMoneyShort(cratPay)} to grantor`, strategy: 'CRAT' });
+        }
+      }
+
+      // IDGT installment payments
+      if (d.use.idgt && d.idgt.amount > 0) {
+        const intPay = (d.idgt.amount || 0) * (d.idgt.afr || 0.045);
+        for (let y = 1; y <= Math.min(d.idgt.term || 9, horizonCal); y++) {
+          addEvent(planYear + y, { icon: '🔒', label: `IDGT interest ${formatMoneyShort(intPay)} to grantor`, strategy: 'IDGT' });
+        }
+        addEvent(planYear + (d.idgt.term || 9), { icon: '🎯', label: `IDGT note balloon: ${formatMoneyShort(d.idgt.amount)} principal`, strategy: 'IDGT' });
+      }
+
+      // Life-event triggers
+      if (primaryAge > 0) {
+        const yearsToSS = ssClaim - primaryAge;
+        const yearsToRMD = rmdAge - primaryAge;
+        if (yearsToSS > 0 && yearsToSS <= horizonCal) {
+          addEvent(planYear + yearsToSS, { icon: '✓', label: `Social Security claim age (${ssClaim}) — apply 4 mo before`, strategy: 'Life Event' });
+        }
+        if (yearsToRMD > 0 && yearsToRMD <= horizonCal) {
+          addEvent(planYear + yearsToRMD, { icon: '⚠', label: `RMDs begin (age ${rmdAge}) — file Form 5329 if missed`, strategy: 'Life Event' });
+        }
+      }
+      if (retireYr > 0 && retireYr - planYear <= horizonCal && retireYr - planYear > 0) {
+        addEvent(retireYr, { icon: '🏖', label: `${d.client.primary || 'Primary'} retirement begins — coordinate W-2 last day`, strategy: 'Life Event' });
+      }
+
+      // Build sorted year list
+      const yearList = Object.keys(events).map(Number).sort().filter(y => y >= planYear && y < planYear + horizonCal);
+      if (yearList.length === 0) return '';
+
+      // Color palette per strategy for chip backgrounds
+      const STRAT_COLOR = {
+        Dynasty: '#7C3B47', SLAT: '#5C8C66', IDGT: '#3B5C7C', GRAT: '#9C7A2B',
+        QPRT: '#5B5246', ILIT: '#8B1A1A', CRAT: '#3A6A6E', CRUT: '#4A6B5C',
+        DAF: '#876B36', CLT: '#876B36', QOZ: '#2C5F6F', 'Family LLC': '#9B5A3C',
+        Roth: '#7C3B47', 'Life Event': '#6B6B47',
+      };
+
+      return `
+        <div class="card" style="border-left: 4px solid var(--gold);">
+          <div class="card-title">📅 Multi-Strategy Execution Calendar — ${horizonCal}-Year Action Roadmap</div>
+          <div class="card-sub">
+            Unified year-by-year action items across every enabled strategy. The advisor's master implementation timeline — funding events, annual obligations (Crummey notices, annuity payments, RMDs), and term-end transitions all in one view.
+          </div>
+
+          <div style="margin-top: 18px; display: flex; flex-direction: column; gap: 10px;">
+            ${yearList.map(year => {
+              const yearEvents = events[year] || [];
+              const isCurrentYear = year === planYear;
+              const ageThisYear = primaryAge ? primaryAge + (year - planYear) : 0;
+              return `
+                <div style="display: grid; grid-template-columns: 80px 1fr; gap: 14px; align-items: start; padding: 10px 0; border-bottom: 1px dashed rgba(201,169,97,0.2);">
+                  <div style="text-align: right;">
+                    <div style="font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; color: ${isCurrentYear ? 'var(--crimson)' : 'var(--ink)'};">${year}</div>
+                    ${ageThisYear ? `<div style="font-size: 10px; color: var(--muted);">age ${ageThisYear}</div>` : ''}
+                    ${isCurrentYear ? `<div style="font-size: 9px; color: var(--crimson); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px;">Now</div>` : ''}
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 4px;">
+                    ${yearEvents.map(ev => `
+                      <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--cream-light); border-left: 3px solid ${STRAT_COLOR[ev.strategy] || 'var(--gold)'}; border-radius: 3px;">
+                        <span style="font-size: 14px;">${ev.icon}</span>
+                        <span style="flex: 1; font-size: 12px; color: var(--ink); line-height: 1.4;">${ev.label}</span>
+                        <span style="font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: ${STRAT_COLOR[ev.strategy] || 'var(--gold-dark)'}; padding: 2px 6px; background: rgba(255,255,255,0.5); border-radius: 2px;">${ev.strategy}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px;">
+            <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 6px;">
+              📋 Recurring Annual Obligations (every year, not shown above)
+            </div>
+            <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+              <ul style="margin: 0 0 0 22px; padding: 0;">
+                ${d.use.ilit ? '<li><strong>ILIT Crummey notices</strong> — within 30 days of each premium gift; document beneficiary withdrawal-right window</li>' : ''}
+                ${d.use.dynasty ? '<li><strong>Dynasty Trust K-1s</strong> — file annually; coordinate income-tax pass-through to grantor (Rev. Rul. 2004-64)</li>' : ''}
+                ${d.use.slat ? '<li><strong>SLAT trustee minutes</strong> — document discretionary distribution decisions; spouse-access only as needed</li>' : ''}
+                ${d.use.daf ? '<li><strong>DAF grant recommendations</strong> — distribute on cadence the donor-advisor controls</li>' : ''}
+                ${d.use.qbi ? '<li><strong>§199A QBI deduction</strong> — file annually; verify SSTB status + taxable-income band each year</li>' : ''}
+                ${d.use.privateFoundation ? '<li><strong>Private Foundation</strong> — Form 990-PF + 5% min distribution + 1.39% excise (annual)</li>' : ''}
+                <li><strong>Beneficiary designation review</strong> — IRA / 401(k) / life-insurance / TOD / POD; sync with current trust structure</li>
+                <li><strong>Trust + estate document review</strong> — annual estate-attorney sync + tax-law-change scan</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+            <strong>Methodology:</strong> Calendar shows funding-year events, annual obligations during strategy term (premiums, annuities, conversions), and term-end transitions for the next ${horizonCal} years from plan year. Life-event triggers (SS claim age, RMD age, retirement year) are auto-derived from advisor entries. Strategy-specific recurring obligations (Crummey notices, K-1 filings, etc.) are listed in the bottom panel since they apply every year.
+          </div>
+        </div>
+      `;
+    })()}
+
     <div class="card">
       <div class="card-title">Comprehensive Tax Optimization Strategy</div>
       <div class="card-sub">Strategy-by-strategy breakdown of all tax benefits.</div>
