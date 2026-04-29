@@ -23448,6 +23448,39 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (window.__REBUILD_FAMILY_LIST__) window.__REBUILD_FAMILY_LIST__();
     if (window.__REBUILD_GOALS_LIST__)  window.__REBUILD_GOALS_LIST__();
     if (window.__REBUILD_BALANCE_SHEET__) window.__REBUILD_BALANCE_SHEET__();
+    // ─── LEGACY ILIT AUTO-MIGRATION ───
+    // For plans saved before the per-policy ILIT editor: if the legacy
+    // ilit-coverage / ilit-premium fields have values but no per-policy
+    // structure is configured (all three Type dropdowns at 'none'), seed
+    // the Husband policy with the legacy values so the mortality-adjusted
+    // compute kicks in immediately. Advisor can split into His/Hers/Joint
+    // afterward — this is a non-destructive convenience migration.
+    try {
+      const ilitCov = parseFloat((document.getElementById('ilit-coverage')?.value || '').replace(/[$,\s]/g, '')) || 0;
+      const hType = document.getElementById('ilit-h-type')?.value || 'none';
+      const wType = document.getElementById('ilit-w-type')?.value || 'none';
+      const jType = document.getElementById('ilit-j-type')?.value || 'none';
+      const noPerPolicyConfigured = hType === 'none' && wType === 'none' && jType === 'none';
+      if (ilitCov > 0 && noPerPolicyConfigured) {
+        const ilitPrem = parseFloat((document.getElementById('ilit-premium')?.value || '').replace(/[$,\s]/g, '')) || 0;
+        const ilitYears = parseInt(document.getElementById('ilit-years')?.value, 10) || 20;
+        const ilitPayYears = (document.getElementById('ilit-pay-years')?.value || '10').toString();
+        // Choose policy type based on term length: ≤30yr → term, otherwise permanent
+        const inferredType = ilitYears >= 30 ? 'whole' : 'term';
+        const inferredTerm = ilitYears >= 30 ? 'life' : ilitYears.toString();
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+        setVal('ilit-h-type', inferredType);
+        setVal('ilit-h-coverage', String(Math.round(ilitCov)));
+        setVal('ilit-h-premium', String(Math.round(ilitPrem)));
+        setVal('ilit-h-pay-years', ilitPayYears);
+        setVal('ilit-h-term', inferredTerm);
+        // Re-format money inputs
+        if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
+        console.info('Legacy ILIT auto-migrated: ', { coverage: ilitCov, premium: ilitPrem, term: inferredTerm, type: inferredType });
+      }
+    } catch (e) {
+      console.warn('Legacy ILIT auto-migration failed (non-fatal):', e.message);
+    }
   }
 
   /* ---- Download current form state as a local JSON file (offline-safe) ---- */
