@@ -17585,6 +17585,8 @@ function renderEstate(p) {
 
     ${renderFamilyLlcLadder(p)}
 
+    ${renderWaltonGratLadder(p)}
+
     ${renderCrtLadder(p)}
 
     ${estateExplorerHTML}
@@ -21188,6 +21190,147 @@ function renderQprtLadder(p) {
 
       <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
         <strong>Methodology:</strong> Taxable gift = residence FMV × remainder PV at §7520 (${(hurdle*100).toFixed(2)}%) × survival probability. Survival probability approximated as max(0, 1 − term / (110 − age)) — IRS Table 2010CM used in practice. Residence grows at advisor's assumed home-appreciation rate (${(growth*100).toFixed(1)}%/yr). Expected transfer = term-end FMV × survival probability. Estate save = expected transfer − reported gift, all × estate tax rate. Annual rent estimated at 4% of term-end FMV (typical for HNW primary residences; secondary/vacation typically 5-6%).
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   WALTON GRAT LADDER — rolling-ladder year-by-year for the
+   Walton multi-GRAT meta-strategy.
+
+   Concept (Walton v. Comm'r 115 T.C. 589, 2000):
+     • Series of short-term zeroed-out GRATs (typically 2-3 yr each)
+     • Each GRAT individually has zero taxable gift
+     • Successful GRATs (asset outperforms §7520): residual transfers
+       to heirs gift-tax-free
+     • Failed GRATs (asset declines): lose nothing — grantor gets
+       everything back via annuity, no harm done
+     • Rolling: re-fund each completed GRAT with current asset value
+       so the ladder compounds through repeated 2-3 yr cycles
+
+   Why "heads-I-win, tails-even": failed GRATs cost nothing; successful
+   GRATs each lock in their gain. Over many cycles, expected value is
+   strictly positive.
+   ============================================================ */
+function renderWaltonGratLadder(p) {
+  const d = p.input;
+  if (!d.use.waltonGrat || !(d.waltonGrat?.amount > 0)) return '';
+  const fmt$ = formatMoney;
+  const fmt$M = formatMoneyShort;
+
+  const fundingPerCycle = d.waltonGrat.amount;
+  const term = Math.max(2, d.waltonGrat.term || 3);
+  const rate7520 = d.waltonGrat.rate7520 || 0.045;
+  const expectedRet = d.waltonGrat.ret || 0.10;
+  const isRolling = !!d.waltonGrat.rolling;
+  const cycles = isRolling ? 5 : 1;
+  const planYear = d.client.year || new Date().getFullYear();
+  const primaryAge = d.waltonGrat.age || d.client.primaryAge || 0;
+
+  // Per-cycle expected transfer = funding × (growth - hurdle compounded)
+  // Walton math: heir transfer = amount × max(0, (1+r)^n - (1+§7520)^n)
+  const perCycleTransfer = fundingPerCycle * Math.max(0,
+    Math.pow(1 + expectedRet, term) - Math.pow(1 + rate7520, term));
+
+  // Mortality risk per cycle
+  const ageRiskPerYear = primaryAge < 55 ? 0.005 :
+                         primaryAge < 65 ? 0.010 :
+                         primaryAge < 75 ? 0.020 : 0.040;
+  const survivalPerCycle = Math.pow(1 - ageRiskPerYear, term);
+
+  // Build rolling cycles
+  const rows = [];
+  let cumTransfer = 0;
+  for (let c = 1; c <= cycles; c++) {
+    const startYear = planYear + (c - 1) * term;
+    const endYear = startYear + term;
+    const cycleTransfer = perCycleTransfer * Math.pow(survivalPerCycle, c);  // compound mortality
+    cumTransfer += cycleTransfer;
+    rows.push({
+      cycle: c,
+      startYear, endYear,
+      ageStart: primaryAge ? primaryAge + (c - 1) * term : 0,
+      ageEnd: primaryAge ? primaryAge + c * term : 0,
+      funding: fundingPerCycle,
+      expected_transfer: cycleTransfer,
+      cumTransfer,
+    });
+  }
+  const totalTransfer = cumTransfer;
+  const estateSave = totalTransfer * d.tax.estate;
+
+  return `
+    <div class="card" style="border-left: 4px solid var(--gold);">
+      <div class="card-title">📈 Walton GRAT Ladder — ${cycles}-Cycle ${term}-Year Rolling Strategy</div>
+      <div class="card-sub">
+        ${isRolling ? `Rolling ladder of <strong>${cycles} consecutive ${term}-yr GRATs</strong>, each funded with <strong>${fmt$M(fundingPerCycle)}</strong>` : `Single-GRAT execution: ${fmt$M(fundingPerCycle)} for ${term}-yr term`}. Walton structure (zero taxable gift) at §7520 rate <strong>${(rate7520*100).toFixed(2)}%</strong>; expected asset return <strong>${(expectedRet*100).toFixed(1)}%</strong>. Heads-I-win-tails-even: successful cycles transfer remainder gift-tax-free; failed cycles cost nothing (grantor recovers via annuity).
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 16px;">
+        <div class="kpi"><div class="label">Funding per Cycle</div><div class="value">${fmt$M(fundingPerCycle)}</div></div>
+        <div class="kpi"><div class="label">Cycles Modeled</div><div class="value">${cycles}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">${term}-yr each</div></div>
+        <div class="kpi"><div class="label">Per-Cycle Transfer</div><div class="value">${fmt$M(perCycleTransfer)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">if cycle succeeds</div></div>
+        <div class="kpi"><div class="label">Survival per Cycle</div><div class="value">${(survivalPerCycle*100).toFixed(0)}%</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">${term} yrs at age ${primaryAge}</div></div>
+        <div class="kpi success"><div class="label">Cumulative Transfer</div><div class="value">${fmt$M(totalTransfer)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">expected (mortality-adj)</div></div>
+        <div class="kpi gold"><div class="label">Estate-Tax Saved</div><div class="value">${fmt$M(estateSave)}</div><div style="font-size: 11px; color: var(--muted); margin-top: 6px;">@ ${(d.tax.estate*100).toFixed(0)}%</div></div>
+      </div>
+
+      <div style="margin-top: 18px; overflow-x: auto;">
+        <table class="plan-table" style="font-size: 12px;">
+          <thead>
+            <tr>
+              <th>Cycle</th>
+              <th class="num">Years</th>
+              <th class="num">Age Range</th>
+              <th class="num">Funding</th>
+              <th class="num">Expected Transfer</th>
+              <th class="num">Cumulative</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td><strong>#${r.cycle}</strong></td>
+                <td class="num">${r.startYear}–${r.endYear}</td>
+                <td class="num">${r.ageStart || '—'}${r.ageEnd ? `–${r.ageEnd}` : ''}</td>
+                <td class="num">${fmt$M(r.funding)}</td>
+                <td class="num" style="color: var(--success); font-weight: 600;">${fmt$M(r.expected_transfer)}</td>
+                <td class="num" style="font-weight: 700; color: var(--gold-dark);">${fmt$M(r.cumTransfer)}</td>
+              </tr>
+            `).join('')}
+            <tr style="border-top: 2px solid var(--gold); background: #FFF8F0;">
+              <td colspan="3" style="font-weight: 700;">${cycles}-Cycle Total</td>
+              <td class="num" style="font-weight: 700;">${fmt$M(fundingPerCycle * cycles)} (re-funded)</td>
+              <td class="num" style="font-weight: 700; color: var(--success);">${fmt$M(totalTransfer)}</td>
+              <td class="num" style="font-weight: 700; color: var(--success);">→ Heirs</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 6px;">
+          🎯 Why Rolling Walton GRATs Win
+        </div>
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+          <ul style="margin: 0 0 0 22px; padding: 0;">
+            <li><strong>Volatility capture:</strong> short cycles let each peak lock in independently. A long-single GRAT averages out volatility and may break even; rolling captures every up-cycle.</li>
+            <li><strong>Heads-I-win, tails-even:</strong> failed cycles cost nothing — grantor recovers via annuity. Successful cycles each transfer remainder gift-tax-free.</li>
+            <li><strong>Mortality fragmentation:</strong> 2-3 yr terms reduce per-cycle mortality risk. If grantor dies in cycle 3 of 5, the previous 2 are already complete + outside estate.</li>
+            <li><strong>§7520-arbitrage:</strong> in low-rate environments (current ${(rate7520*100).toFixed(2)}%), the hurdle is low and almost any positive-return asset wins.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; padding: 12px 16px; background: #FFF8F0; border-left: 3px solid var(--crimson); border-radius: 4px;">
+        <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+          <strong style="color: var(--crimson);">⚠ §2702 + Mortality:</strong> Walton structure passes §2702 because the annuity is qualified — IRS no longer applies the original anti-Walton position post-2000. Per-cycle mortality remains the primary risk; older grantors should shorten cycles to 2 yr or use term life insurance to backstop the strategy.
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+        <strong>Methodology:</strong> Walton math: per-cycle transfer = funding × max(0, (1+r)^n - (1+§7520)^n) where r = expected return, n = term. Mortality compounding: survival^cycle reduces expected transfer slightly with each subsequent cycle. Rolling assumed to re-fund with the same nominal amount (in practice, funding scales with the running residual). Total transfer = sum of expected per-cycle transfers, mortality-adjusted.
       </div>
     </div>
   `;
