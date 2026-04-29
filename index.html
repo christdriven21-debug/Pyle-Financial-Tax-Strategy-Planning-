@@ -16174,6 +16174,140 @@ function renderTax(p) {
     })()}
 
     ${(() => {
+      // ─── 2026 TCJA SUNSET IMPACT ───
+      // High-stakes deadline. TCJA's doubled exemption ($13.99M 2025)
+      // reverts to ~$7M (CPI-adjusted pre-TCJA $5M base) on 12/31/2026
+      // unless OBBBA / extension legislation preserves it. Top bracket
+      // 37% → 39.6%. §199A QBI 20% → 0%. Bonus depreciation phasedown
+      // already underway. Show before/after impact + actionable
+      // 2026-deadline strategies.
+      const planYearTcja = d.client.year || new Date().getFullYear();
+      // Card only renders when sunset is still in front of us OR within
+      // 2 yrs of plan year (i.e., still actionable)
+      if (planYearTcja > 2026) return '';
+      const yearsToSunset = Math.max(0, 2027 - planYearTcja);
+      const currentExemption = d.tax.estateExempt || 13_990_000;
+      const postSunsetExemption = 7_000_000;  // CPI-adjusted approx of pre-TCJA $5M
+      const exemptionLost = currentExemption - postSunsetExemption;
+      const exemptionUsed = (d.use.dynasty ? d.dynasty.exemption || d.dynasty.funding || 0 : 0)
+                          + (d.use.slat    ? d.slat.funding    || 0 : 0)
+                          + (d.use.idgt    ? (d.idgt.amount || 0) * 0.10 : 0)
+                          + (d.use.qprt    ? d.qprt.residence * 0.30 || 0 : 0);
+      const exemptionUnusedHousehold = currentExemption * (d.tax.portability ? 2 : 1) - exemptionUsed;
+      const useItOrLose = Math.max(0, exemptionUnusedHousehold - postSunsetExemption * (d.tax.portability ? 2 : 1));
+
+      return `
+        <div class="card" style="border-left: 4px solid var(--crimson);">
+          <div class="card-title">⏰ 2026 TCJA Sunset Impact — ${yearsToSunset === 0 ? 'Sunset Already Triggered' : yearsToSunset === 1 ? '12 Months to Deadline' : `${yearsToSunset} Years to Deadline`}</div>
+          <div class="card-sub">
+            The Tax Cuts and Jobs Act expires <strong>12/31/2026</strong> unless Congress extends it (OBBBA pending). The TCJA-doubled estate exemption reverts to roughly half its current level — for HNW households, this is the single most consequential tax-law deadline of the decade. Use the exemption before it shrinks: <strong>anti-clawback Reg §20.2010-1(c)</strong> grandfathers gifts made under the higher exemption.
+          </div>
+
+          <div style="margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="info-card" style="border-color: var(--success);">
+              <h4 style="color: var(--success);">📅 Pre-Sunset (2025–2026)</h4>
+              <div class="row"><span class="k">Federal estate exemption:</span><span class="v" style="color: var(--success); font-weight: 700;">${fmt$M(currentExemption)}</span></div>
+              <div class="row"><span class="k">MFJ portable:</span><span class="v">${fmt$M(currentExemption * 2)}</span></div>
+              <div class="row"><span class="k">Top ordinary rate:</span><span class="v">37%</span></div>
+              <div class="row"><span class="k">Top LTCG rate:</span><span class="v">23.8% (incl NIIT)</span></div>
+              <div class="row"><span class="k">§199A QBI deduction:</span><span class="v">20% available</span></div>
+              <div class="row"><span class="k">Bonus depreciation:</span><span class="v">60% (2024) → 40% (2025)</span></div>
+              <div class="row"><span class="k">SALT cap:</span><span class="v">$10,000</span></div>
+            </div>
+            <div class="info-card" style="border-color: var(--crimson);">
+              <h4 style="color: var(--crimson);">⚠ Post-Sunset (2027+)</h4>
+              <div class="row"><span class="k">Federal estate exemption:</span><span class="v" style="color: var(--crimson); font-weight: 700;">~${fmt$M(postSunsetExemption)}</span></div>
+              <div class="row"><span class="k">MFJ portable:</span><span class="v">~${fmt$M(postSunsetExemption * 2)}</span></div>
+              <div class="row"><span class="k">Top ordinary rate:</span><span class="v">39.6%</span></div>
+              <div class="row"><span class="k">Top LTCG rate:</span><span class="v">23.8% (unchanged — not in TCJA)</span></div>
+              <div class="row"><span class="k">§199A QBI deduction:</span><span class="v" style="color: var(--crimson);">ELIMINATED</span></div>
+              <div class="row"><span class="k">Bonus depreciation:</span><span class="v">0% (already phasing out)</span></div>
+              <div class="row"><span class="k">SALT cap:</span><span class="v">Returns to unlimited</span></div>
+            </div>
+          </div>
+
+          ${useItOrLose > 0 ? `
+          <div style="margin-top: 18px; padding: 16px 20px; background: linear-gradient(135deg, #FFF8F0 0%, #FFFFFF 100%); border-left: 4px solid var(--gold-dark); border-radius: 4px;">
+            <div style="font-size: 14px; font-weight: 700; color: var(--gold-dark); letter-spacing: 0.5px; margin-bottom: 8px;">
+              💎 Use-It-Or-Lose-It Window: ${fmt$M(useItOrLose)} of Exemption at Risk
+            </div>
+            <div style="font-size: 13px; color: var(--ink); line-height: 1.6;">
+              At current funding levels, your household has used ${fmt$M(exemptionUsed)} of the ${fmt$M(currentExemption * (d.tax.portability ? 2 : 1))} ${d.tax.portability ? 'portable ' : ''}exemption. <strong>${fmt$M(exemptionUnusedHousehold)} remains unused</strong>. After 2026 sunset, only <strong>${fmt$M(postSunsetExemption * (d.tax.portability ? 2 : 1))}</strong> would be available — the difference of <strong style="color: var(--crimson);">${fmt$M(useItOrLose)}</strong> is the use-it-or-lose-it window.
+              <br><br>
+              At a 40% federal estate-tax rate, failing to deploy this exemption costs <strong style="color: var(--crimson);">${fmt$M(useItOrLose * 0.40)}</strong> in future estate tax — easily the largest planning risk in the household's portfolio.
+            </div>
+          </div>` : `
+          <div style="margin-top: 18px; padding: 14px 16px; background: #F0F7F3; border-left: 3px solid var(--success); border-radius: 4px;">
+            <div style="font-size: 12px; color: var(--ink); line-height: 1.5;">
+              <strong style="color: var(--success);">✓ Exemption Fully Deployed:</strong> Current strategy mix uses approximately ${fmt$M(exemptionUsed)} of exemption — sunset risk is minimized. Continue annual gifting and Crummey notices to compound the advantage.
+            </div>
+          </div>`}
+
+          <div style="margin-top: 18px;">
+            <h4 style="font-size: 13px; color: var(--gold-dark); letter-spacing: 0.5px; margin: 0 0 8px;">🎯 Strategies Most Affected by 2026 Sunset</h4>
+            <table class="plan-table" style="font-size: 12px;">
+              <thead>
+                <tr><th>Strategy</th><th>Sunset Impact</th><th>2026 Action</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Dynasty Trust / SLAT / IDGT</strong></td>
+                  <td>Pre-sunset funding uses $13.99M exemption; locked in via anti-clawback Reg §20.2010-1(c). Post-sunset funding uses only $7M.</td>
+                  <td>Fund <strong>before 2026 year-end</strong>. Lock in the doubled exemption.</td>
+                </tr>
+                <tr>
+                  <td><strong>QPRT</strong></td>
+                  <td>Discounted gift today uses lifetime exemption; same anti-clawback applies.</td>
+                  <td>Transfer residence in 2025 or 2026; longer term aligns with grantor's age.</td>
+                </tr>
+                <tr>
+                  <td><strong>GRAT</strong></td>
+                  <td>Zero taxable gift — sunset doesn't affect GRAT directly. Walton ladders capture upside without exemption use.</td>
+                  <td>Continue annual rolling GRATs regardless of sunset.</td>
+                </tr>
+                <tr>
+                  <td><strong>§199A QBI</strong></td>
+                  <td><strong style="color: var(--crimson);">Disappears</strong> entirely. Annual deduction goes from 20% × QBI to $0.</td>
+                  <td>Maximize QBI claim in 2025 + 2026; convert to alternate income deferral structures (DB plan, deferred comp) for 2027+.</td>
+                </tr>
+                <tr>
+                  <td><strong>Roth Conversion</strong></td>
+                  <td>Top rate rises 37% → 39.6%. Pre-sunset conversion is at lower rate.</td>
+                  <td>Front-load conversion years into 2025 + 2026 to capture lower marginal.</td>
+                </tr>
+                <tr>
+                  <td><strong>SALT planning</strong></td>
+                  <td>$10k cap returns to unlimited deduction.</td>
+                  <td>Defer state-tax-deductible items (charitable, property tax) into post-2026.</td>
+                </tr>
+                <tr>
+                  <td><strong>Charitable bunching (DAF)</strong></td>
+                  <td>Higher post-sunset bracket means deduction is more valuable post-2027.</td>
+                  <td>Mixed timing — bunch some pre-sunset for current bracket, save some for post-sunset higher rate.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top: 14px; padding: 12px 16px; background: var(--cream-light); border-radius: 4px;">
+            <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 6px;">
+              📋 Anti-Clawback Reg §20.2010-1(c) — The Critical Safe Harbor
+            </div>
+            <div style="font-size: 12px; color: var(--ink); line-height: 1.6;">
+              The IRS issued Reg §20.2010-1(c) in November 2019 specifically to address the sunset: gifts made under the higher TCJA exemption are <strong>grandfathered</strong> — the exemption used at funding cannot be "clawed back" if the exemption later shrinks. This means a $10M Dynasty Trust funded in 2025 using $10M of exemption stays $10M-out-of-estate forever, even if the post-sunset exemption is only $7M.
+              <br><br>
+              <strong>Without the regulation</strong>, the post-sunset estate would have been computed against the $7M exemption with the $10M gift counted against it — resulting in $3M of effectively wasted exemption. Reg §20.2010-1(c) eliminates that risk.
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; padding: 10px 14px; background: var(--cream-light); border-radius: 4px; font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.5;">
+            <strong>Methodology:</strong> Post-sunset exemption estimated at $7M (pre-TCJA $5M base × CPI; published TCJA-sunset projections). Top ordinary rate post-sunset: 39.6% (pre-TCJA). §199A QBI sunset: 20% deduction goes to 0% (no carryforward). SALT cap reverts to unlimited deduction. Rates and amounts subject to congressional action — OBBBA is the most likely vehicle for extension; outcome remains uncertain.
+          </div>
+        </div>
+      `;
+    })()}
+
+    ${(() => {
       // ─── MULTI-STRATEGY EXECUTION CALENDAR ───
       // Year-by-year unified action calendar across every enabled
       // strategy. Builds a master to-do list the advisor can use as
