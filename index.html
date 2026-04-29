@@ -3055,9 +3055,11 @@
       <button class="btn btn-secondary btn-sm team-only" id="btn-clone-year" title="Duplicate the current plan as next year's starting point" disabled>Clone → Next Year</button>
       <button class="btn btn-primary btn-sm" id="btn-cloud-save">Save to Cloud</button>
       <button class="btn btn-gold btn-sm" id="btn-cloud-share">Copy Share Link</button>
-      <button class="btn btn-secondary btn-sm" id="btn-cloud-download">Download JSON</button>
+      <button class="btn btn-secondary btn-sm" id="btn-cloud-download" title="Download a JSON copy to your browser's Downloads folder">Download JSON</button>
       <input type="file" id="cloud-upload-input" accept="application/json,.json" style="display:none">
-      <button class="btn btn-secondary btn-sm" id="btn-cloud-upload">Upload JSON</button>
+      <button class="btn btn-secondary btn-sm" id="btn-cloud-upload" title="Load a plan from a JSON file on your computer">Upload JSON</button>
+      <button class="btn btn-gold btn-sm" id="btn-sharedrive-save" title="Save directly to SharePoint / OneDrive / network share (one-click after first folder pick)">💾 Save to Share Drive</button>
+      <button class="btn btn-secondary btn-sm" id="btn-sharedrive-open" title="Open a plan from SharePoint / OneDrive / network share">📂 Open from Share Drive</button>
       <input type="file" id="precisefp-input" accept=".csv,text/csv" style="display:none">
       <button class="btn btn-gold btn-sm" id="btn-precisefp-import" title="Import client data from a PreciseFP CSV export">Import PreciseFP CSV</button>
       <input type="file" id="emoney-input" accept="application/json,.json" style="display:none">
@@ -23772,19 +23774,23 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   }
 
   /* ---- Download current form state as a local JSON file (offline-safe) ---- */
-  function downloadJSON() {
-    const snap = snapshotForm();
+  function buildPlanFileName() {
     const primary = (document.getElementById('client-primary').value || '').trim();
     const year = (document.getElementById('client-year').value || '').trim();
     const ts = new Date().toISOString().slice(0, 10);
     const nameBits = [primary || 'Plan', year, ts].filter(Boolean);
-    const fileName = `Pyle-Plan — ${nameBits.join(' — ')}.json`.replace(/[/\\:*?"<>|]/g, '-');
-    const payload = {
+    return `Pyle-Plan — ${nameBits.join(' — ')}.json`.replace(/[/\\:*?"<>|]/g, '-');
+  }
+  function buildPlanPayload() {
+    return {
       exportedAt: new Date().toISOString(),
       appVersion: 'pyle-plan-builder-v1',
-      plan: snap
+      plan: snapshotForm()
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  }
+  function downloadJSON() {
+    const fileName = buildPlanFileName();
+    const blob = new Blob([JSON.stringify(buildPlanPayload(), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = fileName;
@@ -23792,6 +23798,146 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     URL.revokeObjectURL(url);
     setStatus('Downloaded ' + fileName, 'ok');
   }
+
+  /* ─── SHARE-DRIVE SAVE / OPEN — File System Access API ───────────
+     Uses Chrome/Edge's File System Access API (showSaveFilePicker /
+     showOpenFilePicker) for direct save to SharePoint-mapped /
+     OneDrive-synced / network share folders. Folder handle is
+     persisted in IndexedDB so the second-and-later save in the
+     same session writes silently to the previously-chosen folder.
+
+     Falls back gracefully on Firefox / Safari (no File System API):
+     uses the standard download flow with a hint message.
+  */
+  const SHAREDRIVE_DIR_KEY = 'pyle-sharedrive-dir-handle';
+
+  // IndexedDB helpers — minimal wrapper to persist FileSystemDirectoryHandle
+  function idbOpen() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('pyle-fs-handles', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('handles');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbGet(key) {
+    try {
+      const db = await idbOpen();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction('handles', 'readonly');
+        const req = tx.objectStore('handles').get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    } catch { return null; }
+  }
+  async function idbSet(key, value) {
+    try {
+      const db = await idbOpen();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction('handles', 'readwrite');
+        tx.objectStore('handles').put(value, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch { /* ignore */ }
+  }
+  async function idbDel(key) {
+    try {
+      const db = await idbOpen();
+      return await new Promise((resolve) => {
+        const tx = db.transaction('handles', 'readwrite');
+        tx.objectStore('handles').delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    } catch { /* ignore */ }
+  }
+
+  async function saveToShareDrive() {
+    if (!('showSaveFilePicker' in window) && !('showDirectoryPicker' in window)) {
+      // Fallback for non-Chromium browsers
+      setStatus('Share-drive direct save needs Chrome or Edge. Using Download fallback — drag the file to your share drive after.', 'err');
+      downloadJSON();
+      return;
+    }
+    const fileName = buildPlanFileName();
+    const payload = buildPlanPayload();
+    const json = JSON.stringify(payload, null, 2);
+    try {
+      // Try previously-chosen directory first (silent save into share drive)
+      let dirHandle = await idbGet(SHAREDRIVE_DIR_KEY);
+      let needFolderPick = !dirHandle;
+      if (dirHandle) {
+        // Verify permission still granted
+        const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') {
+          const req = await dirHandle.requestPermission({ mode: 'readwrite' });
+          if (req !== 'granted') {
+            needFolderPick = true;
+            dirHandle = null;
+          }
+        }
+      }
+      if (needFolderPick) {
+        // First time — prompt user to pick the share-drive folder
+        try {
+          dirHandle = await window.showDirectoryPicker({
+            id: 'pyle-share-drive',
+            mode: 'readwrite',
+            startIn: 'documents',
+          });
+          await idbSet(SHAREDRIVE_DIR_KEY, dirHandle);
+          setStatus('Share-drive folder set — future saves will write here automatically. Click "💾 Save to Share Drive" again to save the current plan.', 'ok');
+          return;  // First-pick is just folder selection; save on next click
+        } catch (e) {
+          if (e.name === 'AbortError') { setStatus('Folder pick canceled', 'err'); return; }
+          throw e;
+        }
+      }
+      // Write the file
+      const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      setStatus(`✓ Saved ${fileName} to share-drive folder`, 'ok');
+    } catch (e) {
+      console.error('[saveToShareDrive] error', e);
+      setStatus('Share-drive save failed: ' + (e.message || 'unknown') + ' — falling back to Download. Re-pick the folder if it moved.', 'err');
+      // Clear stale handle so next click re-prompts
+      await idbDel(SHAREDRIVE_DIR_KEY);
+      downloadJSON();
+    }
+  }
+
+  async function openFromShareDrive() {
+    if (!('showOpenFilePicker' in window)) {
+      setStatus('Share-drive open needs Chrome or Edge. Click "Upload JSON" instead.', 'err');
+      document.getElementById('cloud-upload-input').click();
+      return;
+    }
+    try {
+      const dirHandle = await idbGet(SHAREDRIVE_DIR_KEY);
+      const opts = {
+        types: [{ description: 'Pyle Plan JSON', accept: { 'application/json': ['.json'] } }],
+        multiple: false,
+        startIn: dirHandle || 'documents',
+      };
+      const [fh] = await window.showOpenFilePicker(opts);
+      const file = await fh.getFile();
+      uploadJSON(file);
+    } catch (e) {
+      if (e.name === 'AbortError') { setStatus('Open canceled', 'err'); return; }
+      console.error('[openFromShareDrive] error', e);
+      setStatus('Share-drive open failed: ' + (e.message || 'unknown'), 'err');
+    }
+  }
+
+  // Reset the saved share-drive folder (e.g., if drive letter changed)
+  window.__RESET_SHAREDRIVE_FOLDER__ = async () => {
+    await idbDel(SHAREDRIVE_DIR_KEY);
+    setStatus('Share-drive folder cleared. Next save will prompt you to pick the folder again.', 'ok');
+  };
 
   /* ---- Restore form state from an uploaded JSON file (offline-safe) ---- */
   function uploadJSON(file) {
@@ -24093,6 +24239,11 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   const uploadInput = document.getElementById('cloud-upload-input');
   document.getElementById('btn-cloud-upload').addEventListener('click', () => uploadInput.click());
   uploadInput.addEventListener('change', e => uploadJSON(e.target.files[0]));
+  // Share-drive direct save / open (SharePoint / OneDrive / mapped drive)
+  const shareSaveBtn = document.getElementById('btn-sharedrive-save');
+  if (shareSaveBtn) shareSaveBtn.addEventListener('click', saveToShareDrive);
+  const shareOpenBtn = document.getElementById('btn-sharedrive-open');
+  if (shareOpenBtn) shareOpenBtn.addEventListener('click', openFromShareDrive);
   const samplePicker = document.getElementById('sample-picker');
   if (samplePicker) {
     samplePicker.addEventListener('change', e => {
