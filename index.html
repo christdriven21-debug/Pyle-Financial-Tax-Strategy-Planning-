@@ -24330,14 +24330,60 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   })();
 
   async function signIn(email) {
-    if (!email) return;
-    setAuthMsg('Sending magic link…');
-    const { error } = await sb.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: location.origin + location.pathname }
-    });
-    if (error) setAuthMsg('Sign-in failed: ' + error.message, 'err');
-    else setAuthMsg('Check your email (' + email + ') for a one-click sign-in link', 'ok');
+    if (!email) {
+      setAuthMsg('Enter an email address first', 'err');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthMsg('That email address looks malformed — check for typos', 'err');
+      return;
+    }
+    setAuthMsg('Sending magic link to ' + email + '…');
+    const redirectUrl = location.origin + location.pathname;
+    console.info('[signIn] requesting magic link', { email, redirectUrl });
+    try {
+      const { data, error } = await sb.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: redirectUrl }
+      });
+      if (error) {
+        console.error('[signIn] error', error);
+        // Common Supabase auth errors with actionable hints
+        let hint = '';
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('rate limit') || msg.includes('too many')) {
+          hint = ' (Supabase rate limit — wait 60 sec and try again, or check Supabase dashboard → Auth → Rate Limits)';
+        } else if (msg.includes('invalid') && msg.includes('redirect')) {
+          hint = ' (Redirect URL not whitelisted — Supabase dashboard → Auth → URL Configuration → add ' + redirectUrl + ')';
+        } else if (msg.includes('email') && msg.includes('disabled')) {
+          hint = ' (Email auth provider disabled — Supabase dashboard → Auth → Providers → enable Email)';
+        } else if (msg.includes('smtp') || msg.includes('send')) {
+          hint = ' (SMTP issue — check Supabase Auth → SMTP Settings, or fall back to default Supabase SMTP)';
+        }
+        setAuthMsg('Sign-in failed: ' + error.message + hint, 'err');
+        return;
+      }
+      console.info('[signIn] OK', data);
+      setAuthMsg('Check your email (' + email + ') for a one-click sign-in link. Not arriving in 60 seconds? Check spam folder, then try the troubleshooting tips below.', 'ok');
+      // Show troubleshooting hint after 30 sec if user is still on this screen
+      setTimeout(() => {
+        if (currentUser) return;  // signed in — done
+        const statusEl = document.getElementById('auth-status');
+        if (!statusEl || !statusEl.textContent.includes('Check your email')) return;
+        statusEl.innerHTML = `<div>Email not arriving? Common fixes:</div>
+          <ul style="margin: 6px 0 0 20px; padding: 0; font-size: 11px; line-height: 1.5;">
+            <li><strong>Check spam folder</strong> — Supabase default sender (noreply@mail.app.supabase.io) often filtered</li>
+            <li><strong>Whitelist the sender</strong> — add noreply@mail.app.supabase.io to safe senders</li>
+            <li><strong>Hourly rate limit:</strong> Supabase free tier allows 4 emails/hour per address — wait an hour if you've requested several recently</li>
+            <li><strong>Site URL config:</strong> Supabase project → Auth → URL Configuration must include <code style="background:rgba(0,0,0,0.05);padding:1px 4px;border-radius:2px;">${redirectUrl}/**</code> in Redirect URLs</li>
+            <li><strong>Custom SMTP:</strong> if Resend is configured (see docs/setup/resend-and-subdomain.md), verify SMTP credentials in Supabase → Auth → SMTP Settings</li>
+            <li><strong>Try again</strong> with the same email — duplicate magic-link requests are deduplicated by Supabase</li>
+          </ul>`;
+      }, 30_000);
+    } catch (e) {
+      console.error('[signIn] threw', e);
+      setAuthMsg('Sign-in threw: ' + (e.message || 'unknown error') + ' — check browser console for details', 'err');
+    }
   }
 
   async function signOut() {
