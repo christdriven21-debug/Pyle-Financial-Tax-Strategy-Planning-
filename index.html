@@ -2868,6 +2868,39 @@
     .tab-panel th, .tab-panel td { padding: 6px 8px !important; }
     /* Chart containers */
     .chart-container { height: 280px !important; }
+    /* BS investment rows — 5-col grid is unworkable on phone; stack instead */
+    .bs-row.bs-row-investment {
+      grid-template-columns: 1fr 30px !important;
+      grid-template-areas:
+        "label delete"
+        "value delete"
+        "class delete"
+        "sector delete";
+      grid-row-gap: 6px;
+    }
+    .bs-row.bs-row-investment > [data-bs="label"]  { grid-area: label; }
+    .bs-row.bs-row-investment > [data-bs="value"]  { grid-area: value; }
+    .bs-row.bs-row-investment > [data-bs="class"]  { grid-area: class; }
+    .bs-row.bs-row-investment > [data-bs="sector"] { grid-area: sector; }
+    .bs-row.bs-row-investment > .bs-delete         { grid-area: delete; align-self: start; }
+    /* BS realestate rows — 4-col grid → 3-col stack */
+    .bs-row.bs-row-realestate {
+      grid-template-columns: 1fr 1fr 30px !important;
+    }
+    /* Strategy ladder cards — compress KPI grids further */
+    .card .kpi-grid { gap: 8px !important; }
+    .card .kpi { padding: 10px !important; }
+    .card .kpi .value { font-size: 16px !important; }
+    .card .kpi .label { font-size: 9px !important; }
+    /* Family-row top grid — stack on phone */
+    .family-row .family-row-top { grid-template-columns: 1fr 30px !important; row-gap: 6px; }
+    .family-row .family-row-top input,
+    .family-row .family-row-top select { grid-column: 1; }
+    .family-row .family-row-top .delete-btn { grid-column: 2; grid-row: 1 / span 3; align-self: start; }
+    /* Tuition timeline grid — fewer year columns on phone */
+    [class*="tuition"] [style*="grid-template-columns: 60px repeat"] {
+      font-size: 9px !important;
+    }
   }
 </style>
 </head>
