@@ -24468,7 +24468,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
         let hint = '';
         const msg = (error.message || '').toLowerCase();
         if (msg.includes('rate limit') || msg.includes('too many')) {
-          hint = ' (Supabase rate limit — wait 60 sec and try again, or check Supabase dashboard → Auth → Rate Limits)';
+          hint = ' — Supabase free-tier limits built-in email to 4/hr per address, 30/hr per project. **Fix:** wait 60 minutes for hourly reset, OR configure custom SMTP (Resend) per docs/setup/resend-and-subdomain.md Part 2 to remove the limit entirely.';
         } else if (msg.includes('invalid') && msg.includes('redirect')) {
           hint = ' (Redirect URL not whitelisted — Supabase dashboard → Auth → URL Configuration → add ' + redirectUrl + ')';
         } else if (msg.includes('email') && msg.includes('disabled')) {
