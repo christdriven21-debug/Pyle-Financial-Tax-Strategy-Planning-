@@ -17704,10 +17704,39 @@ function renderEstate(p) {
     </div>
   `;
 
+  // ─── STRATEGY LADDERS QUICK INDEX ───
+  // Builds a chip-list of enabled ladder cards for fast navigation.
+  // Each chip anchors to the corresponding ladder card title via id.
+  const ladders = [
+    { use: d.use.grat       && d.grat?.transfer > 0,        anchor: 'ladder-grat',      icon: '📈', label: 'GRAT' },
+    { use: d.use.idgt       && d.idgt?.amount > 0,          anchor: 'ladder-idgt',      icon: '🔒', label: 'IDGT' },
+    { use: d.use.slat       && d.slat?.funding > 0,         anchor: 'ladder-slat',      icon: '👥', label: 'SLAT' },
+    { use: d.use.qprt       && d.qprt?.residence > 0,       anchor: 'ladder-qprt',      icon: '🏠', label: 'QPRT' },
+    { use: d.use.familyLlc  && d.familyLlc?.funding > 0,    anchor: 'ladder-familyllc', icon: '🏢', label: 'Family LLC' },
+    { use: d.use.waltonGrat && d.waltonGrat?.amount > 0,    anchor: 'ladder-walton',    icon: '📈', label: 'Walton GRAT' },
+    { use: (d.use.crat && d.crat?.amount > 0) || (d.use.crut && d.crut?.amount > 0), anchor: 'ladder-crt', icon: '🤝', label: 'CRAT/CRUT' },
+    { use: d.use.nimcrut    && d.nimcrut?.amount > 0,       anchor: 'ladder-nimcrut',   icon: '⏳', label: 'NIMCRUT' },
+  ].filter(l => l.use);
+  const ladderIndexCard = ladders.length === 0 ? '' : `
+    <div class="card" style="border-left: 4px solid var(--gold); padding: 14px 18px;">
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 10px;">
+        🪜 Strategy Ladders — ${ladders.length} Active (Quick Navigation)
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        ${ladders.map(l => `
+          <a href="#${l.anchor}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--cream-light); border: 1px solid rgba(201,169,97,0.4); border-radius: 16px; color: var(--ink); text-decoration: none; font-size: 12px; font-weight: 600; transition: all 0.15s;" onmouseover="this.style.background='var(--gold)';this.style.color='white';this.style.borderColor='var(--gold-dark)';" onmouseout="this.style.background='var(--cream-light)';this.style.color='var(--ink)';this.style.borderColor='rgba(201,169,97,0.4)';">
+            <span>${l.icon}</span><span>${l.label}</span>
+          </a>
+        `).join('')}
+      </div>
+    </div>`;
+
   return `
     ${legacyCard}
 
     ${heirCard}
+
+    ${ladderIndexCard}
 
     ${renderGratLadder(p)}
 
@@ -20621,7 +20650,7 @@ function renderGratLadder(p) {
 
   return `
     <div class="card" style="border-left: 4px solid var(--gold);">
-      <div class="card-title">📈 GRAT Ladder — ${term}-Year Walton Zero (Year-by-Year)</div>
+      <div class="card-title" id="ladder-grat">📈 GRAT Ladder — ${term}-Year Walton Zero (Year-by-Year)</div>
       <div class="card-sub">
         Funded with <strong>${fmt$M(transfer)}</strong> at §7520 hurdle <strong>${(hurdle*100).toFixed(2)}%</strong>, expected growth <strong>${(growth*100).toFixed(1)}%</strong>. Walton-style zeroed-out structure — taxable gift is $0 at funding. Any appreciation above the hurdle passes to heirs gift-tax-free at term-end. Annual annuity to grantor: <strong>${fmt$(annuity)}/yr</strong> (${term} years, total ${fmt$(totalAnnuityPaid)} returned to grantor).
       </div>
@@ -20769,7 +20798,7 @@ function renderIdgtLadder(p) {
 
   return `
     <div class="card" style="border-left: 4px solid var(--gold);">
-      <div class="card-title">🔒 IDGT Installment Sale Ladder — ${term}-Year Note (Year-by-Year)</div>
+      <div class="card-title" id="ladder-idgt">🔒 IDGT Installment Sale Ladder — ${term}-Year Note (Year-by-Year)</div>
       <div class="card-sub">
         Sell <strong>${fmt$M(principal)}</strong> of appreciating assets to a pre-funded IDGT (~10% seed gift = <strong>${fmt$(seedGift)}</strong>) for a <strong>${term}-year promissory note</strong> at AFR <strong>${(afr*100).toFixed(2)}%</strong>. Asset grows at <strong>${(growth*100).toFixed(1)}%</strong> inside the trust; appreciation above AFR transfers gift-tax-free. Grantor-trust status (§§671-679) means grantor pays trust's income tax — additional tax-free leverage per Rev. Rul. 2004-64.
       </div>
@@ -20934,7 +20963,7 @@ function renderCrtLadder(p) {
 
   return `
     <div class="card" style="border-left: 4px solid var(--gold);">
-      <div class="card-title">🤝 CRT Ladder — ${horizon}-Year Charitable Remainder Trust Projection</div>
+      <div class="card-title" id="ladder-crt">🤝 CRT Ladder — ${horizon}-Year Charitable Remainder Trust Projection</div>
       <div class="card-sub">
         ${showCrat && showCrut ? 'Both CRAT and CRUT modeled side-by-side. ' : ''}
         ${showCrat ? `<strong>CRAT</strong>: fixed annuity ${fmt$(d.crat.amount * d.crat.rate)}/yr (${cratPayoutPct.toFixed(1)}% × ${fmt$M(d.crat.amount)}). ` : ''}
@@ -21112,7 +21141,7 @@ function renderSlatLadder(p) {
 
   return `
     <div class="card" style="border-left: 4px solid var(--gold);">
-      <div class="card-title">👥 SLAT Ladder — Spousal Lifetime Access Trust (${horizon}-Year)</div>
+      <div class="card-title" id="ladder-slat">👥 SLAT Ladder — Spousal Lifetime Access Trust (${horizon}-Year)</div>
       <div class="card-sub">
         Funded with <strong>${fmt$M(funding)}</strong>${discount > 0 ? ` at <strong>${(discount*100).toFixed(0)}% discount</strong> (reported gift ${fmt$M(reportedGift)})` : ''}. Spouse is discretionary beneficiary — grantor retains <em>indirect</em> access via spouse-distributions. Assets grow outside grantor's estate forever; grantor-trust status means grantor pays trust's income tax (additional Rev. Rul. 2004-64 leverage).
       </div>
@@ -21258,7 +21287,7 @@ function renderQprtLadder(p) {
 
   return `
     <div class="card" style="border-left: 4px solid var(--gold);">
-      <div class="card-title">🏠 QPRT Ladder — Qualified Personal Residence Trust (${term}-Year)</div>
+      <div class="card-title" id="ladder-qprt">🏠 QPRT Ladder — Qualified Personal Residence Trust (${term}-Year)</div>
       <div class="card-sub">
         Transfer <strong>${fmt$M(fmv)}</strong> ${d.qprt.type === 'secondary' ? 'secondary home' : 'primary residence'} into a ${term}-year QPRT. Reported taxable gift today: <strong>${fmt$M(taxableGift)}</strong> (${((1 - taxableGift/fmv) * 100).toFixed(0)}% discount via remainder PV × survival probability). Residence appreciates at ${(growth*100).toFixed(1)}%/yr inside trust; appreciation above the discount transfers gift-tax-free if grantor survives the term.
       </div>
@@ -21410,7 +21439,7 @@ function renderNimcrutLadder(p) {
 
   return `
     <div class="card" style="border-left: 4px solid var(--gold);">
-      <div class="card-title">⏳ NIMCRUT Ladder — §664(d)(3) Net-Income-with-Makeup CRUT</div>
+      <div class="card-title" id="ladder-nimcrut">⏳ NIMCRUT Ladder — §664(d)(3) Net-Income-with-Makeup CRUT</div>
       <div class="card-sub">
         Funded with <strong>${fmt$M(fund)}</strong> at <strong>${(rate*100).toFixed(1)}%</strong> unitrust rate over <strong>${term}-year</strong> term. Pre-sale (${saleYear - 1} and earlier): low-income assets suppress payout below the ${(rate*100).toFixed(1)}% cap; the shortfall accumulates as <strong>make-up</strong>. Post-sale (${saleYear}+): switch to high-income assets and pay out cap + makeup catch-up. The result is timing-flexible income — recognize trust income in the years it's tax-efficient.
       </div>
@@ -21551,7 +21580,7 @@ function renderWaltonGratLadder(p) {
 
   return `
     <div class="card" style="border-left: 4px solid var(--gold);">
-      <div class="card-title">📈 Walton GRAT Ladder — ${cycles}-Cycle ${term}-Year Rolling Strategy</div>
+      <div class="card-title" id="ladder-walton">📈 Walton GRAT Ladder — ${cycles}-Cycle ${term}-Year Rolling Strategy</div>
       <div class="card-sub">
         ${isRolling ? `Rolling ladder of <strong>${cycles} consecutive ${term}-yr GRATs</strong>, each funded with <strong>${fmt$M(fundingPerCycle)}</strong>` : `Single-GRAT execution: ${fmt$M(fundingPerCycle)} for ${term}-yr term`}. Walton structure (zero taxable gift) at §7520 rate <strong>${(rate7520*100).toFixed(2)}%</strong>; expected asset return <strong>${(expectedRet*100).toFixed(1)}%</strong>. Heads-I-win-tails-even: successful cycles transfer remainder gift-tax-free; failed cycles cost nothing (grantor recovers via annuity).
       </div>
@@ -21774,7 +21803,7 @@ function renderFamilyLlcLadder(p) {
 
   return `
     <div class="card" style="border-left: 4px solid var(--gold);">
-      <div class="card-title">🏢 Family LLC Ladder — ${horizon}-Year Wealth Transfer Projection</div>
+      <div class="card-title" id="ladder-familyllc">🏢 Family LLC Ladder — ${horizon}-Year Wealth Transfer Projection</div>
       <div class="card-sub">
         Fund LLC with <strong>${fmt$M(funding)}</strong>${llcState ? ` in ${llcState}` : ''}; gift <strong>${(giftedPct*100).toFixed(0)}%</strong> non-voting interests at <strong>${(discount*100).toFixed(0)}% combined discount</strong> (lack-of-control + lack-of-marketability). Reported taxable gift today: <strong>${fmt$M(reportedGift)}</strong> (saving ${fmt$M(giftDiscount)} of exemption). Charging-order protection${isStrongJurisdiction ? ' (strongest in ' + llcState + ' — exclusive remedy)' : ''}; retained ${(100 - giftedPct*100).toFixed(0)}% interest stays in grantor's estate.
       </div>
