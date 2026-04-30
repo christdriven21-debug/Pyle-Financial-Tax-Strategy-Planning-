@@ -3064,6 +3064,8 @@
       <button class="btn btn-gold btn-sm" id="btn-precisefp-import" title="Import client data from a PreciseFP CSV export">Import PreciseFP CSV</button>
       <input type="file" id="emoney-input" accept="application/json,.json" style="display:none">
       <button class="btn btn-secondary btn-sm" id="btn-emoney-import" title="Import a client fact-finder JSON from eMoney (Facts Finder export)">Import eMoney</button>
+      <input type="file" id="addepar-input" accept=".csv,text/csv,application/vnd.ms-excel,.xlsx" style="display:none">
+      <button class="btn btn-gold btn-sm" id="btn-addepar-import" title="Import a holdings report from Addepar (CSV) — populates Personal Balance Sheet brokerage / retirement rows with asset-class tags">Import Addepar Holdings</button>
       <input type="file" id="mgp-input" accept="application/json,.json" style="display:none">
       <button class="btn btn-secondary btn-sm" id="btn-mgp-import" title="Import a client fact-finder JSON from MoneyGuidePro">Import MGP</button>
       <!-- Tax-document OCR via Claude vision: 1040 + Schedule K-1 -->
@@ -24189,6 +24191,171 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     return null;
   }
 
+  /* ─── ADDEPAR HOLDINGS CSV IMPORT ─────────────────────────────
+     Parses an Addepar holdings export and populates the Personal
+     Balance Sheet brokerage / retirement / other-assets sections
+     with one line item per Addepar position, asset-class tagged.
+
+     Tolerates Addepar's flexible export columns by detecting common
+     column names (case-insensitive, with/without spaces). Required
+     columns: an account-name col + a market-value col + a security
+     name col. Optional but valued: asset-class col + ticker.
+
+     Detected column candidates (any one match works):
+       Account Name       → "Account", "Account Name", "Portfolio"
+       Security Name      → "Security", "Security Name", "Position",
+                            "Asset Name", "Holding"
+       Market Value       → "Market Value", "Value", "MV", "Total Value"
+       Asset Class        → "Asset Class", "Asset Type", "Category",
+                            "Class", "Asset Category"
+       Ticker / Symbol    → "Symbol", "Ticker", "CUSIP"
+     ============================================================ */
+  async function importAddeparCSV(file) {
+    if (!file) return;
+    setStatus('Reading Addepar export…');
+    try {
+      const text = await file.text();
+      const rows = parseCSVRows(text);
+      if (!rows || rows.length < 2) throw new Error('CSV has no data rows');
+      const header = rows[0].map(h => String(h || '').trim());
+      const headerLower = header.map(h => h.toLowerCase().replace(/\s+/g, ' ').trim());
+      const findCol = (candidates) => {
+        for (const c of candidates) {
+          const cLower = c.toLowerCase();
+          const idx = headerLower.findIndex(h => h === cLower || h.includes(cLower));
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
+      const idxAccount = findCol(['account name', 'account', 'portfolio', 'household', 'entity']);
+      const idxSecurity = findCol(['security name', 'security', 'position name', 'asset name', 'holding name', 'position', 'name']);
+      const idxValue = findCol(['market value', 'total value', 'value', 'mv', 'amount']);
+      const idxClass = findCol(['asset class', 'asset type', 'asset category', 'category', 'class']);
+      const idxTicker = findCol(['symbol', 'ticker', 'cusip']);
+
+      if (idxAccount < 0 || idxValue < 0) {
+        throw new Error('Could not detect required columns. Need at least an Account/Portfolio column and a Market Value column. Header found: ' + header.join(' | '));
+      }
+
+      // Normalize Addepar asset-class strings to our internal taxonomy
+      function normalizeClass(rawClass) {
+        if (!rawClass) return '';
+        const c = rawClass.toLowerCase();
+        if (/equit|stock/.test(c) && !/private|venture|hedge/.test(c)) return 'equities';
+        if (/(fixed[\s-]?income|bond|treasur|munic|credit)/.test(c) && !/private/.test(c)) return 'fixed_income';
+        if (/cash|money[\s-]?market|mmf/.test(c)) return 'cash_mmf';
+        if (/real[\s-]?estate|reit/.test(c)) return 'real_estate';
+        if (/private[\s-]?equit|venture/.test(c)) return 'private_equity';
+        if (/hedge/.test(c)) return 'hedge_funds';
+        if (/private[\s-]?credit/.test(c)) return 'private_credit';
+        if (/commodit|gold/.test(c)) return 'commodities';
+        if (/crypto|digital|bitcoin/.test(c)) return 'crypto';
+        if (/alternativ/.test(c)) return 'alternatives';
+        if (/concentrate/.test(c)) return 'concentrated';
+        if (/mixed|allocation|balanced/.test(c)) return 'mixed';
+        return 'other';
+      }
+
+      // Detect retirement-account labels for routing to the retirement section
+      function isRetirementAccount(name) {
+        const n = String(name || '').toLowerCase();
+        return /\b(ira|401\s*\(?k\)?|403\s*\(?b\)?|457|roth|hsa|sep|simple|tsp|pension)\b/.test(n);
+      }
+
+      // Group by account, summing market value per asset class
+      const accounts = {};  // { accountName: { class: { value, sec[] } } }
+      let parsed = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0) continue;
+        const acct = (row[idxAccount] || '').trim();
+        if (!acct) continue;
+        const value = parseFloat(String(row[idxValue] || '').replace(/[$,\s]/g, ''));
+        if (!isFinite(value) || value === 0) continue;
+        const sec = idxSecurity >= 0 ? (row[idxSecurity] || '').trim() : '';
+        const rawClass = idxClass >= 0 ? (row[idxClass] || '').trim() : '';
+        const ticker = idxTicker >= 0 ? (row[idxTicker] || '').trim() : '';
+        const cls = normalizeClass(rawClass);
+        accounts[acct] = accounts[acct] || {};
+        accounts[acct][cls] = accounts[acct][cls] || { value: 0, securities: [] };
+        accounts[acct][cls].value += value;
+        if (sec) accounts[acct][cls].securities.push({ name: sec, ticker, value });
+        parsed++;
+      }
+      if (parsed === 0) throw new Error('No rows with non-zero market value found');
+
+      // Wait for the BS editor's add-row hook to be available
+      const addRow = window.__BALANCE_SHEET_ADD_ROW__;
+      if (!addRow) throw new Error('Balance Sheet editor not initialized — refresh the page and try again');
+
+      // Insert into BS: one row per (account × asset class), routing to
+      // retirement section if account name suggests an IRA/401k/etc.
+      let added = 0;
+      let totalValue = 0;
+      Object.keys(accounts).forEach(acct => {
+        const isRetirement = isRetirementAccount(acct);
+        const targetSec = isRetirement ? 'retirement' : 'brokerage';
+        Object.keys(accounts[acct]).forEach(cls => {
+          const bucket = accounts[acct][cls];
+          if (bucket.value <= 0) return;
+          // Build a label that includes the account + leading security if singular
+          const label = bucket.securities.length === 1
+            ? `${acct} — ${bucket.securities[0].name}${bucket.securities[0].ticker ? ' (' + bucket.securities[0].ticker + ')' : ''}`
+            : `${acct} — ${bucket.securities.length} ${cls === '' ? 'positions' : cls.replace(/_/g, ' ') + ' positions'}`;
+          addRow(targetSec, {
+            label: label.slice(0, 80),
+            value: Math.round(bucket.value),
+            assetClass: cls,
+            sector: '',  // Addepar doesn't typically map cleanly to our sub-sectors; advisor refines
+          });
+          added++;
+          totalValue += bucket.value;
+        });
+      });
+
+      // Open the Personal Balance Sheet section so advisor sees the new rows
+      const bsDetails = document.getElementById('balance-sheet-details');
+      if (bsDetails && !bsDetails.open) bsDetails.open = true;
+
+      const accountCount = Object.keys(accounts).length;
+      setStatus(`✓ Addepar import: ${added} line items across ${accountCount} accounts; total value $${Math.round(totalValue).toLocaleString()}`, 'ok');
+    } catch (e) {
+      console.error('[importAddeparCSV] error', e);
+      setStatus('Addepar import failed: ' + e.message, 'err');
+    }
+  }
+
+  // Minimal CSV parser (handles quoted fields, embedded commas, embedded
+  // newlines, escaped quotes "")
+  function parseCSVRows(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      const next = text[i + 1];
+      if (inQuotes) {
+        if (c === '"' && next === '"') { field += '"'; i++; }
+        else if (c === '"') { inQuotes = false; }
+        else { field += c; }
+      } else {
+        if (c === '"') { inQuotes = true; }
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\r') { /* skip — handled at \n */ }
+        else if (c === '\n') {
+          row.push(field); field = '';
+          rows.push(row); row = [];
+        } else { field += c; }
+      }
+    }
+    if (field.length > 0 || row.length > 0) {
+      row.push(field);
+      rows.push(row);
+    }
+    return rows.filter(r => r.length > 1 || (r.length === 1 && r[0].length > 0));
+  }
+
   async function importVendorJSON(file, vendorLabel) {
     if (!file) return;
     try {
@@ -24402,6 +24569,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   const mgpInput = document.getElementById('mgp-input');
   document.getElementById('btn-mgp-import').addEventListener('click', () => mgpInput.click());
   mgpInput.addEventListener('change', e => importVendorJSON(e.target.files[0], 'MoneyGuidePro'));
+  const addeparInput = document.getElementById('addepar-input');
+  document.getElementById('btn-addepar-import').addEventListener('click', () => addeparInput.click());
+  addeparInput.addEventListener('change', e => importAddeparCSV(e.target.files[0]));
 
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY ||
       cfg.SUPABASE_URL.includes('YOUR_') || cfg.SUPABASE_ANON_KEY.includes('YOUR_')) {
