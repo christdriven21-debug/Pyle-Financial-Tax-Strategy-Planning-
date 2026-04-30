@@ -5727,6 +5727,7 @@
     <button class="btn btn-gold" id="btn-print">Print</button>
     <button class="btn btn-gold" id="btn-pdf-client" title="Client Summary PDF — just the Client Portrait (1-2 pages)">Client PDF</button>
     <button class="btn btn-gold" id="btn-pdf">Full PDF</button>
+    <button class="btn btn-gold" id="btn-pdf-sharedrive" title="Save Full PDF directly to your SharePoint / OneDrive / share-drive folder (configured via Save to Share Drive button on the Builder page)">💾 PDF to Share Drive</button>
     <button class="btn btn-gold team-only" id="btn-pdf-appendix" title="Technical Appendix PDF — compliance backup for CPA/attorney">Appendix PDF</button>
     <button class="btn btn-gold" id="btn-email-plan" title="Share this plan via email (uses your native share sheet or opens your mail app)">Email Plan</button>
     <button class="btn btn-gold team-only" id="btn-meeting-prep" title="AI-generate a 1-page meeting briefing from the plan + recent reviews">📋 Meeting Prep</button>
@@ -23168,7 +23169,7 @@ document.getElementById('btn-pptx').addEventListener('click', async () => {
      'appendix' — Technical Appendix only (compliance backup)
    Each writes a differently-named file so clients can distinguish.
    ============================================================ */
-async function generatePdf(kind) {
+async function generatePdf(kind, target = 'download') {
   if (!window.__PLAN_DATA__) { alert('Please generate a plan first.'); return; }
   if (!window.html2pdf) { alert('PDF library not loaded yet — wait a second and try again.'); return; }
 
@@ -23178,6 +23179,40 @@ async function generatePdf(kind) {
                : kind === 'appendix' ? 'Technical Appendix'
                : 'Full Plan';
   const fileName = `Pyle Plan — ${primary} — ${d.client.year} — ${suffix}.pdf`.replace(/[/\\:*?"<>|]/g, '-');
+
+  // For share-drive target: pre-flight verify a folder handle exists.
+  // If not, redirect to the standard download path with a hint message
+  // (advisor must save JSON to share drive at least once first to set the folder).
+  let shareDirHandle = null;
+  if (target === 'sharedrive') {
+    try {
+      const idbReq = indexedDB.open('pyle-fs-handles', 1);
+      shareDirHandle = await new Promise((resolve) => {
+        idbReq.onsuccess = () => {
+          const tx = idbReq.result.transaction('handles', 'readonly');
+          const r = tx.objectStore('handles').get('pyle-sharedrive-dir-handle');
+          r.onsuccess = () => resolve(r.result || null);
+          r.onerror = () => resolve(null);
+        };
+        idbReq.onerror = () => resolve(null);
+      });
+    } catch { /* ignore */ }
+    if (!shareDirHandle) {
+      alert('No share-drive folder configured yet. Click "💾 Save to Share Drive" first to pick the folder, then try again.');
+      return;
+    }
+    // Verify permission still granted
+    try {
+      const perm = await shareDirHandle.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted') {
+        const req = await shareDirHandle.requestPermission({ mode: 'readwrite' });
+        if (req !== 'granted') {
+          alert('Share-drive folder permission denied. Re-pick the folder via "💾 Save to Share Drive" first.');
+          return;
+        }
+      }
+    } catch { /* fall through — older browsers may not support this */ }
+  }
 
   // Capture the LIVE #plan-view element instead of an off-screen clone.
   // The clone approach was producing blank PDFs because some active-tab CSS
@@ -23381,17 +23416,37 @@ async function generatePdf(kind) {
         }
       }
 
-      pdf.save(fileName);
+      if (target === 'sharedrive' && shareDirHandle) {
+        // Write to share drive instead of triggering download
+        const blob = pdf.output('blob');
+        const fh = await shareDirHandle.getFileHandle(fileName, { create: true });
+        const writable = await fh.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        alert(`✓ Saved "${fileName}" to share-drive folder.`);
+      } else {
+        pdf.save(fileName);
+      }
     } else {
       // Single-panel capture (Client / Appendix PDF) — original path
-      await html2pdf().from(planView).set({
+      const html2pdfInst = html2pdf().from(planView).set({
         margin: [12, 12, 14, 12],
         filename: fileName,
         image: { type: 'jpeg', quality: 0.96 },
         html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#F5F1E8' },
         jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: ['.kpi-grid', '.solver-summary'] },
-      }).save();
+      });
+      if (target === 'sharedrive' && shareDirHandle) {
+        const blob = await html2pdfInst.outputPdf('blob');
+        const fh = await shareDirHandle.getFileHandle(fileName, { create: true });
+        const writable = await fh.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        alert(`✓ Saved "${fileName}" to share-drive folder.`);
+      } else {
+        await html2pdfInst.save();
+      }
     }
     // Audit log: PDF export removed per advisor preference (only log
     // actual changes to plan content, not access/output events).
@@ -23423,6 +23478,8 @@ async function generatePdf(kind) {
 document.getElementById('btn-pdf').addEventListener('click', () => generatePdf('full'));
 document.getElementById('btn-pdf-client').addEventListener('click', () => generatePdf('client'));
 document.getElementById('btn-pdf-appendix').addEventListener('click', () => generatePdf('appendix'));
+const pdfShareBtn = document.getElementById('btn-pdf-sharedrive');
+if (pdfShareBtn) pdfShareBtn.addEventListener('click', () => generatePdf('full', 'sharedrive'));
 
 /* ============================================================
    LLM NARRATIVE POLISH
