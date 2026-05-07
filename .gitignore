@@ -6,3 +6,8 @@ node_modules/
 *.log
 .vscode/
 .idea/
+
+# Quarterly review — keep real client data local only.
+# The template (qir-template.html, README.md) is committed; per-client
+# files under pyle-quarterly-simple/clients/ are not.
+pyle-quarterly-simple/clients/

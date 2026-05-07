@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Quarterly Investment Review — Template</title>
+<style>
+:root {
+  --bg:#f0f2f5; --surface:#fff; --surface2:#f5f6f8;
+  --border:#e0e3ea; --blue:#2563eb; --green:#16a97a;
+  --red:#dc2626; --yellow:#d97706; --purple:#7c3aed;
+  --text:#1a1d2e; --muted:#6b7280;
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,#fff 0%,#f0f2f5 100%);border-bottom:1px solid var(--border);padding:22px 36px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:1.45rem;font-weight:700;letter-spacing:.01em}
+.header h1 span{color:var(--blue)}
+.header p{color:var(--muted);font-size:.82rem;margin-top:3px}
+.hbadge{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;text-align:right}
+.hbadge .lbl{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.hbadge .val{font-size:1.15rem;font-weight:700;color:var(--green);margin-top:2px}
+
+/* MAIN */
+.main{padding:24px 36px;max-width:1380px;margin:0 auto}
+.sec{font-size:.68rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:28px 0 12px;display:flex;align-items:center;gap:8px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;transition:border-color .2s}
+.kpi:hover{border-color:var(--blue)}
+.kpi .lbl{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}
+.kpi .val{font-size:1.7rem;font-weight:700;margin-top:5px;line-height:1}
+.kpi .sub{font-size:.75rem;color:var(--muted);margin-top:5px}
+.kpi .icon{position:absolute;right:16px;top:16px;width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem}
+.kbl .icon{background:rgba(37,99,235,.09)} .kbl .val{color:var(--blue)}
+.kgr .icon{background:rgba(22,169,122,.09)} .kgr .val{color:var(--green)}
+.kye .icon{background:rgba(217,119,6,.09)}  .kye .val{color:var(--yellow)}
+.kpu .icon{background:rgba(124,58,237,.09)} .kpu .val{color:var(--purple)}
+
+/* CHART CARDS */
+.charts-row{display:grid;grid-template-columns:320px 1fr;gap:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.card h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:14px}
+
+/* ALLOC LEGEND */
+.alloc-leg{display:flex;flex-direction:column;gap:7px;margin-top:14px}
+.leg-row{display:flex;align-items:center;gap:8px;font-size:.75rem}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.leg-bar-bg{flex:1;height:5px;background:#ebebeb;border-radius:3px;overflow:hidden}
+.leg-bar-fill{height:100%;border-radius:3px}
+.leg-pct{width:46px;text-align:right;font-weight:700;font-size:.75rem}
+
+/* INV GRID */
+.inv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.inv-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;transition:border-color .2s,box-shadow .2s}
+.inv-card:hover{border-color:var(--blue);box-shadow:0 4px 20px rgba(37,99,235,.08)}
+.inv-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:10px}
+.inv-name{font-size:.97rem;font-weight:700}
+.inv-sub{font-size:.72rem;color:var(--muted);margin-top:2px}
+.badge{font-size:.62rem;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.b-priv{background:rgba(245,197,66,.18);color:#b45309}
+.b-fi  {background:rgba(37,99,235,.12); color:var(--blue)}
+.b-pub {background:rgba(22,169,122,.12);color:var(--green)}
+.b-alt {background:rgba(124,58,237,.12);color:var(--purple)}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.m{background:var(--surface2);border-radius:8px;padding:9px 11px}
+.m .ml{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.m .mv{font-size:.9rem;font-weight:700;margin-top:3px}
+.gain{color:var(--green)} .loss{color:var(--red)} .neut{color:var(--text)}
+.pbar-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.pbar-lbl{font-size:.68rem;color:var(--muted);width:80px;flex-shrink:0}
+.pbar-bg{flex:1;height:5px;background:#ebebeb;border-radius:3px;overflow:hidden}
+.pbar-fill{height:100%;border-radius:3px}
+.pbar-val{font-size:.7rem;font-weight:700;width:60px;text-align:right;flex-shrink:0}
+.fnote{font-size:.68rem;color:var(--muted);font-style:italic;margin-top:7px;line-height:1.5}
+.flag-chip{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:20px;margin-top:10px}
+.f-above{background:rgba(22,169,122,.12);color:var(--green);border:1px solid rgba(22,169,122,.25)}
+.f-inline{background:rgba(217,119,6,.1);color:var(--yellow);border:1px solid rgba(217,119,6,.25)}
+.f-below{background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.25)}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:.8rem}
+.tbl th{text-align:left;padding:9px 12px;font-size:.65rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:11px 12px;border-bottom:1px solid rgba(224,227,234,.5);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl .tot td{font-weight:700;border-top:1px solid var(--border);border-bottom:none;background:#f8f9fc}
+.tbl tr:hover td{background:rgba(37,99,235,.025)}
+.tdot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+
+/* CALLOUT */
+.callout{border-radius:12px;padding:16px 20px;margin-top:16px;display:flex;align-items:flex-start;gap:12px;background:linear-gradient(135deg,rgba(124,58,237,.05),rgba(37,99,235,.03));border:1px solid rgba(124,58,237,.18)}
+.callout-icon{font-size:1.5rem;flex-shrink:0;margin-top:1px}
+.callout-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;color:var(--purple)}
+.callout-body{font-size:.78rem;color:var(--muted);line-height:1.65}
+
+/* PERF ROW */
+.perf-row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+
+/* LIFE INSURANCE */
+.life-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.life-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.life-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.life-metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
+.life-m{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 10px}
+.life-m .ll{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.life-m .lv{font-size:.95rem;font-weight:700;margin-top:3px}
+.prog-wrap{margin-top:2px}
+.prog-lbl{font-size:.66rem;color:var(--muted);margin-bottom:4px}
+.prog-track{background:var(--surface);border:1px solid var(--border);border-radius:4px;height:7px;overflow:hidden}
+.prog-fill{height:100%;background:var(--blue);border-radius:4px}
+.life-combined{background:linear-gradient(135deg,rgba(22,169,122,.05),rgba(37,99,235,.04));border:1px solid rgba(22,169,122,.2);border-radius:8px;padding:12px 16px;display:flex;gap:28px;flex-wrap:wrap;margin-top:14px}
+.lc-item .lci-l{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.lc-item .lci-v{font-size:1.05rem;font-weight:700;margin-top:3px}
+
+/* FOOTER */
+.footer{margin-top:36px;padding:18px 36px;border-top:1px solid var(--border);font-size:.7rem;color:var(--muted);text-align:center}
+
+/* SVG defaults */
+.svg-chart{width:100%;display:block}
+
+/* PRINT */
+@media print {
+  @page { margin: 0.6in 0.5in; size: letter portrait; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: #fff !important; }
+  .header { border-bottom: 1px solid #ccc; padding: 14px 0; }
+  .main   { padding: 12px 0; max-width: 100%; }
+  .footer { padding: 12px 0; margin-top: 20px; }
+  .kpi-grid { grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .charts-row { grid-template-columns: 1fr; gap: 12px; }
+  .inv-grid { grid-template-columns: repeat(2,1fr); gap: 10px; }
+  .perf-row { grid-template-columns: 1fr; gap: 12px; }
+  .life-grid  { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi, .card, .inv-card, .life-card { overflow: visible !important; }
+  .kpi, .card, .inv-card, .life-card, .callout {
+    page-break-inside: avoid; break-inside: avoid;
+  }
+  .sec { page-break-after: avoid; break-after: avoid; margin-top: 18px; }
+  .kpi:hover { border-color: var(--border) !important; }
+  svg { overflow: visible; }
+  .fnote, .flag-chip { page-break-inside: avoid; break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- Render targets — populated by JS -->
+<div id="header-mount"></div>
+<div class="main">
+  <div id="kpi-mount"></div>
+  <div id="charts-mount"></div>
+  <div id="investments-mount"></div>
+  <div id="callout-mount"></div>
+  <div id="table-mount"></div>
+  <div id="performance-mount"></div>
+  <div id="life-mount"></div>
+</div>
+<div id="footer-mount"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   ▼▼▼ EDIT THIS DATA OBJECT — everything below auto-renders from it ▼▼▼
+
+   The values below are PLACEHOLDER / DEMO data. Replace with real
+   client values when creating each quarter's file.
+   ═══════════════════════════════════════════════════════════════════════ */
+const QIR_DATA = {
+  // ── Header / cover ───────────────────────────────────────────────────
+  client:     "Sample Client",
+  quarter:    "Q1 2026",
+  asOfDate:   "March 31, 2026",
+  currency:   "USD",
+  firmFooter: "Private & Confidential",
+
+  // ── Investments — list as many as you need (typically 1–8) ───────────
+  // assetClass options: "Private" | "Public Equities" | "Public" | "Alternatives"
+  // benchmark: "above" | "inline" | "below"  (auto-derived from return if omitted)
+  investments: [
+    {
+      name: "Sample Private Holding",
+      icon: "🚀",
+      subtitle: "Late-stage private equity — placeholder",
+      assetClass: "Private",
+      costBasis: 200000,
+      currentValue: 600000,
+      // Optional metrics shown in card
+      entryDate: "01/15/2025",
+      shares: 1000,
+      entryPrice: 200.00,
+      currentPrice: 600.00,
+      currentPriceFootnote: "Sample valuation — replace with secondary-market or 409A reference price for the actual investment.",
+      tvpi: 3.00,
+      irr: 150.0,
+      benchmark: "above"
+    },
+    {
+      name: "Cash Balance Plan",
+      icon: "🏦",
+      subtitle: "Public Equities — Cash Balance / Defined Benefit",
+      assetClass: "Public Equities",
+      costBasis: 1000000,
+      currentValue: 1075000,
+      inceptionDate: "6/1/2025",
+      annualizedIRR: 7.50,
+      footer: "Sample contribution + withdrawal schedule — replace with the plan's actual cash-flow timeline.",
+      benchmark: "above"
+    },
+    {
+      name: "Sample Energy LP",
+      icon: "⚡",
+      subtitle: "Alternatives — Oil & Gas / Energy LP",
+      assetClass: "Alternatives",
+      costBasis: 500000,
+      currentValue: 500000,         // NAV placeholder; tax-adj return below overrides display
+      inceptionDate: "12/15/2024",
+      distributions: 90000,
+      pendingDistributions: 25000,
+      pendingDate: "Apr 21",
+      taxAdjustedReturnPct: 55.00,  // overrides cost-vs-value % in the card
+      annualizedReturnPct: 40.00,
+      footer: "Sample tax structure: 87% loss deduction × top fed rate × no-state-tax — replace with the actual K-1 figures.",
+      benchmark: "above"
+    },
+    {
+      name: "Sample Public Equity",
+      icon: "🎬",
+      subtitle: "Public Equity — Sector placeholder",
+      assetClass: "Public",
+      costBasis: 100000,
+      currentValue: 75000,
+      entryDate: "06/01/2025",
+      shares: 10000,
+      entryPrice: 10.00,
+      currentPrice: 7.50,
+      benchmark: "below"
+    }
+  ],
+
+  // ── Tax-benefit callout (opt-in) ─────────────────────────────────────
+  taxCallout: {
+    enabled: true,
+    icon: "⚡",
+    title: "Sample Energy LP — Tax Benefit Detail",
+    items: [
+      { label: "87% loss deduction", value: "$435,000" },
+      { label: "Top fed rate (no state income tax)", value: "" },
+      { label: "Estimated tax savings", value: "$160,950", color: "green" },
+      { label: "Distributions received", value: "$90,000" },
+      { label: "Earned, pending receipt (Apr 21)", value: "$25,000", color: "yellow" },
+      { label: "Total distributions", value: "$115,000" },
+      { label: "Total economic benefit", value: "$275,950", color: "green" },
+      { label: "Net cost after tax benefit", value: "$339,050" },
+      { label: "Tax-adj cumulative return", value: "55.00%", color: "green" }
+    ]
+  },
+
+  // ── Performance section (opt-in) ─────────────────────────────────────
+  performance: {
+    enabled: true,
+    showReturnChart: true,
+    economicBenefit: {
+      enabled: true,
+      title: "Sample Energy LP — Economic Benefit Breakdown",
+      slices: [
+        { label: "Distributions Received", subLabel: "$90,000 · 26%",   value: 90000,  color: "#16a97a" },
+        { label: "Est. Tax Benefit",       subLabel: "~$160,950 · 47%", value: 160950, color: "#4f8ef7" },
+        { label: "Net Cost Remaining",     subLabel: "~$93,050 · 27%",  value: 93050,  color: "#94a3b8" }
+      ]
+    }
+  },
+
+  // ── Cash Balance Life Insurance (opt-in) ─────────────────────────────
+  lifeInsurance: {
+    enabled: false,   // ← set to true to show this section
+    description: "Life insurance policies funded through the Cash Balance Plan using <strong>pre-tax premiums</strong>. Coverage is distributed out of the plan at a reduced tax obligation — a more efficient exit strategy than a direct taxable plan distribution. Proceeds pass to beneficiaries with favorable tax treatment.",
+    policies: [
+      {
+        name: "Insured A",
+        subtitle: "Cash Balance Basic Life Coverage",
+        deathBenefit: 1000000,
+        premiumPaid: 140000,
+        paymentsMade: 1,
+        totalPayments: 7,
+        lastPaymentDate: "12/26/2025"
+      },
+      {
+        name: "Insured B",
+        subtitle: "Cash Balance Basic Life Coverage",
+        deathBenefit: 2000000,
+        premiumPaid: 160000,
+        paymentsMade: 1,
+        totalPayments: 7,
+        lastPaymentDate: "12/26/2025"
+      }
+    ],
+    taxStrategyNote: "Premiums paid <strong>pre-tax</strong> from Cash Balance Plan assets — benefits distributed out of plan at a significantly reduced tax obligation vs. a direct plan withdrawal.",
+    legend: "Replace 'Insured A / B' with the actual covered individuals. 6 remaining premium payments each in this sample."
+  }
+};
+/* ═══════════════════════════════════════════════════════════════════════
+   ▲▲▲ EDIT ABOVE — rendering code below (no need to touch usually) ▲▲▲
+   ═══════════════════════════════════════════════════════════════════════ */
+
+
+/* ─── Helpers ──────────────────────────────────────────────────────── */
+const fmt = {
+  money: (n, decimals=0) => {
+    if (n === null || n === undefined) return "—";
+    const sign = n < 0 ? "–" : "";
+    const abs = Math.abs(n);
+    return sign + "$" + abs.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  },
+  moneyShort: (n) => {
+    if (n === null || n === undefined) return "—";
+    const sign = n < 0 ? "–" : "";
+    const abs = Math.abs(n);
+    if (abs >= 1e6) return sign + "$" + (abs/1e6).toFixed(2) + "M";
+    if (abs >= 1e3) return sign + "$" + (abs/1e3).toFixed(0) + "K";
+    return sign + "$" + abs.toFixed(0);
+  },
+  pct: (n, decimals=1) => {
+    if (n === null || n === undefined) return "—";
+    const sign = n >= 0 ? "+" : "–";
+    return sign + Math.abs(n).toFixed(decimals) + "%";
+  },
+  signed: (n) => (n >= 0 ? "+" : "–") + fmt.money(Math.abs(n))
+};
+
+/* asset-class → badge css class + chart color */
+const CLASS_META = {
+  "Private":         { badge: "b-priv", color: "#f5c542", strokeColor: "#e6b800" },
+  "Public Equities": { badge: "b-pub",  color: "#4f8ef7", strokeColor: "#2563eb" },
+  "Public":          { badge: "b-pub",  color: "#f05c6e", strokeColor: "#dc2626" },
+  "Alternatives":    { badge: "b-alt",  color: "#9b6ef7", strokeColor: "#7c3aed" }
+};
+const classMeta = (cls) => CLASS_META[cls] || { badge: "b-fi", color: "#94a3b8", strokeColor: "#64748b" };
+
+/* derive a return % for an investment (uses tax-adj override if present) */
+function investmentReturnPct(inv) {
+  if (typeof inv.taxAdjustedReturnPct === 'number') return inv.taxAdjustedReturnPct;
+  if (typeof inv.annualizedIRR === 'number')        return inv.annualizedIRR;
+  if (!inv.costBasis) return 0;
+  return ((inv.currentValue - inv.costBasis) / inv.costBasis) * 100;
+}
+
+/* derive a gain/loss $ figure */
+function investmentGain(inv) {
+  if (inv.assetClass === "Alternatives" && typeof inv.taxAdjustedReturnPct === 'number') {
+    // gain expressed as cost × tax-adj return %
+    return inv.costBasis * (inv.taxAdjustedReturnPct / 100);
+  }
+  return inv.currentValue - inv.costBasis;
+}
+
+/* derive benchmark status from explicit field, else from return sign */
+function benchmarkOf(inv) {
+  if (inv.benchmark) return inv.benchmark;
+  const r = investmentReturnPct(inv);
+  if (r > 1) return "above";
+  if (r < -1) return "below";
+  return "inline";
+}
+
+
+/* ─── Section: Header ──────────────────────────────────────────────── */
+function renderHeader(d) {
+  const total = d.investments.reduce((s,i) => s + (i.currentValue || 0), 0);
+  document.title = `Quarterly Investment Review — ${d.quarter} — ${d.client}`;
+  document.getElementById('header-mount').innerHTML = `
+    <div class="header">
+      <div>
+        <h1>${d.client} — Quarterly Investment <span>Review</span></h1>
+        <p>${d.quarter} · As of ${d.asOfDate} · All figures in ${d.currency} · ${d.firmFooter}</p>
+      </div>
+      <div class="hbadge">
+        <div class="lbl">Total Portfolio Value</div>
+        <div class="val">${fmt.money(total)}</div>
+      </div>
+    </div>`;
+}
+
+
+/* ─── Section: KPIs ────────────────────────────────────────────────── */
+function renderKPIs(d) {
+  const totalValue = d.investments.reduce((s,i) => s + (i.currentValue || 0), 0);
+  const totalCost  = d.investments.reduce((s,i) => s + (i.costBasis || 0), 0);
+  const totalGain  = d.investments.reduce((s,i) => s + investmentGain(i), 0);
+  const overallReturnPct = totalCost ? (totalGain / totalCost) * 100 : 0;
+  const aboveCount = d.investments.filter(i => benchmarkOf(i) === "above").length;
+  const totalCount = d.investments.length;
+
+  document.getElementById('kpi-mount').innerHTML = `
+    <div class="sec">Portfolio at a Glance</div>
+    <div class="kpi-grid">
+      <div class="kpi kbl">
+        <div class="icon">💼</div>
+        <div class="lbl">Total Portfolio Value</div>
+        <div class="val">${fmt.moneyShort(totalValue)}</div>
+        <div class="sub">${totalCount} active position${totalCount===1?'':'s'}</div>
+      </div>
+      <div class="kpi kgr">
+        <div class="icon">📈</div>
+        <div class="lbl">Total Gain / (Loss)</div>
+        <div class="val">${(totalGain>=0?'+':'')}${fmt.moneyShort(totalGain)}</div>
+        <div class="sub">vs ${fmt.moneyShort(totalCost)} cost basis</div>
+      </div>
+      <div class="kpi kye">
+        <div class="icon">🎯</div>
+        <div class="lbl">Overall Return</div>
+        <div class="val">${fmt.pct(overallReturnPct)}</div>
+        <div class="sub">Aggregate, weighted by capital</div>
+      </div>
+      <div class="kpi kpu">
+        <div class="icon">🏆</div>
+        <div class="lbl">Above Benchmark</div>
+        <div class="val">${aboveCount} / ${totalCount}</div>
+        <div class="sub">${totalCount - aboveCount} at-or-below</div>
+      </div>
+    </div>`;
+}
+
+
+/* ─── Section: Allocation Donut + Cost-vs-Value bar ────────────────── */
+function renderCharts(d) {
+  document.getElementById('charts-mount').innerHTML = `
+    <div class="sec">Allocation & Value Breakdown</div>
+    <div class="charts-row">
+      <div class="card">
+        <h3>Allocation by Investment</h3>
+        <div id="alloc-donut" style="width:100%;height:270px;"></div>
+        <div class="alloc-leg" id="alloc-legend"></div>
+      </div>
+      <div class="card">
+        <h3>Cost Basis vs. Current Value — by Investment</h3>
+        <div id="cost-value-bar"></div>
+      </div>
+    </div>`;
+
+  // Donut: per-investment slices, colored by asset class
+  const totalValue = d.investments.reduce((s,i) => s + (i.currentValue || 0), 0);
+  const slices = d.investments.map(inv => {
+    const cm = classMeta(inv.assetClass);
+    return {
+      value: inv.currentValue || 0,
+      color: cm.color,
+      label: inv.name,
+      pct: totalValue ? (inv.currentValue / totalValue * 100) : 0
+    };
+  });
+  buildDonut('alloc-donut', slices, 122, 135, 118, 67, [], 270, 270);
+
+  // Legend: investment name + bar + %
+  const legendHtml = d.investments.map(inv => {
+    const cm = classMeta(inv.assetClass);
+    const pct = totalValue ? (inv.currentValue / totalValue * 100) : 0;
+    return `
+      <div class="leg-row">
+        <span class="leg-dot" style="background:${cm.color}"></span>
+        <span style="flex:0 0 120px;color:var(--text);font-size:.72rem">${inv.name}</span>
+        <div class="leg-bar-bg"><div class="leg-bar-fill" style="width:${pct.toFixed(1)}%;background:${cm.color}"></div></div>
+        <span class="leg-pct" style="color:${cm.strokeColor}">${pct.toFixed(1)}%</span>
+      </div>`;
+  }).join('');
+  document.getElementById('alloc-legend').innerHTML = legendHtml;
+
+  // Cost vs Value bar chart
+  renderCostValueBar(d);
+}
+
+function renderCostValueBar(d) {
+  const invs = d.investments;
+  const maxVal = Math.max(...invs.flatMap(i => [i.costBasis||0, i.currentValue||0, (i.distributions||0)+(i.pendingDistributions||0)]));
+  // Round max up to "nice" tick
+  const ticks = [0.5e6, 1e6, 1.5e6, 2e6, 2.5e6, 3e6, 5e6, 10e6];
+  const niceMax = ticks.find(t => t >= maxVal) || (Math.ceil(maxVal/1e6)*1e6);
+
+  // Layout
+  const W = 600, H = 290;
+  const yTop = 20, yBot = 240;
+  const xLeft = 60, xRight = 580;
+  const chartW = xRight - xLeft;
+  const chartH = yBot - yTop;
+  const v2y = (v) => yBot - (v / niceMax) * chartH;
+  const fmtTick = (v) => v >= 1e6 ? `$${(v/1e6).toFixed(v%1e6===0?0:1)}M` : `$${v/1e3}K`;
+
+  // 5 grid lines
+  const gridSteps = 4;
+  let svg = `<svg class="svg-chart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,system-ui,sans-serif">`;
+  for (let i = 0; i <= gridSteps; i++) {
+    const v = niceMax * (i / gridSteps);
+    const y = yBot - (i / gridSteps) * chartH;
+    svg += `<line x1="${xLeft}" y1="${y}" x2="${xRight}" y2="${y}" stroke="${i===0?'#e0e3ea':'#e8eaea'}" stroke-width="1"/>`;
+    svg += `<text x="${xLeft-6}" y="${y+4}" text-anchor="end" font-size="10" fill="#6b7280">${fmtTick(v)}</text>`;
+  }
+
+  // Bars: 2 (or 3 if distributions) per investment, group width auto
+  const groupCount = invs.length;
+  const groupGap = 14;
+  const groupW = (chartW - groupGap*(groupCount+1)) / groupCount;
+  invs.forEach((inv, idx) => {
+    const groupX = xLeft + groupGap + idx * (groupW + groupGap);
+    const hasDist = (inv.distributions || inv.pendingDistributions);
+    const barCount = hasDist ? 3 : 2;
+    const barGap = 4;
+    const barW = Math.max(8, (groupW - barGap*(barCount-1)) / barCount);
+
+    // Cost bar
+    const costH = (inv.costBasis||0) / niceMax * chartH;
+    svg += `<rect x="${groupX}" y="${yBot-costH}" width="${barW}" height="${costH}" rx="3" fill="rgba(79,142,247,0.4)" stroke="#4f8ef7" stroke-width="1"/>`;
+    // Current value bar
+    const valH = (inv.currentValue||0) / niceMax * chartH;
+    svg += `<rect x="${groupX+barW+barGap}" y="${yBot-valH}" width="${barW}" height="${valH}" rx="3" fill="rgba(155,110,247,0.6)" stroke="#9b6ef7" stroke-width="1"/>`;
+    // Distributions bar (if applicable)
+    if (hasDist) {
+      const distVal = (inv.distributions||0) + (inv.pendingDistributions||0);
+      const distH = distVal / niceMax * chartH;
+      svg += `<rect x="${groupX+(barW+barGap)*2}" y="${yBot-distH}" width="${barW}" height="${distH}" rx="3" fill="rgba(22,169,122,0.65)" stroke="#16a97a" stroke-width="1"/>`;
+    }
+    // Label
+    const labelX = groupX + groupW/2;
+    const shortName = inv.name.length > 14 ? inv.name.slice(0,12)+'…' : inv.name;
+    svg += `<text x="${labelX}" y="${yBot+18}" text-anchor="middle" font-size="10" fill="#6b7280">${shortName}</text>`;
+  });
+
+  // Legend
+  svg += `
+    <rect x="62"  y="272" width="10" height="10" rx="2" fill="rgba(79,142,247,0.4)" stroke="#4f8ef7" stroke-width="1"/>
+    <text x="76"  y="281" font-size="10" fill="#6b7280">Cost Basis</text>
+    <rect x="155" y="272" width="10" height="10" rx="2" fill="rgba(155,110,247,0.6)" stroke="#9b6ef7" stroke-width="1"/>
+    <text x="169" y="281" font-size="10" fill="#6b7280">Current Value</text>
+    <rect x="262" y="272" width="10" height="10" rx="2" fill="rgba(22,169,122,0.65)" stroke="#16a97a" stroke-width="1"/>
+    <text x="276" y="281" font-size="10" fill="#6b7280">Distributions (incl. Pending)</text>
+  </svg>`;
+
+  document.getElementById('cost-value-bar').innerHTML = svg;
+}
+
+
+/* ─── Section: Investment Detail Cards ─────────────────────────────── */
+function renderInvestments(d) {
+  const cards = d.investments.map(inv => renderInvestmentCard(inv)).join('');
+  document.getElementById('investments-mount').innerHTML = `
+    <div class="sec">Investment Detail</div>
+    <div class="inv-grid">${cards}</div>`;
+}
+
+function renderInvestmentCard(inv) {
+  const cm = classMeta(inv.assetClass);
+  const bench = benchmarkOf(inv);
+  const benchChip = {
+    above:  '<span class="flag-chip f-above">✅ Above Benchmark</span>',
+    inline: '<span class="flag-chip f-inline">— In-line</span>',
+    below:  '<span class="flag-chip f-below">❌ Below Benchmark</span>'
+  }[bench];
+
+  const gain = investmentGain(inv);
+  const ret  = investmentReturnPct(inv);
+  const gainClass = gain >= 0 ? 'gain' : 'loss';
+  const retClass  = ret  >= 0 ? 'gain' : 'loss';
+
+  // Build metric tiles based on what data is present
+  const metrics = [];
+  metrics.push({ l: "Current Value", v: fmt.money(inv.currentValue), cls: 'neut' });
+  metrics.push({ l: "Cost Basis", v: fmt.money(inv.costBasis), cls: 'neut' });
+
+  if (inv.distributions !== undefined) {
+    metrics.push({ l: "Distributions", v: fmt.money(inv.distributions), cls: 'gain' });
+  } else {
+    metrics.push({ l: gain>=0 ? "Unrealized Gain" : "Unrealized Loss", v: (gain>=0?'+':'–')+fmt.money(Math.abs(gain)), cls: gainClass });
+  }
+
+  if (inv.pendingDistributions) {
+    metrics.push({ l: `Pending ${inv.pendingDate||''}`.trim(), v: fmt.money(inv.pendingDistributions), cls: 'neut', style: 'color:var(--yellow)' });
+  }
+
+  if (typeof inv.taxAdjustedReturnPct === 'number') {
+    metrics.push({ l: "Tax-Adj Return", v: fmt.pct(inv.taxAdjustedReturnPct), cls: 'neut', style: 'color:var(--purple)' });
+  } else {
+    metrics.push({ l: "Total Return", v: fmt.pct(ret), cls: retClass });
+  }
+
+  if (typeof inv.annualizedReturnPct === 'number') {
+    metrics.push({ l: "Annualized", v: fmt.pct(inv.annualizedReturnPct), cls: 'neut', style: 'color:var(--purple)' });
+  } else if (typeof inv.annualizedIRR === 'number') {
+    metrics.push({ l: "Annualized IRR", v: fmt.pct(inv.annualizedIRR), cls: 'gain' });
+  }
+
+  if (inv.entryPrice !== undefined) {
+    metrics.push({ l: "Entry Price", v: '$'+inv.entryPrice.toFixed(2), cls: 'neut' });
+  }
+  if (inv.currentPrice !== undefined) {
+    const priceClass = inv.currentPrice >= (inv.entryPrice||0) ? 'gain' : 'loss';
+    metrics.push({ l: "Current Price"+(inv.currentPriceFootnote?'*':''), v: '~$'+inv.currentPrice.toFixed(2), cls: priceClass });
+  }
+  if (inv.inceptionDate) {
+    metrics.push({ l: "Inception", v: inv.inceptionDate, cls: 'neut' });
+  }
+
+  // Limit to 6 metric tiles for visual balance
+  const metricTiles = metrics.slice(0,6).map(m =>
+    `<div class="m"><div class="ml">${m.l}</div><div class="mv ${m.cls}" style="${m.style||''}">${m.v}</div></div>`
+  ).join('');
+
+  // Progress bar
+  const pbarPct = Math.min(Math.abs(ret), 100);
+  const pbarColor = ret >= 0 ? (typeof inv.taxAdjustedReturnPct==='number'?'var(--purple)':'var(--green)') : 'var(--red)';
+  const pbarLbl = ret >= 0 ? 'Return vs cost' : 'Loss vs cost';
+
+  // Footnotes
+  const fnotes = [];
+  if (inv.entryDate || inv.shares || inv.tvpi || inv.irr) {
+    const parts = [];
+    if (inv.entryDate)         parts.push(`Entry: ${inv.entryDate}`);
+    if (inv.shares !== undefined) parts.push(`${inv.shares.toLocaleString()} shares`);
+    if (typeof inv.tvpi === 'number') parts.push(`TVPI: ${inv.tvpi}x`);
+    if (typeof inv.irr === 'number')  parts.push(`IRR: ${fmt.pct(inv.irr)}`);
+    fnotes.push(parts.join(' · '));
+  }
+  if (inv.footer) fnotes.push(inv.footer);
+  if (inv.currentPriceFootnote) fnotes.push('* '+inv.currentPriceFootnote);
+
+  return `
+    <div class="inv-card">
+      <div class="inv-head">
+        <div>
+          <div class="inv-name">${inv.icon||''} ${inv.name}</div>
+          <div class="inv-sub">${inv.subtitle||''}</div>
+        </div>
+        <span class="badge ${cm.badge}">${inv.assetClass}</span>
+      </div>
+      <div class="metrics">${metricTiles}</div>
+      <div class="pbar-row">
+        <span class="pbar-lbl">${pbarLbl}</span>
+        <div class="pbar-bg"><div class="pbar-fill" style="width:${pbarPct}%;background:${pbarColor}"></div></div>
+        <span class="pbar-val ${retClass}" style="${typeof inv.taxAdjustedReturnPct==='number'?'color:var(--purple)':''}">${fmt.pct(ret)}</span>
+      </div>
+      ${fnotes.map(n => `<div class="fnote">${n}</div>`).join('')}
+      ${benchChip}
+    </div>`;
+}
+
+
+/* ─── Section: Tax-benefit callout ─────────────────────────────────── */
+function renderCallout(d) {
+  if (!d.taxCallout || !d.taxCallout.enabled) return;
+  const c = d.taxCallout;
+  const colorMap = { green:'var(--green)', yellow:'var(--yellow)', red:'var(--red)', purple:'var(--purple)' };
+  const items = c.items.map(i => {
+    const colorStyle = i.color ? `color:${colorMap[i.color]||i.color}` : 'color:var(--text)';
+    return `<strong style="${colorStyle}">${i.value}</strong> <span style="opacity:.85">${i.label}</span>`;
+  }).join(' &nbsp;·&nbsp; ');
+
+  document.getElementById('callout-mount').innerHTML = `
+    <div class="callout">
+      <div class="callout-icon">${c.icon||'💡'}</div>
+      <div>
+        <div class="callout-title">${c.title}</div>
+        <div class="callout-body">${items}</div>
+      </div>
+    </div>`;
+}
+
+
+/* ─── Section: Summary table ───────────────────────────────────────── */
+function renderTable(d) {
+  const totalValue = d.investments.reduce((s,i) => s + (i.currentValue||0), 0);
+  const totalCost  = d.investments.reduce((s,i) => s + (i.costBasis||0), 0);
+  const totalGain  = d.investments.reduce((s,i) => s + investmentGain(i), 0);
+  const overallReturn = totalCost ? (totalGain/totalCost)*100 : 0;
+
+  const rows = d.investments.map(inv => {
+    const cm = classMeta(inv.assetClass);
+    const gain = investmentGain(inv);
+    const ret  = investmentReturnPct(inv);
+    const allocPct = totalValue ? (inv.currentValue/totalValue*100) : 0;
+    const bench = benchmarkOf(inv);
+    const benchChip = {
+      above:  '<span class="flag-chip f-above" style="margin:0;padding:2px 8px;font-size:.63rem">✅ Above</span>',
+      inline: '<span class="flag-chip f-inline" style="margin:0;padding:2px 8px;font-size:.63rem">— In-line</span>',
+      below:  '<span class="flag-chip f-below" style="margin:0;padding:2px 8px;font-size:.63rem">❌ Below</span>'
+    }[bench];
+    const gainClass = gain>=0 ? 'gain' : 'loss';
+    return `
+      <tr>
+        <td><span class="tdot" style="background:${cm.color}"></span>${inv.icon||''} ${inv.name}</td>
+        <td>${inv.assetClass}</td>
+        <td>${fmt.money(inv.costBasis)}</td>
+        <td>${fmt.money(inv.currentValue)}</td>
+        <td class="${gainClass}">${(gain>=0?'+':'–')}${fmt.money(Math.abs(gain))}</td>
+        <td class="${gainClass}">${fmt.pct(ret)}</td>
+        <td>${allocPct.toFixed(1)}%</td>
+        <td>${benchChip}</td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('table-mount').innerHTML = `
+    <div class="sec">Portfolio Summary Table</div>
+    <div class="card" style="overflow:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th>Investment</th><th>Asset Class</th><th>Cost Basis</th><th>Current Value</th>
+          <th>Gain / (Loss)</th><th>Return</th><th>Allocation</th><th>Status</th>
+        </tr></thead>
+        <tbody>
+          ${rows}
+          <tr class="tot">
+            <td colspan="2"><strong>TOTAL PORTFOLIO</strong></td>
+            <td><strong>${fmt.money(totalCost)}</strong></td>
+            <td><strong>${fmt.money(totalValue)}</strong></td>
+            <td class="${totalGain>=0?'gain':'loss'}"><strong>${(totalGain>=0?'+':'–')}${fmt.money(Math.abs(totalGain))}</strong></td>
+            <td class="${totalGain>=0?'gain':'loss'}"><strong>${fmt.pct(overallReturn)}</strong></td>
+            <td><strong>100%</strong></td><td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+
+/* ─── Section: Performance — return chart + economic benefit ───────── */
+function renderPerformance(d) {
+  const p = d.performance;
+  if (!p || !p.enabled) return;
+
+  let html = '<div class="sec">Return & Performance Analysis</div><div class="perf-row">';
+
+  if (p.showReturnChart) {
+    html += `<div class="card"><h3>Return by Investment (%)</h3><div id="return-chart"></div></div>`;
+  }
+  if (p.economicBenefit && p.economicBenefit.enabled) {
+    html += `<div class="card"><h3>${p.economicBenefit.title||'Economic Benefit'}</h3><div id="ebenefit-donut" style="width:100%;height:260px;"></div></div>`;
+  }
+  html += '</div>';
+  document.getElementById('performance-mount').innerHTML = html;
+
+  if (p.showReturnChart) renderReturnChart(d);
+  if (p.economicBenefit && p.economicBenefit.enabled) renderEconomicDonut(p.economicBenefit);
+}
+
+function renderReturnChart(d) {
+  const invs = d.investments;
+  const returns = invs.map(i => investmentReturnPct(i));
+  const minR = Math.min(0, ...returns);
+  const maxR = Math.max(0, ...returns);
+  // Pad
+  const pad = Math.max(10, (maxR - minR) * 0.05);
+  const lo = Math.floor((minR - pad)/10)*10;
+  const hi = Math.ceil((maxR + pad)/10)*10;
+  const range = hi - lo;
+
+  const W = 580, H = 30 + invs.length * 47;
+  const xLeft = 60, xRight = 540;
+  const chartW = xRight - xLeft;
+  const xZero = xLeft + ((0 - lo)/range)*chartW;
+
+  let svg = `<svg class="svg-chart" viewBox="0 0 ${W} ${H+30}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,system-ui,sans-serif">`;
+
+  // Gridlines (every 50%)
+  const tickStep = range > 300 ? 100 : (range > 100 ? 50 : 25);
+  for (let v = Math.ceil(lo/tickStep)*tickStep; v <= hi; v += tickStep) {
+    const x = xLeft + ((v - lo)/range)*chartW;
+    svg += `<line x1="${x}" y1="10" x2="${x}" y2="${H-30}" stroke="${v===0?'#cbd5e1':'#eff1f3'}" stroke-width="${v===0?1.5:1}"/>`;
+    svg += `<text x="${x}" y="${H-15}" text-anchor="middle" font-size="9.5" fill="#6b7280">${v>0?'+':''}${v}%</text>`;
+  }
+
+  // Bars
+  invs.forEach((inv, idx) => {
+    const ret = returns[idx];
+    const yMid = 30 + idx * 47;
+    const yBar = yMid - 12;
+    const cm = classMeta(inv.assetClass);
+    const isTaxAdj = typeof inv.taxAdjustedReturnPct === 'number';
+    const fill = isTaxAdj ? 'rgba(124,58,237,0.6)' : (ret >= 0 ? 'rgba(22,169,122,0.65)' : 'rgba(220,38,38,0.6)');
+    const stroke = isTaxAdj ? '#7c3aed' : (ret >= 0 ? '#16a97a' : '#dc2626');
+
+    svg += `<text x="${xZero-6}" y="${yMid+3}" text-anchor="end" font-size="10.5" fill="#1a1d2e" font-weight="600">${inv.name}</text>`;
+
+    if (ret >= 0) {
+      const w = (ret/range)*chartW;
+      svg += `<rect x="${xZero}" y="${yBar}" width="${w}" height="24" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="0"/>`;
+      svg += `<text x="${xZero+w+5}" y="${yMid+3}" font-size="10" fill="${stroke}" font-weight="700">${fmt.pct(ret)}</text>`;
+    } else {
+      const w = (Math.abs(ret)/range)*chartW;
+      svg += `<rect x="${xZero-w}" y="${yBar}" width="${w}" height="24" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="0"/>`;
+      svg += `<text x="${xZero-w-5}" y="${yMid+3}" text-anchor="end" font-size="10" fill="${stroke}" font-weight="700">${fmt.pct(ret)}</text>`;
+    }
+  });
+
+  svg += '</svg>';
+  document.getElementById('return-chart').innerHTML = svg;
+}
+
+function renderEconomicDonut(eb) {
+  const slices = eb.slices.map(s => ({ value: s.value, color: s.color }));
+  const legend = eb.slices.map(s => ({
+    color: s.color,
+    stroke: s.color,
+    line1: s.label,
+    line2: s.subLabel
+  }));
+  buildDonut('ebenefit-donut', slices, 110, 130, 95, 54, legend, 500, 260);
+}
+
+
+/* ─── Section: Life Insurance ──────────────────────────────────────── */
+function renderLifeInsurance(d) {
+  if (!d.lifeInsurance || !d.lifeInsurance.enabled) return;
+  const li = d.lifeInsurance;
+
+  const cards = li.policies.map(p => {
+    const progPct = (p.paymentsMade / p.totalPayments) * 100;
+    return `
+      <div class="life-card">
+        <div class="life-head">
+          <div>
+            <div style="font-size:.93rem;font-weight:700">👤 ${p.name}</div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:2px">${p.subtitle||''}</div>
+          </div>
+          <span class="badge b-fi">Active</span>
+        </div>
+        <div class="life-metrics">
+          <div class="life-m"><div class="ll">Death Benefit</div><div class="lv gain">${fmt.money(p.deathBenefit)}</div></div>
+          <div class="life-m"><div class="ll">Premium Paid (Pre-Tax)</div><div class="lv neut">${fmt.money(p.premiumPaid)}</div></div>
+          <div class="life-m"><div class="ll">Payments Made</div><div class="lv neut">${p.paymentsMade} of ${p.totalPayments}</div></div>
+          <div class="life-m" style="border-color:rgba(217,119,6,.25)"><div class="ll">Last Payment Date</div><div class="lv" style="color:var(--yellow)">${p.lastPaymentDate}</div></div>
+        </div>
+        <div class="prog-wrap">
+          <div class="prog-lbl">Premium schedule — ${p.paymentsMade} of ${p.totalPayments} payments</div>
+          <div class="prog-track"><div class="prog-fill" style="width:${progPct}%"></div></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const totalDeath = li.policies.reduce((s,p)=>s+p.deathBenefit,0);
+  const totalPrem  = li.policies.reduce((s,p)=>s+p.premiumPaid,0);
+  const remaining  = li.policies[0] ? (li.policies[0].totalPayments - li.policies[0].paymentsMade) : 0;
+
+  document.getElementById('life-mount').innerHTML = `
+    <div class="sec">Cash Balance Life Insurance Coverage</div>
+    <div class="card">
+      <div style="font-size:.73rem;color:var(--muted);line-height:1.7;margin-bottom:14px">
+        <strong style="color:var(--text)">Purpose:</strong> ${li.description||''}
+      </div>
+      <div class="life-grid">${cards}</div>
+      <div class="life-combined">
+        <div class="lc-item"><div class="lci-l">Combined Death Benefit</div><div class="lci-v gain">${fmt.money(totalDeath)}</div></div>
+        <div class="lc-item"><div class="lci-l">Total Premiums Paid (Pre-Tax)</div><div class="lci-v neut">${fmt.money(totalPrem)}</div></div>
+        <div class="lc-item"><div class="lci-l">Remaining Premiums</div><div class="lci-v" style="color:var(--muted)">${remaining} payments each</div></div>
+        <div class="lc-item" style="flex:1;min-width:200px">
+          <div class="lci-l">Tax Strategy</div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:4px;line-height:1.5">${li.taxStrategyNote||''}</div>
+        </div>
+      </div>
+      ${li.legend ? `<div style="margin-top:10px;font-size:.67rem;color:var(--muted)">${li.legend}</div>` : ''}
+    </div>`;
+}
+
+
+/* ─── Section: Footer ──────────────────────────────────────────────── */
+function renderFooter(d) {
+  document.getElementById('footer-mount').innerHTML = `
+    <div class="footer">
+      Quarterly Investment Review · ${d.quarter} · As of ${d.asOfDate} · ${d.firmFooter} · Generated by Pyle Quarterly Simple
+    </div>`;
+}
+
+
+/* ─── Donut builder (shared with allocation + economic-benefit) ────── */
+function buildDonut(containerId, slices, cx, cy, R, r, legendItems, VW, VH){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const total = slices.reduce((s,sl)=>s+sl.value,0);
+  if (total <= 0) { container.innerHTML = '<div style="color:var(--muted);font-size:.75rem;padding:20px">No data</div>'; return; }
+
+  const parts = [`<svg width="100%" height="${VH}" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMinYMid meet" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,system-ui,sans-serif">`];
+  let startAngle = -Math.PI/2;
+  slices.forEach(sl => {
+    const sweep = (sl.value/total)*2*Math.PI;
+    const endAngle = startAngle + sweep;
+    const x1=cx+R*Math.cos(startAngle), y1=cy+R*Math.sin(startAngle);
+    const x2=cx+R*Math.cos(endAngle),   y2=cy+R*Math.sin(endAngle);
+    const x3=cx+r*Math.cos(endAngle),   y3=cy+r*Math.sin(endAngle);
+    const x4=cx+r*Math.cos(startAngle), y4=cy+r*Math.sin(startAngle);
+    const large = sweep>Math.PI?1:0;
+    const d = `M ${x1.toFixed(2)} ${y1.toFixed(2)}
+               A ${R} ${R} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}
+               L ${x3.toFixed(2)} ${y3.toFixed(2)}
+               A ${r} ${r} 0 ${large} 0 ${x4.toFixed(2)} ${y4.toFixed(2)} Z`;
+    parts.push(`<path d="${d}" fill="${sl.color}" stroke="#fff" stroke-width="2"/>`);
+    const midA = startAngle + sweep/2;
+    const lR = (R+r)/2;
+    const lx = cx+lR*Math.cos(midA), ly = cy+lR*Math.sin(midA);
+    const pct = Math.round(sl.value/total*100);
+    if(pct>=8){
+      parts.push(`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="10.5" font-weight="700" fill="#fff">${pct}%</text>`);
+    }
+    startAngle = endAngle;
+  });
+  // Legend (only if items provided)
+  if (legendItems && legendItems.length){
+    const legX = cx + R + 22;
+    const legSpacing = 36;
+    const legY = cy - ((legendItems.length - 1) * legSpacing) / 2;
+    legendItems.forEach((li,i) => {
+      const y = legY + i*legSpacing;
+      parts.push(`<rect x="${legX}" y="${y-6}" width="12" height="12" rx="3" fill="${li.color}" stroke="${li.stroke}" stroke-width="1"/>`);
+      parts.push(`<text x="${legX+17}" y="${y}" font-size="11" fill="#1a1d2e" dominant-baseline="central" font-weight="500">${li.line1}</text>`);
+      if(li.line2){
+        parts.push(`<text x="${legX+17}" y="${y+15}" font-size="10" fill="#6b7280" dominant-baseline="central">${li.line2}</text>`);
+      }
+    });
+  }
+  parts.push('</svg>');
+  container.innerHTML = parts.join('');
+}
+
+
+/* ─── Render everything ────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  renderHeader(QIR_DATA);
+  renderKPIs(QIR_DATA);
+  renderCharts(QIR_DATA);
+  renderInvestments(QIR_DATA);
+  renderCallout(QIR_DATA);
+  renderTable(QIR_DATA);
+  renderPerformance(QIR_DATA);
+  renderLifeInsurance(QIR_DATA);
+  renderFooter(QIR_DATA);
+});
+</script>
+</body>
+</html>
