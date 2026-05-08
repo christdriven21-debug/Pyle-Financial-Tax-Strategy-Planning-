@@ -11,3 +11,5 @@ node_modules/
 # The template (qir-template.html, README.md) is committed; per-client
 # files under pyle-quarterly-simple/clients/ are not.
 pyle-quarterly-simple/clients/
+# The builder UI (with import/save toolbar) is for internal use only.
+pyle-quarterly-simple/qir-builder.html
