@@ -24847,7 +24847,21 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
         let hint = '';
         const msg = (error.message || '').toLowerCase();
         if (msg.includes('rate limit') || msg.includes('too many')) {
-          hint = ` — Supabase built-in SMTP has a per-address hourly cap (free tier: 4/hr; Pro tier: higher but still capped). The cap is by EMAIL ADDRESS. **Three fixes:** (1) try a DIFFERENT email address (e.g., Admin@pfs4u.com if you used Scott@pfs4u.com) — gives you a fresh address window immediately; (2) wait 60 minutes from your first attempt for the hourly reset; (3) click "Work Offline" to bypass cloud entirely — your SharePoint share-drive workflow doesn't need sign-in; (4) configure custom SMTP (Resend) per docs/setup/resend-and-subdomain.md Part 2 to remove the limit entirely.`;
+          // Track first hit of the active rate-limit window in localStorage so
+          // we can show a countdown — Supabase's window is 60 min from FIRST
+          // attempt, not from the latest one. Resets when user signs in
+          // successfully or when 60+ min pass.
+          const RATE_KEY = 'pyle-rate-limit-first-hit';
+          const now = Date.now();
+          let firstHit = parseInt(localStorage.getItem(RATE_KEY), 10);
+          if (!firstHit || (now - firstHit) > 60 * 60 * 1000) {
+            firstHit = now;
+            localStorage.setItem(RATE_KEY, String(now));
+          }
+          const resetAt = firstHit + 60 * 60 * 1000;
+          const minutesLeft = Math.max(0, Math.ceil((resetAt - now) / 60000));
+          const resetTimeStr = new Date(resetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          hint = ` — Supabase rate limit hit. <strong>Resets at ${resetTimeStr} (~${minutesLeft} min from now).</strong> Limits are per Supabase PROJECT, not per URL/subdomain — moving to plan.pylefinancialservices.com won't help. <strong>Real fixes:</strong> (1) click "Work Offline" → use SharePoint workflow, no sign-in needed; (2) configure Resend SMTP (docs/setup/resend-and-subdomain.md Part 2) → permanent removal of the limit; (3) just wait ${minutesLeft} min. <strong>Why timed out even when not working:</strong> the window is 60 min from your FIRST attempt of the active period — earlier testing counts.`;
         } else if (msg.includes('invalid') && msg.includes('redirect')) {
           hint = ' (Redirect URL not whitelisted — Supabase dashboard → Auth → URL Configuration → add ' + redirectUrl + ')';
         } else if (msg.includes('email') && msg.includes('disabled')) {
@@ -24892,6 +24906,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     refreshAuthState();
     if (event === 'SIGNED_IN') {
       setAuthMsg('');
+      // Clear rate-limit tracking — successful sign-in proves the window
+      // has reset; future attempts start fresh.
+      localStorage.removeItem('pyle-rate-limit-first-hit');
       if (!currentId) boot();
       armIdleTimer();
       // Log at most one 'signin' audit entry per user per 12 hours.
