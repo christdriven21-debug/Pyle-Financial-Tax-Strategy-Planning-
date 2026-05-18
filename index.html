@@ -24867,6 +24867,19 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       });
     });
     boundaries.sort((a, b) => a.idx - b.idx);
+    // eMoney emits both "Summary | Base Facts" AND "Details | Base Facts"
+    // versions of the same section, with the same data. Keep only the first
+    // (Summary) occurrence per section to avoid double-counting balance-sheet
+    // rows, liabilities, etc.
+    const seenSections = new Set();
+    const deduped = [];
+    for (const b of boundaries) {
+      if (seenSections.has(b.name)) continue;
+      seenSections.add(b.name);
+      deduped.push(b);
+    }
+    boundaries.length = 0;
+    boundaries.push(...deduped);
     // For each section, extract the slice and parse
     for (let i = 0; i < boundaries.length; i++) {
       const start = boundaries[i].idx;
@@ -24948,43 +24961,104 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (!addBSRow) return { fieldsFilled: 0, summary: 'BS editor not ready' };
 
     // Asset-class header detection — eMoney uses one-word labels followed
-    // by individual account items
+    // by individual account items. Includes both singular and plural variants
+    // (eMoney is inconsistent: "Roth IRAs", "Business Interests", etc.).
     const HEADER_TO_CLASS = {
-      'Cash':            { section: 'brokerage',   assetClass: 'cash_mmf' },
+      // Cash → dedicated cash section on the BS
+      'Cash':            { section: 'cash',        assetClass: 'cash_mmf' },
+      'Cash & Equivalents': { section: 'cash',     assetClass: 'cash_mmf' },
+      'Cash Equivalents':   { section: 'cash',     assetClass: 'cash_mmf' },
+      // Taxable brokerage / investment accounts
       'Brokerage':       { section: 'brokerage',   assetClass: 'mixed' },
+      'Brokerage Accounts': { section: 'brokerage', assetClass: 'mixed' },
+      'Taxable Investments': { section: 'brokerage', assetClass: 'mixed' },
+      'Taxable':         { section: 'brokerage',   assetClass: 'mixed' },
       'Equity':          { section: 'brokerage',   assetClass: 'equities' },
+      'Equities':        { section: 'brokerage',   assetClass: 'equities' },
       'Fixed Income':    { section: 'brokerage',   assetClass: 'fixed_income' },
       'Bonds':           { section: 'brokerage',   assetClass: 'fixed_income' },
       'Alternative':     { section: 'brokerage',   assetClass: 'alternatives' },
       'Alternatives':    { section: 'brokerage',   assetClass: 'alternatives' },
+      'Alternative Investments': { section: 'brokerage', assetClass: 'alternatives' },
       'Private Equity':  { section: 'brokerage',   assetClass: 'private_equity' },
       'Hedge':           { section: 'brokerage',   assetClass: 'hedge_funds' },
       'Hedge Fund':      { section: 'brokerage',   assetClass: 'hedge_funds' },
+      'Hedge Funds':     { section: 'brokerage',   assetClass: 'hedge_funds' },
       'Real Estate Investment': { section: 'brokerage', assetClass: 'real_estate' },
+      'REITs':           { section: 'brokerage',   assetClass: 'real_estate' },
       'Crypto':          { section: 'brokerage',   assetClass: 'crypto' },
+      'Cryptocurrency':  { section: 'brokerage',   assetClass: 'crypto' },
       'Digital Assets':  { section: 'brokerage',   assetClass: 'crypto' },
+      // Annuities
       'Annuity':         { section: 'other-assets', assetClass: 'other' },
       'Annuities':       { section: 'other-assets', assetClass: 'other' },
+      // Retirement accounts — singular AND plural variants eMoney uses
+      'Qualified Retirement Investments': { section: 'retirement', assetClass: 'mixed' },
+      'Qualified Retirement':              { section: 'retirement', assetClass: 'mixed' },
+      'Retirement Accounts':               { section: 'retirement', assetClass: 'mixed' },
+      'Retirement Investments':            { section: 'retirement', assetClass: 'mixed' },
       '401(k)':          { section: 'retirement',  assetClass: 'mixed' },
+      '401(k) Plans':    { section: 'retirement',  assetClass: 'mixed' },
+      '401(k)s':         { section: 'retirement',  assetClass: 'mixed' },
+      '403(b)':          { section: 'retirement',  assetClass: 'mixed' },
+      '457':             { section: 'retirement',  assetClass: 'mixed' },
       'IRA':             { section: 'retirement',  assetClass: 'mixed' },
+      'IRAs':            { section: 'retirement',  assetClass: 'mixed' },
+      'Traditional IRA':  { section: 'retirement', assetClass: 'mixed' },
+      'Traditional IRAs': { section: 'retirement', assetClass: 'mixed' },
+      'Inherited IRA':   { section: 'retirement',  assetClass: 'mixed' },
+      'Inherited IRAs':  { section: 'retirement',  assetClass: 'mixed' },
+      'SEP IRA':         { section: 'retirement',  assetClass: 'mixed' },
+      'SEP IRAs':        { section: 'retirement',  assetClass: 'mixed' },
+      'SIMPLE IRA':      { section: 'retirement',  assetClass: 'mixed' },
+      'SIMPLE IRAs':     { section: 'retirement',  assetClass: 'mixed' },
       'Roth IRA':        { section: 'retirement',  assetClass: 'mixed' },
+      'Roth IRAs':       { section: 'retirement',  assetClass: 'mixed' },
       'Roth':            { section: 'retirement',  assetClass: 'mixed' },
+      'Roth 401(k)':     { section: 'retirement',  assetClass: 'mixed' },
       'HSA':             { section: 'retirement',  assetClass: 'cash_mmf' },
+      'HSAs':            { section: 'retirement',  assetClass: 'cash_mmf' },
       'Pension':         { section: 'retirement',  assetClass: 'mixed' },
+      'Pensions':        { section: 'retirement',  assetClass: 'mixed' },
+      // Equity comp
       'Stock Options':   { section: 'other-assets', assetClass: 'concentrated' },
-      'Business Interest': { section: 'business',  assetClass: 'other' },
+      'RSUs':            { section: 'other-assets', assetClass: 'concentrated' },
+      'Restricted Stock': { section: 'other-assets', assetClass: 'concentrated' },
+      // Business interests — singular AND plural
+      'Business Interest':  { section: 'business', assetClass: 'other' },
+      'Business Interests': { section: 'business', assetClass: 'other' },
       'Business':        { section: 'business',    assetClass: 'other' },
+      'Businesses':      { section: 'business',    assetClass: 'other' },
+      // Notes / loans receivable (assets — money owed TO client)
+      'Notes Receivable': { section: 'other-assets', assetClass: 'fixed_income' },
+      'Note Receivable':  { section: 'other-assets', assetClass: 'fixed_income' },
+      'Loans Receivable': { section: 'other-assets', assetClass: 'fixed_income' },
+      // Other
       'Other Asset':     { section: 'other-assets', assetClass: 'other' },
       'Other Assets':    { section: 'other-assets', assetClass: 'other' },
+      '529 Plan':        { section: 'other-assets', assetClass: 'other' },
+      '529 Plans':       { section: 'other-assets', assetClass: 'other' },
     };
 
+    // Phrases that match the "item name" regex but are sub-block labels
+    // (beneficiary breakdowns, allocation notes). Skip when seen as a
+    // pseudo-item so they don't create zero-value phantom rows.
+    const SKIP_PHRASES = new Set([
+      'Primary Beneficiaries', 'Contingent Beneficiaries',
+      'Beneficiaries at Second Death', 'not specified',
+      'Assets', 'Liabilities', 'Realization Model',
+      'Equally to Children', 'Equally to Spouse',
+    ]);
+
     let currentClass = null;
+    let currentClassHeader = null;
     let i = 0;
     while (i < lines.length) {
       const line = lines[i];
       // Check if line is a class header (exact match, single line)
       if (HEADER_TO_CLASS[line]) {
         currentClass = HEADER_TO_CLASS[line];
+        currentClassHeader = line;
         i++;
         continue;
       }
@@ -24993,6 +25067,11 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       if (line.match(/^[A-Za-z0-9*].*[^:]$/) && !line.includes(':')) {
         // Skip if this is actually a known class header for next section
         if (HEADER_TO_CLASS[line]) continue;
+        // Skip beneficiary sub-block labels and other non-asset phrases
+        // (e.g., "Primary Beneficiaries", "Equally to Children (100.00%)")
+        if (SKIP_PHRASES.has(line)) { i++; continue; }
+        if (/^Equally to /.test(line)) { i++; continue; }
+        if (/^not specified$/i.test(line)) { i++; continue; }
         const itemName = line;
         const facts = {};
         let j = i + 1;
@@ -25010,8 +25089,18 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
         const valueMatch = valueStr.match(/\$([\d,]+(?:\.\d+)?)/);
         const value = valueMatch ? parseFloat(valueMatch[1].replace(/,/g, '')) : 0;
         if (value > 0) {
-          // Build a label with institution + owner context
-          const labelBits = [itemName.slice(0, 50)];
+          // Build a label with institution + owner context. For retirement
+          // section, prepend a class hint when the item name doesn't already
+          // carry one (Roth/IRA/401k/HSA) so the downstream auto-classifier
+          // can route to the correct bucket (ret-roth-ira / ret-401k / etc.).
+          let label = itemName.slice(0, 50);
+          if (currentClass.section === 'retirement') {
+            const hasHint = /\b(roth|ira|401\s*\(?k\)?|403\s*\(?b\)?|457|hsa|pension|sep|simple)\b/i.test(label);
+            if (!hasHint && currentClassHeader) {
+              label = `${currentClassHeader} — ${label}`.slice(0, 60);
+            }
+          }
+          const labelBits = [label];
           if (facts['Institution']) labelBits.push(facts['Institution'].split(' - ')[0].slice(0, 30));
           addBSRow(currentClass.section, {
             label: labelBits.join(' — ').slice(0, 80),
