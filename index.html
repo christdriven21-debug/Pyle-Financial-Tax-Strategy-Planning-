@@ -2964,6 +2964,7 @@
     <span class="auth-label">Sign in:</span>
     <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email">
     <button class="btn btn-gold btn-sm" id="btn-auth-signin">Send Magic Link</button>
+    <button class="btn btn-secondary btn-sm" id="btn-work-offline" title="Skip cloud sign-in. Use Save to Share Drive + Import Addepar + all planning features. No client data leaves your computer / SharePoint.">Work Offline</button>
   </div>
   <div class="auth-group hidden" id="auth-signed-in">
     <span class="auth-label">Signed in as</span>
@@ -25043,6 +25044,36 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   document.getElementById('btn-auth-signin').addEventListener('click', () => signIn(authEmailEl.value.trim()));
   authEmailEl.addEventListener('keydown', e => { if (e.key === 'Enter') signIn(authEmailEl.value.trim()); });
   document.getElementById('btn-auth-signout').addEventListener('click', signOut);
+  // Work Offline — bypasses cloud entirely for SharePoint-pattern firms.
+  // Hides the auth bar, sets a localStorage flag so it stays hidden across
+  // reloads, and shows a small "Working Offline" banner. All non-cloud
+  // features remain fully functional: Addepar import, Save to Share Drive,
+  // PDF export, plan generation. Cloud save/load/share stay disabled.
+  const workOfflineBtn = document.getElementById('btn-work-offline');
+  if (workOfflineBtn) workOfflineBtn.addEventListener('click', () => {
+    localStorage.setItem('pyle-work-offline', '1');
+    applyOfflineBanner();
+    setStatus('Working offline. Plan data stays on your share drive. To re-enable cloud sign-in, refresh the page and clear "work-offline" mode.', 'ok');
+    // Hide the entire auth bar
+    const authBar = document.getElementById('auth-bar');
+    if (authBar) authBar.style.display = 'none';
+  });
+  function applyOfflineBanner() {
+    if (localStorage.getItem('pyle-work-offline') !== '1') return;
+    if (document.getElementById('offline-banner')) return;
+    const b = document.createElement('div');
+    b.id = 'offline-banner';
+    b.style.cssText = 'background:#FFF8F0;border-bottom:2px solid var(--gold-dark);color:var(--ink);padding:6px 18px;text-align:center;font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:700;';
+    b.innerHTML = '🔒 Working Offline · Data stays on your share drive · <a href="#" onclick="localStorage.removeItem(\'pyle-work-offline\'); location.reload(); return false;" style="color:var(--crimson);text-decoration:underline;text-transform:none;letter-spacing:0;font-weight:400;">Switch to cloud sign-in</a>';
+    document.body.insertBefore(b, document.body.firstChild);
+    // Hide the auth bar
+    const authBar = document.getElementById('auth-bar');
+    if (authBar) authBar.style.display = 'none';
+  }
+  // Apply banner on page load if work-offline mode is active
+  if (localStorage.getItem('pyle-work-offline') === '1') {
+    applyOfflineBanner();
+  }
   // Mark wiring complete so the diagnostic fallback (inline script below
   // the auth bar) knows the proper handler attached. If this flag never
   // gets set, the fallback fires its own diagnostic so "nothing happens"
