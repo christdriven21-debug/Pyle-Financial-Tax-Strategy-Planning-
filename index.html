@@ -24545,25 +24545,27 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       // Strip XML tags → plain text with sentinel newlines on tag boundaries
       const text = xml.replace(/<[^>]+>/g, '\n').replace(/\n\s*\n+/g, '\n').trim();
 
-      // Route to section parser by report-title detection
+      // Route by report type — Comprehensive Report contains ALL sections
+      // in one document, while individual exports are single-section.
       const firstFewLines = text.split('\n').slice(0, 5).join(' ').toLowerCase();
       let result;
-      if (firstFewLines.includes('family information')) {
+      if (firstFewLines.includes('comprehensive report')) {
+        result = parseEMoneyComprehensive(text);
+      } else if (firstFewLines.includes('family information')) {
         result = parseEMoneyFamilyInformation(text);
       } else if (firstFewLines.includes('property')) {
-        result = parseEMoneyProperty(text);
+        result = parseEMoneyPropertyOnly(text);
       } else if (firstFewLines.includes('asset')) {
-        result = parseEMoneyAssets(text);
+        result = parseEMoneyAssetsOnly(text);
       } else if (firstFewLines.includes('liabilit')) {
-        result = parseEMoneyLiabilities(text);
+        result = parseEMoneyLiabilitiesOnly(text);
       } else if (firstFewLines.includes('income') || firstFewLines.includes('savings')) {
-        result = parseEMoneyIncomeSavings(text);
+        result = parseEMoneyIncomeSavingsOnly(text);
       } else if (firstFewLines.includes('insurance')) {
-        result = parseEMoneyInsurance(text);
+        result = parseEMoneyInsuranceOnly(text);
       } else if (firstFewLines.includes('beneficiar')) {
-        result = parseEMoneyBeneficiaries(text);
+        result = parseEMoneyBeneficiariesOnly(text);
       } else {
-        // Unknown section — try generic fact-pair extraction
         result = parseEMoneyGeneric(text);
       }
       if (!result || !result.fieldsFilled) {
@@ -24779,28 +24781,345 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     return { fieldsFilled, summary };
   }
 
-  // Placeholder parsers for other eMoney sections — extend as user provides examples
-  function parseEMoneyProperty(text) {
-    // TODO: parse Property report → BS real-estate rows
-    return { fieldsFilled: 0, summary: 'Property parser not yet implemented — paste a sample to extend' };
+  /* ─── eMoney COMPREHENSIVE REPORT PARSER ──────────────────────
+     eMoney's "Comprehensive Report" combines all 12 Fact-Details
+     sub-sections into one Word document (~130-150 pages). Detect
+     section headers ("Property Summary | Base Facts", "Asset Summary
+     | Base Facts", etc.) and route each block to the right parser.
+     Each section adds to the running fieldsFilled total. Personal
+     Balance Sheet rows accumulate across multiple sections.
+     ============================================================ */
+  function parseEMoneyComprehensive(text) {
+    const SECTION_PATTERNS = [
+      { name: 'Family Info',  re: /^Family Information (Summary|Details)$/m,            fn: parseEMoneyFamilyInformation },
+      { name: 'Property',     re: /^Property (Summary|Details)( \| Base Facts)?$/m,     fn: parseEMoneyPropertyOnly },
+      { name: 'Assets',       re: /^Asset(s)? (Summary|Details)( \| Base Facts)?$/m,    fn: parseEMoneyAssetsOnly },
+      { name: 'Liabilities',  re: /^Liabilities and Expenses (Summary|Details)( \| Base Facts)?$/m, fn: parseEMoneyLiabilitiesOnly },
+      { name: 'Income',       re: /^Income, Transfers and Savings (Summary|Details)( \| Base Facts)?$/m, fn: parseEMoneyIncomeSavingsOnly },
+      { name: 'Estate',       re: /^Estate (Summary|Details)( \| Base Facts)?$/m,       fn: parseEMoneyEstateOnly },
+    ];
+    let totalFilled = 0;
+    const sectionResults = [];
+    // Find boundaries for each section
+    const lines = text.split('\n');
+    const boundaries = [];
+    SECTION_PATTERNS.forEach(s => {
+      lines.forEach((line, idx) => {
+        if (s.re.test(line)) boundaries.push({ name: s.name, fn: s.fn, idx });
+      });
+    });
+    boundaries.sort((a, b) => a.idx - b.idx);
+    // For each section, extract the slice and parse
+    for (let i = 0; i < boundaries.length; i++) {
+      const start = boundaries[i].idx;
+      const end = (i + 1 < boundaries.length) ? boundaries[i + 1].idx : lines.length;
+      const slice = lines.slice(start, end).join('\n');
+      try {
+        const r = boundaries[i].fn(slice);
+        totalFilled += r.fieldsFilled || 0;
+        sectionResults.push(`${boundaries[i].name}: ${r.summary}`);
+      } catch (e) {
+        console.warn(`[comprehensive] ${boundaries[i].name} parser threw:`, e);
+        sectionResults.push(`${boundaries[i].name}: parser error (non-fatal)`);
+      }
+    }
+    return {
+      fieldsFilled: totalFilled,
+      summary: `Comprehensive Report processed. Sections: ${sectionResults.join(' · ')}`,
+    };
   }
-  function parseEMoneyAssets(text) {
-    return { fieldsFilled: 0, summary: 'Assets parser not yet implemented — paste a sample to extend' };
+
+  /* ─── Property parser — real estate + personal property → BS rows ─── */
+  function parseEMoneyPropertyOnly(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    let added = 0;
+    const addBSRow = window.__BALANCE_SHEET_ADD_ROW__;
+    if (!addBSRow) return { fieldsFilled: 0, summary: 'BS editor not ready' };
+    // Walk: header "Property, Real Estate" or "Property, Personal" → items
+    let mode = null; // 're' for real-estate, 'pp' for personal-property
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.startsWith('Property, Real Estate')) { mode = 're'; i++; continue; }
+      if (line.startsWith('Property, Personal'))    { mode = 'pp'; i++; continue; }
+      if (!mode) { i++; continue; }
+      // Item name: line that's NOT a "Key: Value" pair and NOT a section header
+      if (line.match(/^[A-Za-z0-9].*[^:]$/) && !line.includes(':')) {
+        const itemName = line;
+        // Read fact pairs for this item until blank or next item / category
+        const facts = {};
+        let j = i + 1;
+        while (j < lines.length) {
+          const sub = lines[j];
+          if (!sub) { j++; continue; }
+          if (sub.startsWith('Property, ') || sub.startsWith('Asset ') || sub.startsWith('Mortgages')) break;
+          if (sub.match(/^[A-Za-z0-9].*[^:]$/) && !sub.includes(':')) break;
+          const m = sub.match(/^([^:]+?):\s*(.*)$/);
+          if (m) facts[m[1].trim()] = m[2].trim();
+          j++;
+        }
+        // Parse value
+        const valueStr = facts['Value'] || '';
+        const value = parseFloat(valueStr.replace(/[$,\s]/g, '')) || 0;
+        if (value > 0) {
+          if (mode === 're') {
+            const mortgage = parseFloat((facts['Mortgage'] || '').replace(/[$,\s]/g, '')) || 0;
+            addBSRow('real-estate', { label: itemName.slice(0, 80), value, extra: mortgage });
+            added++;
+          } else if (mode === 'pp') {
+            addBSRow('personal-property', { label: itemName.slice(0, 80), value });
+            added++;
+          }
+        }
+        i = j;
+      } else {
+        i++;
+      }
+    }
+    // Open the BS section so advisor sees the new rows
+    const bsDetails = document.getElementById('balance-sheet-details');
+    if (bsDetails && !bsDetails.open) bsDetails.open = true;
+    return { fieldsFilled: added, summary: `${added} real estate + personal property items added to Personal Balance Sheet` };
   }
-  function parseEMoneyLiabilities(text) {
-    return { fieldsFilled: 0, summary: 'Liabilities parser not yet implemented — paste a sample to extend' };
+
+  /* ─── Assets parser — Cash / Brokerage / Retirement → BS rows w/ asset class ─── */
+  function parseEMoneyAssetsOnly(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    let added = 0;
+    const addBSRow = window.__BALANCE_SHEET_ADD_ROW__;
+    if (!addBSRow) return { fieldsFilled: 0, summary: 'BS editor not ready' };
+
+    // Asset-class header detection — eMoney uses one-word labels followed
+    // by individual account items
+    const HEADER_TO_CLASS = {
+      'Cash':            { section: 'brokerage',   assetClass: 'cash_mmf' },
+      'Brokerage':       { section: 'brokerage',   assetClass: 'mixed' },
+      'Equity':          { section: 'brokerage',   assetClass: 'equities' },
+      'Fixed Income':    { section: 'brokerage',   assetClass: 'fixed_income' },
+      'Bonds':           { section: 'brokerage',   assetClass: 'fixed_income' },
+      'Alternative':     { section: 'brokerage',   assetClass: 'alternatives' },
+      'Alternatives':    { section: 'brokerage',   assetClass: 'alternatives' },
+      'Private Equity':  { section: 'brokerage',   assetClass: 'private_equity' },
+      'Hedge':           { section: 'brokerage',   assetClass: 'hedge_funds' },
+      'Hedge Fund':      { section: 'brokerage',   assetClass: 'hedge_funds' },
+      'Real Estate Investment': { section: 'brokerage', assetClass: 'real_estate' },
+      'Crypto':          { section: 'brokerage',   assetClass: 'crypto' },
+      'Digital Assets':  { section: 'brokerage',   assetClass: 'crypto' },
+      'Annuity':         { section: 'other-assets', assetClass: 'other' },
+      'Annuities':       { section: 'other-assets', assetClass: 'other' },
+      '401(k)':          { section: 'retirement',  assetClass: 'mixed' },
+      'IRA':             { section: 'retirement',  assetClass: 'mixed' },
+      'Roth IRA':        { section: 'retirement',  assetClass: 'mixed' },
+      'Roth':            { section: 'retirement',  assetClass: 'mixed' },
+      'HSA':             { section: 'retirement',  assetClass: 'cash_mmf' },
+      'Pension':         { section: 'retirement',  assetClass: 'mixed' },
+      'Stock Options':   { section: 'other-assets', assetClass: 'concentrated' },
+      'Business Interest': { section: 'business',  assetClass: 'other' },
+      'Business':        { section: 'business',    assetClass: 'other' },
+      'Other Asset':     { section: 'other-assets', assetClass: 'other' },
+      'Other Assets':    { section: 'other-assets', assetClass: 'other' },
+    };
+
+    let currentClass = null;
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      // Check if line is a class header (exact match, single line)
+      if (HEADER_TO_CLASS[line]) {
+        currentClass = HEADER_TO_CLASS[line];
+        i++;
+        continue;
+      }
+      if (!currentClass) { i++; continue; }
+      // Item name detection
+      if (line.match(/^[A-Za-z0-9*].*[^:]$/) && !line.includes(':')) {
+        // Skip if this is actually a known class header for next section
+        if (HEADER_TO_CLASS[line]) continue;
+        const itemName = line;
+        const facts = {};
+        let j = i + 1;
+        while (j < lines.length) {
+          const sub = lines[j];
+          if (!sub) { j++; continue; }
+          if (HEADER_TO_CLASS[sub]) break;
+          if (sub.match(/^[A-Za-z0-9*].*[^:]$/) && !sub.includes(':')) break;
+          const m = sub.match(/^([^:]+?):\s*(.*)$/);
+          if (m) facts[m[1].trim()] = m[2].trim();
+          j++;
+        }
+        // Extract value — eMoney format: "$X as of MM/DD/YYYY" or just "$X"
+        const valueStr = facts['Value'] || facts['Current Value'] || '';
+        const valueMatch = valueStr.match(/\$([\d,]+(?:\.\d+)?)/);
+        const value = valueMatch ? parseFloat(valueMatch[1].replace(/,/g, '')) : 0;
+        if (value > 0) {
+          // Build a label with institution + owner context
+          const labelBits = [itemName.slice(0, 50)];
+          if (facts['Institution']) labelBits.push(facts['Institution'].split(' - ')[0].slice(0, 30));
+          addBSRow(currentClass.section, {
+            label: labelBits.join(' — ').slice(0, 80),
+            value: Math.round(value),
+            assetClass: currentClass.assetClass,
+            sector: '',
+          });
+          added++;
+        }
+        i = j;
+      } else {
+        i++;
+      }
+    }
+    const bsDetails = document.getElementById('balance-sheet-details');
+    if (bsDetails && !bsDetails.open) bsDetails.open = true;
+    return { fieldsFilled: added, summary: `${added} accounts added to Personal Balance Sheet (cash / brokerage / retirement)` };
   }
-  function parseEMoneyIncomeSavings(text) {
-    return { fieldsFilled: 0, summary: 'Income/Savings parser not yet implemented — paste a sample to extend' };
+
+  /* ─── Liabilities parser — loans + credit cards → BS rows + debt fields ─── */
+  function parseEMoneyLiabilitiesOnly(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    let added = 0;
+    const addBSRow = window.__BALANCE_SHEET_ADD_ROW__;
+    if (!addBSRow) return { fieldsFilled: 0, summary: 'BS editor not ready' };
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.startsWith('Loans') || line.startsWith('Loan ')) { i++; continue; }
+      if (line.match(/^[A-Za-z0-9].*[^:]$/) && !line.includes(':') && !line.startsWith('Living') && !line.startsWith('Expenses')) {
+        const itemName = line;
+        const facts = {};
+        let j = i + 1;
+        while (j < lines.length) {
+          const sub = lines[j];
+          if (!sub) { j++; continue; }
+          if (sub.startsWith('Loans') || sub.match(/^[A-Za-z0-9].*[^:]$/) && !sub.includes(':')) break;
+          const m = sub.match(/^([^:]+?):\s*(.*)$/);
+          if (m) facts[m[1].trim()] = m[2].trim();
+          j++;
+        }
+        const balStr = facts['Current Balance'] || '';
+        const balMatch = balStr.match(/\$([\d,]+(?:\.\d+)?)/);
+        const balance = balMatch ? parseFloat(balMatch[1].replace(/,/g, '')) : 0;
+        if (balance > 0) {
+          const type = (facts['Type'] || '').toLowerCase();
+          const isMortgage = type.includes('mortgage') || type.includes('heloc');
+          const targetSection = isMortgage ? 'mortgages' : 'other-debt';
+          addBSRow(targetSection, {
+            label: (itemName + (facts['Institution'] ? ' (' + facts['Institution'].slice(0, 25) + ')' : '')).slice(0, 80),
+            value: Math.round(balance),
+          });
+          added++;
+        }
+        i = j;
+      } else {
+        i++;
+      }
+    }
+    const bsDetails = document.getElementById('balance-sheet-details');
+    if (bsDetails && !bsDetails.open) bsDetails.open = true;
+    return { fieldsFilled: added, summary: `${added} liabilities added to Personal Balance Sheet` };
   }
-  function parseEMoneyInsurance(text) {
-    return { fieldsFilled: 0, summary: 'Insurance parser not yet implemented — paste a sample to extend' };
+
+  /* ─── Income parser — populates SS + business income summary ─── */
+  function parseEMoneyIncomeSavingsOnly(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    let filled = 0;
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val) { el.value = String(val); el.dispatchEvent(new Event('input', { bubbles: true })); filled++; }
+    };
+    let totalOtherIncome = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Social Security
+      if (line.includes('Retirement Benefit:')) {
+        const m = line.match(/\$?([\d,]+)/);
+        if (m) {
+          const ssAmount = parseFloat(m[1].replace(/,/g, ''));
+          // Determine if it's Robin's or spouse's by looking back a few lines
+          let isRobin = false;
+          for (let k = Math.max(0, i - 5); k < i; k++) {
+            if (/Robin/i.test(lines[k])) { isRobin = true; break; }
+          }
+          if (isRobin) set('ss-primary-benefit', Math.round(ssAmount));
+          else set('ss-spouse-benefit', Math.round(ssAmount));
+        }
+      }
+      // Other income (royalties, dividends, etc.) — sum into biz-income proxy
+      if (line.startsWith('Amount: $')) {
+        const m = line.match(/\$([\d,]+)/);
+        if (m) totalOtherIncome += parseFloat(m[1].replace(/,/g, ''));
+      }
+    }
+    if (totalOtherIncome > 0) {
+      // Don't clobber an existing biz-income; only set if blank
+      const bizEl = document.getElementById('biz-income');
+      if (bizEl && (!bizEl.value || bizEl.value === '0')) {
+        bizEl.value = String(Math.round(totalOtherIncome));
+        bizEl.dispatchEvent(new Event('input', { bubbles: true }));
+        filled++;
+      }
+    }
+    if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
+    return { fieldsFilled: filled, summary: `Income fields filled (Social Security, biz income approximation)` };
   }
-  function parseEMoneyBeneficiaries(text) {
-    return { fieldsFilled: 0, summary: 'Beneficiaries parser not yet implemented — paste a sample to extend' };
+
+  /* ─── Estate parser — surfaces existing trust structures the client has ─── */
+  function parseEMoneyEstateOnly(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    const trusts = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line === 'Revocable Trusts' || line === 'Irrevocable Trusts' || line === 'Wills') {
+        const trustType = line;
+        i++;
+        while (i < lines.length) {
+          const sub = lines[i];
+          if (sub === 'Revocable Trusts' || sub === 'Irrevocable Trusts' || sub === 'Wills' ||
+              sub.startsWith('Assumptions') || sub.startsWith('Income, Transfers')) break;
+          if (sub.match(/^[A-Z].*[^:]$/) && !sub.includes(':') && !sub.startsWith('Assets')
+              && !sub.startsWith('Income Beneficiaries') && !sub.startsWith('Remainder')) {
+            // This is a trust name
+            const trustName = sub;
+            const facts = {};
+            let j = i + 1;
+            while (j < lines.length) {
+              const f = lines[j];
+              if (!f) { j++; continue; }
+              if (f.match(/^[A-Z].*[^:]$/) && !f.includes(':')) break;
+              if (f.startsWith('Revocable') || f.startsWith('Irrevocable')) break;
+              const m = f.match(/^([^:]+?):\s*(.*)$/);
+              if (m) facts[m[1].trim()] = m[2].trim();
+              j++;
+            }
+            const currentValStr = facts['Current Value'] || '';
+            const cv = (currentValStr.match(/\$([\d,]+)/) || ['', '0'])[1].replace(/,/g, '');
+            trusts.push({ name: trustName, type: trustType, value: parseFloat(cv) || 0, trustee: facts['Trustee'] || '' });
+            i = j;
+            continue;
+          }
+          i++;
+        }
+      } else {
+        i++;
+      }
+    }
+    // Don't auto-enable strategies — just report what's there.
+    // Advisor enables Dynasty / SLAT / IDGT etc. manually based on the trust types.
+    return {
+      fieldsFilled: trusts.length,
+      summary: `${trusts.length} existing trust(s) detected: ${trusts.map(t => t.name + ' ($' + (t.value/1e6).toFixed(1) + 'M)').slice(0, 5).join(', ')}${trusts.length > 5 ? '…' : ''}. Toggle Dynasty/SLAT/IDGT/ILIT strategies manually as needed.`,
+    };
+  }
+
+  /* ─── Placeholder parsers (still TODO) ─── */
+  function parseEMoneyInsuranceOnly(text) {
+    return { fieldsFilled: 0, summary: 'Insurance section seen but parser not yet implemented' };
+  }
+  function parseEMoneyBeneficiariesOnly(text) {
+    return { fieldsFilled: 0, summary: 'Beneficiaries section seen but parser not yet implemented' };
   }
   function parseEMoneyGeneric(text) {
-    return { fieldsFilled: 0, summary: 'Unknown eMoney section — paste the file content to add specific parser' };
+    return { fieldsFilled: 0, summary: 'Unrecognized eMoney section — paste content to add parser' };
   }
 
   async function importVendorJSON(file, vendorLabel) {
