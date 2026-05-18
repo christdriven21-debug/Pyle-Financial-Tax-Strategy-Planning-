@@ -25029,9 +25029,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     let totalOtherIncome = 0;
     // Read client + spouse first-names from the form so we can route SS
     // benefits to the right field (primary vs spouse). The eMoney report
-    // labels SS entries like "Robin's Social Security" or "Jane's Social
-    // Security" using whatever first names exist in the client / spouse
-    // sections — we use form fields as the source of truth.
+    // labels SS entries like "<FirstName>'s Social Security" using
+    // whatever first names exist in the client / spouse sections — we
+    // use form fields as the source of truth.
     const primaryFull = (document.getElementById('client-primary')?.value || '').trim();
     const spouseFull  = (document.getElementById('client-spouse')?.value || '').trim();
     const primaryFirst = primaryFull.split(/\s+/)[0] || '';
