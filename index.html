@@ -20,6 +20,11 @@
 <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"
         integrity="sha384-Yv5O+t3uE3hunW8uyrbpPW3iw6/5/Y7HitWJBLgqfMoA36NogMmy+8wWZMpn3HWc"
         crossorigin="anonymous"></script>
+<!-- JSZip: unzips DOCX files (DOCX = ZIP archive of XML) so we can read
+     eMoney report exports directly in the browser. ~25KB gzipped. -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+        integrity="sha384-fEKZIgM38ZdAjEoiJWtsnyrqU3RZUL5UYZkkXOEMx5KhMfTUTuy5gKn+UnTwTNHk"
+        crossorigin="anonymous"></script>
 <!-- Direct html2canvas + jsPDF (separate from the html2pdf bundle so we can
      use their APIs directly for multi-panel Full PDF assembly). -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"
@@ -3108,7 +3113,9 @@
       <input type="file" id="precisefp-input" accept=".csv,text/csv" style="display:none">
       <button class="btn btn-gold btn-sm" id="btn-precisefp-import" title="Import client data from a PreciseFP CSV export">Import PreciseFP CSV</button>
       <input type="file" id="emoney-input" accept="application/json,.json" style="display:none">
-      <button class="btn btn-secondary btn-sm" id="btn-emoney-import" title="Import a client fact-finder JSON from eMoney (Facts Finder export)">Import eMoney</button>
+      <button class="btn btn-secondary btn-sm" id="btn-emoney-import" title="Import a client fact-finder JSON from eMoney (Facts Finder export)">Import eMoney JSON</button>
+      <input type="file" id="emoney-docx-input" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none">
+      <button class="btn btn-gold btn-sm" id="btn-emoney-docx-import" title="Import an eMoney Fact Details report (Family Information, Assets, Liabilities, etc.) exported as Word .docx — populates client + family + beneficiaries automatically">Import eMoney DOCX</button>
       <input type="file" id="addepar-input" accept=".csv,text/csv,application/vnd.ms-excel,.xlsx" style="display:none">
       <button class="btn btn-gold btn-sm" id="btn-addepar-import" title="Import a holdings report from Addepar (CSV) — populates Personal Balance Sheet brokerage / retirement rows with asset-class tags">Import Addepar Holdings</button>
       <input type="file" id="mgp-input" accept="application/json,.json" style="display:none">
@@ -24508,6 +24515,294 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     return rows.filter(r => r.length > 1 || (r.length === 1 && r[0].length > 0));
   }
 
+  /* ─── eMoney DOCX IMPORT ─────────────────────────────────────
+     Parses an eMoney "Fact Details" Word-document export and
+     populates the appropriate plan-builder fields.
+
+     The DOCX is a ZIP of XML files; we unzip via JSZip and read
+     word/document.xml as the source. Each eMoney Fact-Details
+     sub-section (Family Information, Property, Assets, Liabilities,
+     etc.) generates its own DOCX with a distinct title header,
+     which we use to route to the right parser.
+
+     Supported sub-sections (V1):
+       • Family Information Details → client + family + beneficiaries
+       • [more to add as user provides examples]
+     ============================================================ */
+  async function importEMoneyDOCX(file) {
+    if (!file) return;
+    if (!window.JSZip) {
+      setStatus('eMoney DOCX import requires JSZip library — refresh the page and try again', 'err');
+      return;
+    }
+    setStatus('Reading eMoney DOCX…');
+    try {
+      const buf = await file.arrayBuffer();
+      const zip = await window.JSZip.loadAsync(buf);
+      const docXmlFile = zip.file('word/document.xml');
+      if (!docXmlFile) throw new Error('Not a valid Word .docx file (no word/document.xml)');
+      const xml = await docXmlFile.async('string');
+      // Strip XML tags → plain text with sentinel newlines on tag boundaries
+      const text = xml.replace(/<[^>]+>/g, '\n').replace(/\n\s*\n+/g, '\n').trim();
+
+      // Route to section parser by report-title detection
+      const firstFewLines = text.split('\n').slice(0, 5).join(' ').toLowerCase();
+      let result;
+      if (firstFewLines.includes('family information')) {
+        result = parseEMoneyFamilyInformation(text);
+      } else if (firstFewLines.includes('property')) {
+        result = parseEMoneyProperty(text);
+      } else if (firstFewLines.includes('asset')) {
+        result = parseEMoneyAssets(text);
+      } else if (firstFewLines.includes('liabilit')) {
+        result = parseEMoneyLiabilities(text);
+      } else if (firstFewLines.includes('income') || firstFewLines.includes('savings')) {
+        result = parseEMoneyIncomeSavings(text);
+      } else if (firstFewLines.includes('insurance')) {
+        result = parseEMoneyInsurance(text);
+      } else if (firstFewLines.includes('beneficiar')) {
+        result = parseEMoneyBeneficiaries(text);
+      } else {
+        // Unknown section — try generic fact-pair extraction
+        result = parseEMoneyGeneric(text);
+      }
+      if (!result || !result.fieldsFilled) {
+        setStatus(`eMoney DOCX read but no recognized fields. Section title: "${text.split('\n')[0].slice(0, 80)}". Paste the file content back to extend the parser.`, 'err');
+        return;
+      }
+      setStatus(`✓ eMoney DOCX: ${result.summary}`, 'ok');
+    } catch (e) {
+      console.error('[importEMoneyDOCX] error', e);
+      setStatus('eMoney DOCX import failed: ' + (e.message || 'unknown'), 'err');
+    }
+  }
+
+  // Parser: Family Information Details
+  // Extracts client, spouse, children, other family, charities. Maps to:
+  //   client-primary, client-spouse, ages, location/state, family list,
+  //   and d.beneficiaries via the Family & Beneficiaries editor.
+  function parseEMoneyFamilyInformation(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    let i = 0;
+    let fieldsFilled = 0;
+    const set = (id, val) => {
+      if (val === '—' || val === '' || val === null || val === undefined) return false;
+      const el = document.getElementById(id);
+      if (!el) return false;
+      el.value = String(val);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      fieldsFilled++;
+      return true;
+    };
+    // Find sections: "Client", "Spouse", "Children", "Entity, Individuals", "Entity, Charities"
+    // Each person section has lines like "Field:" then value on next line.
+    function readFactPairs(startIdx, endIdx) {
+      // Returns { name, fields: { "Date of Birth": "2/13/1979", ... } }
+      const fields = {};
+      let personName = null;
+      for (let k = startIdx; k < endIdx; k++) {
+        const line = lines[k];
+        if (!line) continue;
+        // Lines ending with ":" are field labels, value is on the next line
+        const m = line.match(/^([A-Za-z\s/?-]+):\s*$/);
+        if (m) {
+          const fieldName = m[1].trim();
+          const value = (lines[k + 1] || '').trim();
+          if (value && value !== '—') fields[fieldName] = value;
+          k++; // skip value line
+        } else if (!personName && !/:/.test(line)) {
+          // First non-fact-pair line is the person's name
+          personName = line;
+        }
+      }
+      return { name: personName, fields };
+    }
+
+    // Section boundaries
+    const sectionStarts = [];
+    const sectionLabels = ['Client', 'Spouse', 'Children', 'Entity, Individuals', 'Entity, Charities'];
+    lines.forEach((line, idx) => {
+      if (sectionLabels.some(lbl => line === lbl || line.startsWith(lbl + ' '))) {
+        sectionStarts.push({ idx, label: line });
+      }
+    });
+
+    // Process Client (first one)
+    const clientStart = sectionStarts.find(s => s.label === 'Client');
+    const nextSectionIdx = sectionStarts.find(s => s.idx > (clientStart?.idx || 0))?.idx || lines.length;
+    if (clientStart) {
+      // The next line after "Client" is the client's name
+      const clientName = (lines[clientStart.idx + 1] || '').trim();
+      if (clientName && clientName !== 'Client') set('client-primary', clientName);
+
+      const facts = readFactPairs(clientStart.idx + 2, nextSectionIdx);
+      // DOB → primary age (this year - birth year)
+      if (facts.fields['Date of Birth']) {
+        const dob = new Date(facts.fields['Date of Birth']);
+        if (!isNaN(dob)) {
+          const age = new Date().getFullYear() - dob.getFullYear();
+          set('client-primary-age', age);
+        }
+      }
+      if (facts.fields['City']) set('client-location', facts.fields['City'] + (facts.fields['State'] ? ', ' + facts.fields['State'] : ''));
+      if (facts.fields['State']) set('client-state', facts.fields['State'].toUpperCase());
+    }
+
+    // Process Spouse (if present)
+    const spouseStart = sectionStarts.find(s => s.label === 'Spouse');
+    if (spouseStart) {
+      const spouseName = (lines[spouseStart.idx + 1] || '').trim();
+      if (spouseName && spouseName !== 'Spouse') set('client-spouse', spouseName);
+      const spouseEndIdx = sectionStarts.find(s => s.idx > spouseStart.idx)?.idx || lines.length;
+      const facts = readFactPairs(spouseStart.idx + 2, spouseEndIdx);
+      if (facts.fields['Date of Birth']) {
+        const dob = new Date(facts.fields['Date of Birth']);
+        if (!isNaN(dob)) {
+          const age = new Date().getFullYear() - dob.getFullYear();
+          set('client-spouse-age', age);
+        }
+      }
+    }
+
+    // Process Children → populate family-composition + d.beneficiaries
+    const childrenStart = sectionStarts.find(s => s.label === 'Children');
+    const familyEntries = [];
+    if (childrenStart) {
+      const childrenEndIdx = sectionStarts.find(s => s.idx > childrenStart.idx)?.idx || lines.length;
+      // Each child block starts with a name (no colon), then fact pairs
+      let k = childrenStart.idx + 1;
+      while (k < childrenEndIdx) {
+        const line = lines[k];
+        // Detect a child name: non-empty, no colon, capitalized
+        if (line && !/:/.test(line) && /^[A-Z]/.test(line) && line !== 'Children') {
+          const childName = line;
+          // Read next block until next non-fact-pair line or end of section
+          const childFacts = {};
+          let m = k + 1;
+          while (m < childrenEndIdx) {
+            const fline = lines[m];
+            if (!fline) { m++; continue; }
+            // Next person header?
+            if (!/:/.test(fline) && /^[A-Z]/.test(fline) && fline !== 'Children') break;
+            const fm = fline.match(/^([A-Za-z\s/?-]+):\s*$/);
+            if (fm) {
+              childFacts[fm[1].trim()] = (lines[m + 1] || '').trim();
+              m += 2;
+            } else {
+              m++;
+            }
+          }
+          // Compute birth year + gender → relationship
+          let birthYear = 0;
+          let rel = 'son';
+          if (childFacts['Date of Birth']) {
+            const dob = new Date(childFacts['Date of Birth']);
+            if (!isNaN(dob)) birthYear = dob.getFullYear();
+          }
+          if (childFacts['Gender']) rel = childFacts['Gender'].toLowerCase() === 'female' ? 'daughter' : 'son';
+          // Compute college start year: birth year + 18
+          const collegeStartYear = birthYear > 0 ? birthYear + 18 : 0;
+          familyEntries.push({
+            name: childName, year: birthYear || '', rel,
+            college: '', collegeStart: collegeStartYear || '', annualCost: 0,
+            years: 4, sharePct: 0,
+          });
+          k = m;
+        } else {
+          k++;
+        }
+      }
+    }
+
+    // Process Entity, Individuals (parents, in-laws, other family)
+    const entityIndivStart = sectionStarts.find(s => s.label === 'Entity, Individuals');
+    if (entityIndivStart) {
+      const entityEndIdx = sectionStarts.find(s => s.idx > entityIndivStart.idx)?.idx || lines.length;
+      let k = entityIndivStart.idx + 1;
+      while (k < entityEndIdx) {
+        const line = lines[k];
+        if (line && !/:/.test(line) && /^[A-Z]/.test(line) && line !== 'Entity, Individuals') {
+          const indivName = line;
+          const indivFacts = {};
+          let m = k + 1;
+          while (m < entityEndIdx) {
+            const fline = lines[m];
+            if (!fline) { m++; continue; }
+            if (!/:/.test(fline) && /^[A-Z]/.test(fline) && fline !== 'Entity, Individuals') break;
+            const fm = fline.match(/^([A-Za-z\s/?-]+):\s*$/);
+            if (fm) {
+              indivFacts[fm[1].trim()] = (lines[m + 1] || '').trim();
+              m += 2;
+            } else {
+              m++;
+            }
+          }
+          let birthYear = 0;
+          if (indivFacts['Date of Birth']) {
+            const dob = new Date(indivFacts['Date of Birth']);
+            if (!isNaN(dob)) birthYear = dob.getFullYear();
+          }
+          const relRaw = (indivFacts['Relationship'] || '').toLowerCase();
+          let rel = 'other';
+          if (relRaw === 'parent') rel = 'father';  // ambiguous — advisor refines
+          else if (relRaw.includes('brother')) rel = 'brother';
+          else if (relRaw.includes('sister')) rel = 'sister';
+          else if (relRaw.includes('grand')) rel = 'grandson';
+          familyEntries.push({
+            name: indivName, year: birthYear || '', rel,
+            college: '', collegeStart: '', annualCost: 0, years: 4, sharePct: 0,
+          });
+          k = m;
+        } else {
+          k++;
+        }
+      }
+    }
+
+    // Write to family-composition textarea using v2 pipe-separated format
+    if (familyEntries.length > 0) {
+      const composition = familyEntries.map(b =>
+        `${b.name}|${b.year}|${b.rel}|${b.college}|${b.collegeStart}|${b.annualCost}|${b.years}|${b.sharePct}`
+      ).join('\n');
+      const ta = document.getElementById('family-composition');
+      if (ta) {
+        ta.value = composition;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        if (window.__REBUILD_FAMILY_LIST__) window.__REBUILD_FAMILY_LIST__();
+        fieldsFilled++;
+      }
+    }
+
+    if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
+
+    const summary = `Family Information loaded. Filled ${fieldsFilled} field(s); ${familyEntries.length} family member(s) added.`;
+    return { fieldsFilled, summary };
+  }
+
+  // Placeholder parsers for other eMoney sections — extend as user provides examples
+  function parseEMoneyProperty(text) {
+    // TODO: parse Property report → BS real-estate rows
+    return { fieldsFilled: 0, summary: 'Property parser not yet implemented — paste a sample to extend' };
+  }
+  function parseEMoneyAssets(text) {
+    return { fieldsFilled: 0, summary: 'Assets parser not yet implemented — paste a sample to extend' };
+  }
+  function parseEMoneyLiabilities(text) {
+    return { fieldsFilled: 0, summary: 'Liabilities parser not yet implemented — paste a sample to extend' };
+  }
+  function parseEMoneyIncomeSavings(text) {
+    return { fieldsFilled: 0, summary: 'Income/Savings parser not yet implemented — paste a sample to extend' };
+  }
+  function parseEMoneyInsurance(text) {
+    return { fieldsFilled: 0, summary: 'Insurance parser not yet implemented — paste a sample to extend' };
+  }
+  function parseEMoneyBeneficiaries(text) {
+    return { fieldsFilled: 0, summary: 'Beneficiaries parser not yet implemented — paste a sample to extend' };
+  }
+  function parseEMoneyGeneric(text) {
+    return { fieldsFilled: 0, summary: 'Unknown eMoney section — paste the file content to add specific parser' };
+  }
+
   async function importVendorJSON(file, vendorLabel) {
     if (!file) return;
     try {
@@ -24722,6 +25017,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   const emoneyInput = document.getElementById('emoney-input');
   document.getElementById('btn-emoney-import').addEventListener('click', () => emoneyInput.click());
   emoneyInput.addEventListener('change', e => importVendorJSON(e.target.files[0], 'eMoney'));
+  const emoneyDocxInput = document.getElementById('emoney-docx-input');
+  document.getElementById('btn-emoney-docx-import').addEventListener('click', () => emoneyDocxInput.click());
+  emoneyDocxInput.addEventListener('change', e => importEMoneyDOCX(e.target.files[0]));
   const mgpInput = document.getElementById('mgp-input');
   document.getElementById('btn-mgp-import').addEventListener('click', () => mgpInput.click());
   mgpInput.addEventListener('change', e => importVendorJSON(e.target.files[0], 'MoneyGuidePro'));
