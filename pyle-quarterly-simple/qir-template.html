@@ -242,21 +242,19 @@ const QIR_DATA = {
   ],
 
   // ── Tax-benefit callout (opt-in) ─────────────────────────────────────
+  // Values below are placeholder. In the BUILDER, lossDeductionPct and
+  // taxRate are inline-editable; all other figures auto-compute.
   taxCallout: {
     enabled: true,
     icon: "⚡",
     title: "Sample Energy LP — Tax Benefit Detail",
-    items: [
-      { label: "87% loss deduction", value: "$435,000" },
-      { label: "Top fed rate (no state income tax)", value: "" },
-      { label: "Estimated tax savings", value: "$160,950", color: "green" },
-      { label: "Distributions received", value: "$90,000" },
-      { label: "Earned, pending receipt (Apr 21)", value: "$25,000", color: "yellow" },
-      { label: "Total distributions", value: "$115,000" },
-      { label: "Total economic benefit", value: "$275,950", color: "green" },
-      { label: "Net cost after tax benefit", value: "$339,050" },
-      { label: "Tax-adj cumulative return", value: "55.00%", color: "green" }
-    ]
+    investedAmount: 500000,
+    lossDeductionPct: 87,
+    taxRate: 37,
+    stateNote: "FL — no state income tax",
+    distributionsReceived: 90000,
+    pendingDistributions: 25000,
+    pendingDate: "Apr 21"
   },
 
   // ── Performance section (opt-in) ─────────────────────────────────────
@@ -650,17 +648,67 @@ function renderCallout(d) {
   if (!d.taxCallout || !d.taxCallout.enabled) return;
   const c = d.taxCallout;
   const colorMap = { green:'var(--green)', yellow:'var(--yellow)', red:'var(--red)', purple:'var(--purple)' };
-  const items = c.items.map(i => {
-    const colorStyle = i.color ? `color:${colorMap[i.color]||i.color}` : 'color:var(--text)';
-    return `<strong style="${colorStyle}">${i.value}</strong> <span style="opacity:.85">${i.label}</span>`;
-  }).join(' &nbsp;·&nbsp; ');
+  let bodyHtml;
+
+  // NEW structured format — computed math, optional inline inputs in builder mode
+  if (typeof c.lossDeductionPct === 'number' && typeof c.taxRate === 'number') {
+    const investedAmount = c.investedAmount || 0;
+    const lossDeductionPct = parseFloat(c.lossDeductionPct) || 0;
+    const taxRate = parseFloat(c.taxRate) || 0;
+    const distributionsReceived = c.distributionsReceived || 0;
+    const pendingDistributions = c.pendingDistributions || 0;
+
+    const deductible           = investedAmount * (lossDeductionPct / 100);
+    const taxSavings           = deductible * (taxRate / 100);
+    const totalDistributions   = distributionsReceived + pendingDistributions;
+    const totalEconomicBenefit = taxSavings + totalDistributions;
+    const netCostAfterBenefit  = investedAmount - taxSavings;
+    const taxAdjReturnPct      = investedAmount > 0 ? (totalEconomicBenefit / investedAmount) * 100 : 0;
+
+    const isBuilder = !!window.__QIR_BUILDER__;
+
+    const lossField = isBuilder
+      ? `<input type="number" min="0" max="100" step="1" value="${lossDeductionPct}" class="tc-edit" onchange="updateTaxCallout('lossDeductionPct', this.value)" title="Editable: % of investment deductible year-1">`
+      : `<strong>${lossDeductionPct}%</strong>`;
+    const taxField = isBuilder
+      ? `<input type="number" min="0" max="100" step="0.5" value="${taxRate}" class="tc-edit" onchange="updateTaxCallout('taxRate', this.value)" title="Editable: client's top federal income tax bracket">`
+      : `<strong>${taxRate}%</strong>`;
+
+    const stateNote = c.stateNote ? ` (${c.stateNote})` : '';
+    const pendingLabel = c.pendingDate ? `pending ${c.pendingDate}` : 'pending receipt';
+
+    const parts = [
+      `${lossField}${isBuilder?'%':''} loss deduction × <strong>${fmt.money(investedAmount)}</strong> = <strong>${fmt.money(deductible)}</strong> deductible`,
+      `${taxField}${isBuilder?'%':''} top fed rate${stateNote}`,
+      `<strong style="color:var(--green)">${fmt.money(taxSavings)}</strong> estimated tax savings`,
+      `<strong>${fmt.money(distributionsReceived)}</strong> distributions received`,
+    ];
+    if (pendingDistributions) {
+      parts.push(`<strong style="color:var(--yellow)">${fmt.money(pendingDistributions)}</strong> earned, ${pendingLabel}`);
+    }
+    parts.push(
+      `<strong>${fmt.money(totalDistributions)}</strong> total distributions`,
+      `<strong style="color:var(--green)">${fmt.money(totalEconomicBenefit)}</strong> total economic benefit`,
+      `<strong>${fmt.money(netCostAfterBenefit)}</strong> net cost after tax benefit`,
+      `<strong style="color:var(--green)">${taxAdjReturnPct.toFixed(2)}%</strong> tax-adj cumulative return`
+    );
+    bodyHtml = parts.join(' &nbsp;·&nbsp; ');
+  }
+  else if (c.items && c.items.length) {
+    bodyHtml = c.items.map(i => {
+      const colorStyle = i.color ? `color:${colorMap[i.color]||i.color}` : 'color:var(--text)';
+      return `<strong style="${colorStyle}">${i.value}</strong> <span style="opacity:.85">${i.label}</span>`;
+    }).join(' &nbsp;·&nbsp; ');
+  } else {
+    return;
+  }
 
   document.getElementById('callout-mount').innerHTML = `
     <div class="callout">
       <div class="callout-icon">${c.icon||'💡'}</div>
       <div>
         <div class="callout-title">${c.title}</div>
-        <div class="callout-body">${items}</div>
+        <div class="callout-body">${bodyHtml}</div>
       </div>
     </div>`;
 }
