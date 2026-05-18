@@ -25027,21 +25027,43 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       if (el && val) { el.value = String(val); el.dispatchEvent(new Event('input', { bubbles: true })); filled++; }
     };
     let totalOtherIncome = 0;
+    // Read client + spouse first-names from the form so we can route SS
+    // benefits to the right field (primary vs spouse). The eMoney report
+    // labels SS entries like "Robin's Social Security" or "Jane's Social
+    // Security" using whatever first names exist in the client / spouse
+    // sections — we use form fields as the source of truth.
+    const primaryFull = (document.getElementById('client-primary')?.value || '').trim();
+    const spouseFull  = (document.getElementById('client-spouse')?.value || '').trim();
+    const primaryFirst = primaryFull.split(/\s+/)[0] || '';
+    const spouseFirst  = spouseFull.split(/\s+/)[0] || '';
+    let ssAssignedPrimary = false;
+    let ssAssignedSpouse = false;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      // Social Security
+      // Social Security — look back up to 5 lines for the heading that
+      // identifies whose benefit this is, then match against form names.
       if (line.includes('Retirement Benefit:')) {
         const m = line.match(/\$?([\d,]+)/);
-        if (m) {
-          const ssAmount = parseFloat(m[1].replace(/,/g, ''));
-          // Determine if it's Robin's or spouse's by looking back a few lines
-          let isRobin = false;
-          for (let k = Math.max(0, i - 5); k < i; k++) {
-            if (/Robin/i.test(lines[k])) { isRobin = true; break; }
-          }
-          if (isRobin) set('ss-primary-benefit', Math.round(ssAmount));
-          else set('ss-spouse-benefit', Math.round(ssAmount));
+        if (!m) continue;
+        const ssAmount = parseFloat(m[1].replace(/,/g, ''));
+        let headerContext = '';
+        for (let k = Math.max(0, i - 5); k < i; k++) {
+          headerContext += ' ' + (lines[k] || '');
         }
+        const ctx = headerContext.toLowerCase();
+        let routeTo = null;
+        if (primaryFirst && ctx.includes(primaryFirst.toLowerCase())) {
+          routeTo = 'ss-primary-benefit';
+        } else if (spouseFirst && ctx.includes(spouseFirst.toLowerCase())) {
+          routeTo = 'ss-spouse-benefit';
+        } else {
+          // Fall back to slot order: first SS entry → primary, second → spouse
+          if (!ssAssignedPrimary) routeTo = 'ss-primary-benefit';
+          else if (!ssAssignedSpouse) routeTo = 'ss-spouse-benefit';
+        }
+        if (routeTo === 'ss-primary-benefit') ssAssignedPrimary = true;
+        if (routeTo === 'ss-spouse-benefit')  ssAssignedSpouse  = true;
+        if (routeTo) set(routeTo, Math.round(ssAmount));
       }
       // Other income (royalties, dividends, etc.) — sum into biz-income proxy
       if (line.startsWith('Amount: $')) {
