@@ -24957,6 +24957,13 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       // Log at most one 'signin' audit entry per user per 12 hours.
       // Sign-in audit log REMOVED per advisor preference: only log
       // actual changes to plan content, not access events.
+      // ─── OFFLINE-TO-CLOUD AUTO-SYNC PROMPT ───
+      // If user just signed in AND has unsaved plan data in the form
+      // (e.g., they were in Work Offline mode, entered a client, saved
+      // to share drive, then signed in), offer to push the current form
+      // state to the Supabase cloud as a new plan. Non-destructive —
+      // user must click "Save to Cloud" in the banner to confirm.
+      setTimeout(() => offerOfflineSync(), 800);
     }
     if (event === 'SIGNED_OUT') {
       clearIdleTimer();
@@ -25194,6 +25201,58 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       selectEl.appendChild(opt);
     });
     setStatus('Connected — ' + (data?.length || 0) + ' plan(s) visible to you', 'ok');
+  }
+
+  /* ─── OFFLINE → CLOUD AUTO-SYNC PROMPT ───
+     Fires after a successful sign-in. Checks whether the form has
+     meaningful plan data (client name OR financial figures > 0) and
+     no currentId (i.e., not already linked to a cloud row). If yes,
+     shows a non-blocking banner offering to save the in-memory plan
+     to the cloud — preserves work the advisor did while offline.
+     User must click "Save to Cloud" in the banner; never auto-saves
+     without explicit confirmation. */
+  function offerOfflineSync() {
+    if (!currentUser) return;          // not actually signed in
+    if (currentId) return;             // already linked to a cloud row
+    if (document.getElementById('offline-sync-banner')) return;  // banner already shown
+
+    // Heuristic: form has plan data if a client name is set OR any
+    // financial figure > 0. Cheap check on a few key fields.
+    const primary = (document.getElementById('client-primary')?.value || '').trim();
+    const preSaleNW = parseFloat(String(document.getElementById('client-pnw')?.value || '').replace(/[$,\s]/g, ''));
+    const bizSale = parseFloat(String(document.getElementById('biz-sale')?.value || '').replace(/[$,\s]/g, ''));
+    const hasMeaningfulData = primary.length > 0 || preSaleNW > 0 || bizSale > 0;
+    if (!hasMeaningfulData) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'offline-sync-banner';
+    banner.style.cssText = 'position:fixed;top:64px;right:24px;z-index:1000;max-width:380px;padding:14px 18px;background:#FFF;border-left:4px solid var(--gold);border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);font-family:Helvetica,sans-serif;font-size:13px;line-height:1.5;color:var(--ink);';
+    banner.innerHTML = `
+      <div style="font-weight:700;color:var(--gold-dark);letter-spacing:0.5px;font-size:11px;text-transform:uppercase;margin-bottom:8px;">
+        🔄 Offline Work Detected
+      </div>
+      <div style="margin-bottom:12px;">
+        You have plan data loaded${primary ? ' for <strong>' + primary + '</strong>' : ''} that hasn't been saved to the cloud. Save it now as a new cloud plan?
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="offline-sync-dismiss" style="padding:6px 12px;background:transparent;border:1px solid rgba(0,0,0,0.15);border-radius:3px;cursor:pointer;font-size:11px;letter-spacing:0.5px;color:var(--ink-soft);">Dismiss</button>
+        <button id="offline-sync-save" style="padding:6px 14px;background:var(--gold-dark);color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;letter-spacing:1px;font-weight:700;text-transform:uppercase;">Save to Cloud</button>
+      </div>
+    `;
+    document.body.appendChild(banner);
+
+    document.getElementById('offline-sync-dismiss').addEventListener('click', () => banner.remove());
+    document.getElementById('offline-sync-save').addEventListener('click', async () => {
+      banner.querySelector('#offline-sync-save').textContent = 'Saving…';
+      banner.querySelector('#offline-sync-save').disabled = true;
+      try {
+        await savePlan();
+        banner.innerHTML = '<div style="font-weight:700;color:var(--success);">✓ Saved to cloud.</div>';
+        setTimeout(() => banner.remove(), 2500);
+      } catch (e) {
+        banner.innerHTML = '<div style="color:var(--crimson);">Save failed: ' + (e.message || 'unknown') + '. <button onclick="document.getElementById(\'offline-sync-banner\').remove()" style="background:none;border:none;color:var(--crimson);cursor:pointer;text-decoration:underline;">Dismiss</button></div>';
+      }
+    });
   }
 
   async function savePlan() {
