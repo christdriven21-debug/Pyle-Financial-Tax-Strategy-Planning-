@@ -5454,12 +5454,15 @@
       </div>
     </div>
 
-    <!-- Hidden checkboxes preserve existing JS wiring (strategyMap in mode-switch code) -->
+    <!-- Hidden checkboxes preserve existing JS wiring (strategyMap in mode-switch code).
+         All strategies start UNCHECKED — strategies only enable via explicit
+         advisor selection in the Builder UI or via import data that indicates
+         the client already has them. -->
     <div style="display:none" aria-hidden="true">
-      <input type="checkbox" id="use-dynasty" checked>
-      <input type="checkbox" id="use-crat" checked>
-      <input type="checkbox" id="use-daf" checked>
-      <input type="checkbox" id="use-qoz" checked>
+      <input type="checkbox" id="use-dynasty">
+      <input type="checkbox" id="use-crat">
+      <input type="checkbox" id="use-daf">
+      <input type="checkbox" id="use-qoz">
       <input type="checkbox" id="use-ilit">
       <input type="checkbox" id="use-roth">
       <input type="checkbox" id="use-grat">
