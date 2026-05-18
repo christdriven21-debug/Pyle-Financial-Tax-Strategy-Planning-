@@ -3217,7 +3217,7 @@
       </div>
       <div class="field">
         <label>Primary Client Age <span class="hint">(at plan year)</span></label>
-        <input type="number" id="client-primary-age" value="55" min="18" max="110">
+        <input type="number" id="client-primary-age" value="0" min="18" max="110">
       </div>
       <div class="field">
         <label>Spouse Age <span class="hint">(leave 0 if single)</span></label>
@@ -3233,7 +3233,7 @@
       </div>
       <div class="field" style="grid-column: span 2;">
         <label>Plan Subtitle</label>
-        <input type="text" id="client-subtitle" value="Business Sale Strategy with Dynasty Trust & QOZ Investment">
+        <input type="text" id="client-subtitle" value="0">
       </div>
       <div class="field team-only" id="field-client-email" style="grid-column: span 3;">
         <label>Client Email <span class="hint">(team-only — allows the client to sign in and view/edit their plan)</span></label>
@@ -3264,11 +3264,11 @@
       </div>
       <div class="field">
         <label>Ownership %</label>
-        <div class="suffix-pct"><input type="number" id="biz-ownership" value="100"></div>
+        <div class="suffix-pct"><input type="number" id="biz-ownership" value="0"></div>
       </div>
       <div class="field">
         <label>Sale Price</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-sale" value="50000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-sale" value="0"></div>
       </div>
       <div class="field">
         <label>Tax Basis</label>
@@ -3393,7 +3393,7 @@
       </div>
       <div class="field">
         <label>Capital-Gain Portion of the Sale <span class="hint">(only capital gain qualifies for QOZ + §1202 + §1031)</span></label>
-        <div class="suffix-pct"><input type="number" id="deal-cg-eligible-pct" value="100" min="0" max="100" step="5"></div>
+        <div class="suffix-pct"><input type="number" id="deal-cg-eligible-pct" value="0" min="0" max="100" step="5"></div>
         <div style="font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.4;">
           Ordinary components — §1245/§1250 recapture, §751 hot assets, customer lists / §197 intangibles, workforce-in-place, accounts receivable, non-compete payments — are not deferrable/excludable. Stock sale = ~100% capital · Asset sale partnership/LLC = 40-80% · Asset sale service business = 30-60% · §1031 RE = 100%.
         </div>
@@ -3427,11 +3427,11 @@
       </div>
       <div class="field">
         <label>Installment Term <span class="hint">(years over which principal is paid)</span></label>
-        <input type="number" id="proceeds-installment-years" value="5" min="1" max="30">
+        <input type="number" id="proceeds-installment-years" value="0" min="1" max="30">
       </div>
       <div class="field">
         <label>Installment Interest Rate <span class="hint">(AFR mid-term ≈ 4.5%)</span></label>
-        <div class="suffix-pct"><input type="number" id="proceeds-installment-rate" value="4.5" step="0.1"></div>
+        <div class="suffix-pct"><input type="number" id="proceeds-installment-rate" value="0" step="0.1"></div>
       </div>
     </div>
     <div class="form-grid cols-3" style="margin-top: 14px;">
@@ -3441,11 +3441,11 @@
       </div>
       <div class="field">
         <label>Earnout — Probability of Achievement <span class="hint">(advisor estimate; expected-value calc)</span></label>
-        <div class="suffix-pct"><input type="number" id="proceeds-earnout-prob" value="50" min="0" max="100" step="5"></div>
+        <div class="suffix-pct"><input type="number" id="proceeds-earnout-prob" value="0" min="0" max="100" step="5"></div>
       </div>
       <div class="field">
         <label>Earnout — Years to Resolution</label>
-        <input type="number" id="proceeds-earnout-years" value="3" min="1" max="10">
+        <input type="number" id="proceeds-earnout-years" value="0" min="1" max="10">
       </div>
     </div>
     <div class="form-grid cols-3" style="margin-top: 14px;">
@@ -3455,11 +3455,11 @@
       </div>
       <div class="field">
         <label>Escrow Period <span class="hint">(years until release)</span></label>
-        <input type="number" id="proceeds-escrow-years" value="2" min="0" max="10" step="0.5">
+        <input type="number" id="proceeds-escrow-years" value="0" min="0" max="10" step="0.5">
       </div>
       <div class="field">
         <label>Escrow — Probability of Full Release <span class="hint">(claims-free release)</span></label>
-        <div class="suffix-pct"><input type="number" id="proceeds-escrow-release-prob" value="90" min="0" max="100" step="5"></div>
+        <div class="suffix-pct"><input type="number" id="proceeds-escrow-release-prob" value="0" min="0" max="100" step="5"></div>
       </div>
     </div>
     <div class="form-grid cols-3" style="margin-top: 14px;">
@@ -3469,7 +3469,7 @@
       </div>
       <div class="field">
         <label>Clawback — Probability <span class="hint">(advisor estimate; expected-value reduction)</span></label>
-        <div class="suffix-pct"><input type="number" id="proceeds-clawback-prob" value="30" min="0" max="100" step="5"></div>
+        <div class="suffix-pct"><input type="number" id="proceeds-clawback-prob" value="0" min="0" max="100" step="5"></div>
       </div>
       <div class="field">
         <label>Seller Indemnification Cap <span class="hint">(maximum exposure beyond escrow)</span></label>
@@ -3489,71 +3489,71 @@
     <div class="form-grid cols-3">
       <div class="field">
         <label>Annual Revenue (Current Year)</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-revenue" value="20000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-revenue" value="0"></div>
       </div>
       <div class="field">
         <label>EBITDA (Current Year)</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-ebitda" value="5000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-ebitda" value="0"></div>
       </div>
       <div class="field">
         <label>Gross Assets at QSBS Issuance <span class="hint">(§1202(d) gate)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-gross-assets" value="15000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-gross-assets" value="0"></div>
       </div>
     </div>
     <div class="form-grid cols-3" style="margin-top: 14px;">
       <div class="field">
         <label>Owner W-2 Compensation (Annual) <span class="hint">(reasonable-comp test)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-owner-comp" value="500000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-owner-comp" value="0"></div>
       </div>
       <div class="field">
         <label>Owner K-1 / Distributions (Annual) <span class="hint">(pass-through earnings beyond W-2)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-owner-distributions" value="2000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-owner-distributions" value="0"></div>
       </div>
       <div class="field">
         <label>§199A Qualified Business Income <span class="hint">(eligible portion of net biz income)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-qbi" value="2000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-qbi" value="0"></div>
       </div>
     </div>
     <div class="form-grid cols-3" style="margin-top: 14px;">
       <div class="field">
         <label>Full-Time Employees <span class="hint">(headcount; drives nondiscrimination + PBGC)</span></label>
-        <input type="number" id="corp-employees" value="25" min="0" max="10000">
+        <input type="number" id="corp-employees" value="0" min="0" max="10000">
       </div>
       <div class="field">
         <label>Avg Employee Compensation <span class="hint">(for cross-tested PS modeling)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-avg-comp" value="80000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-avg-comp" value="0"></div>
       </div>
       <div class="field">
         <label>Operating Cash Flow (Annual) <span class="hint">(EBITDA − working-capital change)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-ocf" value="4500000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-ocf" value="0"></div>
       </div>
     </div>
     <div class="form-grid cols-3" style="margin-top: 14px;">
       <div class="field">
         <label>3-Year Revenue CAGR <span class="hint">(growth rate; drives valuation uplift opportunity)</span></label>
-        <div class="suffix-pct"><input type="number" id="corp-cagr" value="12" step="0.5"></div>
+        <div class="suffix-pct"><input type="number" id="corp-cagr" value="0" step="0.5"></div>
       </div>
       <div class="field">
         <label>Top Customer Concentration <span class="hint">(% revenue from largest customer; valuation drag if >20%)</span></label>
-        <div class="suffix-pct"><input type="number" id="corp-customer-concentration" value="15" min="0" max="100" step="1"></div>
+        <div class="suffix-pct"><input type="number" id="corp-customer-concentration" value="0" min="0" max="100" step="1"></div>
       </div>
       <div class="field">
         <label>Recurring Revenue % <span class="hint">(SaaS-style subscription revenue; valuation premium)</span></label>
-        <div class="suffix-pct"><input type="number" id="corp-recurring-revenue" value="30" min="0" max="100" step="5"></div>
+        <div class="suffix-pct"><input type="number" id="corp-recurring-revenue" value="0" min="0" max="100" step="5"></div>
       </div>
     </div>
     <div class="form-grid cols-3" style="margin-top: 14px;">
       <div class="field">
         <label>Industry EBITDA Multiple — Low <span class="hint">(typical exit multiple band)</span></label>
-        <div class="suffix-pct" style="--suffix:'×';"><input type="number" id="corp-multiple-low" value="6" step="0.5"></div>
+        <div class="suffix-pct" style="--suffix:'×';"><input type="number" id="corp-multiple-low" value="0" step="0.5"></div>
       </div>
       <div class="field">
         <label>Industry EBITDA Multiple — High</label>
-        <div class="suffix-pct" style="--suffix:'×';"><input type="number" id="corp-multiple-high" value="10" step="0.5"></div>
+        <div class="suffix-pct" style="--suffix:'×';"><input type="number" id="corp-multiple-high" value="0" step="0.5"></div>
       </div>
       <div class="field">
         <label>Estimated Insurable Annual Risk <span class="hint">(drives §831(b) captive premium ceiling)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-insurable-risk" value="500000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="corp-insurable-risk" value="0"></div>
       </div>
     </div>
 
@@ -3589,7 +3589,7 @@
         </div>
         <div class="field">
           <label>Effective Federal Tax Rate</label>
-          <div class="suffix-pct"><input type="number" id="corp-eff-tax" value="21" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="corp-eff-tax" value="0" step="0.5"></div>
         </div>
         <div class="field">
           <label>Net Income (entered) <span class="hint">(or computed from above)</span></label>
@@ -3717,15 +3717,15 @@
     <div class="form-grid cols-3" style="margin-top: 18px;">
       <div class="field">
         <label>Current Pre-Sale Net Worth</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="client-pnw" value="65000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="client-pnw" value="0"></div>
       </div>
       <div class="field">
         <label>Existing Non-Business Assets</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="client-other" value="12000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="client-other" value="0"></div>
       </div>
       <div class="field">
         <label>Current Annual Business Income</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-income" value="2500000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="biz-income" value="0"></div>
       </div>
       <div class="field">
         <label>Mortgage Balance <span class="hint">(primary + secondary residences)</span></label>
@@ -3843,7 +3843,7 @@
       </div>
       <div class="field">
         <label>Avg Years Until Each Beneficiary Starts College <span class="hint">(0 if adult / in college)</span></label>
-        <input type="number" id="edu-years-to-college" value="10" min="0" max="22">
+        <input type="number" id="edu-years-to-college" value="0" min="0" max="22">
       </div>
       <div class="field" style="grid-column: 1 / -1;">
         <label>Family &amp; Beneficiaries <span class="hint">(used for client portrait, education funding, gifting schedules, and beneficiary designations)</span></label>
@@ -3970,11 +3970,11 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Trust Funding Amount <span class="hint">(economic value)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dt-funding" value="25000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dt-funding" value="0"></div>
         </div>
         <div class="field">
           <label>Valuation Discount <span class="hint">(non-voting + LoM + LoC; 30–40% typical)</span></label>
-          <div class="suffix-pct"><input type="number" id="dt-discount" value="35" step="1"></div>
+          <div class="suffix-pct"><input type="number" id="dt-discount" value="0" step="1"></div>
         </div>
         <div class="field">
           <label>Trust Tax Type <span class="hint">(who pays income tax on trust assets)</span></label>
@@ -3992,15 +3992,15 @@
         </div>
         <div class="field">
           <label>Combined Family Exemption</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dt-exemption" value="15000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dt-exemption" value="0"></div>
         </div>
         <div class="field">
           <label>Projection Period (Years) <span class="hint">(auto-overridden to joint life expectancy)</span></label>
-          <input type="number" id="dt-years" value="20">
+          <input type="number" id="dt-years" value="0">
         </div>
         <div class="field">
           <label>Assumed Annual Trust Income Yield <span class="hint">(for grantor tax-gift leverage calc)</span></label>
-          <div class="suffix-pct"><input type="number" id="dt-income-yield" value="3" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="dt-income-yield" value="0" step="0.5"></div>
         </div>
       </div>
     </div>
@@ -4010,15 +4010,15 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Contribution Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="crat-amount" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="crat-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Annuity Rate</label>
-          <div class="suffix-pct"><input type="number" id="crat-rate" value="6" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="crat-rate" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Deduction Factor <span class="hint">(present value of remainder, as % of contribution)</span></label>
-          <div class="suffix-pct"><input type="number" id="crat-ded" value="42"></div>
+          <div class="suffix-pct"><input type="number" id="crat-ded" value="0"></div>
         </div>
       </div>
     </div>
@@ -4028,7 +4028,7 @@
       <div class="form-grid cols-2">
         <div class="field">
           <label>Contribution Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="daf-amount" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="daf-amount" value="0"></div>
         </div>
       </div>
     </div>
@@ -4041,19 +4041,19 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>QOZ Investment Amount <span class="hint">(portion of gain deferred)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qoz-amount" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qoz-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Deferral Period (Years) <span class="hint">until 12/31/2026 recognition</span></label>
-          <input type="number" id="qoz-defer" value="5">
+          <input type="number" id="qoz-defer" value="0">
         </div>
         <div class="field">
           <label>Expected Annual Return</label>
-          <div class="suffix-pct"><input type="number" id="qoz-return" value="6" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="qoz-return" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Projection Period (Years)</label>
-          <input type="number" id="qoz-years" value="10">
+          <input type="number" id="qoz-years" value="0">
         </div>
       </div>
       <div style="margin-top: 14px; padding: 10px 12px; background: rgba(201,169,97,0.08); border-left: 3px solid var(--gold); font-size: 12px; line-height: 1.6; color: var(--ink);">
@@ -4314,11 +4314,11 @@
             </div>
             <div class="field">
               <label>Loan Years</label>
-              <input type="number" id="splitdollar-years" value="10" min="1" max="40">
+              <input type="number" id="splitdollar-years" value="0" min="1" max="40">
             </div>
             <div class="field">
               <label>AFR Rate <span class="hint">(short/mid/long depending on demand-loan vs term)</span></label>
-              <div class="suffix-pct"><input type="number" id="splitdollar-rate" value="4.5" step="0.1"></div>
+              <div class="suffix-pct"><input type="number" id="splitdollar-rate" value="0" step="0.1"></div>
             </div>
             <div class="field">
               <label>Interest Treatment</label>
@@ -4345,15 +4345,15 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Conversion Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="roth-amount" value="1000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="roth-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Marginal Income Tax Rate <span class="hint">(conversion triggers income tax)</span></label>
-          <div class="suffix-pct"><input type="number" id="roth-marginal" value="37" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="roth-marginal" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Years to Retirement</label>
-          <input type="number" id="roth-years" value="15">
+          <input type="number" id="roth-years" value="0">
         </div>
       </div>
     </div>
@@ -4363,23 +4363,23 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Assets Transferred to GRAT <span class="hint">(economic value)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="grat-transfer" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="grat-transfer" value="0"></div>
         </div>
         <div class="field">
           <label>Valuation Discount</label>
-          <div class="suffix-pct"><input type="number" id="grat-discount" value="25" step="1"></div>
+          <div class="suffix-pct"><input type="number" id="grat-discount" value="0" step="1"></div>
         </div>
         <div class="field">
           <label>GRAT Term (Years)</label>
-          <input type="number" id="grat-term" value="5">
+          <input type="number" id="grat-term" value="0">
         </div>
         <div class="field">
           <label>§7520 Hurdle Rate <span class="hint">(IRS published monthly)</span></label>
-          <div class="suffix-pct"><input type="number" id="grat-7520" value="5.4" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="grat-7520" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Expected Asset Growth Rate</label>
-          <div class="suffix-pct"><input type="number" id="grat-growth" value="8" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="grat-growth" value="0" step="0.1"></div>
         </div>
       </div>
     </div>
@@ -4406,7 +4406,7 @@
         </div>
         <div class="field">
           <label>Years Held</label>
-          <input type="number" id="qsbs-years" value="7">
+          <input type="number" id="qsbs-years" value="0">
         </div>
         <div class="field">
           <label>State Conforms to §1202?</label>
@@ -4459,15 +4459,15 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Relinquished Property Value</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="exch-sale" value="3000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="exch-sale" value="0"></div>
         </div>
         <div class="field">
           <label>Adjusted Basis in Property</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="exch-basis" value="500000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="exch-basis" value="0"></div>
         </div>
         <div class="field">
           <label>Replacement Property Value <span class="hint">(&ge; relinquished value for full deferral)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="exch-replacement" value="3000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="exch-replacement" value="0"></div>
         </div>
       </div>
     </div>
@@ -4480,15 +4480,15 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Investment Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="oilgas-amount" value="2000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="oilgas-amount" value="0"></div>
         </div>
         <div class="field">
           <label>IDC Allocation % <span class="hint">(typical 60-80%, varies by program)</span></label>
-          <div class="suffix-pct"><input type="number" id="oilgas-idc-pct" value="75" min="50" max="85" step="5"></div>
+          <div class="suffix-pct"><input type="number" id="oilgas-idc-pct" value="0" min="50" max="85" step="5"></div>
         </div>
         <div class="field">
           <label>Year-1 Tax Year <span class="hint">(year of IDC deduction)</span></label>
-          <input type="number" id="oilgas-year" value="2026" min="2024" max="2030">
+          <input type="number" id="oilgas-year" value="0" min="2024" max="2030">
         </div>
         <div class="field">
           <label>State Conformity</label>
@@ -4517,11 +4517,11 @@
       <div class="form-grid cols-3" style="margin-top: 14px;">
         <div class="field">
           <label>Estimated Annual Production Income <span class="hint">(years 2-10 average)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="oilgas-production" value="200000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="oilgas-production" value="0"></div>
         </div>
         <div class="field">
           <label>Production Years</label>
-          <input type="number" id="oilgas-prod-years" value="8" min="3" max="20">
+          <input type="number" id="oilgas-prod-years" value="0" min="3" max="20">
         </div>
         <div class="field">
           <label>Program Risk Tier</label>
@@ -4543,11 +4543,11 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Qualified Business Income</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qbi-income" value="2500000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qbi-income" value="0"></div>
         </div>
         <div class="field">
           <label>Deduction Percentage <span class="hint">(20% standard; lower after phase-out)</span></label>
-          <div class="suffix-pct"><input type="number" id="qbi-pct" value="20" step="1"></div>
+          <div class="suffix-pct"><input type="number" id="qbi-pct" value="0" step="1"></div>
         </div>
         <div class="field">
           <label>Business Type</label>
@@ -4569,19 +4569,19 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>SLAT Funding Amount <span class="hint">(economic value)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="slat-funding" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="slat-funding" value="0"></div>
         </div>
         <div class="field">
           <label>Valuation Discount <span class="hint">(if funded with non-voting shares)</span></label>
-          <div class="suffix-pct"><input type="number" id="slat-discount" value="30" step="1"></div>
+          <div class="suffix-pct"><input type="number" id="slat-discount" value="0" step="1"></div>
         </div>
         <div class="field">
           <label>Expected Annual Growth</label>
-          <div class="suffix-pct"><input type="number" id="slat-growth" value="6" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="slat-growth" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Projection Period (Years)</label>
-          <input type="number" id="slat-years" value="20">
+          <input type="number" id="slat-years" value="0">
         </div>
       </div>
     </div>
@@ -4596,24 +4596,24 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Assets Sold to IDGT <span class="hint">(economic value)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="idgt-amount" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="idgt-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Valuation Discount <span class="hint">(reduces the note face value)</span></label>
-          <div class="suffix-pct"><input type="number" id="idgt-discount" value="30" step="1"></div>
+          <div class="suffix-pct"><input type="number" id="idgt-discount" value="0" step="1"></div>
         </div>
         <div class="field">
           <label>AFR on Note <span class="hint">(check current month at IRS.gov/AFR)</span></label>
-          <div class="suffix-pct"><input type="number" id="idgt-afr" value="4.5" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="idgt-afr" value="0" step="0.1"></div>
           <div style="font-size: 11px; color: var(--muted); font-style: italic; margin-top: 4px;">Must equal or exceed the §1274(d) AFR for the month of sale. For 9-yr term use mid-term AFR. Note rate below AFR triggers §7872 gift-of-interest recharacterization.</div>
         </div>
         <div class="field">
           <label>Expected Asset Growth</label>
-          <div class="suffix-pct"><input type="number" id="idgt-growth" value="8" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="idgt-growth" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Note Term (Years)</label>
-          <input type="number" id="idgt-term" value="9">
+          <input type="number" id="idgt-term" value="0">
         </div>
       </div>
     </div>
@@ -4629,23 +4629,23 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Residence FMV at Funding</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qprt-residence" value="3000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qprt-residence" value="0"></div>
         </div>
         <div class="field">
           <label>QPRT Term (Years)</label>
-          <input type="number" id="qprt-term" value="10">
+          <input type="number" id="qprt-term" value="0">
         </div>
         <div class="field">
           <label>§7520 Hurdle Rate <span class="hint">(IRS published monthly)</span></label>
-          <div class="suffix-pct"><input type="number" id="qprt-7520" value="5.4" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="qprt-7520" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Grantor Age at Funding</label>
-          <input type="number" id="qprt-age" value="55">
+          <input type="number" id="qprt-age" value="0">
         </div>
         <div class="field">
           <label>Expected Residence Appreciation</label>
-          <div class="suffix-pct"><input type="number" id="qprt-growth" value="4" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="qprt-growth" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Residence Type</label>
@@ -4665,15 +4665,15 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Contribution Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="crut-amount" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="crut-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Unitrust Payout Rate <span class="hint">(5–50% allowed; typical 5–7%)</span></label>
-          <div class="suffix-pct"><input type="number" id="crut-rate" value="5" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="crut-rate" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Deduction Factor <span class="hint">(PV of remainder interest, as % of contribution)</span></label>
-          <div class="suffix-pct"><input type="number" id="crut-ded" value="35"></div>
+          <div class="suffix-pct"><input type="number" id="crut-ded" value="0"></div>
         </div>
       </div>
     </div>
@@ -4686,23 +4686,23 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Trust Funding Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="clt-amount" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="clt-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Annual Payout to Charity</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="clt-payout" value="600000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="clt-payout" value="0"></div>
         </div>
         <div class="field">
           <label>Trust Term (Years)</label>
-          <input type="number" id="clt-term" value="15">
+          <input type="number" id="clt-term" value="0">
         </div>
         <div class="field">
           <label>§7520 Hurdle Rate</label>
-          <div class="suffix-pct"><input type="number" id="clt-7520" value="5.4" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="clt-7520" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Expected Asset Growth</label>
-          <div class="suffix-pct"><input type="number" id="clt-growth" value="8" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="clt-growth" value="0" step="0.1"></div>
         </div>
       </div>
     </div>
@@ -4715,15 +4715,15 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Annual Contribution Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dbplan-contribution" value="285000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dbplan-contribution" value="0"></div>
         </div>
         <div class="field">
           <label>Owner Age <span class="hint">(drives §415 max)</span></label>
-          <input type="number" id="dbplan-owner-age" value="55" min="40" max="75">
+          <input type="number" id="dbplan-owner-age" value="0" min="40" max="75">
         </div>
         <div class="field">
           <label>Funding Years <span class="hint">(typical 5-15)</span></label>
-          <input type="number" id="dbplan-years" value="10" min="3" max="20">
+          <input type="number" id="dbplan-years" value="0" min="3" max="20">
         </div>
         <div class="field">
           <label>Plan Type</label>
@@ -4748,7 +4748,7 @@
         </div>
         <div class="field">
           <label>Expected Annual Return <span class="hint">(plan investment growth)</span></label>
-          <div class="suffix-pct"><input type="number" id="dbplan-return" value="5" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="dbplan-return" value="0" step="0.5"></div>
         </div>
       </div>
     </div>
@@ -4761,15 +4761,15 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Land FMV Before Easement</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-fmv-before" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-fmv-before" value="0"></div>
         </div>
         <div class="field">
           <label>Land FMV After Easement <span class="hint">(post-restriction)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-fmv-after" value="1500000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-fmv-after" value="0"></div>
         </div>
         <div class="field">
           <label>Land Cost Basis <span class="hint">(triggers §170(h)(7) cap if syndicated)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-basis" value="800000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-basis" value="0"></div>
         </div>
       </div>
       <div class="form-grid cols-3" style="margin-top: 14px;">
@@ -4801,7 +4801,7 @@
       <div class="form-grid cols-2" style="margin-top: 14px;">
         <div class="field">
           <label>Owner AGI <span class="hint">(50% limit per year, 15-yr carryforward)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-agi" value="2000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ceasement-agi" value="0"></div>
         </div>
         <div class="field">
           <label>Qualified Appraisal On File? <span class="hint">(§170(f)(11) requires)</span></label>
@@ -4822,21 +4822,21 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Stock Sale to ESOP</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="esop-1042-amount" value="20000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="esop-1042-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Adjusted Stock Basis</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="esop-1042-basis" value="100000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="esop-1042-basis" value="0"></div>
         </div>
         <div class="field">
           <label>ESOP Stake Post-Sale <span class="hint">(must be ≥ 30%)</span></label>
-          <div class="suffix-pct"><input type="number" id="esop-1042-stake" value="30" min="0" max="100"></div>
+          <div class="suffix-pct"><input type="number" id="esop-1042-stake" value="0" min="0" max="100"></div>
         </div>
       </div>
       <div class="form-grid cols-3" style="margin-top: 14px;">
         <div class="field">
           <label>QRP Reinvestment Amount <span class="hint">(must equal proceeds for full deferral)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="esop-1042-qrp" value="20000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="esop-1042-qrp" value="0"></div>
         </div>
         <div class="field">
           <label>Plan to Hold QRP Until Death? <span class="hint">(step-up = permanent deferral)</span></label>
@@ -4863,29 +4863,29 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Sale Price (Property → Note)</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="mon-install-amount" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="mon-install-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Property Adjusted Basis</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="mon-install-basis" value="500000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="mon-install-basis" value="0"></div>
         </div>
         <div class="field">
           <label>Note Term (Years) <span class="hint">(typically 30)</span></label>
-          <input type="number" id="mon-install-term" value="30" min="5" max="40">
+          <input type="number" id="mon-install-term" value="0" min="5" max="40">
         </div>
       </div>
       <div class="form-grid cols-3" style="margin-top: 14px;">
         <div class="field">
           <label>AFR / Note Rate <span class="hint">(long-term AFR)</span></label>
-          <div class="suffix-pct"><input type="number" id="mon-install-rate" value="4.5" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="mon-install-rate" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Monetization Loan % <span class="hint">(typically 93-95% of sale)</span></label>
-          <div class="suffix-pct"><input type="number" id="mon-install-loan-pct" value="93" min="50" max="95"></div>
+          <div class="suffix-pct"><input type="number" id="mon-install-loan-pct" value="0" min="50" max="95"></div>
         </div>
         <div class="field">
           <label>Loan Interest Rate <span class="hint">(typically ≈ note rate)</span></label>
-          <div class="suffix-pct"><input type="number" id="mon-install-loan-rate" value="4.6" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="mon-install-loan-rate" value="0" step="0.1"></div>
         </div>
       </div>
     </div>
@@ -4898,11 +4898,11 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Annual Premium to Captive</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="captive-premium" value="1500000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="captive-premium" value="0"></div>
         </div>
         <div class="field">
           <label>Years Funded</label>
-          <input type="number" id="captive-years" value="10" min="3" max="30">
+          <input type="number" id="captive-years" value="0" min="3" max="30">
         </div>
         <div class="field">
           <label>§831(b) Election Made? <span class="hint">(required for $2.65M cap)</span></label>
@@ -4929,25 +4929,25 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Total Death Benefit</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="pf-db" value="20000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="pf-db" value="0"></div>
         </div>
         <div class="field">
           <label>Annual Premium</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="pf-premium" value="500000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="pf-premium" value="0"></div>
         </div>
         <div class="field">
           <label>Premium Years <span class="hint">(typically 7-10)</span></label>
-          <input type="number" id="pf-years" value="10" min="3" max="20">
+          <input type="number" id="pf-years" value="0" min="3" max="20">
         </div>
       </div>
       <div class="form-grid cols-3" style="margin-top: 14px;">
         <div class="field">
           <label>Loan Interest Rate <span class="hint">(SOFR + spread)</span></label>
-          <div class="suffix-pct"><input type="number" id="pf-loan-rate" value="6.5" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="pf-loan-rate" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Policy Crediting Rate <span class="hint">(expected indexed-UL or whole-life)</span></label>
-          <div class="suffix-pct"><input type="number" id="pf-credit-rate" value="6.0" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="pf-credit-rate" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Held in ILIT? <span class="hint">(estate exclusion)</span></label>
@@ -4967,29 +4967,29 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Contribution Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="nimcrut-amount" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="nimcrut-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Unitrust Rate <span class="hint">(5–50%)</span></label>
-          <div class="suffix-pct"><input type="number" id="nimcrut-rate" value="6" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="nimcrut-rate" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Year of Asset Sale <span class="hint">(income spike year)</span></label>
-          <input type="number" id="nimcrut-sale-year" value="3" min="1" max="20">
+          <input type="number" id="nimcrut-sale-year" value="0" min="1" max="20">
         </div>
         <div class="field">
           <label>Trust Term (Years) <span class="hint">(or life)</span></label>
-          <input type="number" id="nimcrut-term" value="20" min="5" max="40">
+          <input type="number" id="nimcrut-term" value="0" min="5" max="40">
         </div>
       </div>
       <div class="form-grid cols-2" style="margin-top: 14px;">
         <div class="field">
           <label>Pre-Sale Annual Income % <span class="hint">(low — non-income asset)</span></label>
-          <div class="suffix-pct"><input type="number" id="nimcrut-pre-income" value="1" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="nimcrut-pre-income" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Charitable Deduction Factor <span class="hint">(PV of remainder, ~30-40%)</span></label>
-          <div class="suffix-pct"><input type="number" id="nimcrut-ded-factor" value="35"></div>
+          <div class="suffix-pct"><input type="number" id="nimcrut-ded-factor" value="0"></div>
         </div>
       </div>
     </div>
@@ -5002,25 +5002,25 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Funding Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="walton-amount" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="walton-amount" value="0"></div>
         </div>
         <div class="field">
           <label>GRAT Term (Years) <span class="hint">(2-5 typical for Walton)</span></label>
-          <input type="number" id="walton-term" value="2" min="2" max="10">
+          <input type="number" id="walton-term" value="0" min="2" max="10">
         </div>
         <div class="field">
           <label>§7520 Rate <span class="hint">(IRS monthly rate)</span></label>
-          <div class="suffix-pct"><input type="number" id="walton-7520" value="5" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="walton-7520" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Expected Annual Return <span class="hint">(asset growth)</span></label>
-          <div class="suffix-pct"><input type="number" id="walton-return" value="12" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="walton-return" value="0" step="0.5"></div>
         </div>
       </div>
       <div class="form-grid cols-2" style="margin-top: 14px;">
         <div class="field">
           <label>Grantor Age <span class="hint">(mortality during term reverts asset to estate)</span></label>
-          <input type="number" id="walton-age" value="55" min="30" max="90">
+          <input type="number" id="walton-age" value="0" min="30" max="90">
         </div>
         <div class="field">
           <label>Plan to Roll Successive GRATs? <span class="hint">(compound the win on volatile assets)</span></label>
@@ -5040,7 +5040,7 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Funding Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dapt-amount" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="dapt-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Trust Situs</label>
@@ -5088,21 +5088,21 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>QSBS Sold</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-1045-sold" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-1045-sold" value="0"></div>
         </div>
         <div class="field">
           <label>Adjusted Basis in Sold Stock</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-1045-basis" value="100000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-1045-basis" value="0"></div>
         </div>
         <div class="field">
           <label>Years Held Before Sale <span class="hint">(must be &lt; 5 to need §1045)</span></label>
-          <input type="number" id="qsbs-1045-years" value="3" min="1" max="5">
+          <input type="number" id="qsbs-1045-years" value="0" min="1" max="5">
         </div>
       </div>
       <div class="form-grid cols-3" style="margin-top: 14px;">
         <div class="field">
           <label>Replacement QSBS Investment</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-1045-rollover" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="qsbs-1045-rollover" value="0"></div>
         </div>
         <div class="field">
           <label>Rollover Within 60 Days?</label>
@@ -5129,29 +5129,29 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Sale Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="scin-amount" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="scin-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Asset Basis</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="scin-basis" value="500000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="scin-basis" value="0"></div>
         </div>
         <div class="field">
           <label>Note Term (Years)</label>
-          <input type="number" id="scin-term" value="10" min="3" max="20">
+          <input type="number" id="scin-term" value="0" min="3" max="20">
         </div>
       </div>
       <div class="form-grid cols-3" style="margin-top: 14px;">
         <div class="field">
           <label>Base AFR</label>
-          <div class="suffix-pct"><input type="number" id="scin-afr" value="4.5" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="scin-afr" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>SCIN Premium <span class="hint">(actuarial cancellation premium)</span></label>
-          <div class="suffix-pct"><input type="number" id="scin-premium" value="1.5" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="scin-premium" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Grantor Age <span class="hint">(life-expectancy driver)</span></label>
-          <input type="number" id="scin-age" value="70" min="50" max="90">
+          <input type="number" id="scin-age" value="0" min="50" max="90">
         </div>
       </div>
     </div>
@@ -5164,21 +5164,21 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Total Premium Funding</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="pplife-premium" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="pplife-premium" value="0"></div>
         </div>
         <div class="field">
           <label>Premium Pay Years</label>
-          <input type="number" id="pplife-pay-years" value="5" min="1" max="20">
+          <input type="number" id="pplife-pay-years" value="0" min="1" max="20">
         </div>
         <div class="field">
           <label>Expected Internal Return <span class="hint">(net of fund + insurance fees)</span></label>
-          <div class="suffix-pct"><input type="number" id="pplife-return" value="8" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="pplife-return" value="0" step="0.5"></div>
         </div>
       </div>
       <div class="form-grid cols-3" style="margin-top: 14px;">
         <div class="field">
           <label>Projection Years</label>
-          <input type="number" id="pplife-years" value="20" min="5" max="40">
+          <input type="number" id="pplife-years" value="0" min="5" max="40">
         </div>
         <div class="field">
           <label>Held in ILIT? <span class="hint">(estate exclusion)</span></label>
@@ -5205,29 +5205,29 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Owner Annual Contribution</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="cross-ps-owner" value="70000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="cross-ps-owner" value="0"></div>
         </div>
         <div class="field">
           <label>Eligible Non-Owner Employees</label>
-          <input type="number" id="cross-ps-emps" value="3" min="0" max="500">
+          <input type="number" id="cross-ps-emps" value="0" min="0" max="500">
         </div>
         <div class="field">
           <label>Avg Employee Age</label>
-          <input type="number" id="cross-ps-emp-age" value="35" min="20" max="70">
+          <input type="number" id="cross-ps-emp-age" value="0" min="20" max="70">
         </div>
       </div>
       <div class="form-grid cols-3" style="margin-top: 14px;">
         <div class="field">
           <label>Owner Age</label>
-          <input type="number" id="cross-ps-owner-age" value="55" min="40" max="75">
+          <input type="number" id="cross-ps-owner-age" value="0" min="40" max="75">
         </div>
         <div class="field">
           <label>Funding Years</label>
-          <input type="number" id="cross-ps-years" value="10" min="3" max="20">
+          <input type="number" id="cross-ps-years" value="0" min="3" max="20">
         </div>
         <div class="field">
           <label>Min Employee Allocation % <span class="hint">(§401(a)(4) safe harbor 5-7.5%)</span></label>
-          <div class="suffix-pct"><input type="number" id="cross-ps-emp-pct" value="5" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="cross-ps-emp-pct" value="0" step="0.5"></div>
         </div>
       </div>
     </div>
@@ -5240,11 +5240,11 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Business Interest Value <span class="hint">(decedent's share)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="buysell-value" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="buysell-value" value="0"></div>
         </div>
         <div class="field">
           <label>Number of Owners</label>
-          <input type="number" id="buysell-owners" value="3" min="2" max="20">
+          <input type="number" id="buysell-owners" value="0" min="2" max="20">
         </div>
         <div class="field">
           <label>Structure</label>
@@ -5258,7 +5258,7 @@
       <div class="form-grid cols-3" style="margin-top: 14px;">
         <div class="field">
           <label>Insurance Funding %</label>
-          <div class="suffix-pct"><input type="number" id="buysell-insurance-pct" value="100" min="0" max="100" step="10"></div>
+          <div class="suffix-pct"><input type="number" id="buysell-insurance-pct" value="0" min="0" max="100" step="10"></div>
         </div>
         <div class="field">
           <label>§2703 Compliant? <span class="hint">(arms-length pricing terms)</span></label>
@@ -5286,11 +5286,11 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>LLC Funding Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="family-llc-funding" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="family-llc-funding" value="0"></div>
         </div>
         <div class="field">
           <label>Valuation Discount</label>
-          <div class="suffix-pct"><input type="number" id="family-llc-discount" value="30" step="1"></div>
+          <div class="suffix-pct"><input type="number" id="family-llc-discount" value="0" step="1"></div>
         </div>
         <div class="field">
           <label>State of Formation</label>
@@ -5303,7 +5303,7 @@
         </div>
         <div class="field">
           <label>% Gifted to Next Generation</label>
-          <div class="suffix-pct"><input type="number" id="family-llc-gifted" value="30" min="0" max="99" step="5"></div>
+          <div class="suffix-pct"><input type="number" id="family-llc-gifted" value="0" min="0" max="99" step="5"></div>
         </div>
       </div>
     </div>
@@ -5316,19 +5316,19 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Loan Amount</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="intra-loan-amount" value="5000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="intra-loan-amount" value="0"></div>
         </div>
         <div class="field">
           <label>Loan Term (Years)</label>
-          <input type="number" id="intra-loan-term" value="9" min="3" max="30">
+          <input type="number" id="intra-loan-term" value="0" min="3" max="30">
         </div>
         <div class="field">
           <label>AFR Rate <span class="hint">(mid-term ≈ 4.5% / long-term ≈ 4.7% in 2024)</span></label>
-          <div class="suffix-pct"><input type="number" id="intra-loan-afr" value="4.5" step="0.1"></div>
+          <div class="suffix-pct"><input type="number" id="intra-loan-afr" value="0" step="0.1"></div>
         </div>
         <div class="field">
           <label>Expected Asset Return</label>
-          <div class="suffix-pct"><input type="number" id="intra-loan-return" value="8" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="intra-loan-return" value="0" step="0.5"></div>
         </div>
       </div>
     </div>
@@ -5341,11 +5341,11 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Foundation Funding</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="private-foundation-funding" value="10000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="private-foundation-funding" value="0"></div>
         </div>
         <div class="field">
           <label>Owner AGI <span class="hint">(30% AGI limit applies)</span></label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="private-foundation-agi" value="2000000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="private-foundation-agi" value="0"></div>
         </div>
         <div class="field">
           <label>Asset Type</label>
@@ -5357,7 +5357,7 @@
         </div>
         <div class="field">
           <label>Expected Investment Return</label>
-          <div class="suffix-pct"><input type="number" id="private-foundation-return" value="6" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="private-foundation-return" value="0" step="0.5"></div>
         </div>
       </div>
     </div>
@@ -5370,15 +5370,15 @@
       <div class="form-grid cols-4">
         <div class="field">
           <label>Annual Deferral / Contribution</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="serp-contribution" value="500000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="serp-contribution" value="0"></div>
         </div>
         <div class="field">
           <label>Funding Years</label>
-          <input type="number" id="serp-years" value="15" min="3" max="30">
+          <input type="number" id="serp-years" value="0" min="3" max="30">
         </div>
         <div class="field">
           <label>Expected Crediting Rate <span class="hint">(COLI / annuity)</span></label>
-          <div class="suffix-pct"><input type="number" id="serp-rate" value="6" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="serp-rate" value="0" step="0.5"></div>
         </div>
         <div class="field">
           <label>Funding Vehicle</label>
@@ -5399,11 +5399,11 @@
       <div class="form-grid cols-3">
         <div class="field">
           <label>Investment Income Shifted Annually</label>
-          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ing-income" value="500000"></div>
+          <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ing-income" value="0"></div>
         </div>
         <div class="field">
           <label>Years of Operation</label>
-          <input type="number" id="ing-years" value="10" min="1" max="30">
+          <input type="number" id="ing-years" value="0" min="1" max="30">
         </div>
         <div class="field">
           <label>Trust Situs</label>
@@ -5432,17 +5432,17 @@
         </div>
         <div class="field">
           <label>Account Holder Age <span class="hint">(catchup at 55+)</span></label>
-          <input type="number" id="hsa-age" value="50" min="18" max="64">
+          <input type="number" id="hsa-age" value="0" min="18" max="64">
         </div>
         <div class="field">
           <label>Years Until 65 Withdrawal <span class="hint">(funding horizon)</span></label>
-          <input type="number" id="hsa-years" value="15" min="1" max="40">
+          <input type="number" id="hsa-years" value="0" min="1" max="40">
         </div>
       </div>
       <div class="form-grid cols-2" style="margin-top: 14px;">
         <div class="field">
           <label>Expected Annual Return <span class="hint">(invested portion)</span></label>
-          <div class="suffix-pct"><input type="number" id="hsa-return" value="7" step="0.5"></div>
+          <div class="suffix-pct"><input type="number" id="hsa-return" value="0" step="0.5"></div>
         </div>
         <div class="field">
           <label>Pay Medical Out-of-Pocket? <span class="hint">(maximize compounding)</span></label>
@@ -5503,19 +5503,19 @@
       <input type="checkbox" id="use-exchfund">     <!-- Exchange Fund — diversify single-stock w/o triggering tax -->
       <!-- dbplan-contribution + dbplan-years promoted to visible block-dbplan -->
       <!-- ceasement-* promoted to visible block-ceasement -->
-      <input type="hidden" id="muni-alloc-pct" value="20">
-      <input type="hidden" id="flp-discount-pct" value="25">
+      <input type="hidden" id="muni-alloc-pct" value="0">
+      <input type="hidden" id="flp-discount-pct" value="0">
       <!-- ing-income promoted to visible block-ing-trust -->
       <!-- Hedging parameters (defaults sized for typical $5-25M concentrated position) -->
-      <input type="hidden" id="collar-notional" value="5000000">
-      <input type="hidden" id="collar-floor-pct" value="90">     <!-- floor strike as % of current price -->
-      <input type="hidden" id="collar-cap-pct" value="115">      <!-- cap strike as % of current price -->
-      <input type="hidden" id="collar-term-months" value="12">
-      <input type="hidden" id="pvf-notional" value="5000000">
-      <input type="hidden" id="pvf-advance-pct" value="85">      <!-- cash advance as % of stock value -->
-      <input type="hidden" id="pvf-term-years" value="3">
-      <input type="hidden" id="exchfund-notional" value="3000000">
-      <input type="hidden" id="exchfund-lockup-years" value="7">
+      <input type="hidden" id="collar-notional" value="0">
+      <input type="hidden" id="collar-floor-pct" value="0">     <!-- floor strike as % of current price -->
+      <input type="hidden" id="collar-cap-pct" value="0">      <!-- cap strike as % of current price -->
+      <input type="hidden" id="collar-term-months" value="0">
+      <input type="hidden" id="pvf-notional" value="0">
+      <input type="hidden" id="pvf-advance-pct" value="0">      <!-- cash advance as % of stock value -->
+      <input type="hidden" id="pvf-term-years" value="0">
+      <input type="hidden" id="exchfund-notional" value="0">
+      <input type="hidden" id="exchfund-lockup-years" value="0">
     </div>
   </section>
 
@@ -5623,15 +5623,15 @@
     <div class="form-grid cols-4">
       <div class="field">
         <label>Annual Fixed Expenses <span class="hint">(housing, insurance, recurring)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="budget-fixed" value="300000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="budget-fixed" value="0"></div>
       </div>
       <div class="field">
         <label>Annual Variable Expenses <span class="hint">(food, travel, discretionary)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="budget-variable" value="240000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="budget-variable" value="0"></div>
       </div>
       <div class="field">
         <label>Annual Tax Expenses <span class="hint">(estimated federal + state)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="budget-taxes" value="200000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="budget-taxes" value="0"></div>
       </div>
       <div class="field">
         <label>Target Safe Withdrawal Rate <span class="hint">(4% rule standard)</span></label>
@@ -5653,19 +5653,19 @@
     <div class="form-grid cols-4">
       <div class="field">
         <label>Traditional IRA Balance</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-trad-ira" value="500000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-trad-ira" value="0"></div>
       </div>
       <div class="field">
         <label>401(k) / 403(b) Balance</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-401k" value="1500000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-401k" value="0"></div>
       </div>
       <div class="field">
         <label>Roth IRA Balance</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-roth-ira" value="250000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-roth-ira" value="0"></div>
       </div>
       <div class="field">
         <label>HSA Balance</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-hsa" value="75000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-hsa" value="0"></div>
       </div>
       <div class="field">
         <label>RMD Start Age <span class="hint">(73 per SECURE 2.0; 75 for 1960+)</span></label>
@@ -5673,11 +5673,11 @@
       </div>
       <div class="field">
         <label>Primary SS Benefit at FRA <span class="hint">(monthly, from SSA.gov estimate)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ss-primary-benefit" value="4500"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ss-primary-benefit" value="0"></div>
       </div>
       <div class="field">
         <label>Spouse SS Benefit at FRA <span class="hint">(monthly)</span></label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ss-spouse-benefit" value="2800"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ss-spouse-benefit" value="0"></div>
       </div>
       <div class="field">
         <label>Primary Claiming Age</label>
@@ -5703,15 +5703,15 @@
     <div class="form-grid cols-3">
       <div class="field">
         <label>Current Coverage</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ins-current" value="4750000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ins-current" value="0"></div>
       </div>
       <div class="field">
         <label>Recommended Min Coverage</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ins-rec-min" value="15000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ins-rec-min" value="0"></div>
       </div>
       <div class="field">
         <label>Recommended Max Coverage</label>
-        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ins-rec-max" value="20000000"></div>
+        <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ins-rec-max" value="0"></div>
       </div>
     </div>
   </section>
@@ -5728,11 +5728,11 @@
     <div class="form-grid cols-2">
       <div class="field">
         <label>Firm Name</label>
-        <input type="text" id="firm-name" value="Pyle Financial Services, Inc">
+        <input type="text" id="firm-name" value="0">
       </div>
       <div class="field">
         <label>Firm Tagline</label>
-        <input type="text" id="firm-tag" value="Aligning Wealth with Purpose">
+        <input type="text" id="firm-tag" value="0">
       </div>
       <div class="field" style="grid-column: span 2;">
         <label>Upload Firm Logo <span class="hint">(PNG, JPG, SVG — embedded in the downloaded plan)</span></label>
@@ -13936,7 +13936,7 @@ function renderTransaction(p) {
             <div class="slider-value" id="tax-val-${s.id}">${fmtVal(s.value)}</div>
             <input type="range" id="tax-sld-${s.id}"
                    data-path="${s.path}" data-ispct="${s.isPercent ? 1 : 0}" data-isint="${s.isInteger ? 1 : 0}"
-                   min="0" max="${s.max}" step="${s.step}" value="${s.value}">
+                   min="0" max="${s.max}" step="${s.step}" value="0">
             <div class="slider-hint">Plan default: ${fmtVal(s.value)} · Max: ${fmtVal(s.max)}</div>
           </div>
         `;}).join('')}
@@ -15295,10 +15295,10 @@ function renderFinancial(p) {
     <div class="params-bar">
       <h4>⚙ Projection Parameters</h4>
       <div class="grid">
-        <div class="field"><label>Investment Return</label><div class="suffix-pct"><input type="number" id="live-equity" value="${(d.proj.equity*100).toFixed(1)}" step="0.1"></div></div>
-        <div class="field"><label>Real Estate Return</label><div class="suffix-pct"><input type="number" id="live-re" value="${(d.proj.re*100).toFixed(1)}" step="0.1"></div></div>
-        <div class="field"><label>Projection Years</label><input type="number" id="live-years" value="${d.proj.years}"></div>
-        <div class="field"><label>Inflation Rate</label><div class="suffix-pct"><input type="number" id="live-inflation" value="${(d.proj.inflation*100).toFixed(1)}" step="0.1"></div></div>
+        <div class="field"><label>Investment Return</label><div class="suffix-pct"><input type="number" id="live-equity" value="0" step="0.1"></div></div>
+        <div class="field"><label>Real Estate Return</label><div class="suffix-pct"><input type="number" id="live-re" value="0" step="0.1"></div></div>
+        <div class="field"><label>Projection Years</label><input type="number" id="live-years" value="0"></div>
+        <div class="field"><label>Inflation Rate</label><div class="suffix-pct"><input type="number" id="live-inflation" value="0" step="0.1"></div></div>
       </div>
     </div>
 
@@ -17851,7 +17851,7 @@ function renderEstate(p) {
             <div class="slider-value" id="est-val-${s.id}">${fmtSliderCurrency(s.value)}</div>
             <input type="range" id="est-sld-${s.id}"
                    data-path="${s.path}"
-                   min="0" max="${s.max}" step="${s.step}" value="${s.value}">
+                   min="0" max="${s.max}" step="${s.step}" value="0">
             <div class="slider-hint">Plan default: ${fmtSliderCurrency(s.value)} · Max: ${fmtSliderCurrency(s.max)}</div>
           </div>
         `).join('')}
@@ -26570,7 +26570,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       return `
         <tr ${apply ? '' : 'style="opacity: 0.5;"'}>
           <td style="padding: 8px 12px;">
-            <input type="checkbox" id="ext-apply-${i}" ${apply ? 'checked' : ''} ${apply ? '' : 'disabled'} data-form-id="${esc(entry.formId || '')}" data-value="${esc(String(value === null || value === undefined ? '' : value))}">
+            <input type="checkbox" id="ext-apply-${i}" ${apply ? 'checked' : ''} ${apply ? '' : 'disabled'} data-form-id="${esc(entry.formId || '')}" data-value="0">
           </td>
           <td style="padding: 8px 12px;">
             <label for="ext-apply-${i}" style="font-weight: 600; color: var(--ink); font-size: 13px;">${esc(entry.label)}</label>
