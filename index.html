@@ -24847,7 +24847,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
         let hint = '';
         const msg = (error.message || '').toLowerCase();
         if (msg.includes('rate limit') || msg.includes('too many')) {
-          hint = ' — Supabase free-tier limits built-in email to 4/hr per address, 30/hr per project. **Fix:** wait 60 minutes for hourly reset, OR configure custom SMTP (Resend) per docs/setup/resend-and-subdomain.md Part 2 to remove the limit entirely.';
+          hint = ` — Supabase built-in SMTP has a per-address hourly cap (free tier: 4/hr; Pro tier: higher but still capped). The cap is by EMAIL ADDRESS. **Three fixes:** (1) try a DIFFERENT email address (e.g., Admin@pfs4u.com if you used Scott@pfs4u.com) — gives you a fresh address window immediately; (2) wait 60 minutes from your first attempt for the hourly reset; (3) click "Work Offline" to bypass cloud entirely — your SharePoint share-drive workflow doesn't need sign-in; (4) configure custom SMTP (Resend) per docs/setup/resend-and-subdomain.md Part 2 to remove the limit entirely.`;
         } else if (msg.includes('invalid') && msg.includes('redirect')) {
           hint = ' (Redirect URL not whitelisted — Supabase dashboard → Auth → URL Configuration → add ' + redirectUrl + ')';
         } else if (msg.includes('email') && msg.includes('disabled')) {
