@@ -5604,8 +5604,8 @@
         <div class="suffix-pct"><input type="number" id="proj-re" value="3" step="0.1"></div>
       </div>
       <div class="field">
-        <label>Projection Period (Years)</label>
-        <input type="number" id="proj-years" value="20">
+        <label>Projection Period (Years) <span class="hint" id="proj-years-hint">— auto-set from life expectancy when ages entered</span></label>
+        <input type="number" id="proj-years" value="20" data-auto-derive="1">
       </div>
       <div class="field">
         <label>Inflation Rate</label>
@@ -6237,7 +6237,56 @@ function wireMoneyInput(el) {
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('input.money').forEach(wireMoneyInput);
   formatAllMoneyInputs();
+  // Auto-derive Projection Period (proj-years) from life expectancy whenever
+  // the primary or spouse age changes. Joint last-survivor LE when both ages
+  // entered; single LE for primary alone. Advisor can manually override —
+  // the auto-derive sets `data-auto-derive="0"` once a manual edit lands so
+  // it doesn't keep overwriting their value.
+  wireProjYearsAutoDerive();
 });
+
+function wireProjYearsAutoDerive() {
+  const primaryEl = document.getElementById('client-primary-age');
+  const spouseEl  = document.getElementById('client-spouse-age');
+  const projEl    = document.getElementById('proj-years');
+  const hintEl    = document.getElementById('proj-years-hint');
+  if (!primaryEl || !projEl) return;
+  function recomputeHorizon() {
+    if (projEl.dataset.autoDerive !== '1') return;  // advisor overrode
+    const pa = parseInt(primaryEl.value, 10) || 0;
+    const sa = parseInt(spouseEl?.value || '0', 10) || 0;
+    if (pa <= 0) return;  // no age entered — leave default alone
+    // singleLifeExpectancy and jointLastSurvivorExpectancy are hoisted
+    // top-level functions defined later in the file.
+    let horizon;
+    if (sa > 0 && typeof jointLastSurvivorExpectancy === 'function') {
+      horizon = jointLastSurvivorExpectancy(pa, sa);
+      if (hintEl) hintEl.textContent = `— auto-set to joint life expectancy (${pa}/${sa})`;
+    } else if (typeof singleLifeExpectancy === 'function') {
+      horizon = Math.round(singleLifeExpectancy(pa));
+      if (hintEl) hintEl.textContent = `— auto-set to single life expectancy (age ${pa})`;
+    }
+    if (horizon && horizon > 0) {
+      projEl.value = String(horizon);
+      projEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+  // Mark as manually-overridden once advisor touches the field directly
+  projEl.addEventListener('change', (e) => {
+    // Only flag as manual if the change came from a user (not our auto-set)
+    if (e.isTrusted) {
+      projEl.dataset.autoDerive = '0';
+      if (hintEl) hintEl.textContent = '— manually set; advisor override';
+    }
+  });
+  primaryEl.addEventListener('input', recomputeHorizon);
+  if (spouseEl) spouseEl.addEventListener('input', recomputeHorizon);
+  // Initial pass in case ages are already populated (e.g., after plan load)
+  setTimeout(recomputeHorizon, 100);
+  // Expose hook so plan-load / import code can trigger after setting ages
+  // programmatically (which doesn't fire input events automatically)
+  window.__RECOMPUTE_PROJ_YEARS__ = recomputeHorizon;
+}
 
 /* ---- Mode switching ---- */
 document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -23852,6 +23901,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     if (window.__REBUILD_FAMILY_LIST__) window.__REBUILD_FAMILY_LIST__();
     if (window.__REBUILD_GOALS_LIST__)  window.__REBUILD_GOALS_LIST__();
     if (window.__REBUILD_BALANCE_SHEET__) window.__REBUILD_BALANCE_SHEET__();
+    // After hydration, recompute projection horizon from primary/spouse ages
+    // (uses joint-last-survivor if both present, else single life expectancy).
+    if (window.__RECOMPUTE_PROJ_YEARS__) window.__RECOMPUTE_PROJ_YEARS__();
     // ─── LEGACY ILIT AUTO-MIGRATION ───
     // For plans saved before the per-policy ILIT editor: if the legacy
     // ilit-coverage / ilit-premium fields have values but no per-policy
@@ -24779,6 +24831,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     }
 
     if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
+
+    // Recompute projection horizon now that ages are set from the import.
+    if (window.__RECOMPUTE_PROJ_YEARS__) window.__RECOMPUTE_PROJ_YEARS__();
 
     const summary = `Family Information loaded. Filled ${fieldsFilled} field(s); ${familyEntries.length} family member(s) added.`;
     return { fieldsFilled, summary };
