@@ -3102,8 +3102,9 @@
       <button class="btn btn-secondary btn-sm" id="btn-cloud-download" title="Download a JSON copy to your browser's Downloads folder">Download JSON</button>
       <input type="file" id="cloud-upload-input" accept="application/json,.json" style="display:none">
       <button class="btn btn-secondary btn-sm" id="btn-cloud-upload" title="Load a plan from a JSON file on your computer">Upload JSON</button>
-      <button class="btn btn-gold btn-sm" id="btn-sharedrive-save" title="Save directly to SharePoint / OneDrive / network share (one-click after first folder pick)">💾 Save to Share Drive</button>
-      <button class="btn btn-secondary btn-sm" id="btn-sharedrive-open" title="Open a plan from SharePoint / OneDrive / network share">📂 Open from Share Drive</button>
+      <button class="btn btn-gold btn-sm" id="btn-sharedrive-save" title="Save directly to your primary share drive folder (SharePoint recommended for firm-of-record). First click prompts for folder; subsequent clicks save silently.">💾 Save to Share Drive</button>
+      <button class="btn btn-secondary btn-sm" id="btn-sharedrive-open" title="Open a plan from your share drive">📂 Open from Share Drive</button>
+      <button class="btn btn-secondary btn-sm team-only" id="btn-sharedrive-secondary" title="Configure a SECOND folder (e.g., personal OneDrive working copy). Every save writes to both Primary + Secondary.">+ Add OneDrive Copy</button>
       <input type="file" id="precisefp-input" accept=".csv,text/csv" style="display:none">
       <button class="btn btn-gold btn-sm" id="btn-precisefp-import" title="Import client data from a PreciseFP CSV export">Import PreciseFP CSV</button>
       <input type="file" id="emoney-input" accept="application/json,.json" style="display:none">
@@ -23912,7 +23913,10 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
      Falls back gracefully on Firefox / Safari (no File System API):
      uses the standard download flow with a hint message.
   */
+  // Primary folder (firm-of-record — typically SharePoint for compliance)
   const SHAREDRIVE_DIR_KEY = 'pyle-sharedrive-dir-handle';
+  // Secondary folder (working copy — typically personal OneDrive)
+  const SHAREDRIVE_DIR_KEY_2 = 'pyle-sharedrive-dir-handle-secondary';
 
   // IndexedDB helpers — minimal wrapper to persist FileSystemDirectoryHandle
   function idbOpen() {
@@ -23957,8 +23961,33 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     } catch { /* ignore */ }
   }
 
+  // Helper — resolve a folder handle from IDB + verify permission.
+  // Returns the handle if granted, null if not configured, or 'denied' if
+  // configured but permission revoked.
+  async function getValidFolderHandle(key) {
+    const h = await idbGet(key);
+    if (!h) return null;
+    try {
+      const perm = await h.queryPermission({ mode: 'readwrite' });
+      if (perm === 'granted') return h;
+      const req = await h.requestPermission({ mode: 'readwrite' });
+      return req === 'granted' ? h : 'denied';
+    } catch { return null; }
+  }
+
+  // Helper — write a JSON file to a directory handle
+  async function writeJsonToHandle(dirHandle, fileName, jsonString) {
+    const fh = await dirHandle.getFileHandle(fileName, { create: true });
+    const writable = await fh.createWritable();
+    await writable.write(jsonString);
+    await writable.close();
+  }
+
+  // Main save: writes to BOTH primary (SharePoint) and secondary (OneDrive)
+  // when both are configured. Primary alone if only primary set. Prompts
+  // for primary on first use; secondary stays optional.
   async function saveToShareDrive() {
-    if (!('showSaveFilePicker' in window) && !('showDirectoryPicker' in window)) {
+    if (!('showDirectoryPicker' in window)) {
       // Fallback for non-Chromium browsers
       setStatus('Share-drive direct save needs Chrome or Edge. Using Download fallback — drag the file to your share drive after.', 'err');
       downloadJSON();
@@ -23968,50 +23997,72 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     const payload = buildPlanPayload();
     const json = JSON.stringify(payload, null, 2);
     try {
-      // Try previously-chosen directory first (silent save into share drive)
-      let dirHandle = await idbGet(SHAREDRIVE_DIR_KEY);
-      let needFolderPick = !dirHandle;
-      if (dirHandle) {
-        // Verify permission still granted
-        const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
-        if (perm !== 'granted') {
-          const req = await dirHandle.requestPermission({ mode: 'readwrite' });
-          if (req !== 'granted') {
-            needFolderPick = true;
-            dirHandle = null;
-          }
-        }
+      let primary = await getValidFolderHandle(SHAREDRIVE_DIR_KEY);
+      if (primary === 'denied') {
+        await idbDel(SHAREDRIVE_DIR_KEY);
+        primary = null;
       }
-      if (needFolderPick) {
-        // First time — prompt user to pick the share-drive folder
+      if (!primary) {
+        // First time — prompt user to pick the PRIMARY folder (SharePoint)
         try {
-          dirHandle = await window.showDirectoryPicker({
-            id: 'pyle-share-drive',
+          primary = await window.showDirectoryPicker({
+            id: 'pyle-share-drive-primary',
             mode: 'readwrite',
             startIn: 'documents',
           });
-          await idbSet(SHAREDRIVE_DIR_KEY, dirHandle);
-          setStatus('Share-drive folder set — future saves will write here automatically. Click "💾 Save to Share Drive" again to save the current plan.', 'ok');
-          return;  // First-pick is just folder selection; save on next click
+          await idbSet(SHAREDRIVE_DIR_KEY, primary);
+          setStatus(`Primary folder set ("${primary.name}"). Future saves will write here automatically. Click "💾 Save to Share Drive" again to save the current plan. To add a second folder (e.g., OneDrive personal copy), run window.__SET_SECONDARY_SHAREDRIVE__() in the console.`, 'ok');
+          return;
         } catch (e) {
           if (e.name === 'AbortError') { setStatus('Folder pick canceled', 'err'); return; }
           throw e;
         }
       }
-      // Write the file
-      const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(json);
-      await writable.close();
-      setStatus(`✓ Saved ${fileName} to share-drive folder`, 'ok');
+      // Write to primary
+      await writeJsonToHandle(primary, fileName, json);
+      const targets = [primary.name];
+      // Optional: write to secondary if configured
+      let secondary = await getValidFolderHandle(SHAREDRIVE_DIR_KEY_2);
+      if (secondary === 'denied') {
+        await idbDel(SHAREDRIVE_DIR_KEY_2);
+        secondary = null;
+      }
+      if (secondary) {
+        try {
+          await writeJsonToHandle(secondary, fileName, json);
+          targets.push(secondary.name);
+        } catch (e2) {
+          console.warn('[saveToShareDrive] secondary write failed (non-fatal)', e2);
+          targets.push(secondary.name + ' [FAILED — see console]');
+        }
+      }
+      setStatus(`✓ Saved ${fileName} to: ${targets.join(' + ')}`, 'ok');
     } catch (e) {
       console.error('[saveToShareDrive] error', e);
-      setStatus('Share-drive save failed: ' + (e.message || 'unknown') + ' — falling back to Download. Re-pick the folder if it moved.', 'err');
-      // Clear stale handle so next click re-prompts
-      await idbDel(SHAREDRIVE_DIR_KEY);
+      setStatus('Share-drive save failed: ' + (e.message || 'unknown') + ' — falling back to Download.', 'err');
       downloadJSON();
     }
   }
+
+  // Pick / replace the SECONDARY folder (OneDrive personal copy)
+  window.__SET_SECONDARY_SHAREDRIVE__ = async () => {
+    try {
+      const h = await window.showDirectoryPicker({
+        id: 'pyle-share-drive-secondary',
+        mode: 'readwrite',
+        startIn: 'documents',
+      });
+      await idbSet(SHAREDRIVE_DIR_KEY_2, h);
+      setStatus(`✓ Secondary folder set to "${h.name}". Every Save to Share Drive now writes to BOTH primary + secondary.`, 'ok');
+    } catch (e) {
+      if (e.name === 'AbortError') { setStatus('Secondary folder pick canceled', 'err'); return; }
+      setStatus('Failed to set secondary folder: ' + (e.message || 'unknown'), 'err');
+    }
+  };
+  window.__CLEAR_SECONDARY_SHAREDRIVE__ = async () => {
+    await idbDel(SHAREDRIVE_DIR_KEY_2);
+    setStatus('Secondary folder cleared. Saves now go to primary only.', 'ok');
+  };
 
   async function openFromShareDrive() {
     if (!('showOpenFilePicker' in window)) {
@@ -24512,6 +24563,10 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   if (shareSaveBtn) shareSaveBtn.addEventListener('click', saveToShareDrive);
   const shareOpenBtn = document.getElementById('btn-sharedrive-open');
   if (shareOpenBtn) shareOpenBtn.addEventListener('click', openFromShareDrive);
+  const shareSecBtn = document.getElementById('btn-sharedrive-secondary');
+  if (shareSecBtn) shareSecBtn.addEventListener('click', () => {
+    if (typeof window.__SET_SECONDARY_SHAREDRIVE__ === 'function') window.__SET_SECONDARY_SHAREDRIVE__();
+  });
   const samplePicker = document.getElementById('sample-picker');
   if (samplePicker) {
     samplePicker.addEventListener('change', e => {
