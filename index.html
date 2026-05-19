@@ -3115,7 +3115,9 @@
       <input type="file" id="emoney-input" accept="application/json,.json" style="display:none">
       <button class="btn btn-secondary btn-sm" id="btn-emoney-import" title="Import a client fact-finder JSON from eMoney (Facts Finder export)">Import eMoney JSON</button>
       <input type="file" id="emoney-docx-input" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none">
-      <button class="btn btn-gold btn-sm" id="btn-emoney-docx-import" title="Import an eMoney Fact Details report (Family Information, Assets, Liabilities, etc.) exported as Word .docx — populates client + family + beneficiaries automatically">Import eMoney DOCX</button>
+      <button class="btn btn-secondary btn-sm" id="btn-emoney-docx-import" title="Import an eMoney Fact Details report exported as Word .docx (must be .docx — NOT legacy .doc)">Import eMoney DOCX</button>
+      <input type="file" id="emoney-csv-input" accept=".csv,text/csv" style="display:none">
+      <button class="btn btn-gold btn-sm" id="btn-emoney-csv-import" title="RECOMMENDED — Import eMoney 'Net Worth Detail' or 'Account Listing' CSV export. Far more reliable than Word — column-based, captures all accounts including retirement, business, real estate, notes receivable, and liabilities.">⭐ Import eMoney CSV</button>
       <input type="file" id="addepar-input" accept=".csv,text/csv,application/vnd.ms-excel,.xlsx" style="display:none">
       <button class="btn btn-gold btn-sm" id="btn-addepar-import" title="Import a holdings report from Addepar (CSV) — populates Personal Balance Sheet brokerage / retirement rows with asset-class tags">Import Addepar Holdings</button>
       <input type="file" id="mgp-input" accept="application/json,.json" style="display:none">
@@ -24584,8 +24586,265 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
        • Family Information Details → client + family + beneficiaries
        • [more to add as user provides examples]
      ============================================================ */
+
+  /* ─── eMoney CSV IMPORTER (RECOMMENDED PATH) ──────────────────
+     CSVs are far more reliable than Word — eMoney's CSV exports
+     (Net Worth Detail, Account Listing, Asset Listing) use named
+     columns instead of narrative text. This parser:
+       • Auto-detects header row (case-insensitive column names)
+       • Maps account types → BS section (cash/brokerage/retirement/
+         business/real-estate/personal-property/other-assets)
+       • Maps asset classes → asset_class tags for allocation rollup
+       • Handles asset rows AND liability rows in the same file
+       • Tolerates column-name variants (Current Value, Market Value,
+         Balance, Amount, etc.)
+     ============================================================ */
+  function parseCSVLine(line) {
+    // Tiny RFC-4180-ish CSV parser — handles quoted fields with embedded
+    // commas and double-quote escapes. Sufficient for vendor exports.
+    const out = [];
+    let cur = '', inQ = false, i = 0;
+    while (i < line.length) {
+      const c = line[i];
+      if (inQ) {
+        if (c === '"' && line[i + 1] === '"') { cur += '"'; i += 2; continue; }
+        if (c === '"') { inQ = false; i++; continue; }
+        cur += c; i++;
+      } else {
+        if (c === '"') { inQ = true; i++; continue; }
+        if (c === ',') { out.push(cur); cur = ''; i++; continue; }
+        cur += c; i++;
+      }
+    }
+    out.push(cur);
+    return out.map(s => s.trim());
+  }
+
+  function parseMoneyCell(s) {
+    if (s == null) return 0;
+    const str = String(s).replace(/[$,\s]/g, '').replace(/[()]/g, '-');
+    const n = parseFloat(str);
+    return isFinite(n) ? n : 0;
+  }
+
+  async function importEMoneyCSV(file) {
+    if (!file) return;
+    setStatus('Reading eMoney CSV…');
+    try {
+      const text = await file.text();
+      // Split into rows, normalize line endings, drop empty lines
+      const rawRows = text.split(/\r?\n/).filter(l => l.trim());
+      if (rawRows.length < 2) {
+        setStatus('eMoney CSV: file appears empty or has no data rows', 'err');
+        return;
+      }
+      // Find the header row — first row containing recognized column names
+      let headerIdx = 0;
+      const HEADER_HINTS = /\b(account\s*name|account\s*type|owner|institution|current\s*value|market\s*value|balance|asset\s*class|category)\b/i;
+      for (let i = 0; i < Math.min(rawRows.length, 8); i++) {
+        if (HEADER_HINTS.test(rawRows[i])) { headerIdx = i; break; }
+      }
+      const headerCells = parseCSVLine(rawRows[headerIdx]).map(h => h.toLowerCase());
+
+      // Build a column index by matching header cells against known aliases
+      function colIdx(...aliases) {
+        for (const a of aliases) {
+          const idx = headerCells.findIndex(h => h === a.toLowerCase());
+          if (idx >= 0) return idx;
+        }
+        // Try partial / contains match as fallback
+        for (const a of aliases) {
+          const idx = headerCells.findIndex(h => h.includes(a.toLowerCase()));
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      }
+
+      const COL = {
+        name:        colIdx('Account Name','Account Description','Description','Name'),
+        type:        colIdx('Account Type','Type','Category','Asset Category','Account Category'),
+        owner:       colIdx('Owner','Account Owner','Ownership'),
+        institution: colIdx('Institution','Custodian','Bank'),
+        value:       colIdx('Current Value','Market Value','Balance','Value','Amount','Account Value','Current Balance'),
+        costBasis:   colIdx('Cost Basis','Basis','Tax Basis'),
+        assetClass:  colIdx('Asset Class','Asset Allocation','Class'),
+        taxStatus:   colIdx('Tax Status','Tax Treatment','Tax Type'),
+        isLiability: colIdx('Liability','Is Liability'),
+        rate:        colIdx('Interest Rate','Rate','APR'),
+      };
+
+      if (COL.name < 0 || COL.value < 0) {
+        setStatus(`eMoney CSV: required columns missing. Found: ${headerCells.slice(0,10).join(', ')}…`, 'err');
+        return;
+      }
+
+      const addBSRow = window.__BALANCE_SHEET_ADD_ROW__;
+      if (!addBSRow) {
+        setStatus('eMoney CSV: balance sheet editor not ready — wait a moment and retry', 'err');
+        return;
+      }
+
+      // Account-type routing → BS section + asset class hint
+      const TYPE_ROUTES = [
+        { re: /\b(checking|savings|money\s*market|mmf|cash(?!\s*value))\b/i,        section: 'cash',             assetClass: 'cash_mmf' },
+        { re: /\b(roth)\b/i,                                                       section: 'retirement',       assetClass: 'mixed', subtype: 'roth' },
+        { re: /\b(401\s*\(?k\)?|403\s*\(?b\)?|457|tsp)\b/i,                         section: 'retirement',       assetClass: 'mixed', subtype: '401k' },
+        { re: /\b(inherited\s*ira)\b/i,                                            section: 'retirement',       assetClass: 'mixed', subtype: 'trad' },
+        { re: /\b(sep\s*ira|simple\s*ira|traditional\s*ira|rollover\s*ira|\bira\b)/i, section: 'retirement',    assetClass: 'mixed', subtype: 'trad' },
+        { re: /\b(hsa)\b/i,                                                        section: 'retirement',       assetClass: 'cash_mmf', subtype: 'hsa' },
+        { re: /\b(pension|defined\s*benefit)\b/i,                                  section: 'retirement',       assetClass: 'mixed', subtype: 'trad' },
+        { re: /\b(annuity|annuities|variable\s*annuity|fixed\s*annuity)\b/i,       section: 'other-assets',     assetClass: 'other' },
+        { re: /\b(529|education\s*savings)\b/i,                                    section: 'other-assets',     assetClass: 'other' },
+        { re: /\b(business\s*interest|business|llc|partnership|s\s*corp|c\s*corp)\b/i, section: 'business',     assetClass: 'other' },
+        { re: /\b(primary\s*residence|residence|vacation\s*home|investment\s*property|rental|real\s*estate)\b/i, section: 'real-estate', assetClass: '' },
+        { re: /\b(personal\s*property|vehicle|auto|collectible|art|jewelry|boat)\b/i, section: 'personal-property', assetClass: '' },
+        { re: /\b(note\s*receivable|loan\s*receivable|note)\b/i,                   section: 'other-assets',     assetClass: 'fixed_income' },
+        { re: /\b(brokerage|taxable\s*investment|individual|joint\s*tenants|jtwros|trust\s*brokerage|investment\s*account)\b/i, section: 'brokerage', assetClass: 'mixed' },
+        { re: /\b(stock\s*option|rsu|restricted\s*stock|isos?|nq\s*so)\b/i,        section: 'other-assets',     assetClass: 'concentrated' },
+      ];
+
+      // Asset Class column overrides (more specific than Type when both present)
+      const ASSETCLASS_MAP = {
+        'equity':           'equities',
+        'equities':         'equities',
+        'us equity':        'equities',
+        'international equity': 'equities',
+        'fixed income':     'fixed_income',
+        'bonds':            'fixed_income',
+        'cash':             'cash_mmf',
+        'cash equivalents': 'cash_mmf',
+        'cash & equivalents': 'cash_mmf',
+        'alternative':      'alternatives',
+        'alternatives':     'alternatives',
+        'private equity':   'private_equity',
+        'hedge fund':       'hedge_funds',
+        'hedge funds':      'hedge_funds',
+        'real estate':      'real_estate',
+        'reit':             'real_estate',
+        'reits':            'real_estate',
+        'crypto':           'crypto',
+        'cryptocurrency':   'crypto',
+        'digital assets':   'crypto',
+      };
+
+      // Liability-type routing
+      const LIABILITY_ROUTES = [
+        { re: /\b(mortgage|heloc|home\s*equity)\b/i, section: 'mortgages' },
+        { re: /\b(margin)\b/i,                       section: 'margin' },
+        { re: /\b(credit\s*card|car\s*loan|auto\s*loan|student\s*loan|personal\s*loan|line\s*of\s*credit|loc)\b/i, section: 'other-debt' },
+      ];
+
+      let assetsAdded = 0;
+      let liabsAdded = 0;
+      const issues = [];
+
+      // Process each data row
+      for (let r = headerIdx + 1; r < rawRows.length; r++) {
+        const cells = parseCSVLine(rawRows[r]);
+        if (cells.length < 2) continue;
+        const name = cells[COL.name] || '';
+        const type = COL.type >= 0 ? cells[COL.type] : '';
+        const owner = COL.owner >= 0 ? cells[COL.owner] : '';
+        const inst = COL.institution >= 0 ? cells[COL.institution] : '';
+        const valueRaw = cells[COL.value] || '';
+        const value = parseMoneyCell(valueRaw);
+        const acClass = COL.assetClass >= 0 ? cells[COL.assetClass] : '';
+        const taxStat = COL.taxStatus >= 0 ? cells[COL.taxStatus] : '';
+        const explicitLiability = COL.isLiability >= 0 ? /\b(yes|true|1|liab)\b/i.test(cells[COL.isLiability]) : false;
+
+        if (!name && !type) continue;
+        if (value === 0) continue;
+
+        // Is this a liability row?
+        // 1) Explicit liability column says so, OR
+        // 2) Value is negative, OR
+        // 3) Type matches a liability pattern
+        const looksLikeLiability = explicitLiability || value < 0 ||
+          LIABILITY_ROUTES.some(l => l.re.test(type) || l.re.test(name));
+
+        if (looksLikeLiability) {
+          // Route liabilities to mortgages / margin / other-debt
+          let liabSection = 'other-debt';
+          for (const lr of LIABILITY_ROUTES) {
+            if (lr.re.test(type) || lr.re.test(name)) { liabSection = lr.section; break; }
+          }
+          const labelBits = [name.slice(0, 60)];
+          if (inst) labelBits.push(inst.slice(0, 30));
+          addBSRow(liabSection, {
+            label: labelBits.join(' — ').slice(0, 80),
+            value: Math.round(Math.abs(value)),
+          });
+          liabsAdded++;
+          continue;
+        }
+
+        // Asset routing — try Type first, fall back to Asset Class hints
+        let route = null;
+        const probe = `${type} ${name}`;
+        for (const tr of TYPE_ROUTES) {
+          if (tr.re.test(probe)) { route = tr; break; }
+        }
+        // If no route from Type, try the Asset Class column for a hint
+        if (!route && acClass && ASSETCLASS_MAP[acClass.toLowerCase()]) {
+          route = { section: 'brokerage', assetClass: ASSETCLASS_MAP[acClass.toLowerCase()] };
+        }
+        if (!route) {
+          // Last-resort: unknown type → other-assets, flag for advisor review
+          issues.push(`Row ${r + 1}: unrecognized type "${type || '(blank)'}" — routed to Other Assets`);
+          route = { section: 'other-assets', assetClass: 'other' };
+        }
+
+        // Asset Class column wins if it matches a known class
+        let finalAssetClass = route.assetClass || '';
+        if (acClass && ASSETCLASS_MAP[acClass.toLowerCase()]) {
+          finalAssetClass = ASSETCLASS_MAP[acClass.toLowerCase()];
+        }
+
+        // Build label — for retirement, prepend type hint if name lacks
+        // Roth/IRA/401k/HSA so downstream auto-classifier routes correctly
+        let label = name.slice(0, 50);
+        if (route.section === 'retirement') {
+          const hasHint = /\b(roth|ira|401\s*\(?k\)?|403\s*\(?b\)?|457|hsa|pension|sep|simple)\b/i.test(label);
+          if (!hasHint && type) {
+            label = `${type} — ${label}`.slice(0, 60);
+          }
+        }
+        const labelBits = [label];
+        if (inst) labelBits.push(inst.split(' - ')[0].slice(0, 30));
+
+        addBSRow(route.section, {
+          label: labelBits.join(' — ').slice(0, 80),
+          value: Math.round(value),
+          assetClass: finalAssetClass,
+          sector: '',
+        });
+        assetsAdded++;
+      }
+
+      // Open balance-sheet details so advisor sees the new rows
+      const bsDetails = document.getElementById('balance-sheet-details');
+      if (bsDetails && !bsDetails.open) bsDetails.open = true;
+
+      if (typeof formatAllMoneyInputs === 'function') formatAllMoneyInputs();
+
+      const issueNote = issues.length ? ` · ${issues.length} row(s) needed manual classification (check Other Assets section)` : '';
+      const summary = `${assetsAdded} asset row(s) + ${liabsAdded} liability row(s) added to Personal Balance Sheet${issueNote}`;
+      setStatus(`✓ eMoney CSV: ${summary}`, 'ok');
+      if (issues.length) console.warn('[importEMoneyCSV] classification issues:', issues);
+    } catch (e) {
+      console.error('[importEMoneyCSV] error', e);
+      setStatus('eMoney CSV import failed: ' + (e.message || 'unknown'), 'err');
+    }
+  }
+
   async function importEMoneyDOCX(file) {
     if (!file) return;
+    // Reject legacy .doc (binary Word 97-2003) — JSZip cannot read those.
+    // Advisor needs to either Save As .docx in Word, or use the CSV path.
+    if (/\.doc$/i.test(file.name) && !/\.docx$/i.test(file.name)) {
+      setStatus('That is a legacy .doc file (Word 97-2003 binary), not .docx — open in Word and "Save As → Word Document (.docx)", or use the ⭐ Import eMoney CSV button (recommended).', 'err');
+      return;
+    }
     if (!window.JSZip) {
       setStatus('eMoney DOCX import requires JSZip library — refresh the page and try again', 'err');
       return;
@@ -25508,6 +25767,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   const emoneyDocxInput = document.getElementById('emoney-docx-input');
   document.getElementById('btn-emoney-docx-import').addEventListener('click', () => emoneyDocxInput.click());
   emoneyDocxInput.addEventListener('change', e => importEMoneyDOCX(e.target.files[0]));
+  const emoneyCsvInput = document.getElementById('emoney-csv-input');
+  document.getElementById('btn-emoney-csv-import').addEventListener('click', () => emoneyCsvInput.click());
+  emoneyCsvInput.addEventListener('change', e => importEMoneyCSV(e.target.files[0]));
   const mgpInput = document.getElementById('mgp-input');
   document.getElementById('btn-mgp-import').addEventListener('click', () => mgpInput.click());
   mgpInput.addEventListener('change', e => importVendorJSON(e.target.files[0], 'MoneyGuidePro'));
