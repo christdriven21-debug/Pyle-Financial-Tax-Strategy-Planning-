@@ -521,8 +521,10 @@ function renderCostValueBar(d) {
     }
     // Label
     const labelX = groupX + groupW/2;
-    const shortName = inv.name.length > 14 ? inv.name.slice(0,12)+'…' : inv.name;
-    svg += `<text x="${labelX}" y="${yBot+18}" text-anchor="middle" font-size="10" fill="#6b7280">${shortName}</text>`;
+    // Prefer short chart label if explicitly set, else truncate. Smaller font when >5 groups.
+    const labelText = inv.chartLabel || (inv.name.length > 12 ? inv.name.slice(0,11)+'…' : inv.name);
+    const labelFont = invs.length > 6 ? 8.5 : 10;
+    svg += `<text x="${labelX}" y="${yBot+16}" text-anchor="middle" font-size="${labelFont}" fill="#6b7280">${labelText}</text>`;
   });
 
   // Legend
@@ -577,7 +579,7 @@ function renderInvestmentCard(inv) {
   }
 
   if (typeof inv.taxAdjustedReturnPct === 'number') {
-    metrics.push({ l: "Tax-Adj Return", v: fmt.pct(inv.taxAdjustedReturnPct), cls: 'neut', style: 'color:var(--purple)' });
+    metrics.push({ l: inv.returnLabel || "Tax-Adj Return", v: fmt.pct(inv.taxAdjustedReturnPct), cls: 'neut', style: 'color:var(--purple)' });
   } else {
     metrics.push({ l: "Total Return", v: fmt.pct(ret), cls: retClass });
   }
@@ -668,7 +670,7 @@ function renderCallout(d) {
     const isBuilder = !!window.__QIR_BUILDER__;
 
     const lossField = isBuilder
-      ? `<input type="number" min="0" max="100" step="1" value="${lossDeductionPct}" class="tc-edit" onchange="updateTaxCallout('lossDeductionPct', this.value)" title="Editable: % of investment deductible year-1">`
+      ? `<input type="number" min="0" step="1" value="${lossDeductionPct}" class="tc-edit" onchange="updateTaxCallout('lossDeductionPct', this.value)" title="Editable: % of investment deductible (can exceed 100% for cumulative multi-year IDCs)">`
       : `<strong>${lossDeductionPct}%</strong>`;
     const taxField = isBuilder
       ? `<input type="number" min="0" max="100" step="0.5" value="${taxRate}" class="tc-edit" onchange="updateTaxCallout('taxRate', this.value)" title="Editable: client's top federal income tax bracket">`
