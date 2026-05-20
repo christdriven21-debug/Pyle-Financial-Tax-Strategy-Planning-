@@ -5610,8 +5610,8 @@
         <input type="number" id="proj-years" value="20" data-auto-derive="1">
       </div>
       <div class="field">
-        <label>Inflation Rate</label>
-        <div class="suffix-pct"><input type="number" id="proj-inflation" value="2.5" step="0.1"></div>
+        <label>Inflation Rate <span class="hint">(default 3.0% — advisor can override)</span></label>
+        <div class="suffix-pct"><input type="number" id="proj-inflation" value="3.0" step="0.1"></div>
       </div>
     </div>
   </section>
@@ -14993,7 +14993,7 @@ function computeMultiYearCashFlow(p, d, horizonYears = 15) {
   const ssClaimAge = (d.ss && d.ss.claimAge) || 67;
   const rmdStartAge = (d.retirement && d.retirement.rmdStartAge) || 73;
   const retireYr = d.client.primaryRetireYear || 0;
-  const inflation = d.proj.inflation || 0.025;
+  const inflation = d.proj.inflation || 0.03;
   const equity = d.proj.equity || 0.06;
   const baseInvestable = (p.withPlanningProceeds || 0) + (d.client.otherAssets || 0);
   const fixedBase = d.budget.fixed || 0;
@@ -15352,7 +15352,7 @@ function renderFinancial(p) {
         <div class="field"><label>Investment Return</label><div class="suffix-pct"><input type="number" id="live-equity" value="0" step="0.1"></div></div>
         <div class="field"><label>Real Estate Return</label><div class="suffix-pct"><input type="number" id="live-re" value="0" step="0.1"></div></div>
         <div class="field"><label>Projection Years</label><input type="number" id="live-years" value="0"></div>
-        <div class="field"><label>Inflation Rate</label><div class="suffix-pct"><input type="number" id="live-inflation" value="0" step="0.1"></div></div>
+        <div class="field"><label>Inflation Rate</label><div class="suffix-pct"><input type="number" id="live-inflation" value="3.0" step="0.1"></div></div>
       </div>
     </div>
 
@@ -18765,7 +18765,7 @@ function analyzeGoals(p, d) {
   const analyzed = goals.map(g => {
     const yearsOut = Math.max(0, g.year - startYear);
     // Inflation-adjust the target back to today's dollars for comparison
-    const inflationAdj = Math.pow(1 + (d.proj.inflation || 0.025), yearsOut);
+    const inflationAdj = Math.pow(1 + (d.proj.inflation || 0.03), yearsOut);
     const targetInTodayDollars = g.amount / inflationAdj;
 
     let probability = 0;
@@ -18968,7 +18968,7 @@ function runMultiYearTax(p, d) {
   const rmdAge     = d.retirement.rmdStartAge || 73;
   const medicareAge = 65;
 
-  const inflation = d.proj.inflation || 0.025;
+  const inflation = d.proj.inflation || 0.03;
   const equity    = d.proj.equity || 0.06;
   const portfolio = p.withPlanningProceeds || (p.nwWithout_total || 0);
   const traditionalIRA = (d.retirement.tradIRA || 0) + (d.retirement.k401 || 0);
@@ -19109,7 +19109,7 @@ function renderStateDomicileAnalyzer(p) {
   const annualOrdSavings = Math.max(0, income * (currentStateOrdRate - target.ordinary));
   // Discount to present value at inflation rate (guard divide-by-zero
   // when advisor clears the inflation field — falls back to nominal sum)
-  const inflation = d.proj.inflation || 0.025;
+  const inflation = d.proj.inflation || 0.03;
   const lifetimeOrdSavings = annualOrdSavings * (inflation > 0
     ? ((1 - Math.pow(1 + inflation, -jointLE)) / inflation)
     : jointLE);
@@ -22549,7 +22549,7 @@ function runMonteCarlo(p, d, opts = {}) {
   const years      = Math.max(5, Math.min(50, opts.years || jointLE || d.proj.years));
   const mean       = d.proj.equity || 0.06;
   const stdDev     = opts.stdDev || 0.12;           // balanced-portfolio typical
-  const inflation  = d.proj.inflation || 0.025;
+  const inflation  = d.proj.inflation || 0.03;
   const annualSpend= (d.budget.fixed || 0) + (d.budget.variable || 0) + (d.budget.taxes || 0);
   const ssAnnual   = p.ssAnnualHousehold || 0;
 
