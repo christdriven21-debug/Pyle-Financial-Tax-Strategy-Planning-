@@ -301,6 +301,37 @@ const QIR_DATA = {
     }
   },
 
+  // ── Energy LP / Investment Tracking (opt-in, multi-period table) ─────
+  usEnergyTracking: {
+    enabled: true,
+    title: "Energy LP — Investment Tracking ({{client}})",
+    subtitle: "Multi-period detail — sample placeholder data · replace with actual values or load from cloud",
+    periods: ["2022", "2023", "2024", "2025", "Q1 '26", "Apr-May '26"],
+    rows: [
+      { label: "Wires from {{client}}",
+        values: [1000000, 0, 0, 0, 0, 0] },
+      { label: "LP Principal Invested",
+        values: [1000000, 500000, 200000, 0, 0, 0] },
+      { label: "Withdrawn from Equity Portfolio",
+        values: [0, 500000, 200000, 0, 0, 0] },
+      { label: "Cash Tax Benefit @ 37%",
+        values: [370000, 185000, 74000, 0, 0, 0],
+        note: "Benefit not reinvested" },
+      { label: "Cash on Cash Return",
+        values: [0, 100000, 250000, 400000, 50000, 60000],
+        emphasis: true },
+      { label: "Total Cash Benefit",
+        values: [370000, 285000, 324000, 400000, 50000, 60000],
+        bold: true },
+      { label: "Cumulative Return on Invested Capital",
+        values: [0.37, 0.65, 0.95, 1.55, null, null],
+        format: 'pct' },
+      { label: "LP Invested Capital Balance",
+        values: [630000, 945000, 871000, 471000, 421000, 361000] }
+    ],
+    footnote: "Placeholder values — replace with the client's actual LP tracking data via the QIR data block or 📁 Open from Cloud."
+  },
+
   // ── Cash Balance Life Insurance (opt-in) ─────────────────────────────
   lifeInsurance: {
     enabled: false,   // ← set to true to show this section

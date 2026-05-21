@@ -244,6 +244,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .toggle-incl.is-incl{background:rgba(22,169,122,.12);color:var(--green);border-color:rgba(22,169,122,.30)}
 .toggle-incl.is-excl{background:rgba(220,38,38,.10);color:var(--red);border-color:rgba(220,38,38,.30)}
 
+/* Add Account modal form layout (builder only) */
+.aa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.aa-field{display:flex;flex-direction:column;gap:4px}
+.aa-field.aa-wide{grid-column:span 2}
+.aa-field.aa-full{grid-column:1/-1}
+.aa-field>span{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+.aa-field>span .req{color:var(--red);margin-left:2px}
+.aa-field input,.aa-field select{padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-family:inherit;background:#fff}
+.aa-field input:focus,.aa-field select:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue)}
+.aa-section{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);grid-column:1/-1;margin-top:6px;padding-top:8px;border-top:1px dashed var(--border)}
+.aa-section:first-child{margin-top:0;padding-top:0;border-top:none}
+
 @media print { .toolbar, .tb-banner, .modal-overlay { display:none !important; } }
 /* BUILDER-ONLY:CSS-END */
 
@@ -298,6 +310,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   <button class="tb-btn" onclick="document.getElementById('addepar-input').click()">📈 Import Addepar</button>
   <input type="file" id="pdf-input" accept=".pdf,application/pdf" multiple style="display:none">
   <button class="tb-btn" onclick="document.getElementById('pdf-input').click()">📄 Import PDFs</button>
+  <button class="tb-btn" onclick="openAddAccountModal()">➕ Add Account</button>
   <button class="tb-btn" onclick="editHeaderInfo()">✏️ Edit Header</button>
   <button class="tb-btn" onclick="loadDemoData()">🎬 Demo Data</button>
   <button class="tb-btn warn" onclick="clearData()">🆕 Clear Data</button>
@@ -328,6 +341,63 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
     </div>
     <div class="modal-foot">
       <button class="mb-btn ghost" onclick="closeCloudModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Account modal (builder only) -->
+<div class="modal-overlay" id="add-account-modal">
+  <div class="modal-box" style="max-width:720px">
+    <div class="modal-head">
+      <div>
+        <h2>➕ Add Account Manually</h2>
+        <p>Fill in the fields below to add an account to the investment grid. Only Name, Asset Class, and one value are required — the rest are optional.</p>
+      </div>
+      <button class="mb-btn ghost" onclick="closeAddAccountModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="aa-grid">
+        <div class="aa-section">Identity</div>
+        <label class="aa-field aa-wide"><span>Name <span class="req">*</span></span>
+          <input type="text" id="aa-name" placeholder="e.g. Joint Brokerage Account"></label>
+        <label class="aa-field"><span>Asset Class <span class="req">*</span></span>
+          <select id="aa-asset-class">
+            <option>Public Equities</option><option>Private</option>
+            <option>Charity</option><option>Alternatives</option><option>Public</option>
+          </select></label>
+        <label class="aa-field"><span>Icon (emoji)</span>
+          <input type="text" id="aa-icon" placeholder="🏦" maxlength="4"></label>
+        <label class="aa-field aa-wide"><span>Subtitle</span>
+          <input type="text" id="aa-subtitle" placeholder="e.g. Schwab · Equity Income SMA"></label>
+        <label class="aa-field"><span>Chart Label (short)</span>
+          <input type="text" id="aa-chart-label" placeholder="e.g. Joint" maxlength="14"></label>
+
+        <div class="aa-section">Values</div>
+        <label class="aa-field"><span>12/31/25 Value <span class="req">*</span></span>
+          <input type="number" id="aa-cost-basis" placeholder="0" step="0.01"></label>
+        <label class="aa-field"><span>Current Value <span class="req">*</span></span>
+          <input type="number" id="aa-current-value" placeholder="0" step="0.01"></label>
+        <label class="aa-field"><span>YTD Net Inflows</span>
+          <input type="number" id="aa-inflows" placeholder="0" step="0.01"></label>
+        <label class="aa-field"><span>2025 Return %</span>
+          <input type="number" id="aa-prior-return" placeholder="0" step="0.01"></label>
+
+        <div class="aa-section">Q1 Reference (optional)</div>
+        <label class="aa-field"><span>Q1 Value</span>
+          <input type="number" id="aa-q1-value" placeholder="0" step="0.01"></label>
+        <label class="aa-field"><span>Q1 Return %</span>
+          <input type="number" id="aa-q1-return" placeholder="0" step="0.01"></label>
+        <label class="aa-field"><span>Q1 Inflows</span>
+          <input type="number" id="aa-q1-inflows" placeholder="0" step="0.01"></label>
+
+        <div class="aa-section">Notes</div>
+        <label class="aa-field aa-full"><span>Footer note (shown below card metrics)</span>
+          <input type="text" id="aa-footer" placeholder="Optional context (e.g. 'Largest managed account', '2025 annual: +18.24%')"></label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="mb-btn ghost" onclick="closeAddAccountModal()">Cancel</button>
+      <button class="mb-btn primary" onclick="confirmAddAccount()">✓ Add Account</button>
     </div>
   </div>
 </div>
@@ -1600,7 +1670,35 @@ const CLEAN_DATA = JSON.stringify({
   taxCallout:   { enabled: false },
   performance:  { enabled: false, showReturnChart: false, economicBenefit: { enabled: false } },
   lifeInsurance:{ enabled: false },
-  usEnergyTracking: { enabled: false }
+  usEnergyTracking: {
+    enabled: true,
+    title: "Energy LP — Investment Tracking ({{client}})",
+    subtitle: "Multi-period detail — sample placeholder data · replace with actual values or load from cloud",
+    periods: ["2022", "2023", "2024", "2025", "Q1 '26", "Apr-May '26"],
+    rows: [
+      { label: "Wires from {{client}}",
+        values: [1000000, 0, 0, 0, 0, 0] },
+      { label: "LP Principal Invested",
+        values: [1000000, 500000, 200000, 0, 0, 0] },
+      { label: "Withdrawn from Equity Portfolio",
+        values: [0, 500000, 200000, 0, 0, 0] },
+      { label: "Cash Tax Benefit @ 37%",
+        values: [370000, 185000, 74000, 0, 0, 0],
+        note: "Benefit not reinvested" },
+      { label: "Cash on Cash Return",
+        values: [0, 100000, 250000, 400000, 50000, 60000],
+        emphasis: true },
+      { label: "Total Cash Benefit",
+        values: [370000, 285000, 324000, 400000, 50000, 60000],
+        bold: true },
+      { label: "Cumulative Return on Invested Capital",
+        values: [0.37, 0.65, 0.95, 1.55, null, null],
+        format: 'pct' },
+      { label: "LP Invested Capital Balance",
+        values: [630000, 945000, 871000, 471000, 421000, 361000] }
+    ],
+    footnote: "Placeholder values — replace with the client's actual LP tracking data via the QIR data block or 📁 Open from Cloud."
+  }
 });
 
 /* Reset to pristine new-client state. Confirms before wiping. */
@@ -2158,12 +2256,67 @@ function confirmPDFImport() {
   setStatus(`✓ Added ${additions.length} investment${additions.length===1?'':'s'} from PDF`, 'ok');
 }
 
+/* ── Add Account Manually (builder only) ── */
+function openAddAccountModal() {
+  ['aa-name','aa-icon','aa-subtitle','aa-chart-label','aa-cost-basis','aa-current-value',
+   'aa-inflows','aa-prior-return','aa-q1-value','aa-q1-return','aa-q1-inflows','aa-footer']
+   .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('add-account-modal').classList.add('open');
+  setTimeout(() => document.getElementById('aa-name').focus(), 100);
+}
+function closeAddAccountModal() {
+  document.getElementById('add-account-modal').classList.remove('open');
+}
+function confirmAddAccount() {
+  const v = (id) => (document.getElementById(id).value || '').trim();
+  const n = (id) => {
+    const x = document.getElementById(id).value;
+    if (x === '' || x === null) return undefined;
+    const p = parseFloat(x);
+    return isFinite(p) ? p : undefined;
+  };
+  const name = v('aa-name');
+  const assetClass = v('aa-asset-class');
+  const costBasis = n('aa-cost-basis');
+  const currentValue = n('aa-current-value');
+  if (!name) { alert('Name is required.'); return; }
+  if (!assetClass) { alert('Asset Class is required.'); return; }
+  if (costBasis === undefined && currentValue === undefined) {
+    alert('Enter at least a 12/31/25 Value or Current Value.'); return;
+  }
+  const inv = {
+    name,
+    icon: v('aa-icon') || undefined,
+    chartLabel: v('aa-chart-label') || undefined,
+    subtitle: v('aa-subtitle') || undefined,
+    assetClass,
+    costBasis: costBasis || 0,
+    currentValue: currentValue || 0,
+    netInflows: n('aa-inflows'),
+    priorPeriodReturnPct: n('aa-prior-return'),
+    q1RefValue: n('aa-q1-value'),
+    q1RefReturnPct: n('aa-q1-return'),
+    q1RefInflows: n('aa-q1-inflows'),
+    footer: v('aa-footer') || undefined
+  };
+  // Drop undefined values so they don't render as empty fields
+  Object.keys(inv).forEach(k => { if (inv[k] === undefined) delete inv[k]; });
+
+  QIR_DATA.investments = QIR_DATA.investments || [];
+  QIR_DATA.investments.push(inv);
+  renderAll();
+  closeAddAccountModal();
+  setStatus(`✓ Added "${name}" to investments`, 'ok');
+}
+
 /* Allow clicking the modal overlay to dismiss */
 document.addEventListener('DOMContentLoaded', () => {
   const ov = document.getElementById('pdf-modal');
   if (ov) ov.addEventListener('click', e => { if (e.target === ov) closePDFModal(); });
   const cm = document.getElementById('cloud-modal');
   if (cm) cm.addEventListener('click', e => { if (e.target === cm) closeCloudModal(); });
+  const am = document.getElementById('add-account-modal');
+  if (am) am.addEventListener('click', e => { if (e.target === am) closeAddAccountModal(); });
 });
 
 /* ── Wire up file inputs ── */
