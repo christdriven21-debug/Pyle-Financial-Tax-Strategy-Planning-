@@ -3,7 +3,19 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Quarterly Investment Review — Template</title>
+<title>Pyle QIR Builder</title>
+<!-- BUILDER-ONLY:HEAD-START -->
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"
+        integrity="sha384-GFr3yTh5lJznCbZfpTtXnwboFsxqtTQoeTZCRHhE0579KrRmlCzen5AA8ohaB5ug"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+        integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"
+        integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
+        crossorigin="anonymous"></script>
+<!-- BUILDER-ONLY:HEAD-END -->
 <style>
 :root {
   --bg:#f0f2f5; --surface:#fff; --surface2:#f5f6f8;
@@ -125,6 +137,38 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .lc-item .lci-l{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
 .lc-item .lci-v{font-size:1.05rem;font-weight:700;margin-top:3px}
 
+/* AUTH GATE — shown until user signs in with @pfs4u.com email */
+.auth-gate{position:fixed;inset:0;background:linear-gradient(135deg,#1a1d2e 0%,#2563eb 100%);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+.auth-card{background:#fff;border-radius:14px;padding:32px 36px;max-width:420px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.auth-card h1{font-size:1.25rem;margin-bottom:6px;color:var(--text)}
+.auth-card h1 span{color:var(--blue)}
+.auth-card .auth-sub{font-size:.82rem;color:var(--muted);margin-bottom:22px;line-height:1.55}
+.auth-card label{display:block;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.auth-card input{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-size:.92rem;font-family:inherit;margin-bottom:14px}
+.auth-card input:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue)}
+.auth-card button{width:100%;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.9rem;cursor:pointer;font-family:inherit;transition:background .15s}
+.auth-card button:hover{background:#1d4ed8}
+.auth-card button:disabled{background:#94a3b8;cursor:not-allowed}
+.auth-card .auth-msg{font-size:.78rem;margin-top:14px;padding:10px 12px;border-radius:6px;display:none}
+.auth-card .auth-msg.ok{display:block;background:rgba(22,169,122,.10);color:var(--green);border:1px solid rgba(22,169,122,.25)}
+.auth-card .auth-msg.err{display:block;background:rgba(220,38,38,.10);color:var(--red);border:1px solid rgba(220,38,38,.25)}
+.auth-card .auth-foot{font-size:.7rem;color:var(--muted);margin-top:18px;text-align:center}
+
+/* Cloud-status pill in the toolbar */
+.cloud-user{font-size:.7rem;color:#9ca3af;margin-left:8px;padding:3px 8px;background:rgba(255,255,255,.05);border-radius:11px;border:1px solid rgba(255,255,255,.1)}
+.cloud-signout{background:none;border:none;color:#9ca3af;font-size:.7rem;cursor:pointer;text-decoration:underline;padding:0 6px;font-family:inherit}
+.cloud-signout:hover{color:#fff}
+
+/* Open-from-cloud picker modal — reuses .modal-overlay base style */
+.cloud-list{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto}
+.cloud-row{display:grid;grid-template-columns:1.5fr 1fr 1fr 90px 80px;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);font-size:.78rem;cursor:pointer;transition:border-color .15s}
+.cloud-row:hover{border-color:var(--blue);background:#fff}
+.cloud-row-hdr{display:grid;grid-template-columns:1.5fr 1fr 1fr 90px 80px;gap:10px;padding:0 12px;font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.cloud-row .cloud-cell-name{font-weight:700;color:var(--text)}
+.cloud-row .cloud-cell-meta{color:var(--muted);font-size:.7rem}
+.cloud-row button{background:none;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:.7rem;cursor:pointer;font-family:inherit;color:var(--muted)}
+.cloud-row button:hover{border-color:var(--red);color:var(--red)}
+
 /* Q1 reference line under each investment card */
 .q1-ref{font-size:.72rem;color:var(--muted);border-top:1px dashed var(--border);margin-top:10px;padding-top:8px;line-height:1.5}
 .q1-ref-label{font-weight:700;color:var(--text)}
@@ -147,6 +191,61 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 
 /* FOOTER */
 .footer{margin-top:36px;padding:18px 36px;border-top:1px solid var(--border);font-size:.7rem;color:var(--muted);text-align:center}
+
+/* BUILDER-ONLY:CSS-START */
+.toolbar{position:sticky;top:0;z-index:100;background:#1a1d2e;color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.78rem;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.tb-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:6px 12px;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;transition:background .15s;font-family:inherit}
+.tb-btn:hover{background:rgba(255,255,255,.18)}
+.tb-btn.primary{background:var(--green);border-color:var(--green)}
+.tb-btn.primary:hover{background:#0d8862}
+.tb-btn.warn{background:rgba(217,119,6,.6);border-color:rgba(217,119,6,.8)}
+.tb-status{font-size:.72rem;color:#9ca3af;margin-left:auto;padding:0 8px}
+.tb-status.ok{color:#34d399}
+.tb-status.err{color:#f87171}
+.tb-banner{background:#fef3c7;color:#92400e;padding:8px 16px;font-size:.74rem;border-bottom:1px solid #fcd34d;text-align:center}
+
+/* PDF Import Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:none;align-items:center;justify-content:center;padding:24px}
+.modal-overlay.open{display:flex}
+.modal-box{background:#fff;border-radius:12px;max-width:1100px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-head{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-head h2{font-size:1rem;font-weight:700}
+.modal-head p{font-size:.78rem;color:var(--muted);margin-top:3px}
+.modal-body{padding:18px 24px;overflow-y:auto;flex:1}
+.modal-foot{padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;background:var(--surface2)}
+.mb-btn{padding:8px 16px;border-radius:6px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--text);font-family:inherit}
+.mb-btn:hover{background:var(--surface2)}
+.mb-btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.mb-btn.primary:hover{background:#0d8862}
+.mb-btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+.mb-btn.ghost{background:transparent;color:var(--muted)}
+.pdf-row{display:grid;grid-template-columns:30px 2fr 1.2fr 1fr 1fr 80px;gap:8px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--surface2);font-size:.78rem}
+.pdf-row.unknown{border-color:rgba(217,119,6,.5);background:rgba(254,243,199,.4)}
+.pdf-row.fail{border-color:rgba(220,38,38,.4);background:rgba(254,226,226,.4)}
+.pdf-row input,.pdf-row select{padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:.78rem;font-family:inherit;width:100%;background:#fff}
+.pdf-row .pdf-tag{font-size:.62rem;font-weight:700;padding:3px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.05em;display:inline-block}
+.pdf-row .pdf-tag.schwab{background:rgba(37,99,235,.12);color:var(--blue)}
+.pdf-row .pdf-tag.fidelity{background:rgba(22,169,122,.12);color:var(--green)}
+.pdf-row .pdf-tag.unknown{background:rgba(217,119,6,.15);color:var(--yellow)}
+.pdf-row .pdf-tag.fail{background:rgba(220,38,38,.15);color:var(--red)}
+.pdf-row .pdf-filename{font-size:.68rem;color:var(--muted);margin-top:2px}
+.pdf-row .pdf-remove{background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:4px}
+.pdf-row .pdf-remove:hover{background:rgba(220,38,38,.1);border-radius:4px}
+.pdf-rows-header{display:grid;grid-template-columns:30px 2fr 1.2fr 1fr 1fr 80px;gap:8px;padding:0 10px;font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+
+/* Editable tax callout inputs (builder only — deliverable renders <strong> instead) */
+.tc-edit{display:inline-block;width:54px;padding:2px 6px;margin:0 2px;border:1px solid rgba(124,58,237,.4);border-radius:5px;background:#fff;font-family:inherit;font-size:inherit;font-weight:700;color:var(--purple);text-align:center;line-height:1.4}
+.tc-edit:focus{outline:2px solid var(--purple);outline-offset:1px;border-color:var(--purple)}
+.tc-edit:hover{background:rgba(124,58,237,.06)}
+
+/* Include/Exclude toggle pill (builder only) */
+.toggle-incl{display:inline-flex;align-items:center;gap:3px;font-size:.6rem;font-weight:700;padding:3px 9px;border-radius:11px;border:1px solid;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.05em;transition:opacity .15s,background .15s;font-family:inherit;line-height:1.3}
+.toggle-incl:hover{opacity:.75}
+.toggle-incl.is-incl{background:rgba(22,169,122,.12);color:var(--green);border-color:rgba(22,169,122,.30)}
+.toggle-incl.is-excl{background:rgba(220,38,38,.10);color:var(--red);border-color:rgba(220,38,38,.30)}
+
+@media print { .toolbar, .tb-banner, .modal-overlay { display:none !important; } }
+/* BUILDER-ONLY:CSS-END */
 
 /* SVG defaults */
 .svg-chart{width:100%;display:block}
@@ -177,6 +276,92 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 </head>
 <body>
 
+<!-- BUILDER-ONLY:BODY-START -->
+<div class="auth-gate" id="auth-gate">
+  <div class="auth-card">
+    <h1>Pyle QIR <span>Builder</span></h1>
+    <p class="auth-sub">Sign in with your Pyle Financial Services email. We&rsquo;ll send a one-tap magic link to your inbox.</p>
+    <label for="auth-email-input">Work email</label>
+    <input id="auth-email-input" type="email" placeholder="you@pfs4u.com" autocomplete="email">
+    <button id="auth-submit-btn" onclick="sendMagicLink()">Send Magic Link</button>
+    <div class="auth-msg" id="auth-msg"></div>
+    <div class="auth-foot">Only @pfs4u.com emails are admitted (verified via Supabase Auth).</div>
+  </div>
+</div>
+
+<div class="tb-banner" id="tb-banner" style="display:none">⚠️ <strong>Builder mode</strong> — local file, never deployed. Import client data, edit, then click <strong>💾 Save as HTML</strong> to produce a deliverable file.</div>
+<div class="toolbar" id="toolbar" style="display:none">
+  <button class="tb-btn" onclick="downloadExcelTemplate()">📥 Excel Template</button>
+  <input type="file" id="xlsx-input" accept=".xlsx,.xls" style="display:none">
+  <button class="tb-btn" onclick="document.getElementById('xlsx-input').click()">📊 Import Excel</button>
+  <input type="file" id="addepar-input" accept=".csv,.xlsx" style="display:none">
+  <button class="tb-btn" onclick="document.getElementById('addepar-input').click()">📈 Import Addepar</button>
+  <input type="file" id="pdf-input" accept=".pdf,application/pdf" multiple style="display:none">
+  <button class="tb-btn" onclick="document.getElementById('pdf-input').click()">📄 Import PDFs</button>
+  <button class="tb-btn" onclick="editHeaderInfo()">✏️ Edit Header</button>
+  <button class="tb-btn" onclick="loadDemoData()">🎬 Demo Data</button>
+  <button class="tb-btn warn" onclick="clearData()">🆕 Clear Data</button>
+  <button class="tb-btn primary" onclick="saveToCloud()">☁️ Save to Cloud</button>
+  <button class="tb-btn" onclick="openFromCloud()">📁 Open from Cloud</button>
+  <button class="tb-btn" onclick="saveAsHTML()">💾 Save as HTML</button>
+  <button class="tb-btn" onclick="exportPDF()">🖨 Export PDF</button>
+  <span class="cloud-user" id="cloud-user-pill" style="display:none"></span>
+  <button class="cloud-signout" id="cloud-signout-btn" onclick="signOutCloud()" style="display:none">Sign out</button>
+  <span class="tb-status" id="tb-status">Ready</span>
+</div>
+
+<!-- Cloud-save picker modal (Open from Cloud) -->
+<div class="modal-overlay" id="cloud-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h2>📁 Open from Cloud</h2>
+        <p id="cloud-modal-subtitle">Loading recent QIR reviews…</p>
+      </div>
+      <button class="mb-btn ghost" onclick="closeCloudModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="cloud-row-hdr">
+        <div>Client</div><div>Period</div><div>Saved by</div><div>Saved</div><div></div>
+      </div>
+      <div id="cloud-list" class="cloud-list"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="mb-btn ghost" onclick="closeCloudModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF import review modal -->
+<div class="modal-overlay" id="pdf-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h2>📄 Review PDF Statements</h2>
+        <p id="pdf-modal-subtitle">Extracted from your PDFs — review and edit any fields before adding to investments.</p>
+      </div>
+      <button class="mb-btn ghost" onclick="closePDFModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="pdf-rows-header">
+        <div></div><div>Account / Investment Name</div><div>Custodian</div><div>Current Value</div><div>Asset Class</div><div></div>
+      </div>
+      <div id="pdf-rows"></div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:14px;line-height:1.6">
+        <strong>Tips:</strong>
+        Rows tagged <span class="pdf-tag unknown">Unknown</span> couldn't auto-detect the custodian — fields are empty, fill them in manually.
+        Rows tagged <span class="pdf-tag fail">Failed</span> couldn't extract text (likely a scanned/image PDF) — skip or fill manually.
+        Cost basis defaults to <code>0</code> since this builder isn't for cost-basis reporting.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="mb-btn ghost" onclick="closePDFModal()">Cancel</button>
+      <button class="mb-btn primary" onclick="confirmPDFImport()">✓ Add All to Investments</button>
+    </div>
+  </div>
+</div>
+<!-- BUILDER-ONLY:BODY-END -->
+
 <!-- Render targets — populated by JS -->
 <div id="header-mount"></div>
 <div class="main">
@@ -198,7 +383,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
    The values below are PLACEHOLDER / DEMO data. Replace with real
    client values when creating each quarter's file.
    ═══════════════════════════════════════════════════════════════════════ */
-const QIR_DATA = {
+let QIR_DATA = {
   // ── Header / cover ───────────────────────────────────────────────────
   client:     "Sample Client",
   quarter:    "Q1 2026",
@@ -358,17 +543,6 @@ const fmt = {
   signed: (n) => (n >= 0 ? "+" : "–") + fmt.money(Math.abs(n))
 };
 
-/* Render the Include/Exclude toggle pill. Returns empty string in deliverable mode. */
-function inclusionTogglePill(inv, idx) {
-  if (!window.__QIR_BUILDER__) return '';
-  const isExcl = !!inv.excludeFromTotals;
-  const cls    = isExcl ? 'is-excl' : 'is-incl';
-  const label  = isExcl ? '✗ Excluded' : '✓ Included';
-  return '<span class="toggle-incl ' + cls + '" onclick="toggleExcludeByIndex(' + idx + ')"' +
-         ' title="Click to toggle whether this account is included in the portfolio totals">' +
-         label + '</span>';
-}
-
 /* asset-class → badge css class + chart color */
 const CLASS_META = {
   "Private":         { badge: "b-priv", color: "#f5c542", strokeColor: "#e6b800" },
@@ -408,6 +582,30 @@ function investmentColor(inv, allInvestments) {
   const idx = sameClass.indexOf(inv);
   const palette = CLASS_PALETTES[inv.assetClass] || ["#94a3b8"];
   return palette[idx % palette.length];
+}
+
+/* Render the Include/Exclude toggle pill. Returns empty string in deliverable
+   mode (window.__QIR_BUILDER__ undefined) so saved files have no toggle UI. */
+function inclusionTogglePill(inv, idx) {
+  if (!window.__QIR_BUILDER__) return '';
+  const isExcl = !!inv.excludeFromTotals;
+  const cls    = isExcl ? 'is-excl' : 'is-incl';
+  const label  = isExcl ? '✗ Excluded' : '✓ Included';
+  return '<span class="toggle-incl ' + cls + '" onclick="toggleExcludeByIndex(' + idx + ')"' +
+         ' title="Click to toggle whether this account is included in the portfolio totals at the top of the report">' +
+         label + '</span>';
+}
+
+/* Mask account numbers — any 6+ digit run (with optional dashes) gets all but
+   the last 4 digits replaced with *. Leaves currency (commas, $), dates
+   (slashes), and short numbers (years, ZIPs) alone. */
+function maskAccountNumbers(str) {
+  if (typeof str !== 'string' || !str) return str;
+  return str.replace(/\b\d[\d-]{4,}\d\b/g, (match) => {
+    const digits = match.replace(/-/g, '');
+    if (digits.length < 6) return match;
+    return '*'.repeat(digits.length - 4) + digits.slice(-4);
+  });
 }
 
 /* derive a return % for an investment (uses tax-adj override if present) */
@@ -722,15 +920,15 @@ function renderInvestmentCard(inv, d, idx) {
     if (typeof inv.irr === 'number')  parts.push(`IRR: ${fmt.pct(inv.irr)}`);
     fnotes.push(parts.join(' · '));
   }
-  if (inv.footer) fnotes.push(inv.footer);
-  if (inv.currentPriceFootnote) fnotes.push('* '+inv.currentPriceFootnote);
+  if (inv.footer) fnotes.push(maskAccountNumbers(inv.footer));
+  if (inv.currentPriceFootnote) fnotes.push('* '+maskAccountNumbers(inv.currentPriceFootnote));
 
   return `
     <div class="inv-card">
       <div class="inv-head">
         <div>
-          <div class="inv-name">${inv.icon||''} ${inv.name}</div>
-          <div class="inv-sub">${inv.subtitle||''}</div>
+          <div class="inv-name">${inv.icon||''} ${maskAccountNumbers(inv.name)}</div>
+          <div class="inv-sub">${maskAccountNumbers(inv.subtitle||'')}</div>
         </div>
         <div class="inv-head-right">
           ${inclusionTogglePill(inv, idx)}
@@ -788,8 +986,9 @@ function renderCallout(d) {
 
     const isBuilder = !!window.__QIR_BUILDER__;
 
+    // Two editable inputs (builder) or static strong values (deliverable)
     const lossField = isBuilder
-      ? `<input type="number" min="0" step="1" value="${lossDeductionPct}" class="tc-edit" onchange="updateTaxCallout('lossDeductionPct', this.value)" title="Editable: % of investment deductible (can exceed 100% for cumulative multi-year IDCs)">`
+      ? `<input type="number" min="0" step="1" value="${lossDeductionPct}" class="tc-edit" onchange="updateTaxCallout('lossDeductionPct', this.value)" title="Editable: % of investment deductible (can exceed 100% for cumulative multi-year IDCs) (typically 70–90% for oil & gas LPs)">`
       : `<strong>${lossDeductionPct}%</strong>`;
     const taxField = isBuilder
       ? `<input type="number" min="0" max="100" step="0.5" value="${taxRate}" class="tc-edit" onchange="updateTaxCallout('taxRate', this.value)" title="Editable: client's top federal income tax bracket">`
@@ -815,6 +1014,7 @@ function renderCallout(d) {
     );
     bodyHtml = parts.join(' &nbsp;·&nbsp; ');
   }
+  // OLD static items array — backward compatible
   else if (c.items && c.items.length) {
     bodyHtml = c.items.map(i => {
       const colorStyle = i.color ? `color:${colorMap[i.color]||i.color}` : 'color:var(--text)';
@@ -845,7 +1045,7 @@ function renderTable(d) {
   const isBuilder = !!window.__QIR_BUILDER__;
 
   // Iterate ALL investments so the user can toggle excluded ones back from the table too.
-  // Excluded rows render muted and do NOT roll into the TOTAL row.
+  // Excluded rows render with muted style; their values do NOT roll into the TOTAL row.
   const rows = d.investments.map((inv, idx) => {
     const cm = classMeta(inv.assetClass);
     const gain = investmentGain(inv);
@@ -864,7 +1064,7 @@ function renderTable(d) {
     const rowCls = isExcluded ? ' class="excl-row"' : '';
     return `
       <tr${rowCls}>
-        <td><span class="tdot" style="background:${investmentColor(inv, d.investments)}"></span>${inv.icon||''} ${inv.name}</td>
+        <td><span class="tdot" style="background:${investmentColor(inv, d.investments)}"></span>${inv.icon||''} ${maskAccountNumbers(inv.name)}</td>
         <td>${inv.assetClass}</td>
         <td>${fmt.money(inv.costBasis)}</td>
         <td>${fmt.money(inv.currentValue)}</td>
@@ -1137,18 +1337,845 @@ function buildDonut(containerId, slices, cx, cy, R, r, legendItems, VW, VH){
 
 
 /* ─── Render everything ────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => {
+function renderAll() {
   renderHeader(QIR_DATA);
   renderKPIs(QIR_DATA);
   renderCharts(QIR_DATA);
   renderInvestments(QIR_DATA);
+  // Clear sections that may have been populated previously
+  ['callout-mount','performance-mount','life-mount'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '';
+  });
   renderCallout(QIR_DATA);
   renderTable(QIR_DATA);
   renderPerformance(QIR_DATA);
   renderUSEnergyTracking(QIR_DATA);
   renderLifeInsurance(QIR_DATA);
   renderFooter(QIR_DATA);
+}
+document.addEventListener('DOMContentLoaded', renderAll);
+
+/* BUILDER-ONLY:JS-START */
+/* ═══════════════════════════════════════════════════════════════════════
+   Builder-only: import / export / save logic
+   This entire block is stripped out by saveAsHTML() so deliverables
+   don't include any of this UI logic.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// Builder-mode flag — read by renderCallout() and other shared code to
+// show editable inputs. Stripped from deliverables → undefined → static rendering.
+window.__QIR_BUILDER__ = true;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SUPABASE / AUTH / CLOUD STORAGE
+   Reuses the existing window.__PYLE_CONFIG__ from ../config.js.
+   ═══════════════════════════════════════════════════════════════════════ */
+let __supa = null;             // Supabase client (lazy init)
+let __session = null;          // Current session object (null until signed in)
+let __teamDomain = 'pfs4u.com';// Default; overridden from window.__PYLE_CONFIG__
+let __pendingMetaForCloud = {}; // Carries client_name/quarter/as_of_date through save
+
+function initSupabase() {
+  if (__supa) return __supa;
+  const cfg = window.__PYLE_CONFIG__;
+  if (!cfg || !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+    console.error('config.js not loaded or missing keys');
+    return null;
+  }
+  __teamDomain = cfg.TEAM_DOMAIN || 'pfs4u.com';
+  __supa = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
+  return __supa;
+}
+
+function isTeamEmail(email) {
+  return !!email && email.toLowerCase().endsWith('@' + __teamDomain.toLowerCase());
+}
+
+async function bootstrapAuth() {
+  const sb = initSupabase();
+  if (!sb) {
+    document.getElementById('auth-msg').className = 'auth-msg err';
+    document.getElementById('auth-msg').textContent = 'Supabase config missing — please check config.js';
+    return;
+  }
+  // Process magic-link redirect (Supabase JS handles this automatically with detectSessionInUrl)
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && isTeamEmail(session.user.email)) {
+    enterAuthenticatedState(session);
+  } else if (session) {
+    // Signed in, but wrong domain — sign out and show access-denied message
+    await sb.auth.signOut();
+    document.getElementById('auth-msg').className = 'auth-msg err';
+    document.getElementById('auth-msg').textContent = 'Access restricted to @' + __teamDomain + ' emails. Signed out.';
+  }
+  // Listen for future sign-ins (magic-link callback)
+  sb.auth.onAuthStateChange((_event, sess) => {
+    if (sess && isTeamEmail(sess.user.email)) {
+      enterAuthenticatedState(sess);
+    } else if (sess) {
+      sb.auth.signOut();
+    } else {
+      __session = null;
+    }
+  });
+}
+
+function enterAuthenticatedState(session) {
+  __session = session;
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('toolbar').style.display = '';
+  document.getElementById('tb-banner').style.display = '';
+  const pill = document.getElementById('cloud-user-pill');
+  const out  = document.getElementById('cloud-signout-btn');
+  if (pill) { pill.textContent = '☁️ ' + session.user.email; pill.style.display = ''; }
+  if (out)  { out.style.display = ''; }
+  setStatus('Signed in as ' + session.user.email, 'ok');
+}
+
+async function sendMagicLink() {
+  const sb = initSupabase();
+  if (!sb) return;
+  const input = document.getElementById('auth-email-input');
+  const btn   = document.getElementById('auth-submit-btn');
+  const msg   = document.getElementById('auth-msg');
+  const email = (input.value || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    msg.className = 'auth-msg err'; msg.textContent = 'Enter a valid email.'; return;
+  }
+  if (!isTeamEmail(email)) {
+    msg.className = 'auth-msg err';
+    msg.textContent = 'Only @' + __teamDomain + ' emails can access. Contact the firm admin if your email should be added.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.href }
+  });
+  btn.disabled = false; btn.textContent = 'Send Magic Link';
+  if (error) {
+    msg.className = 'auth-msg err'; msg.textContent = 'Error: ' + error.message;
+  } else {
+    msg.className = 'auth-msg ok';
+    msg.textContent = '✓ Magic link sent. Check ' + email + ' and click the link to sign in. (Safe to close this tab — it will open a new one.)';
+  }
+}
+
+async function signOutCloud() {
+  const sb = initSupabase();
+  if (!sb) return;
+  if (!confirm('Sign out of Pyle QIR Builder?')) return;
+  await sb.auth.signOut();
+  __session = null;
+  // Restore initial state
+  document.getElementById('auth-gate').style.display = '';
+  document.getElementById('toolbar').style.display = 'none';
+  document.getElementById('tb-banner').style.display = 'none';
+}
+
+/* ── Save current QIR_DATA to public.qir_reviews ── */
+async function saveToCloud() {
+  if (!__session) { alert('Not signed in.'); return; }
+  const sb = initSupabase();
+  const client = (QIR_DATA.client || '').trim();
+  if (!client || client === 'New Client') {
+    alert('Set a real client name first (✏️ Edit Header) before saving to cloud.');
+    return;
+  }
+  setStatus('Saving to cloud…');
+  const payload = {
+    client_name:      client,
+    quarter:          QIR_DATA.quarter || null,
+    as_of_date:       QIR_DATA.asOfDate || null,
+    data:             QIR_DATA,
+    created_by:       __session.user.id,
+    created_by_email: __session.user.email
+  };
+  const { data, error } = await sb.from('qir_reviews').insert(payload).select().single();
+  if (error) {
+    console.error(error);
+    setStatus('Cloud save failed: ' + error.message, 'err');
+    alert('Cloud save failed:\n' + error.message);
+    return;
+  }
+  setStatus('✓ Saved to cloud (id ' + data.id.slice(0,8) + '…)', 'ok');
+}
+
+/* ── Open Cloud picker modal listing recent saved reviews ── */
+async function openFromCloud() {
+  if (!__session) { alert('Not signed in.'); return; }
+  const sb = initSupabase();
+  setStatus('Loading saved reviews…');
+  const { data, error } = await sb
+    .from('qir_reviews')
+    .select('id, client_name, quarter, as_of_date, created_by_email, created_at, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(50);
+  if (error) {
+    setStatus('Cloud load failed: ' + error.message, 'err');
+    alert('Cloud load failed:\n' + error.message);
+    return;
+  }
+  const container = document.getElementById('cloud-list');
+  const sub = document.getElementById('cloud-modal-subtitle');
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:.85rem">No saved reviews yet. Use ☁️ Save to Cloud to create your first.</div>';
+    sub.textContent = '0 reviews · pick one to load (none yet)';
+  } else {
+    container.innerHTML = data.map(r => {
+      const when = new Date(r.updated_at || r.created_at).toLocaleString();
+      return '<div class="cloud-row" onclick="loadFromCloud(\'' + r.id + '\')">'
+        + '<div><div class="cloud-cell-name">' + (r.client_name || '?') + '</div></div>'
+        + '<div class="cloud-cell-meta">' + (r.quarter || '—') + '<br>' + (r.as_of_date || '') + '</div>'
+        + '<div class="cloud-cell-meta">' + (r.created_by_email || '—') + '</div>'
+        + '<div class="cloud-cell-meta">' + when + '</div>'
+        + '<div><button onclick="event.stopPropagation();deleteFromCloud(\'' + r.id + '\', \'' + (r.client_name||'').replace(/[\\\']/g,'') + '\')">Delete</button></div>'
+        + '</div>';
+    }).join('');
+    sub.textContent = data.length + ' review' + (data.length===1?'':'s') + ' · click a row to load';
+  }
+  document.getElementById('cloud-modal').classList.add('open');
+  setStatus('Cloud loaded', 'ok');
+}
+
+function closeCloudModal() {
+  document.getElementById('cloud-modal').classList.remove('open');
+}
+
+async function loadFromCloud(id) {
+  if (!__session) return;
+  const sb = initSupabase();
+  setStatus('Loading review…');
+  const { data, error } = await sb.from('qir_reviews').select('data, client_name').eq('id', id).single();
+  if (error) { setStatus('Load failed: ' + error.message, 'err'); return; }
+  QIR_DATA = data.data;
+  renderAll();
+  closeCloudModal();
+  setStatus('✓ Loaded ' + (data.client_name || 'review') + ' from cloud', 'ok');
+}
+
+async function deleteFromCloud(id, name) {
+  if (!confirm('Delete the saved review for "' + name + '"?\nThis cannot be undone.')) return;
+  const sb = initSupabase();
+  const { error } = await sb.from('qir_reviews').delete().eq('id', id);
+  if (error) { alert('Delete failed: ' + error.message); return; }
+  setStatus('✓ Deleted', 'ok');
+  openFromCloud(); // refresh
+}
+
+/* Kick off auth flow on page load — runs before the existing DOMContentLoaded chain */
+document.addEventListener('DOMContentLoaded', bootstrapAuth);
+
+
+/* Flip an investment's excludeFromTotals flag and re-render the whole page so
+   totals, KPIs, donut, table, and the toggle's own styling all update together. */
+function toggleExcludeByIndex(idx) {
+  if (!QIR_DATA || !QIR_DATA.investments || !QIR_DATA.investments[idx]) return;
+  const inv = QIR_DATA.investments[idx];
+  inv.excludeFromTotals = !inv.excludeFromTotals;
+  renderAll();
+  setStatus('✓ ' + inv.name + ': ' + (inv.excludeFromTotals ? 'EXCLUDED from' : 'INCLUDED in') + ' portfolio totals', 'ok');
+}
+
+/* Pristine "new client" data — used by Clear Data button. Truly empty
+   investments[] so the user can start clean and import via Excel/Addepar/PDF. */
+const CLEAN_DATA = JSON.stringify({
+  client:     "New Client",
+  quarter:    "Q1 2026",
+  asOfDate:   "March 31, 2026",
+  currency:   "USD",
+  firmFooter: "Private & Confidential",
+  periodLabels: {
+    netInflows:  "Q1 Inflows",
+    priorPeriod: "2025 Return",
+    costBasis:   "12/31/25",
+    totalReturn: "Q1 '26 Return",
+    q1Reference: "Q1 ref",
+    q1RefDate:   ""
+  },
+  investments: [],
+  taxCallout:   { enabled: false },
+  performance:  { enabled: false, showReturnChart: false, economicBenefit: { enabled: false } },
+  lifeInsurance:{ enabled: false },
+  usEnergyTracking: { enabled: false }
 });
+
+/* Reset to pristine new-client state. Confirms before wiping. */
+function clearData() {
+  if (!confirm('Clear ALL data and start fresh for a new client?\n\nThe current data will be lost unless you already saved it via 💾 Save as HTML.\n\nClick OK to clear, Cancel to keep current data.')) return;
+  QIR_DATA = JSON.parse(CLEAN_DATA);
+  renderAll();
+  setStatus('✓ Cleared — start with 📥 Excel Template or 📊 Import Excel for a new client', 'ok');
+}
+
+/* Trigger the browser print dialog. @media print CSS already hides toolbar/banner/modal.
+   User selects "Save as PDF" as the destination. */
+function exportPDF() {
+  setStatus('Opening print dialog — select "Save as PDF" as the destination', 'ok');
+  setTimeout(() => window.print(), 200);
+}
+
+/* Update one tax-callout field and re-render just the callout.
+   onchange (not oninput) is intentional — fires on blur, so focus loss is expected. */
+function updateTaxCallout(field, value) {
+  if (!QIR_DATA.taxCallout) return;
+  const n = parseFloat(value);
+  if (!isFinite(n) || n < 0) return;
+  QIR_DATA.taxCallout[field] = n;
+  renderCallout(QIR_DATA);
+  setStatus(`✓ Tax callout updated — ${field} = ${n}%`, 'ok');
+}
+
+function setStatus(msg, kind='') {
+  const el = document.getElementById('tb-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'tb-status ' + (kind || '');
+  if (kind === 'ok') setTimeout(() => { el.textContent = 'Ready'; el.className = 'tb-status'; }, 4000);
+}
+
+/* ── Excel column schema — used for both template generation and import ── */
+const EXCEL_COLUMNS = [
+  // Required
+  { key: 'name',                 header: 'Name',                  type: 'string', required: true },
+  { key: 'assetClass',           header: 'Asset Class',           type: 'string', required: true,
+    enum: ['Private','Public Equities','Public','Alternatives'] },
+  { key: 'costBasis',            header: 'Cost Basis',            type: 'number', required: true },
+  { key: 'currentValue',         header: 'Current Value',         type: 'number', required: true },
+  // Optional
+  { key: 'icon',                 header: 'Icon',                  type: 'string' },
+  { key: 'subtitle',             header: 'Subtitle',              type: 'string' },
+  { key: 'entryDate',            header: 'Entry Date',            type: 'string' },
+  { key: 'inceptionDate',        header: 'Inception Date',        type: 'string' },
+  { key: 'shares',               header: 'Shares',                type: 'number' },
+  { key: 'entryPrice',           header: 'Entry Price',           type: 'number' },
+  { key: 'currentPrice',         header: 'Current Price',         type: 'number' },
+  { key: 'tvpi',                 header: 'TVPI',                  type: 'number' },
+  { key: 'irr',                  header: 'IRR (%)',               type: 'number' },
+  { key: 'annualizedIRR',        header: 'Annualized IRR (%)',    type: 'number' },
+  { key: 'distributions',        header: 'Distributions',         type: 'number' },
+  { key: 'pendingDistributions', header: 'Pending Distributions', type: 'number' },
+  { key: 'pendingDate',          header: 'Pending Date',          type: 'string' },
+  { key: 'taxAdjustedReturnPct', header: 'Tax-Adj Return (%)',    type: 'number' },
+  { key: 'annualizedReturnPct',  header: 'Annualized Return (%)', type: 'number' },
+  { key: 'footer',               header: 'Footer Note',           type: 'string' },
+  { key: 'currentPriceFootnote', header: 'Current Price Footnote',type: 'string' },
+  { key: 'benchmark',            header: 'Benchmark',             type: 'string',
+    enum: ['above','inline','below'] }
+];
+
+/* ── Download an .xlsx template the user fills in ── */
+function downloadExcelTemplate() {
+  if (typeof XLSX === 'undefined') {
+    setStatus('Excel library not loaded — check internet connection', 'err');
+    return;
+  }
+  const headers = EXCEL_COLUMNS.map(c => c.header);
+  const example1 = ['SpaceX', 'Private', 500000, 1756757, '🚀', 'Late-stage growth equity', '01/15/2025', '', 2702.7, 185, 650, 3.51, 190.8, '', '', '', '', '', '', 'Private secondary valuation', 'Optional reference price footnote', 'above'];
+  const example2 = ['Sample LP',  'Alternatives', 1000000, 1000000, '⚡', 'Energy LP', '', '12/15/2024', '', '', '', '', '', '', 187879, 50000, 'Apr 21', 55.98, 41.16, 'Tax structure detail', '', 'above'];
+  const ws = XLSX.utils.aoa_to_sheet([headers, example1, example2]);
+  // Column widths
+  ws['!cols'] = headers.map(h => ({ wch: Math.max(12, h.length + 2) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Investments');
+  XLSX.writeFile(wb, 'qir-investments-template.xlsx');
+  setStatus('Template downloaded — fill it in, then Import Excel', 'ok');
+}
+
+/* ── Import a filled-in Excel ── */
+function importExcel(file) {
+  setStatus('Reading Excel…');
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+      if (!rows.length) throw new Error('No data rows found');
+
+      // Build a header → key map (case-insensitive, fuzzy)
+      const colMap = {};
+      EXCEL_COLUMNS.forEach(c => {
+        const target = c.header.toLowerCase().replace(/[^a-z0-9]/g,'');
+        Object.keys(rows[0]).forEach(k => {
+          const norm = String(k).toLowerCase().replace(/[^a-z0-9]/g,'');
+          if (norm === target || norm.includes(target.replace(/\(.*?\)/,'').trim())) {
+            colMap[c.key] = k;
+          }
+        });
+      });
+
+      // Required columns check
+      const missing = EXCEL_COLUMNS.filter(c => c.required && !colMap[c.key]).map(c => c.header);
+      if (missing.length) throw new Error('Missing required columns: ' + missing.join(', '));
+
+      // Fields where account numbers commonly appear → mask all but last 4 digits
+      const MASK_FIELDS = new Set(['name','subtitle','footer','currentPriceFootnote']);
+      const investments = rows.map(row => {
+        const inv = {};
+        EXCEL_COLUMNS.forEach(c => {
+          const v = row[colMap[c.key]];
+          if (v !== null && v !== undefined && v !== '') {
+            if (c.type === 'number') {
+              const n = parseFloat(String(v).replace(/[$,\s%]/g,''));
+              if (isFinite(n)) inv[c.key] = n;
+            } else {
+              let s = String(v).trim();
+              if (MASK_FIELDS.has(c.key)) s = maskAccountNumbers(s);
+              inv[c.key] = s;
+            }
+          }
+        });
+        return inv;
+      }).filter(inv => inv.name && inv.currentValue !== undefined);
+
+      if (!investments.length) throw new Error('No valid rows after parsing');
+
+      QIR_DATA.investments = investments;
+      renderAll();
+      setStatus(`✓ Imported ${investments.length} investments from Excel`, 'ok');
+    } catch (err) {
+      console.error('importExcel', err);
+      setStatus('Import failed: ' + err.message, 'err');
+      alert('Excel import failed: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ── Import an Addepar CSV — partial fill (currentValue + assetClass only) ── */
+function importAddeparCSV(file) {
+  setStatus('Reading Addepar CSV…');
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const text = e.target.result;
+      const rows = parseCSVRows(text);
+      if (rows.length < 2) throw new Error('CSV has no data rows');
+      const header = rows[0].map(h => String(h||'').trim());
+      const headerLower = header.map(h => h.toLowerCase().replace(/\s+/g,' ').trim());
+      const findCol = (cands) => {
+        for (const c of cands) {
+          const cl = c.toLowerCase();
+          const idx = headerLower.findIndex(h => h === cl || h.includes(cl));
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
+      const idxAccount  = findCol(['account name','account','portfolio','household','entity']);
+      const idxSecurity = findCol(['security name','security','position name','asset name','holding name','position','name']);
+      const idxValue    = findCol(['market value','total value','value','mv','amount']);
+      const idxClass    = findCol(['asset class','asset type','asset category','category','class']);
+      const idxTicker   = findCol(['symbol','ticker','cusip']);
+      if (idxAccount < 0 || idxValue < 0) {
+        throw new Error('Required columns not found. Need an Account/Portfolio column and a Market Value column. Header: ' + header.join(' | '));
+      }
+
+      // Map Addepar's flexible class strings → our 4-bucket taxonomy
+      const mapClass = (raw) => {
+        const c = String(raw||'').toLowerCase();
+        if (/private[\s-]?equit|venture|pre-?ipo/.test(c))                     return 'Private';
+        if (/(real[\s-]?estate|reit|hedge|private[\s-]?credit|commodit|alt|crypto|digital|infrastructure|natural[\s-]?resource|energy[\s-]?lp|oil)/.test(c)) return 'Alternatives';
+        if (/(equit|stock|fund|etf|mutual)/.test(c) && !/private/.test(c))     return 'Public Equities';
+        if (/(fixed[\s-]?income|bond|treasur|munic|cash|money[\s-]?market)/.test(c)) return 'Public Equities';
+        return 'Public';
+      };
+
+      // Group by security (or account if no security column)
+      const groupKey = idxSecurity >= 0 ? idxSecurity : idxAccount;
+      const groups = {};
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row.length) continue;
+        const name = (row[groupKey]||'').trim();
+        if (!name) continue;
+        const value = parseFloat(String(row[idxValue]||'').replace(/[$,\s]/g,''));
+        if (!isFinite(value) || value === 0) continue;
+        const rawClass = idxClass >= 0 ? (row[idxClass]||'').trim() : '';
+        const ticker = idxTicker >= 0 ? (row[idxTicker]||'').trim() : '';
+        groups[name] = groups[name] || { name, currentValue: 0, assetClass: '', tickers: new Set() };
+        groups[name].currentValue += value;
+        if (!groups[name].assetClass && rawClass) groups[name].assetClass = mapClass(rawClass);
+        if (ticker) groups[name].tickers.add(ticker);
+      }
+
+      const investments = Object.values(groups)
+        .sort((a,b) => b.currentValue - a.currentValue)
+        .map(g => ({
+          name: maskAccountNumbers(g.name.slice(0, 60)),
+          icon: '',
+          subtitle: g.tickers.size ? Array.from(g.tickers).slice(0,3).join(', ') : 'Imported from Addepar',
+          assetClass: g.assetClass || 'Public',
+          costBasis: 0,             // ⚠️ Addepar does not provide cost basis — fill manually
+          currentValue: Math.round(g.currentValue),
+          benchmark: 'inline',
+          footer: '⚠️ Cost basis pending — Addepar export does not include this. Fill manually or via Excel import.'
+        }));
+
+      if (!investments.length) throw new Error('No rows with non-zero market value');
+
+      QIR_DATA.investments = investments;
+      renderAll();
+      setStatus(`✓ Imported ${investments.length} positions from Addepar (cost basis = $0 — needs manual entry)`, 'ok');
+    } catch (err) {
+      console.error('importAddeparCSV', err);
+      setStatus('Import failed: ' + err.message, 'err');
+      alert('Addepar import failed: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ── Minimal CSV parser (handles quotes, embedded commas/newlines) ── */
+function parseCSVRows(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i+1] === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { field += c; }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i+1] === '\n') i++;
+        row.push(field); rows.push(row); row = []; field = '';
+      } else { field += c; }
+    }
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(f => String(f||'').trim() !== ''));
+}
+
+/* ── Edit header info via prompts ── */
+function editHeaderInfo() {
+  const c = prompt('Client name:', QIR_DATA.client);
+  if (c === null) return;
+  const q = prompt('Quarter (e.g. "Q2 2026"):', QIR_DATA.quarter);
+  if (q === null) return;
+  const d = prompt('As-of date (e.g. "June 30, 2026"):', QIR_DATA.asOfDate);
+  if (d === null) return;
+  QIR_DATA.client = c.trim() || QIR_DATA.client;
+  QIR_DATA.quarter = q.trim() || QIR_DATA.quarter;
+  QIR_DATA.asOfDate = d.trim() || QIR_DATA.asOfDate;
+  renderAll();
+  setStatus('✓ Header updated', 'ok');
+}
+
+/* ── Reset to demo data ── */
+function loadDemoData() {
+  if (!confirm('Replace current data with demo data?')) return;
+  QIR_DATA = JSON.parse(DEFAULT_DEMO_DATA);
+  renderAll();
+  setStatus('Demo data loaded', 'ok');
+}
+const DEFAULT_DEMO_DATA = JSON.stringify(QIR_DATA);
+
+/* ── Save: produce a clean deliverable HTML file with QIR_DATA baked in ── */
+function saveAsHTML() {
+  try {
+    // Re-render in DELIVERABLE mode so editable inputs become static text in the snapshot
+    const wasBuilder = window.__QIR_BUILDER__;
+    window.__QIR_BUILDER__ = false;
+    renderAll();
+
+    let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+    // Restore builder mode + re-render so the user keeps editing after Save
+    window.__QIR_BUILDER__ = wasBuilder;
+    renderAll();
+
+    // 1. Strip every BUILDER-ONLY block (HTML/CSS/JS) using paired markers
+    html = html.replace(/<!--\s*BUILDER-ONLY:[A-Z-]+START\s*-->[\s\S]*?<!--\s*BUILDER-ONLY:[A-Z-]+END\s*-->/g, '');
+    html = html.replace(/\/\*\s*BUILDER-ONLY:[A-Z-]+START\s*\*\/[\s\S]*?\/\*\s*BUILDER-ONLY:[A-Z-]+END\s*\*\//g, '');
+
+    // 2. Replace the QIR_DATA block with the current data (pretty-printed)
+    const dataStr = JSON.stringify(QIR_DATA, null, 2);
+    // Match `let QIR_DATA = { ... };` (template uses `const`, builder uses `let`; deliverable uses `const`)
+    html = html.replace(/(let|const|var)\s+QIR_DATA\s*=\s*\{[\s\S]*?\n\};/, `const QIR_DATA = ${dataStr};`);
+
+    // 3. Update the title for the deliverable
+    html = html.replace(/<title>[^<]*<\/title>/,
+      `<title>Quarterly Investment Review — ${QIR_DATA.quarter} — ${QIR_DATA.client}</title>`);
+
+    // 4. Build filename
+    const slug = (s) => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    const fname = `qir-${slug(QIR_DATA.client)||'client'}-${slug(QIR_DATA.quarter)||'q'}.html`;
+
+    // 5. Trigger download
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+
+    setStatus(`✓ Saved ${fname}`, 'ok');
+  } catch (err) {
+    console.error('saveAsHTML', err);
+    setStatus('Save failed: ' + err.message, 'err');
+    alert('Save failed: ' + err.message);
+  }
+}
+
+/* ─── PDF Statement Import (Schwab + Fidelity + Unknown) ──────────────
+   Browser-only text extraction via pdf.js. No data leaves the laptop.
+   Each PDF → one investment card (account-level summary only).
+   ──────────────────────────────────────────────────────────────────── */
+
+// pdf.js worker (use main thread to avoid file:// worker headaches)
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+
+let _pendingPDFRows = [];
+
+async function extractPDFText(file) {
+  if (typeof pdfjsLib === 'undefined') throw new Error('PDF library not loaded — check internet connection');
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf, disableFontFace: true }).promise;
+  let allText = '';
+  // Keep per-page strings so positional patterns (like cover-page totals) work
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    // Preserve approximate line breaks: join items with spaces, add newline between rows by y-coord
+    let lastY = null;
+    let pageText = '';
+    content.items.forEach(it => {
+      const y = it.transform ? Math.round(it.transform[5]) : null;
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 4) pageText += '\n';
+      pageText += it.str + ' ';
+      lastY = y;
+    });
+    pages.push(pageText);
+    allText += pageText + '\n\n';
+  }
+  return { allText, pages };
+}
+
+function detectCustodian(text) {
+  const t = text.toLowerCase();
+  if (/charles\s+schwab|schwab\.com|\bschwab\b/.test(t)) return 'Schwab';
+  if (/fidelity\s+investments|fidelity\.com|\bfidelity\b/.test(t)) return 'Fidelity';
+  return 'Unknown';
+}
+
+/* Parse the "ending account value" or equivalent total. Returns dollars as a Number, or 0. */
+function findStatementTotal(text) {
+  const candidates = [
+    /Ending\s+Account\s+Value[^\$]*\$\s*([0-9][0-9,]*\.?[0-9]{0,2})/i,
+    /Ending\s+Value[^\$]*\$\s*([0-9][0-9,]*\.?[0-9]{0,2})/i,
+    /Total\s+Account\s+Value[^\$]*\$\s*([0-9][0-9,]*\.?[0-9]{0,2})/i,
+    /Account\s+Value[^\$]*\$\s*([0-9][0-9,]*\.?[0-9]{0,2})/i,
+    /Ending\s+Net\s+Account\s+Value[^\$]*\$\s*([0-9][0-9,]*\.?[0-9]{0,2})/i,
+    /Ending\s+Portfolio\s+Value[^\$]*\$\s*([0-9][0-9,]*\.?[0-9]{0,2})/i,
+    /Closing\s+Balance[^\$]*\$\s*([0-9][0-9,]*\.?[0-9]{0,2})/i,
+    /Total\s+Value[^\$]*\$\s*([0-9][0-9,]*\.?[0-9]{0,2})/i
+  ];
+  for (const re of candidates) {
+    const m = text.match(re);
+    if (m) {
+      const v = parseFloat(m[1].replace(/,/g, ''));
+      if (isFinite(v) && v > 0) return v;
+    }
+  }
+  return 0;
+}
+
+/* Pull an account/registration name. Tries common labels. */
+function findAccountName(text, custodian) {
+  const patterns = [
+    /Account\s+Name\s*:?\s*([A-Z][A-Za-z0-9 ,.&'\-]{2,60})/,
+    /Registration\s*:?\s*([A-Z][A-Za-z0-9 ,.&'\-]{2,60})/,
+    /Account\s*:?\s*([A-Z][A-Za-z0-9 ,.&'\-]{2,60})\s+(Account|Ending)/,
+    /Prepared\s+for\s*:?\s*([A-Z][A-Za-z0-9 ,.&'\-]{2,60})/
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const s = m[1].trim().replace(/\s+/g, ' ');
+      if (s.length > 2 && s.length < 80) return s;
+    }
+  }
+  return '';
+}
+
+/* Try to detect the account TYPE from common labels (IRA, Roth, Brokerage, Joint, etc.) */
+function findAccountType(text) {
+  const t = text;
+  if (/\bRoth\s+IRA\b/i.test(t))                       return 'Roth IRA';
+  if (/\b(Traditional|Rollover)\s+IRA\b/i.test(t))     return 'IRA';
+  if (/\bIRA\b/i.test(t))                              return 'IRA';
+  if (/\b401\s*\(?k\)?\b/i.test(t))                    return '401(k)';
+  if (/\b403\s*\(?b\)?\b/i.test(t))                    return '403(b)';
+  if (/\bSEP[\s-]?IRA\b/i.test(t))                     return 'SEP IRA';
+  if (/\bJoint\s+(Tenant|Account|WROS|Brokerage)\b/i.test(t)) return 'Joint Brokerage';
+  if (/\bTrust\b/i.test(t))                            return 'Trust Account';
+  if (/\bHSA\b/i.test(t))                              return 'HSA';
+  if (/\bBrokerage\b/i.test(t))                        return 'Brokerage';
+  return '';
+}
+
+/* Infer asset class from holdings-summary keywords. Heuristic — defaults to Public Equities. */
+function inferAssetClass(text) {
+  const t = text.toLowerCase();
+  // If mostly bonds / cash labels appear with high allocation, lean Public Equities (fixed-income still public)
+  // For QIR's 4-bucket taxonomy, held-away brokerage / IRA almost always falls into "Public Equities".
+  // Override only for clearly-alt accounts.
+  if (/(annuit|whole\s+life|life\s+insurance)/.test(t)) return 'Alternatives';
+  if (/(real\s+estate|reit\s+fund|private\s+credit|hedge\s+fund|partnership)/.test(t)) return 'Alternatives';
+  return 'Public Equities';
+}
+
+/* Parse one PDF — returns { name, custodian, currentValue, assetClass, accountType, ok } */
+async function parsePDF(file) {
+  try {
+    const { allText, pages } = await extractPDFText(file);
+    const custodian = detectCustodian(allText);
+    // The cover page is usually most reliable for totals; try it first, then fall back to full text
+    const coverText = pages[0] || '';
+    const total = findStatementTotal(coverText) || findStatementTotal(allText);
+    const accountName = findAccountName(allText, custodian);
+    const accountType = findAccountType(allText);
+    const assetClass = inferAssetClass(allText);
+    // Build a friendly name: "Schwab — Joint Brokerage" or fall back to filename
+    const baseName = accountName || (file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' '));
+    const displayName = custodian !== 'Unknown' && accountType
+      ? `${custodian} — ${accountType}`
+      : custodian !== 'Unknown' ? `${custodian} — ${baseName}` : baseName;
+    return {
+      ok: true,
+      filename: file.name,
+      custodian,
+      name: maskAccountNumbers(displayName.slice(0, 80)),
+      currentValue: total,
+      assetClass,
+      accountType,
+      raw: { accountName: maskAccountNumbers(accountName) }
+    };
+  } catch (err) {
+    console.error('parsePDF', file.name, err);
+    return { ok: false, filename: file.name, error: err.message, custodian: 'Unknown', name: '', currentValue: 0, assetClass: 'Public Equities' };
+  }
+}
+
+/* Process the uploaded PDFs and open the review modal */
+async function importPDFs(fileList) {
+  const files = Array.from(fileList);
+  if (!files.length) return;
+  setStatus(`Parsing ${files.length} PDF${files.length===1?'':'s'}…`);
+  const results = [];
+  for (const f of files) {
+    const r = await parsePDF(f);
+    results.push(r);
+  }
+  _pendingPDFRows = results;
+  renderPDFModal();
+  setStatus(`Parsed ${results.length} PDF${results.length===1?'':'s'} — review and confirm`, 'ok');
+}
+
+function renderPDFModal() {
+  const container = document.getElementById('pdf-rows');
+  const rows = _pendingPDFRows.map((r, idx) => {
+    const tagClass = !r.ok ? 'fail' : r.custodian === 'Schwab' ? 'schwab' : r.custodian === 'Fidelity' ? 'fidelity' : 'unknown';
+    const tagText  = !r.ok ? 'Failed' : r.custodian;
+    const rowClass = !r.ok ? 'fail' : r.custodian === 'Unknown' ? 'unknown' : '';
+    return `
+      <div class="pdf-row ${rowClass}" data-idx="${idx}">
+        <div><span class="pdf-tag ${tagClass}">${tagText}</span></div>
+        <div>
+          <input type="text" data-field="name" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="Account name">
+          <div class="pdf-filename">📄 ${r.filename}${r.error ? ' · ' + r.error : ''}</div>
+        </div>
+        <div><input type="text" data-field="custodian" value="${r.custodian||''}" placeholder="Custodian"></div>
+        <div><input type="number" data-field="currentValue" value="${r.currentValue||''}" placeholder="0" step="0.01"></div>
+        <div>
+          <select data-field="assetClass">
+            <option ${r.assetClass==='Private'?'selected':''}>Private</option>
+            <option ${r.assetClass==='Public Equities'?'selected':''}>Public Equities</option>
+            <option ${r.assetClass==='Public'?'selected':''}>Public</option>
+            <option ${r.assetClass==='Alternatives'?'selected':''}>Alternatives</option>
+          </select>
+        </div>
+        <div><button class="pdf-remove" onclick="removePDFRow(${idx})" title="Remove this row">✕</button></div>
+      </div>`;
+  }).join('');
+  container.innerHTML = rows;
+  document.getElementById('pdf-modal-subtitle').textContent =
+    `${_pendingPDFRows.length} PDF${_pendingPDFRows.length===1?'':'s'} processed — review fields below, then click "Add All".`;
+  document.getElementById('pdf-modal').classList.add('open');
+}
+
+function removePDFRow(idx) {
+  _pendingPDFRows.splice(idx, 1);
+  if (_pendingPDFRows.length === 0) closePDFModal();
+  else renderPDFModal();
+}
+
+function closePDFModal() {
+  document.getElementById('pdf-modal').classList.remove('open');
+  _pendingPDFRows = [];
+}
+
+function confirmPDFImport() {
+  // Read current field values from each row
+  const rows = document.querySelectorAll('#pdf-rows .pdf-row');
+  const additions = [];
+  rows.forEach(row => {
+    const get = (field) => row.querySelector(`[data-field="${field}"]`)?.value || '';
+    const name = get('name').trim();
+    const currentValue = parseFloat(get('currentValue')) || 0;
+    if (!name || currentValue <= 0) return;  // skip blank/invalid rows
+    const custodian = get('custodian').trim();
+    additions.push({
+      name: maskAccountNumbers(name),  // mask anything typed into the name field too
+      icon: '🏦',
+      subtitle: custodian ? `Held away · ${custodian}` : 'Held away',
+      assetClass: get('assetClass') || 'Public Equities',
+      costBasis: 0,
+      currentValue,
+      benchmark: 'inline',
+      footer: 'Imported from PDF statement · Cost basis not tracked (simple quarterly summary)'
+    });
+  });
+  if (!additions.length) {
+    alert('No valid rows to add — every row needs a name and a non-zero value.');
+    return;
+  }
+  // Append (don't replace) — user might be doing multiple imports
+  QIR_DATA.investments = [...(QIR_DATA.investments || []), ...additions];
+  renderAll();
+  closePDFModal();
+  setStatus(`✓ Added ${additions.length} investment${additions.length===1?'':'s'} from PDF`, 'ok');
+}
+
+/* Allow clicking the modal overlay to dismiss */
+document.addEventListener('DOMContentLoaded', () => {
+  const ov = document.getElementById('pdf-modal');
+  if (ov) ov.addEventListener('click', e => { if (e.target === ov) closePDFModal(); });
+  const cm = document.getElementById('cloud-modal');
+  if (cm) cm.addEventListener('click', e => { if (e.target === cm) closeCloudModal(); });
+});
+
+/* ── Wire up file inputs ── */
+document.addEventListener('DOMContentLoaded', () => {
+  const xi = document.getElementById('xlsx-input');
+  const ai = document.getElementById('addepar-input');
+  const pi = document.getElementById('pdf-input');
+  if (xi) xi.addEventListener('change', e => { const f = e.target.files[0]; if (f) importExcel(f); e.target.value=''; });
+  if (ai) ai.addEventListener('change', e => { const f = e.target.files[0]; if (f) importAddeparCSV(f); e.target.value=''; });
+  if (pi) pi.addEventListener('change', e => { if (e.target.files.length) importPDFs(e.target.files); e.target.value=''; });
+});
+/* BUILDER-ONLY:JS-END */
 </script>
 </body>
 </html>
