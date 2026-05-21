@@ -607,14 +607,14 @@ function renderCostValueBar(d, costBasisLabel) {
     svg += `<text x="${labelX}" y="${yBot+16}" text-anchor="middle" font-size="${labelFont}" fill="#6b7280">${labelText}</text>`;
   });
 
-  // Legend
+  // Legend — only show Distributions item if any account in the chart actually has them
+  const anyDist = invs.some(i => (i.distributions || i.pendingDistributions));
   svg += `
     <rect x="62"  y="272" width="10" height="10" rx="2" fill="rgba(79,142,247,0.4)" stroke="#4f8ef7" stroke-width="1"/>
     <text x="76"  y="281" font-size="10" fill="#6b7280">${costBasisLabel}</text>
     <rect x="155" y="272" width="10" height="10" rx="2" fill="rgba(155,110,247,0.6)" stroke="#9b6ef7" stroke-width="1"/>
     <text x="169" y="281" font-size="10" fill="#6b7280">Current Value</text>
-    <rect x="262" y="272" width="10" height="10" rx="2" fill="rgba(22,169,122,0.65)" stroke="#16a97a" stroke-width="1"/>
-    <text x="276" y="281" font-size="10" fill="#6b7280">Distributions (incl. Pending)</text>
+    ${anyDist ? `<rect x="262" y="272" width="10" height="10" rx="2" fill="rgba(22,169,122,0.65)" stroke="#16a97a" stroke-width="1"/><text x="276" y="281" font-size="10" fill="#6b7280">Distributions (incl. Pending)</text>` : ''}
   </svg>`;
 
   document.getElementById('cost-value-bar').innerHTML = svg;
