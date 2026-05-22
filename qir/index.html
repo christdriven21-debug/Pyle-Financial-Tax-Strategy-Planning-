@@ -312,10 +312,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   <button class="tb-btn" onclick="downloadExcelTemplate()">📥 Excel Template</button>
   <input type="file" id="xlsx-input" accept=".xlsx,.xls" style="display:none">
   <button class="tb-btn" onclick="document.getElementById('xlsx-input').click()">📊 Import Excel</button>
-  <input type="file" id="addepar-input" accept=".csv,.xlsx" style="display:none">
-  <button class="tb-btn" onclick="document.getElementById('addepar-input').click()" title="Replace investments with this Addepar export (current / YTD)">📈 Import Addepar (Current)</button>
-  <input type="file" id="addepar-prior-input" accept=".csv,.xlsx" style="display:none">
-  <button class="tb-btn" onclick="document.getElementById('addepar-prior-input').click()" title="Merge a second Addepar export as the prior-quarter snapshot — fills the Q1 ref line on each account by name match">📊 Import Addepar (Prior Qtr)</button>
+  <input type="file" id="addepar-input" accept=".csv,.xlsx,.pdf" style="display:none">
+  <button class="tb-btn" onclick="document.getElementById('addepar-input').click()" title="Replace investments with this Addepar export (current / YTD). Accepts PDF, CSV, or XLSX.">📈 Import Addepar (Current)</button>
+  <input type="file" id="addepar-prior-input" accept=".csv,.xlsx,.pdf" style="display:none">
+  <button class="tb-btn" onclick="document.getElementById('addepar-prior-input').click()" title="Merge a second Addepar export as the prior-quarter snapshot — fills the Q1 ref line on each account by name match. Accepts PDF, CSV, or XLSX.">📊 Import Addepar (Prior Qtr)</button>
   <input type="file" id="pdf-input" accept=".pdf,application/pdf" multiple style="display:none">
   <button class="tb-btn" onclick="document.getElementById('pdf-input').click()">📄 Import PDFs</button>
   <button class="tb-btn" onclick="openAddAccountModal()">➕ Add Account</button>
@@ -2239,80 +2239,7 @@ function importAddeparCSV(file, mode = 'current') {
       const parsedGroups = Object.values(groups).sort((a,b) => b.currentValue - a.currentValue);
       if (!parsedGroups.length) throw new Error('No rows with non-zero market value');
 
-      // ── PRIOR-QUARTER MERGE MODE ────────────────────────────────────────
-      // Match each parsed group against existing investments by name and
-      // write the value to q1RefValue. Doesn't touch other fields.
-      if (mode === 'prior') {
-        if (!QIR_DATA.investments || !QIR_DATA.investments.length) {
-          throw new Error('No existing investments to merge into. Import current (YTD) first, then use this button for the prior-quarter snapshot.');
-        }
-        // Normalize for fuzzy match: lowercase, strip "****1234" masks and punctuation.
-        const norm = (s) => String(s||'').toLowerCase()
-          .replace(/\*+\d+/g, '')        // drop masked digits
-          .replace(/[^a-z0-9]+/g, ' ')
-          .trim();
-        const matched = [];
-        const unmatched = [];
-        for (const g of parsedGroups) {
-          const gn = norm(g.name);
-          if (!gn) { unmatched.push(g.name); continue; }
-          // Find best match: exact > contains either direction > first-token equality
-          let invIdx = QIR_DATA.investments.findIndex(inv => norm(inv.name) === gn);
-          if (invIdx < 0) invIdx = QIR_DATA.investments.findIndex(inv => {
-            const n = norm(inv.name);
-            return n && (n.includes(gn) || gn.includes(n));
-          });
-          if (invIdx < 0) { unmatched.push(g.name); continue; }
-          QIR_DATA.investments[invIdx].q1RefValue = Math.round(g.currentValue);
-          matched.push(QIR_DATA.investments[invIdx].name);
-        }
-        if (asOfDate) {
-          QIR_DATA.periodLabels = QIR_DATA.periodLabels || {};
-          QIR_DATA.periodLabels.q1RefDate = asOfDate;
-        }
-        renderAll();
-        if (!matched.length) {
-          setStatus('No accounts matched by name. Parsed ' + parsedGroups.length + ' rows — none matched any existing investment. Names sample: ' + parsedGroups.slice(0,3).map(g=>g.name).join(', '), 'err');
-          return;
-        }
-        const msg = '✓ Merged prior-quarter values into ' + matched.length + ' account' + (matched.length===1?'':'s') +
-                    (asOfDate ? ' (as of ' + asOfDate + ')' : '') +
-                    (unmatched.length ? ' · ' + unmatched.length + ' parsed row' + (unmatched.length===1?'':'s') + ' had no match' : '');
-        setStatus(msg, 'ok');
-        return;
-      }
-
-      // ── CURRENT (YTD) MODE — replace investments ────────────────────────
-      const investments = parsedGroups.map(g => ({
-        name: maskAccountNumbers(g.name.slice(0, 60)),
-        icon: '',
-        subtitle: g.tickers.size ? Array.from(g.tickers).slice(0,3).join(', ') : 'Imported from Addepar',
-        assetClass: g.assetClass || 'Public',
-        costBasis: 0,             // ⚠️ Addepar does not provide cost basis — fill manually
-        currentValue: Math.round(g.currentValue),
-        benchmark: 'inline',
-        footer: '⚠️ Cost basis pending — Addepar export does not include this. Fill manually or via Excel import.'
-      }));
-
-      QIR_DATA.investments = investments;
-      // Apply the period header from the detected as-of date. periodFromDateString
-      // returns the right shape automatically: quarter-end → "Qn YYYY", otherwise
-      // "YTD through <date>". periodLabels (cost basis, return, etc.) all derive
-      // from the same date so the report header stays internally consistent.
-      if (asOfDate) {
-        const p = periodFromDateString(asOfDate);
-        if (p) {
-          QIR_DATA.quarter      = p.quarter;
-          QIR_DATA.asOfDate     = p.asOfDate;
-          QIR_DATA.periodLabels = Object.assign(QIR_DATA.periodLabels || {}, p.periodLabels);
-        } else {
-          QIR_DATA.asOfDate = asOfDate;
-        }
-      }
-      renderAll();
-      setStatus(`✓ Imported ${investments.length} positions from Addepar` +
-                (asOfDate ? ` (as of ${asOfDate})` : '') +
-                ` — cost basis = $0, needs manual entry. Use "Import Addepar (Prior Qtr)" to add the Q1 reference line.`, 'ok');
+      _applyAddeparGroups(parsedGroups, mode, asOfDate);
     } catch (err) {
       console.error('importAddeparCSV', err);
       setStatus('Import failed: ' + err.message, 'err');
@@ -2320,6 +2247,219 @@ function importAddeparCSV(file, mode = 'current') {
     }
   };
   reader.readAsText(file);
+}
+
+/* Shared "apply parsed Addepar groups" helper — used by both the CSV and PDF
+   importers. Takes the array of { name, currentValue, assetClass?, tickers? }
+   and either:
+   - mode='current': replaces investments[] with the parsed list, sets the
+     period header (quarter, asOfDate, periodLabels) from the detected as-of date
+   - mode='prior':   merges into existing investments by name match, writing
+     each parsed value to q1RefValue and the as-of date to periodLabels.q1RefDate */
+function _applyAddeparGroups(parsedGroups, mode, asOfDate) {
+  // ── PRIOR-QUARTER MERGE MODE ─────────────────────────────────────────
+  if (mode === 'prior') {
+    if (!QIR_DATA.investments || !QIR_DATA.investments.length) {
+      throw new Error('No existing investments to merge into. Import current (YTD) first, then use this button for the prior-quarter snapshot.');
+    }
+    // Normalize for fuzzy match: lowercase, strip "****1234" masks and punctuation.
+    const norm = (s) => String(s||'').toLowerCase()
+      .replace(/\*+\d+/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+    const matched = [];
+    const unmatched = [];
+    for (const g of parsedGroups) {
+      const gn = norm(g.name);
+      if (!gn) { unmatched.push(g.name); continue; }
+      let invIdx = QIR_DATA.investments.findIndex(inv => norm(inv.name) === gn);
+      if (invIdx < 0) invIdx = QIR_DATA.investments.findIndex(inv => {
+        const n = norm(inv.name);
+        return n && (n.includes(gn) || gn.includes(n));
+      });
+      if (invIdx < 0) { unmatched.push(g.name); continue; }
+      QIR_DATA.investments[invIdx].q1RefValue = Math.round(g.currentValue);
+      matched.push(QIR_DATA.investments[invIdx].name);
+    }
+    if (asOfDate) {
+      QIR_DATA.periodLabels = QIR_DATA.periodLabels || {};
+      QIR_DATA.periodLabels.q1RefDate = asOfDate;
+    }
+    renderAll();
+    if (!matched.length) {
+      setStatus('No accounts matched by name. Parsed ' + parsedGroups.length + ' rows — none matched any existing investment. Names sample: ' + parsedGroups.slice(0,3).map(g=>g.name).join(', '), 'err');
+      return;
+    }
+    const msg = '✓ Merged prior-quarter values into ' + matched.length + ' account' + (matched.length===1?'':'s') +
+                (asOfDate ? ' (as of ' + asOfDate + ')' : '') +
+                (unmatched.length ? ' · ' + unmatched.length + ' parsed row' + (unmatched.length===1?'':'s') + ' had no match' : '');
+    setStatus(msg, 'ok');
+    return;
+  }
+
+  // ── CURRENT (YTD) MODE — replace investments ──────────────────────────
+  const investments = parsedGroups.map(g => ({
+    name: maskAccountNumbers(g.name.slice(0, 60)),
+    icon: '',
+    subtitle: (g.tickers && g.tickers.size) ? Array.from(g.tickers).slice(0,3).join(', ') : 'Imported from Addepar',
+    assetClass: g.assetClass || 'Public',
+    costBasis: 0,             // ⚠️ Addepar does not provide cost basis — fill manually
+    currentValue: Math.round(g.currentValue),
+    benchmark: 'inline',
+    footer: '⚠️ Cost basis pending — Addepar export does not include this. Fill manually or via Excel import.'
+  }));
+
+  QIR_DATA.investments = investments;
+  // Derive period header from the detected as-of date so it stays internally consistent.
+  if (asOfDate) {
+    const p = periodFromDateString(asOfDate);
+    if (p) {
+      QIR_DATA.quarter      = p.quarter;
+      QIR_DATA.asOfDate     = p.asOfDate;
+      QIR_DATA.periodLabels = Object.assign(QIR_DATA.periodLabels || {}, p.periodLabels);
+    } else {
+      QIR_DATA.asOfDate = asOfDate;
+    }
+  }
+  renderAll();
+  setStatus(`✓ Imported ${investments.length} positions from Addepar` +
+            (asOfDate ? ` (as of ${asOfDate})` : '') +
+            ` — cost basis = $0, needs manual entry. Use "Import Addepar (Prior Qtr)" to add the Q1 reference line.`, 'ok');
+}
+
+/* ── Import an Addepar PDF (Addepar only exports PDF in many deployments).
+   Extracts text via pdf.js, then heuristically pulls position rows from the
+   holdings table. Routes through _applyAddeparGroups so 'prior' merge mode
+   works identically to the CSV path.
+
+   The extractor is permissive — it expects rows of the form
+     "<position name> ... $<amount>"
+   and skips Total/Subtotal/Page/header lines. Asset-class group headers
+   appearing in the text (e.g. "Public Equities", "Private Investments")
+   tag subsequent positions until the next class header is seen.
+
+   Detected positions and the as-of date are also console.log'd so the user
+   can debug parsing if a row is missed. */
+async function importAddeparPDF(file, mode = 'current') {
+  setStatus('Reading Addepar PDF…');
+  try {
+    if (typeof pdfjsLib === 'undefined') throw new Error('PDF library not loaded — check internet connection');
+    const { allText, pages } = await extractPDFText(file);
+
+    // ── Sniff "as of" date from explicit labels first, then fall back to any quarter-end date on page 1 ──
+    const labelDateRe = [
+      /(?:as\s+of|report(?:ing)?\s+date|period\s+ending|valuation\s+date|portfolio\s+as\s+of)[:\s]+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i,
+      /(?:as\s+of|report(?:ing)?\s+date|period\s+ending|valuation\s+date|portfolio\s+as\s+of)[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i
+    ];
+    let asOfDate = null;
+    for (const re of labelDateRe) {
+      const m = allText.match(re);
+      if (m) { asOfDate = m[1].trim(); break; }
+    }
+    if (!asOfDate) {
+      const m = (pages[0] || '').match(/\b(March\s+31|June\s+30|September\s+30|December\s+31|3\/31|6\/30|9\/30|12\/31)[,\s\/-]*(\d{2,4})\b/i);
+      if (m) asOfDate = m[0].trim();
+    }
+    if (!asOfDate && file && file.name) {
+      const m = file.name.match(/\b(0?[1-9]|1[0-2])[\/\-_](0?[1-9]|[12]\d|3[01])[\/\-_](20\d{2}|\d{2})\b/);
+      if (m) {
+        const yr = m[3].length === 2 ? '20' + m[3] : m[3];
+        asOfDate = `${m[1]}/${m[2]}/${yr}`;
+      }
+    }
+
+    // Asset-class group headers (line text → our 4-bucket label)
+    const CLASS_MAP = {
+      'public equities': 'Public Equities', 'equities': 'Public Equities', 'stocks': 'Public Equities',
+      'public': 'Public', 'public investments': 'Public',
+      'fixed income': 'Public Equities', 'bonds': 'Public Equities', 'cash': 'Public Equities',
+      'cash & equivalents': 'Public Equities', 'cash and equivalents': 'Public Equities',
+      'private equities': 'Private', 'private equity': 'Private', 'private investments': 'Private',
+      'private': 'Private', 'venture capital': 'Private', 'venture': 'Private',
+      'alternatives': 'Alternatives', 'hedge funds': 'Alternatives', 'real estate': 'Alternatives',
+      'commodities': 'Alternatives', 'private credit': 'Alternatives'
+    };
+
+    // Lines that should never be treated as positions
+    const skipLine = (l) => {
+      const lc = l.toLowerCase().trim();
+      if (!lc) return true;
+      if (/^(total|subtotal|grand\s+total|net\s+total|portfolio\s+total|account\s+total|household\s+total|holdings\s+total)\b/.test(lc)) return true;
+      if (/^page\s+\d+\s+of\s+\d+/.test(lc)) return true;
+      if (/^(prepared\s+by|prepared\s+for|generated\s+by|report\s+date|as\s+of|valuation\s+date|portfolio\s+as\s+of)/.test(lc)) return true;
+      if (/^(asset|description|symbol|ticker|cusip|quantity|market\s*value|cost\s*basis|holdings|positions|securities|name|account)\s*$/.test(lc)) return true;
+      return false;
+    };
+
+    // Money pattern at end of line: 1,234,567.89 or $1,234,567.89 or 12345 or 12345.67
+    // Require either a thousand-separator OR a decimal portion to avoid matching quantities/page numbers.
+    const moneyRe = /\$?\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?|[0-9]+\.[0-9]{2})\s*$/;
+
+    const positions = [];
+    const seenNames = new Set();
+    let currentClass = '';
+
+    const rawLines = allText.split('\n').map(l => l.trim());
+    for (const line of rawLines) {
+      if (skipLine(line)) continue;
+
+      const lc = line.toLowerCase();
+
+      // Class-header detection: lines without a money value that match a known class
+      if (!moneyRe.test(line)) {
+        for (const [k, v] of Object.entries(CLASS_MAP)) {
+          if (lc === k || lc === k + ':' || lc.startsWith(k + ' ') || lc.endsWith(' ' + k)) {
+            currentClass = v;
+            break;
+          }
+        }
+        continue;
+      }
+
+      // Money line — pull amount + name
+      const m = line.match(moneyRe);
+      if (!m) continue;
+      const value = parseFloat(m[1].replace(/,/g, ''));
+      if (!isFinite(value) || value < 100) continue;  // skip tiny values (page #s, quantities)
+
+      let name = line.slice(0, line.length - m[0].length).trim().replace(/\s{2,}/g, ' ');
+      if (!name || name.length < 2) continue;
+      if (skipLine(name)) continue;
+
+      const key = name.toLowerCase();
+      if (seenNames.has(key)) continue;
+      seenNames.add(key);
+
+      positions.push({
+        name,
+        currentValue: value,
+        assetClass: currentClass,
+        tickers: new Set()
+      });
+    }
+
+    if (!positions.length) {
+      console.warn('Addepar PDF — no positions detected. Full text:\n', allText);
+      throw new Error('No positions detected in PDF. The full text was logged to the browser console — share it and we can tune the parser.');
+    }
+
+    positions.sort((a,b) => b.currentValue - a.currentValue);
+    console.log('Addepar PDF — extracted', positions.length, 'positions; as-of:', asOfDate || '(none)');
+    console.log(positions);
+
+    _applyAddeparGroups(positions, mode, asOfDate);
+  } catch (err) {
+    console.error('importAddeparPDF', err);
+    setStatus('PDF import failed: ' + err.message, 'err');
+    alert('Addepar PDF import failed: ' + err.message);
+  }
+}
+
+/* Route an Addepar import by file extension: .pdf → PDF parser, else CSV parser. */
+function importAddeparFile(file, mode) {
+  const name = ((file && file.name) || '').toLowerCase();
+  if (name.endsWith('.pdf')) return importAddeparPDF(file, mode);
+  return importAddeparCSV(file, mode);
 }
 
 /* ── Minimal CSV parser (handles quotes, embedded commas/newlines) ── */
@@ -2721,8 +2861,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const api = document.getElementById('addepar-prior-input');
   const pi = document.getElementById('pdf-input');
   if (xi)  xi.addEventListener('change',  e => { const f = e.target.files[0]; if (f) importExcel(f); e.target.value=''; });
-  if (ai)  ai.addEventListener('change',  e => { const f = e.target.files[0]; if (f) importAddeparCSV(f, 'current'); e.target.value=''; });
-  if (api) api.addEventListener('change', e => { const f = e.target.files[0]; if (f) importAddeparCSV(f, 'prior');   e.target.value=''; });
+  if (ai)  ai.addEventListener('change',  e => { const f = e.target.files[0]; if (f) importAddeparFile(f, 'current'); e.target.value=''; });
+  if (api) api.addEventListener('change', e => { const f = e.target.files[0]; if (f) importAddeparFile(f, 'prior');   e.target.value=''; });
   if (pi)  pi.addEventListener('change',  e => { if (e.target.files.length) importPDFs(e.target.files); e.target.value=''; });
 });
 /* BUILDER-ONLY:JS-END */
