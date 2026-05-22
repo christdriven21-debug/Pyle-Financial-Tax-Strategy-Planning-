@@ -448,10 +448,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   <div id="kpi-mount"></div>
   <div id="charts-mount"></div>
   <div id="investments-mount"></div>
+  <div id="usenergy-tracking-mount"></div>
   <div id="callout-mount"></div>
   <div id="table-mount"></div>
   <div id="performance-mount"></div>
-  <div id="usenergy-tracking-mount"></div>
   <div id="life-mount"></div>
 </div>
 <div id="footer-mount"></div>
@@ -2716,6 +2716,26 @@ async function importUSEnergyPDFs(fileList) {
       skipped.push(file.name + ' (parse error: ' + err.message + ')');
       console.error('parseUSEnergyPDF', file.name, err);
     }
+  }
+
+  // Auto-populate the Tax Benefit callout from the US Energy totals so the
+  // deductible-basis math reflects the actual portfolio. User-edited
+  // lossDeductionPct and taxRate are preserved; only the dollar amounts
+  // derived from the PDFs get refreshed on each import.
+  const totalInvested  = fundsArr.reduce((s, f) => s + (Number(f.invested)      || 0), 0);
+  const totalDistribs  = fundsArr.reduce((s, f) => s + (Number(f.distributions) || 0), 0);
+  if (totalInvested > 0) {
+    if (!QIR_DATA.taxCallout || typeof QIR_DATA.taxCallout !== 'object') QIR_DATA.taxCallout = {};
+    const tc = QIR_DATA.taxCallout;
+    tc.enabled              = true;
+    tc.investedAmount       = Math.round(totalInvested);
+    tc.principalInvested    = Math.round(totalInvested);
+    tc.distributionsReceived = Math.round(totalDistribs);
+    // Sensible defaults for oil & gas IDC deductions — only if not already set
+    if (typeof tc.lossDeductionPct !== 'number') tc.lossDeductionPct = 88;
+    if (typeof tc.taxRate          !== 'number') tc.taxRate          = 37;
+    if (!tc.icon)  tc.icon  = '🛢';
+    if (!tc.title) tc.title = 'U.S. Energy — Estimated Tax Benefit (cumulative)';
   }
 
   renderAll();
