@@ -1104,16 +1104,19 @@ function renderLifeInsurance(d) {
 }
 
 
-/* ─── Section: US Energy — Investment Tracking (multi-period table) ── */
+/* ─── Section: US Energy — Investment Tracking ───────────────────────
+   Multi-fund table when funds[] is populated, multi-period rows otherwise. */
 function renderUSEnergyTracking(d) {
   if (!d.usEnergyTracking || !d.usEnergyTracking.enabled) return;
   const t = d.usEnergyTracking;
+  const mount = document.getElementById('usenergy-tracking-mount');
+  if (!mount) return;
 
-  const cellFmt = (v, format) => {
-    if (v === null || v === undefined || v === '') return '<td class="usen-blank">—</td>';
-    if (format === 'pct') return '<td>' + (v * 100).toFixed(2) + '%</td>';
-    return '<td>' + fmt.money(v) + '</td>';
-  };
+  if (Array.isArray(t.funds) && t.funds.length) {
+    renderUSEnergyMultiFund(t, d, mount);
+    return;
+  }
+  if (!Array.isArray(t.rows) || !t.rows.length || !Array.isArray(t.periods)) return;
 
   const headerHtml = '<tr><th></th>' + t.periods.map(p => '<th>' + p + '</th>').join('') + '</tr>';
   const bodyHtml = t.rows.map(row => {
@@ -1128,13 +1131,61 @@ function renderUSEnergyTracking(d) {
     return '<tr class="' + trClass + '"><td class="usen-label">' + applyVars(row.label, d) + noteHtml + '</td>' + cells + '</tr>';
   }).join('');
 
-  const mount = document.getElementById('usenergy-tracking-mount');
-  if (!mount) return;
   mount.innerHTML =
     '<div class="sec">' + applyVars(t.title || 'US Energy — Investment Tracking', d) + '</div>' +
     '<div class="usen-card">' +
       (t.subtitle ? '<div class="usen-sub">' + applyVars(t.subtitle, d) + '</div>' : '') +
       '<table class="usen-table"><thead>' + headerHtml + '</thead><tbody>' + bodyHtml + '</tbody></table>' +
+      (t.footnote ? '<div style="margin-top:10px;font-size:.67rem;color:var(--muted);font-style:italic">' + applyVars(t.footnote, d) + '</div>' : '') +
+    '</div>';
+}
+
+function renderUSEnergyMultiFund(t, d, mount) {
+  const funds = t.funds.slice().sort((a, b) => (b.invested || 0) - (a.invested || 0));
+  const sum = (key) => funds.reduce((s, f) => s + (Number(f[key]) || 0), 0);
+  const totalInvested      = sum('invested');
+  const totalDistributions = sum('distributions');
+  const totalTaxBenefits   = sum('taxBenefits');
+  const totalLpBalance     = sum('lpBalance');
+  const weightedReturn = totalInvested > 0
+    ? funds.reduce((s, f) => s + (Number(f.totalReturnPct) || 0) * (Number(f.invested) || 0), 0) / totalInvested
+    : 0;
+
+  const moneyCell = (v) => '<td>' + (v ? fmt.money(v) : '<span class="usen-blank">—</span>') + '</td>';
+  const pctCell   = (v) => '<td>' + (typeof v === 'number' && isFinite(v) ? v.toFixed(2) + '%' : '<span class="usen-blank">—</span>') + '</td>';
+
+  const bodyRows = funds.map(f =>
+    '<tr>' +
+      '<td class="usen-label">' + (f.partnership || '—') + '</td>' +
+      '<td style="font-size:.7rem;color:var(--muted)">' + (f.asOfDate || '—') + '</td>' +
+      moneyCell(f.invested) +
+      moneyCell(f.distributions) +
+      moneyCell(f.taxBenefits) +
+      moneyCell(f.lpBalance) +
+      pctCell(f.totalReturnPct) +
+    '</tr>'
+  ).join('');
+
+  const totalsRow =
+    '<tr class="usen-bold">' +
+      '<td class="usen-label">Total (' + funds.length + ' fund' + (funds.length === 1 ? '' : 's') + ')</td>' +
+      '<td></td>' +
+      moneyCell(totalInvested) +
+      moneyCell(totalDistributions) +
+      moneyCell(totalTaxBenefits) +
+      moneyCell(totalLpBalance) +
+      pctCell(weightedReturn) +
+    '</tr>';
+
+  const headerHtml =
+    '<tr><th>Partnership</th><th>Statement</th><th>Invested</th><th>Cash Returned</th><th>Tax Benefits</th><th>LP Balance</th><th>Total Return</th></tr>';
+
+  mount.innerHTML =
+    '<div class="sec">' + applyVars(t.title || 'U.S. Energy Drilling Funds — Portfolio Summary', d) + '</div>' +
+    '<div class="usen-card">' +
+      (t.subtitle ? '<div class="usen-sub">' + applyVars(t.subtitle, d) + '</div>'
+        : '<div class="usen-sub">Inception-to-date cumulative metrics across all U.S. Energy partnerships. LP Balance = Invested − Cash Returned (depletion-driven runoff).</div>') +
+      '<table class="usen-table"><thead>' + headerHtml + '</thead><tbody>' + bodyRows + totalsRow + '</tbody></table>' +
       (t.footnote ? '<div style="margin-top:10px;font-size:.67rem;color:var(--muted);font-style:italic">' + applyVars(t.footnote, d) + '</div>' : '') +
     '</div>';
 }
