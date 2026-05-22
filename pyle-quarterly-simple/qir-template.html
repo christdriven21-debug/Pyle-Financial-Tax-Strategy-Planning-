@@ -485,11 +485,14 @@ function investmentGain(inv) {
 }
 
 /* derive benchmark status from explicit field, else from return sign */
+/* Derive benchmark status. Explicit inv.benchmark wins; otherwise auto-derive
+   from the period return with asymmetric thresholds: >+5% → above, <-10% →
+   below, between → inline. */
 function benchmarkOf(inv) {
   if (inv.benchmark) return inv.benchmark;
   const r = investmentReturnPct(inv);
-  if (r > 1) return "above";
-  if (r < -1) return "below";
+  if (r >   5) return "above";
+  if (r < -10) return "below";
   return "inline";
 }
 

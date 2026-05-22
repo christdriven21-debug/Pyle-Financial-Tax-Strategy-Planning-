@@ -796,12 +796,18 @@ function investmentGain(inv) {
   return inv.currentValue - inv.costBasis - (inv.netInflows || 0);
 }
 
-/* derive benchmark status from explicit field, else from return sign */
+/* Derive benchmark status. Explicit inv.benchmark wins; otherwise auto-derive
+   from the period return with asymmetric thresholds:
+     • return >  +5% → "above"   (clearly outperforming)
+     • return < -10% → "below"   (materially underperforming)
+     • in between    → "inline"  (equal with benchmark — small misses don't trip the flag)
+   The dead zone is intentionally wider on the downside so a small drawdown
+   doesn't trigger a red flag on an otherwise on-track account. */
 function benchmarkOf(inv) {
   if (inv.benchmark) return inv.benchmark;
   const r = investmentReturnPct(inv);
-  if (r > 1) return "above";
-  if (r < -1) return "below";
+  if (r >   5) return "above";
+  if (r < -10) return "below";
   return "inline";
 }
 
@@ -2311,8 +2317,9 @@ function _applyAddeparGroups(parsedGroups, mode, asOfDate) {
       subtitle: g.subtitle || ((g.tickers && g.tickers.size) ? Array.from(g.tickers).slice(0,3).join(', ') : 'Imported from Addepar'),
       assetClass: g.assetClass || 'Public',
       costBasis: Math.round(g.costBasis || 0),
-      currentValue: Math.round(g.currentValue),
-      benchmark: 'inline'
+      currentValue: Math.round(g.currentValue)
+      // No explicit `benchmark` — let benchmarkOf() auto-derive from the
+      // computed return % using the +5% / -10% threshold rule.
     };
     if (typeof g.netInflows === 'number' && g.netInflows !== 0) inv.netInflows = Math.round(g.netInflows);
     if (!g.costBasis) inv.footer = '⚠️ Cost basis pending — Addepar CSV does not include this. Fill manually or use the PDF importer which captures the period-start value.';
@@ -2986,7 +2993,8 @@ function confirmPDFImport() {
       assetClass: get('assetClass') || 'Public Equities',
       costBasis: 0,
       currentValue,
-      benchmark: 'inline',
+      // benchmark auto-derives via benchmarkOf() — with costBasis=0 it resolves
+      // to "inline" anyway since investmentReturnPct returns 0 when no basis.
       footer: 'Imported from PDF statement · Cost basis not tracked (simple quarterly summary)'
     });
   });
