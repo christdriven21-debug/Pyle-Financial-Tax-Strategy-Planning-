@@ -2736,6 +2736,39 @@ async function importUSEnergyPDFs(fileList) {
     if (typeof tc.taxRate          !== 'number') tc.taxRate          = 37;
     if (!tc.icon)  tc.icon  = '🛢';
     if (!tc.title) tc.title = 'U.S. Energy — Estimated Tax Benefit (cumulative)';
+
+    // Auto-populate the Economic Benefit donut from the same data. Decomposes
+    // total invested capital into three buckets that sum to invested:
+    //   • Cash distributions received (actual returned capital)
+    //   • Est. tax benefit (principal × loss% × tax rate — uses the SAME
+    //     loss/tax fields the user is editing on the callout above)
+    //   • Net cost remaining (invested − distributions − tax savings,
+    //     floored at zero so the donut never shows a negative slice)
+    const lossPct  = tc.lossDeductionPct / 100;
+    const taxPct   = tc.taxRate / 100;
+    const taxSavings = Math.round(totalInvested * lossPct * taxPct);
+    const distRec   = Math.round(totalDistribs);
+    const netCost   = Math.max(0, Math.round(totalInvested) - distRec - taxSavings);
+    const total     = distRec + taxSavings + netCost;
+    const pct       = (v) => total > 0 ? (v / total * 100).toFixed(1) + '%' : '0%';
+
+    if (!QIR_DATA.performance || typeof QIR_DATA.performance !== 'object') QIR_DATA.performance = {};
+    QIR_DATA.performance.enabled = true;
+    if (!QIR_DATA.performance.economicBenefit || typeof QIR_DATA.performance.economicBenefit !== 'object') {
+      QIR_DATA.performance.economicBenefit = {};
+    }
+    const eb = QIR_DATA.performance.economicBenefit;
+    eb.enabled = true;
+    // Replace the "Sample" title if it's still the seed placeholder;
+    // preserve any client-customized title.
+    if (!eb.title || /sample/i.test(eb.title)) {
+      eb.title = 'U.S. Energy LPs — Economic Benefit Breakdown';
+    }
+    eb.slices = [
+      { label: 'Distributions Received', subLabel: fmt.money(distRec)   + ' · ' + pct(distRec),   value: distRec,   color: '#16a97a' },
+      { label: 'Est. Tax Benefit',       subLabel: fmt.money(taxSavings)+ ' · ' + pct(taxSavings),value: taxSavings,color: '#4f8ef7' },
+      { label: 'Net Cost Remaining',     subLabel: fmt.money(netCost)   + ' · ' + pct(netCost),   value: netCost,   color: '#94a3b8' }
+    ];
   }
 
   renderAll();
