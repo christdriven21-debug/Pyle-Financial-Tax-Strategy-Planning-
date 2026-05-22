@@ -87,6 +87,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 /* Header right-stack: holds the asset-class badge and (in builder) the include/exclude toggle */
 .inv-head-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
 
+/* Click-to-edit fields (builder only — non-builder mode renders these as plain text) */
+.inv-edit{border-bottom:1px dashed transparent;cursor:text;transition:border-color .15s,background .15s;padding:0 2px;border-radius:2px}
+.inv-edit:hover{border-bottom-color:rgba(37,99,235,.5);background:rgba(37,99,235,.04)}
+.inv-edit:focus{outline:2px solid var(--blue);outline-offset:2px;background:rgba(37,99,235,.06);border-radius:3px}
+.inv-edit:empty:before{content:attr(data-placeholder);color:#cbd5e1;font-style:italic}
+
 /* Table row style for excluded investments (visible but muted; not in TOTAL) */
 .tbl tr.excl-row td{opacity:.55;font-style:italic}
 .tbl tr.excl-row:hover td{opacity:.75}
@@ -389,6 +395,23 @@ const fmt = {
   signed: (n) => (n >= 0 ? "+" : "–") + fmt.money(Math.abs(n))
 };
 
+/* Escape HTML so user-edited names/subtitles can't break layout or inject markup. */
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[<>&"']/g, c =>
+    ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* Mask any run of 6+ digits in a string to only the last 4 (e.g. "Acct 123456789" → "Acct ****6789").
+   Used when account numbers appear in account names/descriptions in the deliverable. */
+function maskAccountNumbers(str) {
+  return String(str || '').replace(/\d{6,}/g, m => '****' + m.slice(-4));
+}
+
+/* In builder mode show raw text (so it's editable); in deliverable mode mask account numbers. */
+function rawOrMasked(str) {
+  return window.__QIR_BUILDER__ ? (str || '') : maskAccountNumbers(str || '');
+}
+
 /* Render the Include/Exclude toggle pill. Returns empty string in deliverable mode. */
 function inclusionTogglePill(inv, idx) {
   if (!window.__QIR_BUILDER__) return '';
@@ -569,7 +592,7 @@ function renderCharts(d) {
     return `
       <div class="leg-row">
         <span class="leg-dot" style="background:${color}"></span>
-        <span style="flex:0 0 120px;color:var(--text);font-size:.72rem">${inv.name}</span>
+        <span style="flex:0 0 120px;color:var(--text);font-size:.72rem">${escapeHtml(rawOrMasked(inv.name))}</span>
         <div class="leg-bar-bg"><div class="leg-bar-fill" style="width:${pct.toFixed(1)}%;background:${color}"></div></div>
         <span class="leg-pct" style="color:${color}">${pct.toFixed(1)}%</span>
       </div>`;
@@ -633,9 +656,10 @@ function renderCostValueBar(d, costBasisLabel) {
     // Label
     const labelX = groupX + groupW/2;
     // Prefer short chart label if explicitly set, else truncate. Smaller font when >5 groups.
-    const labelText = inv.chartLabel || (inv.name.length > 12 ? inv.name.slice(0,11)+'…' : inv.name);
+    const rawLabel = inv.chartLabel || (inv.name.length > 12 ? inv.name.slice(0,11)+'…' : inv.name);
+    const labelText = rawOrMasked(rawLabel);
     const labelFont = invs.length > 6 ? 8.5 : 10;
-    svg += `<text x="${labelX}" y="${yBot+16}" text-anchor="middle" font-size="${labelFont}" fill="#6b7280">${labelText}</text>`;
+    svg += `<text x="${labelX}" y="${yBot+16}" text-anchor="middle" font-size="${labelFont}" fill="#6b7280">${escapeHtml(labelText)}</text>`;
   });
 
   // Legend — only show Distributions item if any account in the chart actually has them
@@ -760,8 +784,12 @@ function renderInvestmentCard(inv, d, idx) {
     <div class="inv-card">
       <div class="inv-head">
         <div>
-          <div class="inv-name">${inv.icon||''} ${inv.name}</div>
-          <div class="inv-sub">${inv.subtitle||''}</div>
+          <div class="inv-name">${inv.icon||''} ${window.__QIR_BUILDER__
+            ? `<span class="inv-edit" contenteditable="plaintext-only" onblur="updateInvField(${idx},'name',this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="Click to edit · account name">${escapeHtml(inv.name||'')}</span>`
+            : escapeHtml(rawOrMasked(inv.name))}</div>
+          <div class="inv-sub">${window.__QIR_BUILDER__
+            ? `<span class="inv-edit" contenteditable="plaintext-only" onblur="updateInvField(${idx},'subtitle',this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="Click to edit · description" data-placeholder="Add a description…">${escapeHtml(inv.subtitle||'')}</span>`
+            : escapeHtml(rawOrMasked(inv.subtitle))}</div>
         </div>
         <div class="inv-head-right">
           ${inclusionTogglePill(inv, idx)}
@@ -895,7 +923,7 @@ function renderTable(d) {
     const rowCls = isExcluded ? ' class="excl-row"' : '';
     return `
       <tr${rowCls}>
-        <td><span class="tdot" style="background:${investmentColor(inv, d.investments)}"></span>${inv.icon||''} ${inv.name}</td>
+        <td><span class="tdot" style="background:${investmentColor(inv, d.investments)}"></span>${inv.icon||''} ${escapeHtml(rawOrMasked(inv.name))}</td>
         <td>${inv.assetClass}</td>
         <td>${fmt.money(inv.costBasis)}</td>
         <td>${fmt.money(inv.currentValue)}</td>
@@ -989,7 +1017,7 @@ function renderReturnChart(d) {
 
     if (ret >= 0) {
       // Positive: name on the LEFT of zero, bar extends right, % label after the bar
-      svg += `<text x="${xZero-6}" y="${yMid+3}" text-anchor="end" font-size="10.5" fill="#1a1d2e" font-weight="600">${inv.name}</text>`;
+      svg += `<text x="${xZero-6}" y="${yMid+3}" text-anchor="end" font-size="10.5" fill="#1a1d2e" font-weight="600">${escapeHtml(rawOrMasked(inv.name))}</text>`;
       const w = (ret/range)*chartW;
       svg += `<rect x="${xZero}" y="${yBar}" width="${w}" height="24" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="0"/>`;
       svg += `<text x="${xZero+w+5}" y="${yMid+3}" font-size="10" fill="${stroke}" font-weight="700">${fmt.pct(ret)}</text>`;
@@ -999,7 +1027,7 @@ function renderReturnChart(d) {
       const w = (Math.abs(ret)/range)*chartW;
       svg += `<rect x="${xZero-w}" y="${yBar}" width="${w}" height="24" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="0"/>`;
       svg += `<text x="${xZero+5}" y="${yMid+3}" font-size="10" fill="${stroke}" font-weight="700">${fmt.pct(ret)}</text>`;
-      svg += `<text x="${xZero+62}" y="${yMid+3}" font-size="10.5" fill="#1a1d2e" font-weight="600">${inv.name}</text>`;
+      svg += `<text x="${xZero+62}" y="${yMid+3}" font-size="10.5" fill="#1a1d2e" font-weight="600">${escapeHtml(rawOrMasked(inv.name))}</text>`;
     }
   });
 

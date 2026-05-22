@@ -10513,7 +10513,7 @@ function computePlan(d) {
   // WITH planning
   const totalPreSaleOutflow = dyAmt + crAmt + dafAmt;
   const withPlanningProceeds = salePrice - scenAll.totalCGTax;
-  const withPlanningTotal = withPlanningProceeds + otherAssets; // Conor's proceeds (Dynasty Trust separate)
+  const withPlanningTotal = withPlanningProceeds + otherAssets; // Client's proceeds (Dynasty Trust separate)
 
   // ──────────────────────────────────────────────────────────────────────
   // Annual Budget & Required Distribution Rate
@@ -10568,23 +10568,23 @@ function computePlan(d) {
   // Comparison table
   const comparison = { scenNone, scenCratDaf, scenDyCratDaf, scenAll };
 
-  // Build 20-year projection (Conor's investments + QOZ + Dynasty)
+  // Build 20-year projection (Client's investments + QOZ + Dynasty)
   const projRows = [];
-  let conorInv = withPlanningProceeds;
+  let clientInv = withPlanningProceeds;
   let qozVal = scenAll.qozInvestment;
   let dyVal = dyAmt;
   for (let yr = 0; yr <= Math.min(12, d.proj.years); yr++) {
-    const total = conorInv + (d.use.qoz ? qozVal : 0) + (d.use.dynasty ? dyVal : 0) + otherAssets;
-    const income = conorInv * 0.06 + cratIncome + 365000; // rental placeholder
+    const total = clientInv + (d.use.qoz ? qozVal : 0) + (d.use.dynasty ? dyVal : 0) + otherAssets;
+    const income = clientInv * 0.06 + cratIncome + 365000; // rental placeholder
     projRows.push({
       year: d.client.year + yr,
-      conor: conorInv + otherAssets,
+      client: clientInv + otherAssets,
       qoz: qozVal,
       dynasty: dyVal,
       total,
       income,
     });
-    conorInv *= (1 + d.proj.equity);
+    clientInv *= (1 + d.proj.equity);
     qozVal *= (1 + d.qoz.ret);
     dyVal *= (1 + d.proj.equity);
   }
@@ -11007,7 +11007,7 @@ function computePlan(d) {
     projRows, dynastyRows, qozRows,
     taxableEstateNoPlan, estateTaxNoPlan,
     taxableEstateWithPlan, estateTaxWithPlan, estateTaxSavings,
-    wealthAdvantageConor: withPlanningTotal - nwWithout_total,
+    wealthAdvantageClient: withPlanningTotal - nwWithout_total,
     totalFamilyAdvantage: familyTotalNW - nwWithout_total,
     totalProgramBenefit: totalImmediate + dynastyGrowth,
   };
@@ -14341,7 +14341,7 @@ function renderTransaction(p) {
         </div>
         <div class="panel advantage">
           <h3>💰 Wealth Advantage</h3>
-          <div class="line-item positive"><span class="label">Add'l NW (Client)</span><span class="value">${fmt$(p.wealthAdvantageConor)}</span></div>
+          <div class="line-item positive"><span class="label">Add'l NW (Client)</span><span class="value">${fmt$(p.wealthAdvantageClient)}</span></div>
           <div class="line-item positive"><span class="label">Cap Gains Tax Savings</span><span class="value">${fmt$(p.cgTaxSavings)}</span></div>
           <div class="line-item positive"><span class="label">Estate Tax Savings (Immediate)</span><span class="value">${fmt$(p.totalEstateSave)}</span></div>
           ${d.use.qoz ? `<div class="line-item positive"><span class="label">QOZ Tax Deferral</span><span class="value">${fmt$(p.scenarios.scenAll.qozDeferred)}</span></div>` : ''}
@@ -14380,7 +14380,7 @@ function renderTransaction(p) {
           ${d.use.daf ? `<tr><td>Charitable Deduction (DAF)</td><td class="num">—</td><td class="num pos">(${fmt$(p.dafDeduction)})</td><td class="num pos">(${fmt$(p.dafDeduction)})</td><td class="num pos">(${fmt$(p.dafDeduction)})</td><td class="num">—</td></tr>` : ''}
           <tr><td>Income Tax Savings</td><td class="num">—</td><td class="num pos">${fmt$(p.incomeTaxSavings)}</td><td class="num pos">${fmt$(p.incomeTaxSavings)}</td><td class="num pos">${fmt$(p.incomeTaxSavings)}</td><td class="num">—</td></tr>
           <tr><td>Estate Tax Savings</td><td class="num">—</td><td class="num pos">${fmt$(p.cratEstateSave + p.dafEstateSave)}</td><td class="num pos">${fmt$(p.totalEstateSave)}</td><td class="num pos">${fmt$(p.totalEstateSave)}</td><td class="num">—</td></tr>
-          <tr class="highlight"><td>Net Proceeds After Tax</td><td class="num">${fmt$(d.biz.sale - p.scenarios.scenNone.totalCGTax)}</td><td class="num">${fmt$(d.biz.sale - p.scenarios.scenCratDaf.totalCGTax - p.scenarios.scenCratDaf.crat - p.scenarios.scenCratDaf.daf)}</td><td class="num">${fmt$(d.biz.sale - p.scenarios.scenDyCratDaf.totalCGTax - p.scenarios.scenDyCratDaf.crat - p.scenarios.scenDyCratDaf.daf)}</td><td class="num">${fmt$(p.withPlanningProceeds)}</td><td class="num pos">${fmt$(p.wealthAdvantageConor)}</td></tr>
+          <tr class="highlight"><td>Net Proceeds After Tax</td><td class="num">${fmt$(d.biz.sale - p.scenarios.scenNone.totalCGTax)}</td><td class="num">${fmt$(d.biz.sale - p.scenarios.scenCratDaf.totalCGTax - p.scenarios.scenCratDaf.crat - p.scenarios.scenCratDaf.daf)}</td><td class="num">${fmt$(d.biz.sale - p.scenarios.scenDyCratDaf.totalCGTax - p.scenarios.scenDyCratDaf.crat - p.scenarios.scenDyCratDaf.daf)}</td><td class="num">${fmt$(p.withPlanningProceeds)}</td><td class="num pos">${fmt$(p.wealthAdvantageClient)}</td></tr>
         </tbody>
       </table>
     </div>
@@ -15482,7 +15482,7 @@ function renderFinancial(p) {
           ${p.projRows.map(r => `
             <tr>
               <td>${r.year}</td>
-              <td class="num">${fmt$(r.conor)}</td>
+              <td class="num">${fmt$(r.client)}</td>
               ${d.use.qoz ? `<td class="num">${fmt$(r.qoz)}</td>` : ''}
               ${d.use.dynasty ? `<td class="num">${fmt$(r.dynasty)}</td>` : ''}
               <td class="num">${fmt$(r.total)}</td>
@@ -18615,7 +18615,7 @@ function renderCharts(p) {
     const datasets = [];
     datasets.push({
       label: "Client's Investments",
-      data: p.projRows.map(r => r.conor),
+      data: p.projRows.map(r => r.client),
       borderColor: BRAND.crimson, backgroundColor: 'rgba(139, 26, 26, 0.1)',
       borderWidth: 2, tension: 0.3, fill: false
     });
@@ -24238,8 +24238,8 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
         continue;
       }
 
-      // Person-name rows in Client Details / Employment — e.g. "Conor Delaney"
-      // appear as the first column with everything else empty.
+      // Person-name rows in Client Details / Employment — i.e. a row where
+      // only the first column has text (the person's name) and the rest are blank.
       if (first && r.slice(1).every(c => !normalize(c))) {
         // Could be a person name OR a sub-section header (like "Personal Details")
         // Heuristic: if it matches Firstname Lastname pattern AND we're in

@@ -99,6 +99,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 /* Header right-stack: holds the asset-class badge and (in builder) the include/exclude toggle */
 .inv-head-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
 
+/* Click-to-edit fields (builder only — non-builder mode renders these as plain text) */
+.inv-edit{border-bottom:1px dashed transparent;cursor:text;transition:border-color .15s,background .15s;padding:0 2px;border-radius:2px}
+.inv-edit:hover{border-bottom-color:rgba(37,99,235,.5);background:rgba(37,99,235,.04)}
+.inv-edit:focus{outline:2px solid var(--blue);outline-offset:2px;background:rgba(37,99,235,.06);border-radius:3px}
+.inv-edit:empty:before{content:attr(data-placeholder);color:#cbd5e1;font-style:italic}
+
 /* Table row style for excluded investments (visible but muted; not in TOTAL) */
 .tbl tr.excl-row td{opacity:.55;font-style:italic}
 .tbl tr.excl-row:hover td{opacity:.75}
@@ -307,7 +313,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   <input type="file" id="xlsx-input" accept=".xlsx,.xls" style="display:none">
   <button class="tb-btn" onclick="document.getElementById('xlsx-input').click()">📊 Import Excel</button>
   <input type="file" id="addepar-input" accept=".csv,.xlsx" style="display:none">
-  <button class="tb-btn" onclick="document.getElementById('addepar-input').click()">📈 Import Addepar</button>
+  <button class="tb-btn" onclick="document.getElementById('addepar-input').click()" title="Replace investments with this Addepar export (current / YTD)">📈 Import Addepar (Current)</button>
+  <input type="file" id="addepar-prior-input" accept=".csv,.xlsx" style="display:none">
+  <button class="tb-btn" onclick="document.getElementById('addepar-prior-input').click()" title="Merge a second Addepar export as the prior-quarter snapshot — fills the Q1 ref line on each account by name match">📊 Import Addepar (Prior Qtr)</button>
   <input type="file" id="pdf-input" accept=".pdf,application/pdf" multiple style="display:none">
   <button class="tb-btn" onclick="document.getElementById('pdf-input').click()">📄 Import PDFs</button>
   <button class="tb-btn" onclick="openAddAccountModal()">➕ Add Account</button>
@@ -666,6 +674,18 @@ function inclusionTogglePill(inv, idx) {
          label + '</span>';
 }
 
+/* Escape HTML special chars when injecting user-edited text into innerHTML. */
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[<>&"']/g, c =>
+    ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* Display helper: returns raw string in builder mode (so advisor can see/edit
+   real values), returns masked string in deliverable mode (client-safe). */
+function rawOrMasked(str) {
+  return window.__QIR_BUILDER__ ? (str || '') : maskAccountNumbers(str || '');
+}
+
 /* Mask account numbers — any 6+ digit run (with optional dashes) gets all but
    the last 4 digits replaced with *. Leaves currency (commas, $), dates
    (slashes), and short numbers (years, ZIPs) alone. */
@@ -806,7 +826,7 @@ function renderCharts(d) {
     return `
       <div class="leg-row">
         <span class="leg-dot" style="background:${color}"></span>
-        <span style="flex:0 0 120px;color:var(--text);font-size:.72rem">${inv.name}</span>
+        <span style="flex:0 0 120px;color:var(--text);font-size:.72rem">${escapeHtml(rawOrMasked(inv.name))}</span>
         <div class="leg-bar-bg"><div class="leg-bar-fill" style="width:${pct.toFixed(1)}%;background:${color}"></div></div>
         <span class="leg-pct" style="color:${color}">${pct.toFixed(1)}%</span>
       </div>`;
@@ -870,9 +890,10 @@ function renderCostValueBar(d, costBasisLabel) {
     // Label
     const labelX = groupX + groupW/2;
     // Prefer short chart label if explicitly set, else truncate. Smaller font when >5 groups.
-    const labelText = inv.chartLabel || (inv.name.length > 12 ? inv.name.slice(0,11)+'…' : inv.name);
+    const rawLabel = inv.chartLabel || (inv.name.length > 12 ? inv.name.slice(0,11)+'…' : inv.name);
+    const labelText = rawOrMasked(rawLabel);
     const labelFont = invs.length > 6 ? 8.5 : 10;
-    svg += `<text x="${labelX}" y="${yBot+16}" text-anchor="middle" font-size="${labelFont}" fill="#6b7280">${labelText}</text>`;
+    svg += `<text x="${labelX}" y="${yBot+16}" text-anchor="middle" font-size="${labelFont}" fill="#6b7280">${escapeHtml(labelText)}</text>`;
   });
 
   // Legend — only show Distributions item if any account in the chart actually has them
@@ -997,8 +1018,12 @@ function renderInvestmentCard(inv, d, idx) {
     <div class="inv-card">
       <div class="inv-head">
         <div>
-          <div class="inv-name">${inv.icon||''} ${maskAccountNumbers(inv.name)}</div>
-          <div class="inv-sub">${maskAccountNumbers(inv.subtitle||'')}</div>
+          <div class="inv-name">${inv.icon||''} ${window.__QIR_BUILDER__
+            ? `<span class="inv-edit" contenteditable="plaintext-only" onblur="updateInvField(${idx},'name',this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="Click to edit · account name">${escapeHtml(inv.name||'')}</span>`
+            : escapeHtml(rawOrMasked(inv.name))}</div>
+          <div class="inv-sub">${window.__QIR_BUILDER__
+            ? `<span class="inv-edit" contenteditable="plaintext-only" onblur="updateInvField(${idx},'subtitle',this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="Click to edit · description" data-placeholder="Add a description…">${escapeHtml(inv.subtitle||'')}</span>`
+            : escapeHtml(rawOrMasked(inv.subtitle))}</div>
         </div>
         <div class="inv-head-right">
           ${inclusionTogglePill(inv, idx)}
@@ -1134,7 +1159,7 @@ function renderTable(d) {
     const rowCls = isExcluded ? ' class="excl-row"' : '';
     return `
       <tr${rowCls}>
-        <td><span class="tdot" style="background:${investmentColor(inv, d.investments)}"></span>${inv.icon||''} ${maskAccountNumbers(inv.name)}</td>
+        <td><span class="tdot" style="background:${investmentColor(inv, d.investments)}"></span>${inv.icon||''} ${escapeHtml(rawOrMasked(inv.name))}</td>
         <td>${inv.assetClass}</td>
         <td>${fmt.money(inv.costBasis)}</td>
         <td>${fmt.money(inv.currentValue)}</td>
@@ -1228,7 +1253,7 @@ function renderReturnChart(d) {
 
     if (ret >= 0) {
       // Positive: name on the LEFT of zero, bar extends right, % label after the bar
-      svg += `<text x="${xZero-6}" y="${yMid+3}" text-anchor="end" font-size="10.5" fill="#1a1d2e" font-weight="600">${inv.name}</text>`;
+      svg += `<text x="${xZero-6}" y="${yMid+3}" text-anchor="end" font-size="10.5" fill="#1a1d2e" font-weight="600">${escapeHtml(rawOrMasked(inv.name))}</text>`;
       const w = (ret/range)*chartW;
       svg += `<rect x="${xZero}" y="${yBar}" width="${w}" height="24" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="0"/>`;
       svg += `<text x="${xZero+w+5}" y="${yMid+3}" font-size="10" fill="${stroke}" font-weight="700">${fmt.pct(ret)}</text>`;
@@ -1238,7 +1263,7 @@ function renderReturnChart(d) {
       const w = (Math.abs(ret)/range)*chartW;
       svg += `<rect x="${xZero-w}" y="${yBar}" width="${w}" height="24" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="0"/>`;
       svg += `<text x="${xZero+5}" y="${yMid+3}" font-size="10" fill="${stroke}" font-weight="700">${fmt.pct(ret)}</text>`;
-      svg += `<text x="${xZero+62}" y="${yMid+3}" font-size="10.5" fill="#1a1d2e" font-weight="600">${inv.name}</text>`;
+      svg += `<text x="${xZero+62}" y="${yMid+3}" font-size="10.5" fill="#1a1d2e" font-weight="600">${escapeHtml(rawOrMasked(inv.name))}</text>`;
     }
   });
 
@@ -1650,6 +1675,24 @@ function toggleExcludeByIndex(idx) {
   setStatus('✓ ' + inv.name + ': ' + (inv.excludeFromTotals ? 'EXCLUDED from' : 'INCLUDED in') + ' portfolio totals', 'ok');
 }
 
+/* Inline-edit handler for account name / description (contenteditable spans in
+   renderInvestmentCard). Updates QIR_DATA in place and re-renders so the new
+   value propagates everywhere (donut legend, bar chart, table, return chart, etc). */
+function updateInvField(idx, field, value) {
+  if (!QIR_DATA || !QIR_DATA.investments || !QIR_DATA.investments[idx]) return;
+  const trimmed = (value || '').trim();
+  if (QIR_DATA.investments[idx][field] === trimmed) return;  // no-op
+  // Don't allow blanking the name — revert and warn
+  if (field === 'name' && !trimmed) {
+    renderAll();
+    setStatus('Account name cannot be empty — reverted', 'err');
+    return;
+  }
+  QIR_DATA.investments[idx][field] = trimmed;
+  renderAll();
+  setStatus('✓ Updated ' + field + ' for "' + (QIR_DATA.investments[idx].name || '?') + '"', 'ok');
+}
+
 /* Pristine "new client" data — used by Clear Data button. Truly empty
    investments[] so the user can start clean and import via Excel/Addepar/PDF. */
 const CLEAN_DATA = JSON.stringify({
@@ -2012,8 +2055,16 @@ function importControlSheet(aoa) {
   setStatus('✓ Imported ' + investments.length + ' accounts from Pyle Control Sheet (' + currentLabel + ')', 'ok');
 }
 
-/* ── Import an Addepar CSV — partial fill (currentValue + assetClass only) ── */
-function importAddeparCSV(file) {
+/* ── Import an Addepar CSV.
+   mode='current' (default): replace investments[] with parsed rows. Fills name,
+                             assetClass, currentValue, ticker subtitle. Cost
+                             basis = 0 (Addepar exports don't include it).
+   mode='prior':             merge parsed rows into existing investments by
+                             name match — writes q1RefValue (the prior-quarter
+                             snapshot shown at the bottom of each account card).
+                             Also tries to extract an "as of" date from the CSV
+                             and writes it to periodLabels.q1RefDate. */
+function importAddeparCSV(file, mode = 'current') {
   setStatus('Reading Addepar CSV…');
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -2021,7 +2072,41 @@ function importAddeparCSV(file) {
       const text = e.target.result;
       const rows = parseCSVRows(text);
       if (rows.length < 2) throw new Error('CSV has no data rows');
-      const header = rows[0].map(h => String(h||'').trim());
+
+      // Some Addepar CSVs put 1–4 metadata rows above the real header
+      // ("Report:", "As of:", blank lines). Find the first row that looks
+      // like a header — i.e. contains a recognizable column name.
+      let headerRowIdx = 0;
+      const looksLikeHeader = (r) => r && r.some(c => /account|security|portfolio|market value|asset class|symbol|holding|position/i.test(String(c||'')));
+      for (let i = 0; i < Math.min(rows.length, 6); i++) {
+        if (looksLikeHeader(rows[i])) { headerRowIdx = i; break; }
+      }
+
+      // Sniff an "as of" date from the pre-header rows (and the filename, as a
+      // fallback). Used in prior-qtr mode to label the q1 ref line.
+      const dateFromText = (txt) => {
+        if (!txt) return null;
+        // Match m/d/yy(yy), m-d-yy(yy), Month d yyyy, "as of <date>"
+        let m = String(txt).match(/\b(0?[1-9]|1[0-2])[\/\-](0?[1-9]|[12]\d|3[01])[\/\-](20\d{2}|\d{2})\b/);
+        if (m) {
+          const yr = m[3].length === 2 ? '20' + m[3] : m[3];
+          return `${m[1]}/${m[2]}/${yr}`;
+        }
+        m = String(txt).match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(0?[1-9]|[12]\d|3[01]),?\s+(20\d{2})\b/i);
+        if (m) return `${m[1]} ${m[2]}, ${m[3]}`;
+        return null;
+      };
+      let asOfDate = null;
+      for (let i = 0; i < headerRowIdx; i++) {
+        for (const cell of rows[i] || []) {
+          const d = dateFromText(cell);
+          if (d) { asOfDate = d; break; }
+        }
+        if (asOfDate) break;
+      }
+      if (!asOfDate && file && file.name) asOfDate = dateFromText(file.name);
+
+      const header = rows[headerRowIdx].map(h => String(h||'').trim());
       const headerLower = header.map(h => h.toLowerCase().replace(/\s+/g,' ').trim());
       const findCol = (cands) => {
         for (const c of cands) {
@@ -2053,7 +2138,7 @@ function importAddeparCSV(file) {
       // Group by security (or account if no security column)
       const groupKey = idxSecurity >= 0 ? idxSecurity : idxAccount;
       const groups = {};
-      for (let i = 1; i < rows.length; i++) {
+      for (let i = headerRowIdx + 1; i < rows.length; i++) {
         const row = rows[i];
         if (!row || !row.length) continue;
         const name = (row[groupKey]||'').trim();
@@ -2068,24 +2153,70 @@ function importAddeparCSV(file) {
         if (ticker) groups[name].tickers.add(ticker);
       }
 
-      const investments = Object.values(groups)
-        .sort((a,b) => b.currentValue - a.currentValue)
-        .map(g => ({
-          name: maskAccountNumbers(g.name.slice(0, 60)),
-          icon: '',
-          subtitle: g.tickers.size ? Array.from(g.tickers).slice(0,3).join(', ') : 'Imported from Addepar',
-          assetClass: g.assetClass || 'Public',
-          costBasis: 0,             // ⚠️ Addepar does not provide cost basis — fill manually
-          currentValue: Math.round(g.currentValue),
-          benchmark: 'inline',
-          footer: '⚠️ Cost basis pending — Addepar export does not include this. Fill manually or via Excel import.'
-        }));
+      const parsedGroups = Object.values(groups).sort((a,b) => b.currentValue - a.currentValue);
+      if (!parsedGroups.length) throw new Error('No rows with non-zero market value');
 
-      if (!investments.length) throw new Error('No rows with non-zero market value');
+      // ── PRIOR-QUARTER MERGE MODE ────────────────────────────────────────
+      // Match each parsed group against existing investments by name and
+      // write the value to q1RefValue. Doesn't touch other fields.
+      if (mode === 'prior') {
+        if (!QIR_DATA.investments || !QIR_DATA.investments.length) {
+          throw new Error('No existing investments to merge into. Import current (YTD) first, then use this button for the prior-quarter snapshot.');
+        }
+        // Normalize for fuzzy match: lowercase, strip "****1234" masks and punctuation.
+        const norm = (s) => String(s||'').toLowerCase()
+          .replace(/\*+\d+/g, '')        // drop masked digits
+          .replace(/[^a-z0-9]+/g, ' ')
+          .trim();
+        const matched = [];
+        const unmatched = [];
+        for (const g of parsedGroups) {
+          const gn = norm(g.name);
+          if (!gn) { unmatched.push(g.name); continue; }
+          // Find best match: exact > contains either direction > first-token equality
+          let invIdx = QIR_DATA.investments.findIndex(inv => norm(inv.name) === gn);
+          if (invIdx < 0) invIdx = QIR_DATA.investments.findIndex(inv => {
+            const n = norm(inv.name);
+            return n && (n.includes(gn) || gn.includes(n));
+          });
+          if (invIdx < 0) { unmatched.push(g.name); continue; }
+          QIR_DATA.investments[invIdx].q1RefValue = Math.round(g.currentValue);
+          matched.push(QIR_DATA.investments[invIdx].name);
+        }
+        if (asOfDate) {
+          QIR_DATA.periodLabels = QIR_DATA.periodLabels || {};
+          QIR_DATA.periodLabels.q1RefDate = asOfDate;
+        }
+        renderAll();
+        if (!matched.length) {
+          setStatus('No accounts matched by name. Parsed ' + parsedGroups.length + ' rows — none matched any existing investment. Names sample: ' + parsedGroups.slice(0,3).map(g=>g.name).join(', '), 'err');
+          return;
+        }
+        const msg = '✓ Merged prior-quarter values into ' + matched.length + ' account' + (matched.length===1?'':'s') +
+                    (asOfDate ? ' (as of ' + asOfDate + ')' : '') +
+                    (unmatched.length ? ' · ' + unmatched.length + ' parsed row' + (unmatched.length===1?'':'s') + ' had no match' : '');
+        setStatus(msg, 'ok');
+        return;
+      }
+
+      // ── CURRENT (YTD) MODE — replace investments ────────────────────────
+      const investments = parsedGroups.map(g => ({
+        name: maskAccountNumbers(g.name.slice(0, 60)),
+        icon: '',
+        subtitle: g.tickers.size ? Array.from(g.tickers).slice(0,3).join(', ') : 'Imported from Addepar',
+        assetClass: g.assetClass || 'Public',
+        costBasis: 0,             // ⚠️ Addepar does not provide cost basis — fill manually
+        currentValue: Math.round(g.currentValue),
+        benchmark: 'inline',
+        footer: '⚠️ Cost basis pending — Addepar export does not include this. Fill manually or via Excel import.'
+      }));
 
       QIR_DATA.investments = investments;
+      if (asOfDate) QIR_DATA.asOfDate = asOfDate;
       renderAll();
-      setStatus(`✓ Imported ${investments.length} positions from Addepar (cost basis = $0 — needs manual entry)`, 'ok');
+      setStatus(`✓ Imported ${investments.length} positions from Addepar` +
+                (asOfDate ? ` (as of ${asOfDate})` : '') +
+                ` — cost basis = $0, needs manual entry. Use "Import Addepar (Prior Qtr)" to add the Q1 reference line.`, 'ok');
     } catch (err) {
       console.error('importAddeparCSV', err);
       setStatus('Import failed: ' + err.message, 'err');
@@ -2491,10 +2622,12 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
   const xi = document.getElementById('xlsx-input');
   const ai = document.getElementById('addepar-input');
+  const api = document.getElementById('addepar-prior-input');
   const pi = document.getElementById('pdf-input');
-  if (xi) xi.addEventListener('change', e => { const f = e.target.files[0]; if (f) importExcel(f); e.target.value=''; });
-  if (ai) ai.addEventListener('change', e => { const f = e.target.files[0]; if (f) importAddeparCSV(f); e.target.value=''; });
-  if (pi) pi.addEventListener('change', e => { if (e.target.files.length) importPDFs(e.target.files); e.target.value=''; });
+  if (xi)  xi.addEventListener('change',  e => { const f = e.target.files[0]; if (f) importExcel(f); e.target.value=''; });
+  if (ai)  ai.addEventListener('change',  e => { const f = e.target.files[0]; if (f) importAddeparCSV(f, 'current'); e.target.value=''; });
+  if (api) api.addEventListener('change', e => { const f = e.target.files[0]; if (f) importAddeparCSV(f, 'prior');   e.target.value=''; });
+  if (pi)  pi.addEventListener('change',  e => { if (e.target.files.length) importPDFs(e.target.files); e.target.value=''; });
 });
 /* BUILDER-ONLY:JS-END */
 </script>
