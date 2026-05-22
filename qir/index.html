@@ -316,6 +316,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   <button class="tb-btn" onclick="document.getElementById('addepar-input').click()" title="Replace investments with this Addepar export (current / YTD). Accepts PDF, CSV, or XLSX.">📈 Import Addepar (Current)</button>
   <input type="file" id="addepar-prior-input" accept=".csv,.xlsx,.pdf" style="display:none">
   <button class="tb-btn" onclick="document.getElementById('addepar-prior-input').click()" title="Merge a second Addepar export as the prior-quarter snapshot — fills the Q1 ref line on each account by name match. Accepts PDF, CSV, or XLSX.">📊 Import Addepar (Prior Qtr)</button>
+  <input type="file" id="usenergy-input" accept=".pdf" multiple style="display:none">
+  <button class="tb-btn" onclick="document.getElementById('usenergy-input').click()" title="Import US Energy quarterly earnings statements (multi-select). Each fund becomes its own investment card. Defaults to EXCLUDED from portfolio totals to avoid double-counting with Addepar — toggle the pill on each card to include.">🛢 Import US Energy</button>
   <input type="file" id="pdf-input" accept=".pdf,application/pdf" multiple style="display:none">
   <button class="tb-btn" onclick="document.getElementById('pdf-input').click()">📄 Import PDFs</button>
   <button class="tb-btn" onclick="openAddAccountModal()">➕ Add Account</button>
@@ -2494,6 +2496,182 @@ function importAddeparFile(file, mode) {
   return importAddeparCSV(file, mode);
 }
 
+/* ─── US Energy Development Corp — Quarterly Earnings Statement ────────
+   Clients commonly hold 6+ different USEDC drilling funds (USEDC 2017A,
+   2018A, 2020, 2022, 2023, 2024…). Each one is a separate quarterly PDF.
+   This importer accepts multi-select PDFs and turns each into its own
+   investment card.
+
+   Card defaults to excludeFromTotals=true so the LPs don't double-count
+   with the Addepar "Alternative Investments" line — the user can toggle
+   the include/exclude pill on each card if they want it in totals.
+
+   Re-importing for a new quarter MERGES by partnership name (so the same
+   USEDC 2024 fund's Q1 and Q2 statements update the same card, not create
+   duplicates). User edits to the card name/icon/subtitle are preserved
+   across re-imports. */
+async function parseUSEnergyPDF(file) {
+  if (typeof pdfjsLib === 'undefined') throw new Error('PDF library not loaded — check internet connection');
+  const { allText } = await extractPDFText(file);
+
+  // Detection — require both an issuer signature AND the "Partnership:" field
+  const looksLikeUSEnergy =
+       (/U\.?\s*S\.?\s*ENERGY|USEDC|U\.S\.\s*ENERGY/i.test(allText) || /Quarterly\s+Earnings\s+Statement/i.test(allText))
+    && /Partnership[:\s]/i.test(allText);
+  if (!looksLikeUSEnergy) return null;
+
+  const grab = (re) => { const m = allText.match(re); return m ? m[1].trim() : ''; };
+  const grabNum = (re) => {
+    const v = grab(re);
+    const n = parseFloat(String(v).replace(/[\$,\s%]/g, ''));
+    return isFinite(n) ? n : 0;
+  };
+
+  // Partnership name (raw, used as merge key)
+  let partnership = grab(/Partnership[:\s]+([^\n]+)/i).replace(/\s+/g, ' ').trim();
+  if (!partnership) throw new Error('Partnership name not found in PDF');
+
+  // Statement date "QUARTERLY EARNINGS STATEMENT 2026-03-31"
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let asOfDate = null;
+  const dM = allText.match(/Quarterly\s+Earnings\s+Statement\s+(\d{4})-(\d{2})-(\d{2})/i);
+  if (dM) {
+    const mm = parseInt(dM[2]);
+    if (mm >= 1 && mm <= 12) asOfDate = `${months[mm-1]} ${parseInt(dM[3])}, ${dM[1]}`;
+  }
+  if (!asOfDate && file && file.name) {
+    // Filename fallback: "Marion USEDC 24 03-2026.pdf" → March 2026 (last day)
+    const fM = file.name.match(/(\d{1,2})-(\d{4})\.pdf$/i);
+    if (fM) {
+      const mm = parseInt(fM[1]);
+      if (mm >= 1 && mm <= 12) {
+        const lastDay = new Date(parseInt(fM[2]), mm, 0).getDate();
+        asOfDate = `${months[mm-1]} ${lastDay}, ${fM[2]}`;
+      }
+    }
+  }
+
+  // Field extraction
+  const invested      = grabNum(/Invested\s+Amount[:\s]+([\d,.]+)/i);
+  const units         = grabNum(/Number\s+of\s+Units[:\s]+([\d,.]+)/i);
+  const taxWriteOff   = grabNum(/Estimated\s+Initial\s+Tax\s+Write\s+Off[^\d]*([\d.]+)/i);
+  const cumDistribs   = grabNum(/Cash\s+on\s+Cash\s+Return\s+to\s+Date[^\d]*([\d,.]+)/i);
+  const taxBenefits   = grabNum(/Tax\s+Benefits\s+to\s+Date[^\d]*([\d,.]+)/i);
+  const totalBenefitPct = grabNum(/Total\s+Cash\s+and\s+Tax\s+Benefits\s*\(\s*%\s*\)[^\d]*([\d.]+)/i);
+
+  // Schwab umbrella account (e.g. "ACCT: 5475-9829") — used in subtitle so the
+  // card visibly belongs to the corresponding Addepar account
+  const schwabRaw = grab(/ACCT[:\s]+(\d{4}[-\s]?\d{4})/i).replace(/[\s-]/g, '');
+  const dAcct = grab(/Account[:\s]+([A-Z]?\d+)/i);
+
+  if (invested <= 0) throw new Error('Invested amount missing or zero — PDF format may be unexpected');
+
+  // LP balance: invested minus cumulative cash distributions. This is the
+  // standard "remaining LP capital" view for depletion-driven oil & gas
+  // partnerships when the GP doesn't publish a per-statement NAV.
+  const lpBalance = Math.max(0, invested - cumDistribs);
+
+  // Short display name: trim the LP suffix verbosity ("USEDC 2024 DRILLING FUND LP" stays — already concise)
+  const displayName = partnership;
+
+  // Subtitle: link to parent Schwab account when present
+  let subtitle = 'U.S. Energy';
+  if (schwabRaw && schwabRaw.length >= 4) subtitle += ' · Acct ' + maskAccountNumbers(schwabRaw);
+  else if (dAcct) subtitle += ' · Acct ' + dAcct;
+
+  // Footer surfaces the metrics that matter for these investments:
+  // cumulative cash returned + tax benefits + total economic return %.
+  const fmtMoney = (n) => '$' + Math.round(n).toLocaleString();
+  const footerParts = [];
+  if (cumDistribs > 0)   footerParts.push('Cash returned: ' + fmtMoney(cumDistribs));
+  if (taxBenefits > 0)   footerParts.push('Tax benefits: ' + fmtMoney(taxBenefits));
+  if (totalBenefitPct > 0) footerParts.push('Total return: ' + totalBenefitPct.toFixed(1) + '%');
+  const footer = footerParts.length ? footerParts.join(' · ') : '';
+
+  // Benchmark chip: above-target if cumulative cash + tax already >30% of invested
+  const benchmark = totalBenefitPct >= 30 ? 'above' : totalBenefitPct > 0 ? 'inline' : 'below';
+
+  return {
+    name: displayName,
+    icon: '🛢',
+    subtitle,
+    assetClass: 'Alternatives',
+    costBasis: invested,
+    currentValue: lpBalance,
+    distributions: cumDistribs,
+    benchmark,
+    footer,
+    // Hidden bookkeeping: lets re-imports MERGE into the same card rather than appending duplicates
+    _source: 'usenergy',
+    _partnership: partnership,
+    _statementDate: asOfDate || ''
+  };
+}
+
+async function importUSEnergyPDFs(fileList) {
+  const files = Array.from(fileList);
+  if (!files.length) return;
+  setStatus(`Reading ${files.length} US Energy PDF${files.length===1?'':'s'}…`);
+
+  const additions = [];
+  const updates = [];
+  const skipped = [];
+
+  for (const file of files) {
+    try {
+      const parsed = await parseUSEnergyPDF(file);
+      if (!parsed) {
+        skipped.push(file.name + ' (not detected as US Energy)');
+        continue;
+      }
+
+      // Merge by partnership name (case-insensitive)
+      const existingIdx = (QIR_DATA.investments || []).findIndex(inv =>
+        inv._partnership && parsed._partnership &&
+        inv._partnership.toLowerCase() === parsed._partnership.toLowerCase()
+      );
+
+      if (existingIdx >= 0) {
+        // Update numbers but preserve user-edited display fields (name, icon, subtitle)
+        const existing = QIR_DATA.investments[existingIdx];
+        existing.costBasis      = parsed.costBasis;
+        existing.currentValue   = parsed.currentValue;
+        existing.distributions  = parsed.distributions;
+        existing.benchmark      = parsed.benchmark;
+        existing.footer         = parsed.footer;
+        existing._statementDate = parsed._statementDate;
+        if (!existing.assetClass) existing.assetClass = parsed.assetClass;
+        updates.push(existing.name || parsed.name);
+      } else {
+        // New card — default to excludeFromTotals so the LPs don't double-count
+        // with the Addepar "Alternative Investments" total. User flips the pill
+        // on each card if they want it in totals.
+        parsed.excludeFromTotals = true;
+        additions.push(parsed);
+      }
+    } catch (err) {
+      skipped.push(file.name + ' (parse error: ' + err.message + ')');
+      console.error('parseUSEnergyPDF', file.name, err);
+    }
+  }
+
+  if (additions.length) {
+    QIR_DATA.investments = [...(QIR_DATA.investments || []), ...additions];
+  }
+  renderAll();
+
+  const parts = [];
+  if (additions.length) parts.push('+' + additions.length + ' new');
+  if (updates.length)   parts.push(updates.length + ' updated');
+  if (skipped.length)   parts.push(skipped.length + ' skipped');
+  const summary = parts.join(' · ') || 'nothing imported';
+  const tone = (additions.length + updates.length) > 0 ? 'ok' : 'err';
+  let msg = '✓ US Energy import: ' + summary;
+  if (additions.length) msg += ' — new cards default to EXCLUDED from portfolio totals (toggle the pill on each card to include)';
+  if (skipped.length)   msg += ' · skipped: ' + skipped.join(', ');
+  setStatus(msg, tone);
+}
+
 /* ── Minimal CSV parser (handles quotes, embedded commas/newlines) ── */
 function parseCSVRows(text) {
   const rows = [];
@@ -2888,13 +3066,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ── Wire up file inputs ── */
 document.addEventListener('DOMContentLoaded', () => {
-  const xi = document.getElementById('xlsx-input');
-  const ai = document.getElementById('addepar-input');
+  const xi  = document.getElementById('xlsx-input');
+  const ai  = document.getElementById('addepar-input');
   const api = document.getElementById('addepar-prior-input');
-  const pi = document.getElementById('pdf-input');
+  const uei = document.getElementById('usenergy-input');
+  const pi  = document.getElementById('pdf-input');
   if (xi)  xi.addEventListener('change',  e => { const f = e.target.files[0]; if (f) importExcel(f); e.target.value=''; });
   if (ai)  ai.addEventListener('change',  e => { const f = e.target.files[0]; if (f) importAddeparFile(f, 'current'); e.target.value=''; });
   if (api) api.addEventListener('change', e => { const f = e.target.files[0]; if (f) importAddeparFile(f, 'prior');   e.target.value=''; });
+  if (uei) uei.addEventListener('change', e => { if (e.target.files.length) importUSEnergyPDFs(e.target.files); e.target.value=''; });
   if (pi)  pi.addEventListener('change',  e => { if (e.target.files.length) importPDFs(e.target.files); e.target.value=''; });
 });
 /* BUILDER-ONLY:JS-END */
