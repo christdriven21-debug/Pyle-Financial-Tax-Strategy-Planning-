@@ -1765,25 +1765,48 @@ const EXCEL_COLUMNS = [
     enum: ['above','inline','below'] }
 ];
 
-/* ── Download an .xlsx template the user fills in ── */
+/* ── Download a Pyle Control Sheet template (.xlsx) the user fills in ── */
 function downloadExcelTemplate() {
   if (typeof XLSX === 'undefined') {
     setStatus('Excel library not loaded — check internet connection', 'err');
     return;
   }
-  const headers = EXCEL_COLUMNS.map(c => c.header);
-  const example1 = ['SpaceX', 'Private', 500000, 1756757, '🚀', 'Late-stage growth equity', '01/15/2025', '', 2702.7, 185, 650, 3.51, 190.8, '', '', '', '', '', '', 'Private secondary valuation', 'Optional reference price footnote', 'above'];
-  const example2 = ['Sample LP',  'Alternatives', 1000000, 1000000, '⚡', 'Energy LP', '', '12/15/2024', '', '', '', '', '', '', 187879, 50000, 'Apr 21', 55.98, 41.16, 'Tax structure detail', '', 'above'];
-  const ws = XLSX.utils.aoa_to_sheet([headers, example1, example2]);
-  // Column widths
-  ws['!cols'] = headers.map(h => ({ wch: Math.max(12, h.length + 2) }));
+  // Determine a sensible "as-of" label for the current period column.
+  // Default to today's date; user can rename it in Excel after download.
+  const today = new Date();
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const currentLabel = months[today.getMonth()] + ' ' + today.getDate() + ', ' + today.getFullYear();
+
+  // Pyle Control Sheet layout — matches the Shue Control Sheet structure the importer expects.
+  const header = [
+    'Account Name',         // A — account names go below
+    'December 31, 2025',    // B — starting value (cost basis anchor)
+    '$ Flows',              // C — Q1 net inflows
+    'March 31, 2026',       // D — Q1 reference value
+    'YTD',                  // E — Q1 YTD return (decimal, e.g. 0.0135 = 1.35%)
+    currentLabel,           // F — current period value (edit label to your as-of date)
+    '$Flows',               // G — current period net inflows since Q1
+    'YTD',                  // H — current YTD return (decimal)
+    '2025'                  // I — prior-year annual return (decimal)
+  ];
+
+  // Sample rows showing the expected format. User replaces these with real accounts.
+  const sample1 = ['Joint Brokerage Account',     1500000, 0,         1550000, 0.0333,  1600000, 0,        0.0667, 0.18];
+  const sample2 = ['IRA — Spouse',                2000000, 0,         2100000, 0.05,    2200000, 0,        0.10,   0.12];
+  const sample3 = ['DAF — Family Foundation',      800000, 0,          850000, 0.0625,   900000, 0,        0.125,  0.09];
+  const sample4 = ['Private Equity LP',            500000, 0,          575000, 0.15,     650000, 0,        0.30,   0.45];
+  const sample5 = ['Charitable Remainder Trust',  1200000, 0,         1180000, -0.0167, 1220000, 0,        0.0167, 0.10];
+
+  const ws = XLSX.utils.aoa_to_sheet([header, sample1, sample2, sample3, sample4, sample5]);
+  ws['!cols'] = header.map(h => ({ wch: Math.max(16, String(h).length + 2) }));
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Investments');
-  XLSX.writeFile(wb, 'qir-investments-template.xlsx');
-  setStatus('Template downloaded — fill it in, then Import Excel', 'ok');
+  XLSX.utils.book_append_sheet(wb, ws, 'Portfolio');
+  XLSX.writeFile(wb, 'pyle-control-sheet-template.xlsx');
+  setStatus('Template downloaded — replace sample rows with client accounts, then Import Excel', 'ok');
 }
 
-/* ── Import a filled-in Excel ── */
+/* Import a filled-in Excel — auto-detects QIR Builder template format OR Pyle Control Sheet. */
 function importExcel(file) {
   setStatus('Reading Excel…');
   const reader = new FileReader();
@@ -1791,57 +1814,202 @@ function importExcel(file) {
     try {
       const wb = XLSX.read(e.target.result, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
-      if (!rows.length) throw new Error('No data rows found');
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+      if (!aoa.length) throw new Error('Empty spreadsheet — no data found.');
 
-      // Build a header → key map (case-insensitive, fuzzy)
-      const colMap = {};
-      EXCEL_COLUMNS.forEach(c => {
-        const target = c.header.toLowerCase().replace(/[^a-z0-9]/g,'');
-        Object.keys(rows[0]).forEach(k => {
-          const norm = String(k).toLowerCase().replace(/[^a-z0-9]/g,'');
-          if (norm === target || norm.includes(target.replace(/\(.*?\)/,'').trim())) {
-            colMap[c.key] = k;
-          }
-        });
-      });
+      const format = detectExcelFormat(aoa);
+      console.log('Detected Excel format:', format);
 
-      // Required columns check
-      const missing = EXCEL_COLUMNS.filter(c => c.required && !colMap[c.key]).map(c => c.header);
-      if (missing.length) throw new Error('Missing required columns: ' + missing.join(', '));
-
-      // Fields where account numbers commonly appear → mask all but last 4 digits
-      const MASK_FIELDS = new Set(['name','subtitle','footer','currentPriceFootnote']);
-      const investments = rows.map(row => {
-        const inv = {};
-        EXCEL_COLUMNS.forEach(c => {
-          const v = row[colMap[c.key]];
-          if (v !== null && v !== undefined && v !== '') {
-            if (c.type === 'number') {
-              const n = parseFloat(String(v).replace(/[$,\s%]/g,''));
-              if (isFinite(n)) inv[c.key] = n;
-            } else {
-              let s = String(v).trim();
-              if (MASK_FIELDS.has(c.key)) s = maskAccountNumbers(s);
-              inv[c.key] = s;
-            }
-          }
-        });
-        return inv;
-      }).filter(inv => inv.name && inv.currentValue !== undefined);
-
-      if (!investments.length) throw new Error('No valid rows after parsing');
-
-      QIR_DATA.investments = investments;
-      renderAll();
-      setStatus(`✓ Imported ${investments.length} investments from Excel`, 'ok');
+      if (format === 'qir') {
+        importQIRTemplateFormat(ws);
+      } else if (format === 'controlSheet') {
+        importControlSheet(aoa);
+      } else {
+        const sample = (aoa[0] || []).filter(x => x !== null && x !== '').slice(0, 6)
+          .map(x => '"' + String(x).slice(0,30) + '"').join(', ');
+        throw new Error(
+          'Unrecognized Excel format. Two formats are supported:\n\n' +
+          '1. QIR Builder template — download via 📥 Excel Template, fill it in, then 📊 Import Excel.\n\n' +
+          '2. Pyle Control Sheet — expects column headers like "December 31, 2025", "March 31, 2026", "$ Flows", "YTD".\n\n' +
+          'Your file\'s first-row headers: ' + (sample || '(empty)') + '…'
+        );
+      }
     } catch (err) {
       console.error('importExcel', err);
       setStatus('Import failed: ' + err.message, 'err');
-      alert('Excel import failed: ' + err.message);
+      alert('Excel import failed:\n\n' + err.message);
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+/* Sniff which format the uploaded workbook is in based on first-row headers. */
+function detectExcelFormat(aoa) {
+  const headers = (aoa[0] || []).map(c => String(c||'').trim().toLowerCase());
+  const reqQIR = ['name', 'asset class', 'cost basis', 'current value'];
+  if (reqQIR.every(r => headers.some(h => h === r))) return 'qir';
+  const joined = headers.join('|');
+  const hasFlows = /\$\s*flows/.test(joined);
+  const hasYTD = /\bytd\b/.test(joined);
+  const hasDateCol = /(january|february|march|april|may|june|july|august|september|october|november|december)/i.test(joined);
+  if (hasFlows && hasYTD && hasDateCol) return 'controlSheet';
+  return 'unknown';
+}
+
+/* Existing logic for QIR Builder template Excel format — kept intact. */
+function importQIRTemplateFormat(ws) {
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+  if (!rows.length) throw new Error('No data rows found.');
+  const colMap = {};
+  EXCEL_COLUMNS.forEach(c => {
+    const target = c.header.toLowerCase().replace(/[^a-z0-9]/g,'');
+    Object.keys(rows[0]).forEach(k => {
+      const norm = String(k).toLowerCase().replace(/[^a-z0-9]/g,'');
+      if (norm === target || norm.includes(target.replace(/\(.*?\)/,'').trim())) {
+        colMap[c.key] = k;
+      }
+    });
+  });
+  const missing = EXCEL_COLUMNS.filter(c => c.required && !colMap[c.key]).map(c => c.header);
+  if (missing.length) throw new Error('Missing required columns: ' + missing.join(', '));
+
+  const MASK_FIELDS = new Set(['name','subtitle','footer','currentPriceFootnote']);
+  const investments = rows.map(row => {
+    const inv = {};
+    EXCEL_COLUMNS.forEach(c => {
+      const v = row[colMap[c.key]];
+      if (v !== null && v !== undefined && v !== '') {
+        if (c.type === 'number') {
+          const n = parseFloat(String(v).replace(/[$,\s%]/g,''));
+          if (isFinite(n)) inv[c.key] = n;
+        } else {
+          let s = String(v).trim();
+          if (MASK_FIELDS.has(c.key)) s = maskAccountNumbers(s);
+          inv[c.key] = s;
+        }
+      }
+    });
+    return inv;
+  }).filter(inv => inv.name && inv.currentValue !== undefined);
+
+  if (!investments.length) throw new Error('No valid rows after parsing.');
+  QIR_DATA.investments = investments;
+  renderAll();
+  setStatus('✓ Imported ' + investments.length + ' investments from QIR template', 'ok');
+}
+
+/* Parse a Pyle Control Sheet (Susan & ChiKong Shue style). Recognizes date-anchored
+   columns and builds investment objects with Q1 reference + current-period values. */
+function importControlSheet(aoa) {
+  const headers = aoa[0] || [];
+  const norm = (s) => String(s||'').trim();
+  const lower = (s) => norm(s).toLowerCase();
+
+  let idxStart = -1, idxQ1 = -1, idxCurrent = -1, idxAnnualReturn = -1;
+  let idxQ1YTD = -1, idxCurrentYTD = -1;
+  let currentLabel = '';
+
+  for (let i = 0; i < headers.length; i++) {
+    const h = lower(headers[i]);
+    if (!h) continue;
+    if (/december\s*31[,\s]*2025/.test(h)) idxStart = i;
+    else if (/march\s*31[,\s]*2026/.test(h)) idxQ1 = i;
+    else if (h === '2025') idxAnnualReturn = i;
+  }
+
+  const dateRe = /^[a-z]+\s+\d{1,2}(st|nd|rd|th)?[,\s]+\d{4}$/i;
+  for (let i = headers.length - 1; i >= 0; i--) {
+    const h = norm(headers[i]);
+    if (dateRe.test(h) && i > idxQ1) {
+      idxCurrent = i;
+      currentLabel = h;
+      break;
+    }
+  }
+
+  // Collect ALL $Flows columns to the right of the Dec 31 2025 column (these accumulate for YTD)
+  const flowCols = [];
+  for (let i = 0; i < headers.length; i++) {
+    const h = lower(headers[i]);
+    if (/^\s*\$\s*flows?\s*$/.test(h) && i > idxStart) {
+      flowCols.push(i);
+    }
+    if (h === 'ytd') {
+      if (i > idxQ1 && i < idxCurrent && idxQ1YTD < 0) idxQ1YTD = i;
+      else if (i > idxCurrent) idxCurrentYTD = i;
+    }
+  }
+
+  if (idxStart < 0) throw new Error('Control sheet: couldn\'t find "December 31, 2025" column.');
+  if (idxCurrent < 0) throw new Error('Control sheet: couldn\'t find a current-period date column.');
+
+  // Asset-class heuristic. "Foundation" alone is NOT a Charity marker
+  // (many managed accounts have "Foundation" in the name); requires explicit DAF/CRT/donor-advised/charitable signals.
+  const inferClass = (name) => {
+    const n = name.toLowerCase();
+    if (/spacex|eventide.*private|private\s+equity|venture/.test(n)) return 'Private';
+    if (/\b(daf|crt)\b|charitable\s+(remainder|trust|gift)|donor[-\s]advised|christian\s+foundation|family\s+foundation\s+\(daf\)/.test(n)) return 'Charity';
+    if (/\b(lp|partnership|hedge|reit|real\s+estate|oil\s*&?\s*gas|energy\s+lp)\b/.test(n) && !/private/.test(n)) return 'Alternatives';
+    return 'Public Equities';
+  };
+
+  const skipRe = /^(statement values|totals?\b|net gain|percent return|contributions?|withdrawals?|net cont|remaining|us energy\b|wires from|cash on cash|total cash|cumulative|%\s*cash|invested capital|eventide direct wire|new way of|signatry|decendants? trust)/i;
+
+  const investments = [];
+  let stop = false;
+  for (let r = 1; r < aoa.length && !stop; r++) {
+    const row = aoa[r] || [];
+    const name = norm(row[0]);
+    if (!name) continue;
+    if (skipRe.test(name)) {
+      if (/^totals?/i.test(name)) stop = true;
+      continue;
+    }
+    const num = (v) => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = parseFloat(String(v).replace(/[$,\s%]/g,''));
+      return isFinite(n) ? n : null;
+    };
+    const startVal = num(row[idxStart]);
+    const currentVal = num(row[idxCurrent]);
+    if (startVal === null && currentVal === null) continue;
+    const q1Val = idxQ1 >= 0 ? num(row[idxQ1]) : null;
+    // Sum ALL flow columns after Dec 31, 2025 for YTD inflows
+    let ytdInflows = 0;
+    let q1Inflows = 0;
+    flowCols.forEach(fi => {
+      const v = num(row[fi]);
+      if (v !== null) {
+        ytdInflows += v;
+        if (idxQ1 < 0 || fi <= idxQ1) q1Inflows += v;
+      }
+    });
+    const q1Flow = q1Inflows;
+    const annualRet = idxAnnualReturn >= 0 ? num(row[idxAnnualReturn]) : null;
+    const q1YTD = idxQ1YTD >= 0 ? num(row[idxQ1YTD]) : null;
+
+    const inv = {
+      name: maskAccountNumbers(name),
+      assetClass: inferClass(name),
+      costBasis: startVal || 0,
+      currentValue: currentVal || startVal || 0,
+      netInflows: ytdInflows
+    };
+    if (annualRet !== null) inv.priorPeriodReturnPct = annualRet * 100;
+    if (q1Val !== null) inv.q1RefValue = q1Val;
+    if (q1YTD !== null) inv.q1RefReturnPct = q1YTD * 100;
+    if (q1Flow !== null && q1Flow !== 0) inv.q1RefInflows = q1Flow;
+    investments.push(inv);
+  }
+  if (!investments.length) throw new Error('No account rows found in the control sheet.');
+
+  QIR_DATA.investments = investments;
+  if (currentLabel) {
+    QIR_DATA.asOfDate = currentLabel;
+    QIR_DATA.quarter = 'YTD through ' + currentLabel;
+  }
+  renderAll();
+  setStatus('✓ Imported ' + investments.length + ' accounts from Pyle Control Sheet (' + currentLabel + ')', 'ok');
 }
 
 /* ── Import an Addepar CSV — partial fill (currentValue + assetClass only) ── */
