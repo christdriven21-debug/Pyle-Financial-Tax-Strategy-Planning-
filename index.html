@@ -2543,6 +2543,12 @@
   .bs-row select:focus { border-color: var(--gold); outline: none; background: white; }
   .bs-row .bs-delete { background: transparent; border: 1px solid rgba(139,26,26,0.3); color: var(--crimson); cursor: pointer; padding: 4px 6px; border-radius: 3px; font-size: 13px; line-height: 1; transition: all 0.15s; }
   .bs-row .bs-delete:hover { background: var(--crimson); color: white; }
+  /* Cost-basis subtext shown below the row when basis is set (from CSV
+     import or manually entered). Displays unrealized gain/loss + %. */
+  .bs-basis-sub { padding: 2px 8px 6px; font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .bs-basis-sub .gain { color: var(--success); font-weight: 600; }
+  .bs-basis-sub .loss { color: var(--crimson); font-weight: 600; }
+  .bs-row-wrap { display: flex; flex-direction: column; gap: 0; }
   .bs-divider { height: 1px; background: var(--gold); margin: 14px 0; opacity: 0.4; }
   .bs-empty { padding: 8px; text-align: center; color: var(--muted); font-size: 11px; font-style: italic; }
   .bs-add { margin-top: 4px; }
@@ -7945,9 +7951,41 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
   const dataTextarea = document.getElementById('balance-sheet-data');
   if (!dataTextarea) return;  // page may not have the section (shouldn't happen)
 
+  // Render / refresh the cost-basis subtext element under a row.
+  // Reads basis from row.dataset.basis (set from CSV import or load).
+  // Reads current FMV from the value input (so gain/loss updates live).
+  function refreshBasisSub(wrap, row) {
+    const existing = wrap.querySelector(':scope > .bs-basis-sub');
+    const basis = parseFloat(row.dataset.basis || '0') || 0;
+    if (basis <= 0) { if (existing) existing.remove(); return; }
+    const value = parseMoney(row.querySelector('[data-bs="value"]')?.value || '0');
+    const gain = value - basis;
+    const gainPct = basis > 0 ? (gain / basis) * 100 : 0;
+    const sign = gain >= 0 ? '+' : '';
+    const cls = gain >= 0 ? 'gain' : 'loss';
+    const verb = gain >= 0 ? 'Unrealized gain' : 'Unrealized loss';
+    const html = `Cost basis ${fmtMoney(basis)} · <span class="${cls}">${verb} ${sign}${fmtMoney(Math.round(gain))} (${sign}${gainPct.toFixed(1)}%)</span>`;
+    if (existing) {
+      existing.innerHTML = html;
+    } else {
+      const sub = document.createElement('div');
+      sub.className = 'bs-basis-sub';
+      sub.innerHTML = html;
+      wrap.appendChild(sub);
+    }
+  }
+
   function buildRow(section, item) {
     const config = SECTIONS[section];
+    // Wrap row + optional basis subtext together so they delete as a unit
+    // and so CSS can place the subtext flush beneath the row.
+    const wrap = document.createElement('div');
+    wrap.className = 'bs-row-wrap';
     const row = document.createElement('div');
+    // Persist cost basis on the row's dataset so serialize/deserialize
+    // round-trips cleanly and the user's manual value edits can trigger
+    // a live gain/loss recomputation without losing the basis figure.
+    if (item.basis && item.basis > 0) row.dataset.basis = String(Math.round(item.basis));
     let classMod = '';
     if (config.extraField === 'mortgage') classMod = ' bs-row-realestate';
     else if (config.investment)            classMod = ' bs-row-investment';
@@ -8001,14 +8039,19 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
       `;
     }
     row.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => {
-      // Re-format money on blur, recompute totals on every input
+      // Re-format money on blur, recompute totals on every input.
+      // Also refresh cost-basis gain/loss line if basis is set on this row.
       recomputeAll();
+      if (row.dataset.basis) refreshBasisSub(wrap, row);
     }));
     row.querySelector('.bs-delete').addEventListener('click', () => {
-      row.remove();
+      // Remove the entire wrap (row + basis subtext) as one unit
+      wrap.remove();
       recomputeAll();
     });
-    return row;
+    wrap.appendChild(row);
+    if (row.dataset.basis) refreshBasisSub(wrap, row);
+    return wrap;
   }
 
   function getSectionTotal(section) {
@@ -8127,6 +8170,9 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
         const sct = r.querySelector('[data-bs="sector"]');
         if (cls) item.assetClass = cls.value || '';
         if (sct) item.sector     = sct.value || '';
+        // Cost basis (from CSV import or manual; persists on row.dataset)
+        const basis = parseFloat(r.dataset.basis || '0') || 0;
+        if (basis > 0) item.basis = basis;
         return item;
       }).filter(i => i.label || i.value > 0);
     });
@@ -24669,16 +24715,17 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       }
 
       const COL = {
-        name:        colIdx('Account Name','Account Description','Description','Name'),
-        type:        colIdx('Account Type','Type','Category','Asset Category','Account Category'),
-        owner:       colIdx('Owner','Account Owner','Ownership'),
-        institution: colIdx('Institution','Custodian','Bank'),
-        value:       colIdx('Current Value','Market Value','Balance','Value','Amount','Account Value','Current Balance'),
-        costBasis:   colIdx('Cost Basis','Basis','Tax Basis'),
-        assetClass:  colIdx('Asset Class','Asset Allocation','Class'),
-        taxStatus:   colIdx('Tax Status','Tax Treatment','Tax Type'),
-        isLiability: colIdx('Liability','Is Liability'),
-        rate:        colIdx('Interest Rate','Rate','APR'),
+        name:        colIdx('Account Name','Account Description','Description','Name','Account','Holding Name','Position Description','Asset Name'),
+        type:        colIdx('Account Type','Type','Category','Asset Category','Account Category','Account Subtype','Subtype','Tax Type'),
+        owner:       colIdx('Owner','Account Owner','Ownership','Registration','Account Owner Name'),
+        institution: colIdx('Institution','Custodian','Bank','Financial Institution','Provider','Broker','Account Source'),
+        value:       colIdx('Current Value','Market Value','Balance','Value','Amount','Account Value','Current Balance','Total Value','FMV','Fair Market Value','As-of Value','Market Price','Total'),
+        costBasis:   colIdx('Cost Basis','Basis','Tax Basis','Adjusted Cost Basis','Original Cost','Total Cost','Purchase Price','Acquisition Cost','Adjusted Basis'),
+        assetClass:  colIdx('Asset Class','Asset Allocation','Class','Investment Type','Asset Type','Security Type'),
+        taxStatus:   colIdx('Tax Status','Tax Treatment','Tax Type','Tax-Deferred','Qualified'),
+        isLiability: colIdx('Liability','Is Liability','Account is Liability'),
+        rate:        colIdx('Interest Rate','Rate','APR','Yield'),
+        asOf:        colIdx('As Of','As of Date','As-of Date','Valuation Date','Date','Last Updated'),
       };
 
       if (COL.name < 0 || COL.value < 0) {
@@ -24756,6 +24803,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
         const inst = COL.institution >= 0 ? cells[COL.institution] : '';
         const valueRaw = cells[COL.value] || '';
         const value = parseMoneyCell(valueRaw);
+        const basis = COL.costBasis >= 0 ? parseMoneyCell(cells[COL.costBasis]) : 0;
         const acClass = COL.assetClass >= 0 ? cells[COL.assetClass] : '';
         const taxStat = COL.taxStatus >= 0 ? cells[COL.taxStatus] : '';
         const explicitLiability = COL.isLiability >= 0 ? /\b(yes|true|1|liab)\b/i.test(cells[COL.isLiability]) : false;
@@ -24825,6 +24873,7 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
           value: Math.round(value),
           assetClass: finalAssetClass,
           sector: '',
+          basis: basis > 0 ? Math.round(basis) : undefined,
         });
         assetsAdded++;
       }
