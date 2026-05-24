@@ -66,6 +66,40 @@ Quarter-over-quarter history = the list of files in each client's folder.
 | `currentPriceFootnote` | | Adds a `*` and footnote under the card |
 | `footer` | | Free-text footnote at bottom of card |
 | `benchmark` | | `"above"` / `"inline"` / `"below"` — auto-derived from return if omitted |
+| `benchmarkIndexes` | | Array of index keys to compare this account against — e.g. `["sp500", "agg"]`. See **Index Comparisons** below. |
+
+### `periodReturns` (top-level — index benchmark library)
+Enter once per quarter at the top of the data object. Each value is the
+total-return % for the current period (e.g. YTD '26). Leave any key as
+`null` to skip rendering that index entirely.
+
+```js
+periodReturns: {
+  sp500:     8.42,    // S&P 500 TR
+  r1000:     7.95,    // Russell 1000 TR
+  r2000:     3.20,    // Russell 2000 TR
+  agg:       1.10,    // Bloomberg US Aggregate Bond
+  blend6040: 5.61,    // 60/40 Blended (S&P 500 / AGG)
+}
+```
+
+For each account that opts in via `benchmarkIndexes`, the report shows:
+
+```
+📊 Index Comparisons
+vs. S&P 500       8.42%   →   Δ +209 bps ✓
+vs. AGG           1.10%   →   Δ +784 bps ✓
+```
+
+A compliance-friendly source citation auto-renders in the footer
+("Benchmark returns: S&P 500 TR per S&P Dow Jones Indices; …"). Toggle
+off via `benchmarkCiteSources: false` at the top of `QIR_DATA`.
+
+**Sources** (advisor cites these — typed in once per quarter):
+- S&P 500 TR — S&P Dow Jones Indices
+- Russell 1000 / 2000 TR — FTSE Russell
+- Bloomberg US Aggregate — Bloomberg
+- 60/40 Blended — S&P + Bloomberg, weighted
 
 ### `taxCallout` (opt-in)
 Generic callout box. Set `enabled: true` to show. `items[]` is a list of

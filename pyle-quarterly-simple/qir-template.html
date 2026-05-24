@@ -83,6 +83,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .f-above{background:rgba(22,169,122,.12);color:var(--green);border:1px solid rgba(22,169,122,.25)}
 .f-inline{background:rgba(217,119,6,.1);color:var(--yellow);border:1px solid rgba(217,119,6,.25)}
 .f-below{background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.25)}
+.bcmp-strip{margin-top:10px;padding:8px 10px;background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.18);border-radius:6px;font-size:.78rem}
+.bcmp-strip .bcmp-head{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--blue);margin-bottom:4px}
+.bcmp-strip .bcmp-row{display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;gap:8px}
+.bcmp-strip .bcmp-name{color:var(--text);font-weight:500}
+.bcmp-strip .bcmp-vals{font-family:'SF Mono','Menlo',monospace;font-size:.74rem;color:var(--text)}
+.bcmp-strip .bcmp-vals .gain{color:var(--green);font-weight:700}
+.bcmp-strip .bcmp-vals .loss{color:var(--red);font-weight:700}
+.footer-bench-cite{margin-top:6px;padding:6px 12px;font-size:.68rem;color:var(--muted);font-style:italic;text-align:center;line-height:1.5;border-top:1px dashed var(--border)}
 
 /* Header right-stack: holds the asset-class badge and (in builder) the include/exclude toggle */
 .inv-head-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
@@ -204,6 +212,19 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
    The values below are PLACEHOLDER / DEMO data. Replace with real
    client values when creating each quarter's file.
    ═══════════════════════════════════════════════════════════════════════ */
+
+/* Index-benchmark library — must match the builder's INDEX_LIBRARY.
+   Each account opts in via benchmarkIndexes[]; period returns are
+   entered manually in QIR_DATA.periodReturns (one number per index per
+   quarter, from the source authority the firm prefers to cite). */
+const INDEX_LIBRARY = [
+  { key: 'sp500',     label: 'S&P 500 TR',                shortLabel: 'S&P 500',       source: 'S&P Dow Jones Indices' },
+  { key: 'r1000',     label: 'Russell 1000 TR',            shortLabel: 'Russell 1000',  source: 'FTSE Russell' },
+  { key: 'r2000',     label: 'Russell 2000 TR',            shortLabel: 'Russell 2000',  source: 'FTSE Russell' },
+  { key: 'agg',       label: 'Bloomberg US Aggregate Bond',  shortLabel: 'AGG',         source: 'Bloomberg' },
+  { key: 'blend6040', label: '60/40 Blended (S&P 500 / AGG)', shortLabel: '60/40 Blend', source: 'S&P + Bloomberg, blended' },
+];
+
 const QIR_DATA = {
   // ── Header / cover ───────────────────────────────────────────────────
   client:     "Sample Client",
@@ -211,6 +232,10 @@ const QIR_DATA = {
   asOfDate:   "March 31, 2026",
   currency:   "USD",
   firmFooter: "Private & Confidential",
+  // Period returns for index comparisons — null = not entered.
+  // Per-account opt-in via investments[i].benchmarkIndexes = ['sp500', ...]
+  periodReturns: { sp500: null, r1000: null, r2000: null, agg: null, blend6040: null },
+  benchmarkCiteSources: true,
 
   // ── Investments — list as many as you need (typically 1–8) ───────────
   // assetClass options: "Private" | "Public Equities" | "Public" | "Alternatives"
@@ -687,6 +712,35 @@ function renderInvestments(d) {
     <div class="inv-grid">${cards}</div>`;
 }
 
+/* Index-comparison strip — renders below the metrics on each account
+   for every index the account has opted into AND for which a period
+   return is set in QIR_DATA.periodReturns. Shows index return, delta in
+   basis points (1% = 100 bps), and a ✓/✗ icon. */
+function renderBenchmarkComparisons(inv, d) {
+  if (!inv.benchmarkIndexes || !inv.benchmarkIndexes.length) return '';
+  if (!d.periodReturns) return '';
+  const accountRet = investmentReturnPct(inv);
+  const rows = [];
+  for (const key of inv.benchmarkIndexes) {
+    const idxDef = INDEX_LIBRARY.find(x => x.key === key);
+    if (!idxDef) continue;
+    const idxRet = d.periodReturns[key];
+    if (idxRet === null || idxRet === undefined || isNaN(idxRet)) continue;
+    const deltaBps = Math.round((accountRet - idxRet) * 100);
+    const sign = deltaBps >= 0 ? '+' : '';
+    const cls = deltaBps >= 0 ? 'gain' : 'loss';
+    const icon = deltaBps >= 0 ? '✓' : '✗';
+    rows.push(
+      '<div class="bcmp-row">' +
+        '<span class="bcmp-name">vs. ' + idxDef.shortLabel + '</span>' +
+        '<span class="bcmp-vals">' + fmt.pct(idxRet) + '  →  <span class="' + cls + '">Δ ' + sign + deltaBps + ' bps ' + icon + '</span></span>' +
+      '</div>'
+    );
+  }
+  if (!rows.length) return '';
+  return '<div class="bcmp-strip"><div class="bcmp-head">📊 Index Comparisons</div>' + rows.join('') + '</div>';
+}
+
 function renderInvestmentCard(inv, d, idx) {
   const cm = classMeta(inv.assetClass);
   const bench = benchmarkOf(inv);
@@ -814,6 +868,7 @@ function renderInvestmentCard(inv, d, idx) {
         if (typeof inv.q1RefInflows === 'number' && inv.q1RefInflows > 0) parts.push('+' + fmt.money(inv.q1RefInflows) + ' inflows');
         return '<div class="q1-ref"><span class="q1-ref-label">' + refLabel + (refDate?' ('+refDate+')':'') + '</span>: ' + parts.join(' <span class="q1-ref-sep">·</span> ') + '</div>';
       })() : ''}
+      ${renderBenchmarkComparisons(inv, d)}
       ${benchChip}
     </div>`;
 }
@@ -1192,10 +1247,27 @@ function renderUSEnergyMultiFund(t, d, mount) {
 
 /* ─── Section: Footer ──────────────────────────────────────────────── */
 function renderFooter(d) {
+  // Benchmark sources citation — only renders when periodReturns has values
+  // AND at least one account opted into a comparison. Compliance-friendly.
+  let benchSources = '';
+  if (d.benchmarkCiteSources !== false && d.periodReturns) {
+    const usedKeys = new Set();
+    (d.investments || []).forEach(inv => {
+      (inv.benchmarkIndexes || []).forEach(k => {
+        if (d.periodReturns[k] !== null && d.periodReturns[k] !== undefined) usedKeys.add(k);
+      });
+    });
+    if (usedKeys.size) {
+      const cites = INDEX_LIBRARY.filter(ix => usedKeys.has(ix.key))
+        .map(ix => `${ix.label} per ${ix.source}`).join('; ');
+      benchSources = `<div class="footer-bench-cite">Benchmark returns: ${cites}. Period: ${d.asOfDate}. Past performance does not guarantee future results.</div>`;
+    }
+  }
   document.getElementById('footer-mount').innerHTML = `
     <div class="footer">
       Quarterly Investment Review · ${d.quarter} · As of ${d.asOfDate} · ${d.firmFooter} · Generated by Pyle Quarterly Simple
-    </div>`;
+    </div>
+    ${benchSources}`;
 }
 
 
