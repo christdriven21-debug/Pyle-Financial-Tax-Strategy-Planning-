@@ -811,6 +811,22 @@ function benchmarkOf(inv) {
   return "inline";
 }
 
+/* True if the report actually contains US Energy data:
+   - usEnergyTracking.funds[] populated (from 🛢 Import US Energy), OR
+   - usEnergyTracking.rows[] has any non-zero values, OR
+   - any investment named "US Energy" (name or subtitle match).
+   Used to suppress the US Energy tax callout AND tracking section when
+   the report doesn't include US Energy involvement. */
+function hasUSEnergyData(d) {
+  const t = d && d.usEnergyTracking;
+  if (t && Array.isArray(t.funds) && t.funds.length > 0) return true;
+  if (t && Array.isArray(t.rows) && t.rows.some(r =>
+        Array.isArray(r.values) && r.values.some(v => Number(v) !== 0))) return true;
+  const invs = (d && d.investments) || [];
+  if (invs.some(i => /\bus\s*energy\b/i.test(i.name || '') || /\bus\s*energy\b/i.test(i.subtitle || ''))) return true;
+  return false;
+}
+
 
 /* ─── Section: Header ──────────────────────────────────────────────── */
 function renderHeader(d) {
@@ -1138,6 +1154,12 @@ function renderInvestmentCard(inv, d, idx) {
 function renderCallout(d) {
   if (!d.taxCallout || !d.taxCallout.enabled) return;
   const c = d.taxCallout;
+  // Suppress US-Energy-themed callouts when no US Energy data is present.
+  if (/us\s*energy/i.test(String(c.title || '')) && !hasUSEnergyData(d)) {
+    const m = document.getElementById('callout-mount');
+    if (m) m.innerHTML = '';
+    return;
+  }
   const colorMap = { green:'var(--green)', yellow:'var(--yellow)', red:'var(--red)', purple:'var(--purple)' };
   let bodyHtml;
 
@@ -1429,10 +1451,14 @@ function renderLifeInsurance(d) {
      • Multi-period table (legacy) — single LP tracked over time, rows are
        metrics and columns are periods. Used by the seed/demo data. */
 function renderUSEnergyTracking(d) {
-  if (!d.usEnergyTracking || !d.usEnergyTracking.enabled) return;
-  const t = d.usEnergyTracking;
   const mount = document.getElementById('usenergy-tracking-mount');
   if (!mount) return;
+  // Clear any prior render so the section disappears when suppressed
+  mount.innerHTML = '';
+  if (!d.usEnergyTracking || !d.usEnergyTracking.enabled) return;
+  // Hard guard: no US Energy investment + no funds[] + no non-zero rows → suppress
+  if (!hasUSEnergyData(d)) return;
+  const t = d.usEnergyTracking;
 
   // Multi-fund mode takes precedence when populated by the importer.
   if (Array.isArray(t.funds) && t.funds.length) {
@@ -1547,6 +1573,23 @@ function buildDonut(containerId, slices, cx, cy, R, r, legendItems, VW, VH){
   let startAngle = -Math.PI/2;
   slices.forEach(sl => {
     const sweep = (sl.value/total)*2*Math.PI;
+    // FULL-CIRCLE GUARD — when a slice covers ≥360° (single account = 100%,
+    // or all other slices are zero), the arc-path start/end coords collapse
+    // to the same point and SVG draws nothing. Render as a stroked <circle>
+    // and put the percentage label dead-center inside the donut hole.
+    if (sweep >= Math.PI * 2 - 0.0001) {
+      const midR = (R + r) / 2;
+      const ringWidth = R - r;
+      parts.push(
+        `<circle cx="${cx}" cy="${cy}" r="${midR}" fill="none" stroke="${sl.color}" stroke-width="${ringWidth}"/>`
+      );
+      const pct = Math.round(sl.value/total*100);
+      parts.push(
+        `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#fff" stroke="${sl.color}" stroke-width="2.5" paint-order="stroke">${pct}%</text>`
+      );
+      startAngle += sweep;
+      return;
+    }
     const endAngle = startAngle + sweep;
     const x1=cx+R*Math.cos(startAngle), y1=cy+R*Math.sin(startAngle);
     const x2=cx+R*Math.cos(endAngle),   y2=cy+R*Math.sin(endAngle);
@@ -1593,7 +1636,7 @@ function renderAll() {
   renderCharts(QIR_DATA);
   renderInvestments(QIR_DATA);
   // Clear sections that may have been populated previously
-  ['callout-mount','performance-mount','life-mount'].forEach(id => {
+  ['callout-mount','performance-mount','life-mount','usenergy-tracking-mount'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = '';
   });
@@ -1868,35 +1911,11 @@ const CLEAN_DATA = JSON.stringify({
   taxCallout:   { enabled: false },
   performance:  { enabled: false, showReturnChart: false, economicBenefit: { enabled: false } },
   lifeInsurance:{ enabled: false },
-  usEnergyTracking: {
-    enabled: true,
-    title: "Energy LP — Investment Tracking ({{client}})",
-    subtitle: "Multi-period detail — sample placeholder data · replace with actual values or load from cloud",
-    periods: ["2022", "2023", "2024", "2025", "Q1 '26", "Apr-May '26"],
-    rows: [
-      { label: "Wires from {{client}}",
-        values: [1000000, 0, 0, 0, 0, 0] },
-      { label: "LP Principal Invested",
-        values: [1000000, 500000, 200000, 0, 0, 0] },
-      { label: "Withdrawn from Equity Portfolio",
-        values: [0, 500000, 200000, 0, 0, 0] },
-      { label: "Cash Tax Benefit @ 37%",
-        values: [370000, 185000, 74000, 0, 0, 0],
-        note: "Benefit not reinvested" },
-      { label: "Cash on Cash Return",
-        values: [0, 100000, 250000, 400000, 50000, 60000],
-        emphasis: true },
-      { label: "Total Cash Benefit",
-        values: [370000, 285000, 324000, 400000, 50000, 60000],
-        bold: true },
-      { label: "Cumulative Return on Invested Capital",
-        values: [0.37, 0.65, 0.95, 1.55, null, null],
-        format: 'pct' },
-      { label: "LP Invested Capital Balance",
-        values: [630000, 945000, 871000, 471000, 421000, 361000] }
-    ],
-    footnote: "Placeholder values — replace with the client's actual LP tracking data via the QIR data block or 📁 Open from Cloud."
-  }
+  // US Energy section starts DISABLED in the clean state — only flips on
+  // when the advisor imports a US Energy statement (🛢 Import US Energy)
+  // or manually adds a US Energy investment. Prevents the box from
+  // appearing in unrelated client reports after a Clear Data.
+  usEnergyTracking: { enabled: false }
 });
 
 /* Reset to pristine new-client state. Confirms before wiping. Period labels
