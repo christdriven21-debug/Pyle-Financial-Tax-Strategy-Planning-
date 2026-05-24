@@ -521,6 +521,21 @@ function benchmarkOf(inv) {
   return "inline";
 }
 
+/* Detect whether this report actually contains US Energy data.
+   True if usEnergyTracking.funds[] is populated, OR rows[] has any
+   non-zero values, OR any investment is named US Energy. Used to
+   suppress both the US Energy tax callout AND the US Energy tracking
+   section when the report doesn't include any US Energy involvement. */
+function hasUSEnergyData(d) {
+  const t = d && d.usEnergyTracking;
+  if (t && Array.isArray(t.funds) && t.funds.length > 0) return true;
+  if (t && Array.isArray(t.rows) && t.rows.some(r =>
+        Array.isArray(r.values) && r.values.some(v => Number(v) !== 0))) return true;
+  const invs = (d && d.investments) || [];
+  if (invs.some(i => /\bus\s*energy\b/i.test(i.name || '') || /\bus\s*energy\b/i.test(i.subtitle || ''))) return true;
+  return false;
+}
+
 
 /* ─── Section: Header ──────────────────────────────────────────────── */
 function renderHeader(d) {
@@ -878,6 +893,14 @@ function renderInvestmentCard(inv, d, idx) {
 function renderCallout(d) {
   if (!d.taxCallout || !d.taxCallout.enabled) return;
   const c = d.taxCallout;
+  // Suppress US-Energy-themed callouts when no US Energy data is present
+  // (advisor cleared data, or this client has no US Energy holdings).
+  // Heuristic: title contains "US Energy" → it's the US Energy callout.
+  if (/us\s*energy/i.test(String(c.title || '')) && !hasUSEnergyData(d)) {
+    const m = document.getElementById('callout-mount');
+    if (m) m.innerHTML = '';
+    return;
+  }
   const colorMap = { green:'var(--green)', yellow:'var(--yellow)', red:'var(--red)', purple:'var(--purple)' };
   let bodyHtml;
 
@@ -1162,10 +1185,18 @@ function renderLifeInsurance(d) {
 /* ─── Section: US Energy — Investment Tracking ───────────────────────
    Multi-fund table when funds[] is populated, multi-period rows otherwise. */
 function renderUSEnergyTracking(d) {
-  if (!d.usEnergyTracking || !d.usEnergyTracking.enabled) return;
-  const t = d.usEnergyTracking;
   const mount = document.getElementById('usenergy-tracking-mount');
   if (!mount) return;
+  // Clear any prior render first — if we bail below the section disappears
+  // instead of lingering from an earlier render pass.
+  mount.innerHTML = '';
+  if (!d.usEnergyTracking || !d.usEnergyTracking.enabled) return;
+  // Hard guard: don't render the US Energy section when the report has no
+  // US Energy data (no funds[], no non-zero row values, no US Energy
+  // investment in holdings). Prevents the seed structure from showing up
+  // in a client report that has nothing to do with US Energy.
+  if (!hasUSEnergyData(d)) return;
+  const t = d.usEnergyTracking;
 
   if (Array.isArray(t.funds) && t.funds.length) {
     renderUSEnergyMultiFund(t, d, mount);
