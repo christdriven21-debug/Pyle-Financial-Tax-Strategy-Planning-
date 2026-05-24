@@ -1313,6 +1313,24 @@ function buildDonut(containerId, slices, cx, cy, R, r, legendItems, VW, VH){
   let startAngle = -Math.PI/2;
   slices.forEach(sl => {
     const sweep = (sl.value/total)*2*Math.PI;
+    // FULL-CIRCLE GUARD — when a slice would cover ≥360° (e.g. single
+    // account = 100%, or all other slices are zero), the arc-path
+    // start and end coordinates collapse to the same point and SVG
+    // draws nothing. Render the ring as a stroked <circle> instead and
+    // put the percentage label dead-center inside the donut hole.
+    if (sweep >= Math.PI * 2 - 0.0001) {
+      const midR = (R + r) / 2;
+      const ringWidth = R - r;
+      parts.push(
+        `<circle cx="${cx}" cy="${cy}" r="${midR}" fill="none" stroke="${sl.color}" stroke-width="${ringWidth}"/>`
+      );
+      const pct = Math.round(sl.value/total*100);
+      parts.push(
+        `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#fff" stroke="${sl.color}" stroke-width="2.5" paint-order="stroke">${pct}%</text>`
+      );
+      startAngle += sweep;
+      return;  // forEach: skip the arc-path renderer for this slice
+    }
     const endAngle = startAngle + sweep;
     const x1=cx+R*Math.cos(startAngle), y1=cy+R*Math.sin(startAngle);
     const x2=cx+R*Math.cos(endAngle),   y2=cy+R*Math.sin(endAngle);
