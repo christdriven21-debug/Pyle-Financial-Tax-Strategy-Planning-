@@ -15053,6 +15053,14 @@ function renderCashFlow(p) {
   const fmt$ = formatMoney;
   const fmt$M = formatMoneyShort;
 
+  // Values referenced from the multi-year-projection IIFE further down.
+  // Defined here at the function scope so the template literal can read them
+  // (previously inflation / rmdStartAge / ssClaimAge were only local to the
+  // computeMultiYearCashFlow helper and triggered ReferenceError on render).
+  const inflation   = d.proj.inflation || 0.03;
+  const rmdStartAge = (d.retirement && d.retirement.rmdStartAge) || 73;
+  const ssClaimAge  = (d.ss && d.ss.claimAge) || 67;
+
   // Income sources
   const bizIncome   = d.biz.income || 0;
   const portfolioYield = ((p.withPlanningProceeds || 0) + (d.client.otherAssets || 0)) * 0.03;
