@@ -7961,10 +7961,15 @@ document.getElementById('btn-new-plan').addEventListener('click', () => {
     const value = parseMoney(row.querySelector('[data-bs="value"]')?.value || '0');
     const gain = value - basis;
     const gainPct = basis > 0 ? (gain / basis) * 100 : 0;
-    const sign = gain >= 0 ? '+' : '';
+    // Use abs() + explicit sign so loss displays as "-$25,000" (accounting
+    // convention) instead of "$-25,000" (which fmtMoney would produce since
+    // it puts the $ before the minus).
+    const sign = gain >= 0 ? '+' : '-';
     const cls = gain >= 0 ? 'gain' : 'loss';
     const verb = gain >= 0 ? 'Unrealized gain' : 'Unrealized loss';
-    const html = `Cost basis ${fmtMoney(basis)} · <span class="${cls}">${verb} ${sign}${fmtMoney(Math.round(gain))} (${sign}${gainPct.toFixed(1)}%)</span>`;
+    const absGain = Math.abs(Math.round(gain));
+    const absPct = Math.abs(gainPct);
+    const html = `Cost basis ${fmtMoney(basis)} · <span class="${cls}">${verb} ${sign}${fmtMoney(absGain)} (${sign}${absPct.toFixed(1)}%)</span>`;
     if (existing) {
       existing.innerHTML = html;
     } else {
