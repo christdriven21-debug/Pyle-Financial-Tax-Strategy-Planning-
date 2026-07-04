@@ -12,6 +12,7 @@
 // technical, with statute citations and specific dollar figures.
 
 import { requireUser } from './_lib/auth.js';
+import { enforceRateLimit } from './_lib/ratelimit.js';
 
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 2048;
@@ -25,6 +26,9 @@ export default async function handler(req, res) {
   // Require authenticated session — meeting prep is advisor-only content.
   const user = await requireUser(req, res);
   if (!user) return;
+
+  // Cap per-user volume (fail-open; see _lib/ratelimit.js).
+  if (await enforceRateLimit(res, user.id, 'meeting-prep', 10, 60)) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

@@ -13,6 +13,7 @@
 //     helper, so unauthenticated callers cannot burn API credits.
 
 import { requireUser } from './_lib/auth.js';
+import { enforceRateLimit } from './_lib/ratelimit.js';
 
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 2048;
@@ -208,6 +209,10 @@ export default async function handler(req, res) {
 
   const user = await requireUser(req, res);
   if (!user) return;
+
+  // Highest-cost endpoint (multi-MB document per call). Daily cap also stops
+  // tight loops. Fail-open; see _lib/ratelimit.js.
+  if (await enforceRateLimit(res, user.id, 'extract-tax-doc', 30, 86400)) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

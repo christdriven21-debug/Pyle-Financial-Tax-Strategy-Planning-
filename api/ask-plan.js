@@ -19,6 +19,7 @@
 // API terms (2025) commit to no training on API inputs by default.
 
 import { requireUser } from './_lib/auth.js';
+import { enforceRateLimit } from './_lib/ratelimit.js';
 
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 1024;
@@ -33,6 +34,10 @@ export default async function handler(req, res) {
   // and unauthorized access to plan data through the AI proxy.
   const user = await requireUser(req, res);
   if (!user) return;
+
+  // Cap per-user volume so a scripted loop can't burn Anthropic credits.
+  // Fail-open: inert until SUPABASE_SERVICE_ROLE_KEY is set + add_rate_limits.sql run.
+  if (await enforceRateLimit(res, user.id, 'ask-plan', 20, 60)) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -50,7 +55,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing "planContext" field (run the plan first)' });
   }
 
-  const isAdvisor = mode === 'advisor';
+  // Advisor mode (statute citations, audit-risk detail) must be gated on the
+  // SERVER by verified team status — never on the client-supplied `mode` field,
+  // or a client could self-elevate to advisor-mode responses. A non-team user
+  // requesting advisor mode is silently downgraded to client mode.
+  // NOTE: domain check is a pragmatic interim; the stronger gate is a
+  // team_members lookup (see supabase/security_hardening_2.sql). Tracked as F6/P4.
+  const TEAM_DOMAIN = (process.env.TEAM_EMAIL_DOMAIN || 'pfs4u.com').toLowerCase();
+  const emailDomain = String(user.email || '').toLowerCase().split('@')[1] || '';
+  const userIsTeam = emailDomain === TEAM_DOMAIN;
+  const isAdvisor = mode === 'advisor' && userIsTeam;
   const systemPrompt = `You are the AI Plan Assistant inside the Pyle Financial Services wealth-planning platform. You answer questions about a specific client's financial plan using the structured plan data provided below.
 
 HARD RULES:

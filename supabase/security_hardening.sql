@@ -64,3 +64,28 @@ create policy "plan_documents_upload"
     )
   );
 
+-- ---------- RE-LOCK public.plans (defense against migration order) ----------
+--
+-- The base schema.sql ships permissive anon_* policies (using(true)) as an MVP
+-- convenience. They are dropped in add_auth.sql — but ONLY there. If an operator
+-- runs schema.sql and then a feature migration WITHOUT add_auth.sql, the table
+-- keeps anonymous full CRUD and the public anon key (shipped in config.js) can
+-- dump or tamper with every client's plan.
+--
+-- Because this hardening file is intended to run LAST, re-drop the anon policies
+-- here unconditionally so a wrong/partial run order can never leave them live.
+-- If add_auth.sql has not run, RLS-enabled-with-no-policies denies all access
+-- (fail closed) — the correct posture for PII until auth policies are applied.
+
+alter table public.plans enable row level security;
+
+drop policy if exists "anon_read"   on public.plans;
+drop policy if exists "anon_insert" on public.plans;
+drop policy if exists "anon_update" on public.plans;
+drop policy if exists "anon_delete" on public.plans;
+
+-- Verify (should return zero rows). If any 'anon_%' policy on public.plans
+-- survives, the table is still exposed to the anon key:
+--   select policyname from pg_policies
+--   where schemaname = 'public' and tablename = 'plans' and policyname like 'anon_%';
+

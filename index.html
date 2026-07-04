@@ -26601,13 +26601,20 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     }
 
     reviewList.innerHTML = data.map(r => {
-      const when = new Date(r.created_at).toLocaleString();
-      const comment = (r.comment || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const when = esc(new Date(r.created_at).toLocaleString());
+      // These fields are DB-sourced and reach innerHTML: reviewer_email is a
+      // user-controlled account email; status is enum but must be treated as
+      // untrusted at render. Escape text; whitelist status before using it as a
+      // CSS class (an unknown value must not become raw markup).
+      const comment = esc(r.comment || '');
+      const email = esc(r.reviewer_email || '');
+      const statusClass = STATUS_LABELS[r.status] ? r.status : '';
+      const statusLabel = esc(STATUS_LABELS[r.status] || r.status || '');
       return `
-        <div class="review-item ${r.status}">
+        <div class="review-item ${statusClass}">
           <div class="meta">
-            ${r.reviewer_email} · ${when}
-            <span class="status-pill ${r.status}">${STATUS_LABELS[r.status] || r.status}</span>
+            ${email} · ${when}
+            <span class="status-pill ${statusClass}">${statusLabel}</span>
           </div>
           ${comment ? `<div class="comment">${comment}</div>` : ''}
         </div>
@@ -27723,12 +27730,31 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     // Advisor should verify each against current-month IRS publications.
     // We only bump values that are reliably inflation-indexed.
     if (snap.values) {
+      // Money inputs are comma-formatted at rest (formatAllMoneyInputs), so
+      // parseFloat("15,000,000") === 15. Strip non-numerics before parsing or
+      // the exemption collapses to 0 (≈40% phantom estate tax in the clone).
+      const numeric = (v, fallback) => {
+        const n = parseFloat(String(v ?? '').replace(/[^0-9.-]/g, ''));
+        return Number.isFinite(n) && n !== 0 ? n : fallback;
+      };
       // Federal exemption inflation-adjusts ~2.5%/yr
-      const currentExempt = parseFloat(snap.values['tax-estate-exempt']) || 15_000_000;
+      const currentExempt = numeric(snap.values['tax-estate-exempt'], 15_000_000);
       snap.values['tax-estate-exempt'] = String(Math.round(currentExempt * 1.025 / 10_000) * 10_000);
       // AMT exemption similar
-      const currentAmt = parseFloat(snap.values['tax-amt-exemption']) || 137_000;
+      const currentAmt = numeric(snap.values['tax-amt-exemption'], 137_000);
       snap.values['tax-amt-exemption'] = String(Math.round(currentAmt * 1.025));
+
+      // Advance client ages in step with the year bump (nextYear = currentYear + 1).
+      // Without this the clone runs next year's plan on this year's ages, shifting
+      // RMD onset, life-expectancy horizon, and mortality-priced GRAT/QPRT/SCIN math.
+      const bumpAge = (id) => {
+        const raw = snap.values[id];
+        if (raw === undefined || raw === null || String(raw).trim() === '') return;
+        const a = parseInt(String(raw).replace(/[^0-9-]/g, ''), 10);
+        if (Number.isFinite(a)) snap.values[id] = String(a + 1);
+      };
+      bumpAge('client-primary-age');
+      bumpAge('client-spouse-age');
     }
 
     // Carry forward client_email assignment (team decides if they want

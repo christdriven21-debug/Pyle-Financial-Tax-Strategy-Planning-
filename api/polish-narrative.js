@@ -12,6 +12,7 @@
 // and a ~400 token response. Only triggered by advisor button click.
 
 import { requireUser } from './_lib/auth.js';
+import { enforceRateLimit } from './_lib/ratelimit.js';
 
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 1024;
@@ -25,6 +26,9 @@ export default async function handler(req, res) {
   // Require authenticated session — advisor feature only.
   const user = await requireUser(req, res);
   if (!user) return;
+
+  // Cap per-user volume (fail-open; see _lib/ratelimit.js).
+  if (await enforceRateLimit(res, user.id, 'polish', 20, 60)) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
