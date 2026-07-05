@@ -5679,8 +5679,8 @@
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-hsa" value="0"></div>
       </div>
       <div class="field">
-        <label>RMD Start Age <span class="hint">(73 per SECURE 2.0; 75 for 1960+)</span></label>
-        <input type="number" id="rmd-start-age" value="73" min="70" max="80">
+        <label>RMD Start Age <span class="hint">(SECURE 2.0: 73, or 75 if born 1960+)</span> <span class="hint" id="rmd-start-age-hint"></span></label>
+        <input type="number" id="rmd-start-age" value="73" min="70" max="80" data-auto-derive="1">
       </div>
       <div class="field">
         <label>Primary SS Benefit at FRA <span class="hint">(monthly, from SSA.gov estimate)</span></label>
@@ -6251,6 +6251,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // the auto-derive sets `data-auto-derive="0"` once a manual edit lands so
   // it doesn't keep overwriting their value.
   wireProjYearsAutoDerive();
+  wireRmdAgeAutoDerive();
 });
 
 function wireProjYearsAutoDerive() {
@@ -6294,6 +6295,42 @@ function wireProjYearsAutoDerive() {
   // Expose hook so plan-load / import code can trigger after setting ages
   // programmatically (which doesn't fire input events automatically)
   window.__RECOMPUTE_PROJ_YEARS__ = recomputeHorizon;
+}
+
+// Auto-derive the RMD start age from birth year (SECURE 2.0): 75 for clients
+// born 1960 or later, otherwise 73. The field previously defaulted to a flat
+// 73 for everyone, starting RMD projections two years early for anyone born
+// 1960+ (i.e. every client currently under ~66). Mirrors the proj-years
+// auto-derive: advisor edits set data-auto-derive="0" and are never overwritten.
+function wireRmdAgeAutoDerive() {
+  const primaryEl = document.getElementById('client-primary-age');
+  const yearEl    = document.getElementById('client-year');
+  const rmdEl     = document.getElementById('rmd-start-age');
+  const hintEl    = document.getElementById('rmd-start-age-hint');
+  if (!primaryEl || !rmdEl) return;
+  function recomputeRmdAge() {
+    if (rmdEl.dataset.autoDerive !== '1') return;  // advisor overrode
+    const pa = parseInt(primaryEl.value, 10) || 0;
+    if (pa <= 0) return;  // no age entered — leave default alone
+    const planYear = parseInt(yearEl?.value, 10) || new Date().getFullYear();
+    const birthYear = planYear - pa;
+    const rmdAge = birthYear >= 1960 ? 75 : 73;
+    if (String(rmdAge) !== rmdEl.value) {
+      rmdEl.value = String(rmdAge);
+      rmdEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (hintEl) hintEl.textContent = `— auto-set to ${rmdAge} (born ${birthYear})`;
+  }
+  rmdEl.addEventListener('change', (e) => {
+    if (e.isTrusted) {
+      rmdEl.dataset.autoDerive = '0';
+      if (hintEl) hintEl.textContent = '— manually set; advisor override';
+    }
+  });
+  primaryEl.addEventListener('input', recomputeRmdAge);
+  if (yearEl) yearEl.addEventListener('input', recomputeRmdAge);
+  setTimeout(recomputeRmdAge, 100);
+  window.__RECOMPUTE_RMD_AGE__ = recomputeRmdAge;
 }
 
 /* ---- Mode switching ---- */
@@ -8820,6 +8857,21 @@ function readForm() {
   };
 }
 
+// Remainder passing to heirs from a zeroed-out (Walton) GRAT: assets grow at
+// the actual return r while the trust pays a §7520-priced annuity back to the
+// grantor. The old formula funding×((1+r)^n − (1+h)^n) is NOT the GRAT
+// remainder and overstates the transfer by ~50%. Correct: grow the corpus at r
+// and subtract the future value of the annuity (annuity = funding / PV-annuity
+// factor at the hurdle h, so the GRAT is zeroed out for gift-tax purposes).
+function waltonGratRemainder(funding, r, h, n) {
+  if (!(funding > 0) || !(n > 0)) return 0;
+  const growth  = Math.pow(1 + r, n);
+  const aPV     = h === 0 ? n : (1 - Math.pow(1 + h, -n)) / h;   // PV annuity factor at hurdle
+  const annuity = funding / aPV;                                  // zeroed-out annuity payment
+  const sFV     = r === 0 ? n : (Math.pow(1 + r, n) - 1) / r;     // FV annuity factor at growth
+  return Math.max(0, funding * growth - annuity * sFV);
+}
+
 function computePlan(d) {
   // ──────────────────────────────────────────────────────────────────────
   // §1411 NET INVESTMENT INCOME TAX (NIIT) — "lesser of" precision
@@ -9969,8 +10021,8 @@ function computePlan(d) {
       waltonRollingMultiplier = 1;
   if (d.use.waltonGrat && d.waltonGrat.amount > 0) {
     const t = d.waltonGrat.term;
-    waltonTransfer = d.waltonGrat.amount * Math.max(0,
-      Math.pow(1 + d.waltonGrat.ret, t) - Math.pow(1 + d.waltonGrat.rate7520, t));
+    waltonTransfer = waltonGratRemainder(
+      d.waltonGrat.amount, d.waltonGrat.ret, d.waltonGrat.rate7520, t);
     waltonEstateSaving = waltonTransfer * d.tax.estate;
     // Mortality risk approximation: chance of death during term
     // Rough: 0.5%/yr at 50, 1%/yr at 60, 2%/yr at 70
@@ -17485,12 +17537,26 @@ function renderSolverResult(result) {
 // the `use-<key>` convention, but a handful historically used shorter IDs.
 const STRATEGY_USE_ID = Object.fromEntries(
   [
+    // Irregular ids where the checkbox id does NOT match use-<key>. Without
+    // these, applySolverStack looked up getElementById(undefined) and silently
+    // skipped the strategy, so "Apply This Stack" generated a plan missing
+    // strategies the solver had scored and recommended.
     ['exch1031', 'use-1031'],
+    ['esop1042', 'use-esop-1042'],
+    ['monInstall', 'use-mon-install'],
+    ['waltonGrat', 'use-walton-grat'],
+    ['qsbs1045', 'use-1045'],
+    ['crossPs', 'use-cross-ps'],
+    ['familyLlc', 'use-family-llc'],
+    ['intraLoan', 'use-intra-loan'],
+    ['privateFoundation', 'use-private-foundation'],
   ].concat(
     // Default: use-<key>
     ['dynasty','crat','crut','daf','qoz','ilit','roth','grat','qsbs','qbi','slat','idgt','qprt','clt',
      'dbplan','muni','flp','ing','ceasement',
-     'collar','pvf','exchfund'].map(k => [k, 'use-' + k])
+     'collar','pvf','exchfund',
+     // Phase 2/3/4 strategies whose checkbox id IS use-<key> (were missing entirely):
+     'oilgas','captive','pf','nimcrut','dapt','scin','pplife','hsa','buysell','serp'].map(k => [k, 'use-' + k])
   )
 );
 
@@ -22004,10 +22070,8 @@ function renderWaltonGratLadder(p) {
   const planYear = d.client.year || new Date().getFullYear();
   const primaryAge = d.waltonGrat.age || d.client.primaryAge || 0;
 
-  // Per-cycle expected transfer = funding × (growth - hurdle compounded)
-  // Walton math: heir transfer = amount × max(0, (1+r)^n - (1+§7520)^n)
-  const perCycleTransfer = fundingPerCycle * Math.max(0,
-    Math.pow(1 + expectedRet, term) - Math.pow(1 + rate7520, term));
+  // Per-cycle remainder to heirs from a zeroed-out GRAT (see waltonGratRemainder).
+  const perCycleTransfer = waltonGratRemainder(fundingPerCycle, expectedRet, rate7520, term);
 
   // Mortality risk per cycle
   const ageRiskPerYear = primaryAge < 55 ? 0.005 :
@@ -22611,6 +22675,7 @@ function runMonteCarlo(p, d, opts = {}) {
   const inflation  = d.proj.inflation || 0.03;
   const annualSpend= (d.budget.fixed || 0) + (d.budget.variable || 0) + (d.budget.taxes || 0);
   const ssAnnual   = p.ssAnnualHousehold || 0;
+  const ssClaimAge = (d.ss && d.ss.claimAge) || 67;  // SS is gated by claim age in the loop below
 
   // For tracking percentiles we'll store year-by-year balance across iterations
   const balancesByYear = Array.from({ length: years + 1 }, () => []);
@@ -22625,7 +22690,10 @@ function runMonteCarlo(p, d, opts = {}) {
       bal *= (1 + r);
       const inflMult = Math.pow(1 + inflation, y);
       const spend    = annualSpend * inflMult;
-      const ss       = ssAnnual * inflMult;
+      // Social Security only begins once the primary reaches the claim age.
+      // Crediting it from year 1 (e.g. a 55-yr-old who claims at 67) understates
+      // withdrawals for years and inflates the headline probability of success.
+      const ss       = (primaryAge + y) >= ssClaimAge ? ssAnnual * inflMult : 0;
       bal -= Math.max(0, spend - ss);
       if (bal < 0) {
         bal = 0;
