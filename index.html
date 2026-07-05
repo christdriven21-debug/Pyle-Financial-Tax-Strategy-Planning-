@@ -23949,8 +23949,11 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   let currentId = null;
 
   /* ---- Snapshot form state to a portable JSON object ---- */
-  function snapshotForm() {
-    const ids = [
+  // Fields we have ALWAYS persisted. Kept as an explicit floor so DOM
+  // auto-discovery below can never regress a historically-saved field even if
+  // the markup changes. Discovery adds the rest (strategy-parameter fields that
+  // used to be silently dropped on save/load — the "163 missing fields" bug).
+  const PERSIST_IDS = [
       'plan-type',
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
       'client-primary-age','client-spouse-age','client-primary-retire-year','client-spouse-retire-year',
@@ -23994,24 +23997,71 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'collar-notional','collar-floor-pct','collar-cap-pct','collar-term-months',
       'pvf-notional','pvf-advance-pct','pvf-term-years',
       'exchfund-notional','exchfund-lockup-years'
-    ];
-    const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt',
+  ];
+  const PERSIST_CHECKS = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt',
                     'use-dbplan','use-muni','use-flp','use-ing','use-ceasement',
                     'use-collar','use-pvf','use-exchfund','use-oilgas',
                     'use-esop-1042','use-mon-install','use-captive','use-pf','use-nimcrut','use-walton-grat',
                     'use-dapt','use-1045','use-scin','use-pplife','use-cross-ps','use-hsa',
                     'use-buysell','use-family-llc','use-intra-loan','use-private-foundation','use-serp',
                     'qsbs-attest-ccorp','qsbs-attest-active','qsbs-attest-grossassets','qsbs-attest-original'];
-    const values = {};
-    const checkboxes = {};
-    ids.forEach(id => { const el = document.getElementById(id); if (el) values[id] = el.value; });
-    checks.forEach(id => { const el = document.getElementById(id); if (el) checkboxes[id] = el.checked; });
+
+  // Single source of truth for what save/load/reset touches: the explicit floor
+  // above UNION every persistable control inside the builder form. Excludes
+  // file/email/password/search inputs and anything marked [data-no-persist]
+  // (auth email, import file pickers, logo upload live outside or are excluded).
+  function collectPersistFields() {
+    const valueEls = new Map(), checkEls = new Map();
+    const add = (el) => {
+      if (!el || !el.id) return;
+      const t = (el.type || '').toLowerCase();
+      if (t === 'file' || t === 'email' || t === 'password' || t === 'search' ||
+          t === 'button' || t === 'submit' || t === 'reset') return;
+      if (el.hasAttribute('data-no-persist')) return;
+      if (t === 'checkbox' || t === 'radio') checkEls.set(el.id, el);
+      else valueEls.set(el.id, el);
+    };
+    PERSIST_IDS.forEach(id => add(document.getElementById(id)));
+    PERSIST_CHECKS.forEach(id => add(document.getElementById(id)));
+    const root = document.getElementById('builder-view');
+    if (root) root.querySelectorAll('input, select, textarea').forEach(add);
+    return { valueEls, checkEls };
+  }
+
+  function snapshotForm() {
+    const { valueEls, checkEls } = collectPersistFields();
+    const values = {}, checkboxes = {};
+    valueEls.forEach((el, id) => { values[id] = el.value; });
+    checkEls.forEach((el, id) => { checkboxes[id] = el.checked; });
     return { values, checkboxes, firmLogo: window.__FIRM_LOGO__ || null, schemaVersion: 1 };
+  }
+
+  // Pristine field defaults captured once at boot (before any plan loads) so
+  // hydrateForm can reset every field before applying a snapshot.
+  let __pristineDefaults = null;
+  function capturePristineDefaults() {
+    if (!__pristineDefaults) __pristineDefaults = snapshotForm();
   }
 
   /* ---- Hydrate form from snapshot ---- */
   function hydrateForm(snap) {
     if (!snap) return;
+    // Reset every persistable field to its captured default FIRST. Without this,
+    // fields absent from the incoming snapshot keep the previously-loaded
+    // client's values — loading plan B after plan A silently mixed A's data into
+    // B and a Save then wrote it permanently (cross-client contamination).
+    if (__pristineDefaults) {
+      const { valueEls, checkEls } = collectPersistFields();
+      valueEls.forEach((el, id) => {
+        if (id in __pristineDefaults.values) el.value = __pristineDefaults.values[id];
+      });
+      checkEls.forEach((el, id) => {
+        if ((id in __pristineDefaults.checkboxes) && el.checked !== __pristineDefaults.checkboxes[id]) {
+          el.checked = __pristineDefaults.checkboxes[id];
+          el.dispatchEvent(new Event('change'));  // fire so dependent strategy blocks hide/show
+        }
+      });
+    }
     Object.entries(snap.values || {}).forEach(([k, v]) => {
       const el = document.getElementById(k); if (el) el.value = v;
     });
@@ -27856,6 +27906,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
 
   /* ---- Boot: auth first, then load-by-URL or client auto-load ---- */
   async function boot() {
+    // Capture pristine field defaults before any plan loads, so hydrateForm's
+    // reset-before-hydrate has a clean baseline to fall back to.
+    capturePristineDefaults();
     await refreshAuthState();
 
     const params = new URLSearchParams(location.search);
