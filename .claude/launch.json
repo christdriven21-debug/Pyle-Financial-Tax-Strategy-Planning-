@@ -4,7 +4,13 @@
     {
       "name": "pyle-plan-builder",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "5173"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5173",
+        "--directory",
+        "/Users/scottpyle/Documents/Claude/Projects/Pyle Planning/Pyle-Plan-builder"
+      ],
       "port": 5173
     }
   ]

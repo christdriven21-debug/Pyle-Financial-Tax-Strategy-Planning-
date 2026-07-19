@@ -5679,8 +5679,8 @@
         <div class="prefix-input"><input type="text" inputmode="numeric" class="money" id="ret-hsa" value="0"></div>
       </div>
       <div class="field">
-        <label>RMD Start Age <span class="hint">(73 per SECURE 2.0; 75 for 1960+)</span></label>
-        <input type="number" id="rmd-start-age" value="73" min="70" max="80">
+        <label>RMD Start Age <span class="hint">(SECURE 2.0: 73, or 75 if born 1960+)</span> <span class="hint" id="rmd-start-age-hint"></span></label>
+        <input type="number" id="rmd-start-age" value="73" min="70" max="80" data-auto-derive="1">
       </div>
       <div class="field">
         <label>Primary SS Benefit at FRA <span class="hint">(monthly, from SSA.gov estimate)</span></label>
@@ -6251,6 +6251,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // the auto-derive sets `data-auto-derive="0"` once a manual edit lands so
   // it doesn't keep overwriting their value.
   wireProjYearsAutoDerive();
+  wireRmdAgeAutoDerive();
 });
 
 function wireProjYearsAutoDerive() {
@@ -6294,6 +6295,42 @@ function wireProjYearsAutoDerive() {
   // Expose hook so plan-load / import code can trigger after setting ages
   // programmatically (which doesn't fire input events automatically)
   window.__RECOMPUTE_PROJ_YEARS__ = recomputeHorizon;
+}
+
+// Auto-derive the RMD start age from birth year (SECURE 2.0): 75 for clients
+// born 1960 or later, otherwise 73. The field previously defaulted to a flat
+// 73 for everyone, starting RMD projections two years early for anyone born
+// 1960+ (i.e. every client currently under ~66). Mirrors the proj-years
+// auto-derive: advisor edits set data-auto-derive="0" and are never overwritten.
+function wireRmdAgeAutoDerive() {
+  const primaryEl = document.getElementById('client-primary-age');
+  const yearEl    = document.getElementById('client-year');
+  const rmdEl     = document.getElementById('rmd-start-age');
+  const hintEl    = document.getElementById('rmd-start-age-hint');
+  if (!primaryEl || !rmdEl) return;
+  function recomputeRmdAge() {
+    if (rmdEl.dataset.autoDerive !== '1') return;  // advisor overrode
+    const pa = parseInt(primaryEl.value, 10) || 0;
+    if (pa <= 0) return;  // no age entered — leave default alone
+    const planYear = parseInt(yearEl?.value, 10) || new Date().getFullYear();
+    const birthYear = planYear - pa;
+    const rmdAge = birthYear >= 1960 ? 75 : 73;
+    if (String(rmdAge) !== rmdEl.value) {
+      rmdEl.value = String(rmdAge);
+      rmdEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (hintEl) hintEl.textContent = `— auto-set to ${rmdAge} (born ${birthYear})`;
+  }
+  rmdEl.addEventListener('change', (e) => {
+    if (e.isTrusted) {
+      rmdEl.dataset.autoDerive = '0';
+      if (hintEl) hintEl.textContent = '— manually set; advisor override';
+    }
+  });
+  primaryEl.addEventListener('input', recomputeRmdAge);
+  if (yearEl) yearEl.addEventListener('input', recomputeRmdAge);
+  setTimeout(recomputeRmdAge, 100);
+  window.__RECOMPUTE_RMD_AGE__ = recomputeRmdAge;
 }
 
 /* ---- Mode switching ---- */
@@ -8820,6 +8857,21 @@ function readForm() {
   };
 }
 
+// Remainder passing to heirs from a zeroed-out (Walton) GRAT: assets grow at
+// the actual return r while the trust pays a §7520-priced annuity back to the
+// grantor. The old formula funding×((1+r)^n − (1+h)^n) is NOT the GRAT
+// remainder and overstates the transfer by ~50%. Correct: grow the corpus at r
+// and subtract the future value of the annuity (annuity = funding / PV-annuity
+// factor at the hurdle h, so the GRAT is zeroed out for gift-tax purposes).
+function waltonGratRemainder(funding, r, h, n) {
+  if (!(funding > 0) || !(n > 0)) return 0;
+  const growth  = Math.pow(1 + r, n);
+  const aPV     = h === 0 ? n : (1 - Math.pow(1 + h, -n)) / h;   // PV annuity factor at hurdle
+  const annuity = funding / aPV;                                  // zeroed-out annuity payment
+  const sFV     = r === 0 ? n : (Math.pow(1 + r, n) - 1) / r;     // FV annuity factor at growth
+  return Math.max(0, funding * growth - annuity * sFV);
+}
+
 function computePlan(d) {
   // ──────────────────────────────────────────────────────────────────────
   // §1411 NET INVESTMENT INCOME TAX (NIIT) — "lesser of" precision
@@ -9969,8 +10021,8 @@ function computePlan(d) {
       waltonRollingMultiplier = 1;
   if (d.use.waltonGrat && d.waltonGrat.amount > 0) {
     const t = d.waltonGrat.term;
-    waltonTransfer = d.waltonGrat.amount * Math.max(0,
-      Math.pow(1 + d.waltonGrat.ret, t) - Math.pow(1 + d.waltonGrat.rate7520, t));
+    waltonTransfer = waltonGratRemainder(
+      d.waltonGrat.amount, d.waltonGrat.ret, d.waltonGrat.rate7520, t);
     waltonEstateSaving = waltonTransfer * d.tax.estate;
     // Mortality risk approximation: chance of death during term
     // Rough: 0.5%/yr at 50, 1%/yr at 60, 2%/yr at 70
@@ -17485,12 +17537,26 @@ function renderSolverResult(result) {
 // the `use-<key>` convention, but a handful historically used shorter IDs.
 const STRATEGY_USE_ID = Object.fromEntries(
   [
+    // Irregular ids where the checkbox id does NOT match use-<key>. Without
+    // these, applySolverStack looked up getElementById(undefined) and silently
+    // skipped the strategy, so "Apply This Stack" generated a plan missing
+    // strategies the solver had scored and recommended.
     ['exch1031', 'use-1031'],
+    ['esop1042', 'use-esop-1042'],
+    ['monInstall', 'use-mon-install'],
+    ['waltonGrat', 'use-walton-grat'],
+    ['qsbs1045', 'use-1045'],
+    ['crossPs', 'use-cross-ps'],
+    ['familyLlc', 'use-family-llc'],
+    ['intraLoan', 'use-intra-loan'],
+    ['privateFoundation', 'use-private-foundation'],
   ].concat(
     // Default: use-<key>
     ['dynasty','crat','crut','daf','qoz','ilit','roth','grat','qsbs','qbi','slat','idgt','qprt','clt',
      'dbplan','muni','flp','ing','ceasement',
-     'collar','pvf','exchfund'].map(k => [k, 'use-' + k])
+     'collar','pvf','exchfund',
+     // Phase 2/3/4 strategies whose checkbox id IS use-<key> (were missing entirely):
+     'oilgas','captive','pf','nimcrut','dapt','scin','pplife','hsa','buysell','serp'].map(k => [k, 'use-' + k])
   )
 );
 
@@ -22004,10 +22070,8 @@ function renderWaltonGratLadder(p) {
   const planYear = d.client.year || new Date().getFullYear();
   const primaryAge = d.waltonGrat.age || d.client.primaryAge || 0;
 
-  // Per-cycle expected transfer = funding × (growth - hurdle compounded)
-  // Walton math: heir transfer = amount × max(0, (1+r)^n - (1+§7520)^n)
-  const perCycleTransfer = fundingPerCycle * Math.max(0,
-    Math.pow(1 + expectedRet, term) - Math.pow(1 + rate7520, term));
+  // Per-cycle remainder to heirs from a zeroed-out GRAT (see waltonGratRemainder).
+  const perCycleTransfer = waltonGratRemainder(fundingPerCycle, expectedRet, rate7520, term);
 
   // Mortality risk per cycle
   const ageRiskPerYear = primaryAge < 55 ? 0.005 :
@@ -22611,6 +22675,7 @@ function runMonteCarlo(p, d, opts = {}) {
   const inflation  = d.proj.inflation || 0.03;
   const annualSpend= (d.budget.fixed || 0) + (d.budget.variable || 0) + (d.budget.taxes || 0);
   const ssAnnual   = p.ssAnnualHousehold || 0;
+  const ssClaimAge = (d.ss && d.ss.claimAge) || 67;  // SS is gated by claim age in the loop below
 
   // For tracking percentiles we'll store year-by-year balance across iterations
   const balancesByYear = Array.from({ length: years + 1 }, () => []);
@@ -22625,7 +22690,10 @@ function runMonteCarlo(p, d, opts = {}) {
       bal *= (1 + r);
       const inflMult = Math.pow(1 + inflation, y);
       const spend    = annualSpend * inflMult;
-      const ss       = ssAnnual * inflMult;
+      // Social Security only begins once the primary reaches the claim age.
+      // Crediting it from year 1 (e.g. a 55-yr-old who claims at 67) understates
+      // withdrawals for years and inflates the headline probability of success.
+      const ss       = (primaryAge + y) >= ssClaimAge ? ssAnnual * inflMult : 0;
       bal -= Math.max(0, spend - ss);
       if (bal < 0) {
         bal = 0;
@@ -23881,8 +23949,11 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
   let currentId = null;
 
   /* ---- Snapshot form state to a portable JSON object ---- */
-  function snapshotForm() {
-    const ids = [
+  // Fields we have ALWAYS persisted. Kept as an explicit floor so DOM
+  // auto-discovery below can never regress a historically-saved field even if
+  // the markup changes. Discovery adds the rest (strategy-parameter fields that
+  // used to be silently dropped on save/load — the "163 missing fields" bug).
+  const PERSIST_IDS = [
       'plan-type',
       'client-primary','client-spouse','client-location','client-year','client-subtitle',
       'client-primary-age','client-spouse-age','client-primary-retire-year','client-spouse-retire-year',
@@ -23926,24 +23997,71 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
       'collar-notional','collar-floor-pct','collar-cap-pct','collar-term-months',
       'pvf-notional','pvf-advance-pct','pvf-term-years',
       'exchfund-notional','exchfund-lockup-years'
-    ];
-    const checks = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt',
+  ];
+  const PERSIST_CHECKS = ['use-dynasty','use-crat','use-daf','use-qoz','use-ilit','use-roth','use-grat','use-qsbs','use-1031','use-qbi','use-slat','use-idgt','use-qprt','use-crut','use-clt',
                     'use-dbplan','use-muni','use-flp','use-ing','use-ceasement',
                     'use-collar','use-pvf','use-exchfund','use-oilgas',
                     'use-esop-1042','use-mon-install','use-captive','use-pf','use-nimcrut','use-walton-grat',
                     'use-dapt','use-1045','use-scin','use-pplife','use-cross-ps','use-hsa',
                     'use-buysell','use-family-llc','use-intra-loan','use-private-foundation','use-serp',
                     'qsbs-attest-ccorp','qsbs-attest-active','qsbs-attest-grossassets','qsbs-attest-original'];
-    const values = {};
-    const checkboxes = {};
-    ids.forEach(id => { const el = document.getElementById(id); if (el) values[id] = el.value; });
-    checks.forEach(id => { const el = document.getElementById(id); if (el) checkboxes[id] = el.checked; });
+
+  // Single source of truth for what save/load/reset touches: the explicit floor
+  // above UNION every persistable control inside the builder form. Excludes
+  // file/email/password/search inputs and anything marked [data-no-persist]
+  // (auth email, import file pickers, logo upload live outside or are excluded).
+  function collectPersistFields() {
+    const valueEls = new Map(), checkEls = new Map();
+    const add = (el) => {
+      if (!el || !el.id) return;
+      const t = (el.type || '').toLowerCase();
+      if (t === 'file' || t === 'email' || t === 'password' || t === 'search' ||
+          t === 'button' || t === 'submit' || t === 'reset') return;
+      if (el.hasAttribute('data-no-persist')) return;
+      if (t === 'checkbox' || t === 'radio') checkEls.set(el.id, el);
+      else valueEls.set(el.id, el);
+    };
+    PERSIST_IDS.forEach(id => add(document.getElementById(id)));
+    PERSIST_CHECKS.forEach(id => add(document.getElementById(id)));
+    const root = document.getElementById('builder-view');
+    if (root) root.querySelectorAll('input, select, textarea').forEach(add);
+    return { valueEls, checkEls };
+  }
+
+  function snapshotForm() {
+    const { valueEls, checkEls } = collectPersistFields();
+    const values = {}, checkboxes = {};
+    valueEls.forEach((el, id) => { values[id] = el.value; });
+    checkEls.forEach((el, id) => { checkboxes[id] = el.checked; });
     return { values, checkboxes, firmLogo: window.__FIRM_LOGO__ || null, schemaVersion: 1 };
+  }
+
+  // Pristine field defaults captured once at boot (before any plan loads) so
+  // hydrateForm can reset every field before applying a snapshot.
+  let __pristineDefaults = null;
+  function capturePristineDefaults() {
+    if (!__pristineDefaults) __pristineDefaults = snapshotForm();
   }
 
   /* ---- Hydrate form from snapshot ---- */
   function hydrateForm(snap) {
     if (!snap) return;
+    // Reset every persistable field to its captured default FIRST. Without this,
+    // fields absent from the incoming snapshot keep the previously-loaded
+    // client's values — loading plan B after plan A silently mixed A's data into
+    // B and a Save then wrote it permanently (cross-client contamination).
+    if (__pristineDefaults) {
+      const { valueEls, checkEls } = collectPersistFields();
+      valueEls.forEach((el, id) => {
+        if (id in __pristineDefaults.values) el.value = __pristineDefaults.values[id];
+      });
+      checkEls.forEach((el, id) => {
+        if ((id in __pristineDefaults.checkboxes) && el.checked !== __pristineDefaults.checkboxes[id]) {
+          el.checked = __pristineDefaults.checkboxes[id];
+          el.dispatchEvent(new Event('change'));  // fire so dependent strategy blocks hide/show
+        }
+      });
+    }
     Object.entries(snap.values || {}).forEach(([k, v]) => {
       const el = document.getElementById(k); if (el) el.value = v;
     });
@@ -26601,13 +26719,20 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     }
 
     reviewList.innerHTML = data.map(r => {
-      const when = new Date(r.created_at).toLocaleString();
-      const comment = (r.comment || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const when = esc(new Date(r.created_at).toLocaleString());
+      // These fields are DB-sourced and reach innerHTML: reviewer_email is a
+      // user-controlled account email; status is enum but must be treated as
+      // untrusted at render. Escape text; whitelist status before using it as a
+      // CSS class (an unknown value must not become raw markup).
+      const comment = esc(r.comment || '');
+      const email = esc(r.reviewer_email || '');
+      const statusClass = STATUS_LABELS[r.status] ? r.status : '';
+      const statusLabel = esc(STATUS_LABELS[r.status] || r.status || '');
       return `
-        <div class="review-item ${r.status}">
+        <div class="review-item ${statusClass}">
           <div class="meta">
-            ${r.reviewer_email} · ${when}
-            <span class="status-pill ${r.status}">${STATUS_LABELS[r.status] || r.status}</span>
+            ${email} · ${when}
+            <span class="status-pill ${statusClass}">${statusLabel}</span>
           </div>
           ${comment ? `<div class="comment">${comment}</div>` : ''}
         </div>
@@ -27723,12 +27848,31 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
     // Advisor should verify each against current-month IRS publications.
     // We only bump values that are reliably inflation-indexed.
     if (snap.values) {
+      // Money inputs are comma-formatted at rest (formatAllMoneyInputs), so
+      // parseFloat("15,000,000") === 15. Strip non-numerics before parsing or
+      // the exemption collapses to 0 (≈40% phantom estate tax in the clone).
+      const numeric = (v, fallback) => {
+        const n = parseFloat(String(v ?? '').replace(/[^0-9.-]/g, ''));
+        return Number.isFinite(n) && n !== 0 ? n : fallback;
+      };
       // Federal exemption inflation-adjusts ~2.5%/yr
-      const currentExempt = parseFloat(snap.values['tax-estate-exempt']) || 15_000_000;
+      const currentExempt = numeric(snap.values['tax-estate-exempt'], 15_000_000);
       snap.values['tax-estate-exempt'] = String(Math.round(currentExempt * 1.025 / 10_000) * 10_000);
       // AMT exemption similar
-      const currentAmt = parseFloat(snap.values['tax-amt-exemption']) || 137_000;
+      const currentAmt = numeric(snap.values['tax-amt-exemption'], 137_000);
       snap.values['tax-amt-exemption'] = String(Math.round(currentAmt * 1.025));
+
+      // Advance client ages in step with the year bump (nextYear = currentYear + 1).
+      // Without this the clone runs next year's plan on this year's ages, shifting
+      // RMD onset, life-expectancy horizon, and mortality-priced GRAT/QPRT/SCIN math.
+      const bumpAge = (id) => {
+        const raw = snap.values[id];
+        if (raw === undefined || raw === null || String(raw).trim() === '') return;
+        const a = parseInt(String(raw).replace(/[^0-9-]/g, ''), 10);
+        if (Number.isFinite(a)) snap.values[id] = String(a + 1);
+      };
+      bumpAge('client-primary-age');
+      bumpAge('client-spouse-age');
     }
 
     // Carry forward client_email assignment (team decides if they want
@@ -27762,6 +27906,9 @@ obs.observe(document.getElementById('panel-estate'),    { attributes: true, attr
 
   /* ---- Boot: auth first, then load-by-URL or client auto-load ---- */
   async function boot() {
+    // Capture pristine field defaults before any plan loads, so hydrateForm's
+    // reset-before-hydrate has a clean baseline to fall back to.
+    capturePristineDefaults();
     await refreshAuthState();
 
     const params = new URLSearchParams(location.search);
